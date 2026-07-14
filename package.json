@@ -1,0 +1,20 @@
+{
+  "name": "wow-tools",
+  "version": "1.0.0",
+  "description": "Local WoW data toolbox focused on gathering professions and price lookups.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "update:server:raiderio": "node scripts/update_server_raiderio.js",
+    "update:server:blizzard": "python scripts/update_server_population.py"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "playwright": "^1.61.1"
+  }
+}

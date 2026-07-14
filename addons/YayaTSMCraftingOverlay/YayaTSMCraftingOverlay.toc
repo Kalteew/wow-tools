@@ -1,0 +1,8 @@
+## Interface: 120005
+## Title: Yaya TSM Crafting Overlay
+## Notes: Adds first craft and concentration helpers on the TSM crafting UI.
+## Author: Yaya
+## Version: 0.1.0
+## OptionalDeps: TradeSkillMaster
+
+YayaTSMCraftingOverlay.lua

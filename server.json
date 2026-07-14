@@ -1,0 +1,2581 @@
+[
+  {
+    "name": "Silvermoon",
+    "type": "PvE",
+    "lang": "en",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Silvermoon"
+    ],
+    "raiderio_group_realm_slugs": [
+      "silvermoon"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "High Population",
+    "raiderio_population_size": "416k+ characters",
+    "raiderio_population_characters_min": 416000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "89% A / 11% H",
+    "alliance_pct": 89,
+    "horde_pct": 11,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Twisting Nether",
+    "type": "PvP",
+    "lang": "en",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Twisting Nether"
+    ],
+    "raiderio_group_realm_slugs": [
+      "twisting-nether"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Medium Population",
+    "raiderio_population_size": "244k+ characters",
+    "raiderio_population_characters_min": 244000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "71% H / 29% A",
+    "alliance_pct": 29,
+    "horde_pct": 71,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Tarren Mill",
+    "type": "PvP",
+    "lang": "en",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Dentarg",
+      "Tarren Mill"
+    ],
+    "raiderio_group_realm_slugs": [
+      "dentarg",
+      "tarren-mill"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "High Population",
+    "raiderio_population_size": "302k+ characters",
+    "raiderio_population_characters_min": 302000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "69% H / 31% A",
+    "alliance_pct": 31,
+    "horde_pct": 69,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Blackrock",
+    "type": "PvP",
+    "lang": "de",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Blackrock"
+    ],
+    "raiderio_group_realm_slugs": [
+      "blackrock"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Medium Population",
+    "raiderio_population_size": "169k+ characters",
+    "raiderio_population_characters_min": 169000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "77% H / 23% A",
+    "alliance_pct": 23,
+    "horde_pct": 77,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Draenor",
+    "type": "PvE",
+    "lang": "en",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Draenor"
+    ],
+    "raiderio_group_realm_slugs": [
+      "draenor"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "High Population",
+    "raiderio_population_size": "340k+ characters",
+    "raiderio_population_characters_min": 340000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "76% H / 24% A",
+    "alliance_pct": 24,
+    "horde_pct": 76,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Hyjal",
+    "type": "PvE",
+    "lang": "fr",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Hyjal"
+    ],
+    "raiderio_group_realm_slugs": [
+      "hyjal"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "French",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Medium Population",
+    "raiderio_population_size": "239k+ characters",
+    "raiderio_population_characters_min": 239000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "57% H / 43% A",
+    "alliance_pct": 43,
+    "horde_pct": 57,
+    "user_present_on_connected_group": true,
+    "user_present_realms_in_connected_group": [
+      "Hyjal"
+    ]
+  },
+  {
+    "name": "Kazzak",
+    "type": "PvP",
+    "lang": "en",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Kazzak"
+    ],
+    "raiderio_group_realm_slugs": [
+      "kazzak"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "High Population",
+    "raiderio_population_size": "291k+ characters",
+    "raiderio_population_characters_min": 291000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "74% H / 26% A",
+    "alliance_pct": 26,
+    "horde_pct": 74,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Ragnaros",
+    "type": "PvP",
+    "lang": "en",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Ragnaros"
+    ],
+    "raiderio_group_realm_slugs": [
+      "ragnaros"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Medium Population",
+    "raiderio_population_size": "154k+ characters",
+    "raiderio_population_characters_min": 154000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "70% H / 30% A",
+    "alliance_pct": 30,
+    "horde_pct": 70,
+    "user_present_on_connected_group": true,
+    "user_present_realms_in_connected_group": [
+      "Ragnaros"
+    ]
+  },
+  {
+    "name": "Revolving Fjord",
+    "type": "PvP",
+    "lang": "ru",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Ревущий фьорд (Howling Fjord)"
+    ],
+    "raiderio_group_realm_slugs": [
+      "howling-fjord"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "Russian",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Medium Population",
+    "raiderio_population_size": "195k+ characters",
+    "raiderio_population_characters_min": 195000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "82% H / 18% A",
+    "alliance_pct": 18,
+    "horde_pct": 82,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Blackmoore",
+    "type": "PvE",
+    "lang": "de",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Blackmoore",
+      "Lordaeron",
+      "Tichondrius"
+    ],
+    "raiderio_group_realm_slugs": [
+      "blackmoore",
+      "lordaeron",
+      "tichondrius"
+    ],
+    "raiderio_group_realm_count": 3,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Medium Population",
+    "raiderio_population_size": "201k+ characters",
+    "raiderio_population_characters_min": 201000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "51% H / 49% A",
+    "alliance_pct": 49,
+    "horde_pct": 51,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Mal'Ganis",
+    "type": "PvP",
+    "lang": "de",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Blackhand",
+      "Echsenkessel",
+      "Mal'Ganis",
+      "Taerar"
+    ],
+    "raiderio_group_realm_slugs": [
+      "blackhand",
+      "echsenkessel",
+      "malganis",
+      "taerar"
+    ],
+    "raiderio_group_realm_count": 4,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Medium Population",
+    "raiderio_population_size": "254k+ characters",
+    "raiderio_population_characters_min": 254000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "74% H / 26% A",
+    "alliance_pct": 26,
+    "horde_pct": 74,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Sanguino",
+    "type": "PvP",
+    "lang": "es",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Sanguino",
+      "Shen'dralar",
+      "Uldum",
+      "Zul'jin"
+    ],
+    "raiderio_group_realm_slugs": [
+      "sanguino",
+      "shendralar",
+      "uldum",
+      "zuljin"
+    ],
+    "raiderio_group_realm_count": 4,
+    "raiderio_language": "Spanish",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Medium Population",
+    "raiderio_population_size": "150k+ characters",
+    "raiderio_population_characters_min": 150000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "73% H / 27% A",
+    "alliance_pct": 27,
+    "horde_pct": 73,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Tarren Mill",
+    "type": "PvP",
+    "lang": "en",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Dentarg",
+      "Tarren Mill"
+    ],
+    "raiderio_group_realm_slugs": [
+      "dentarg",
+      "tarren-mill"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "High Population",
+    "raiderio_population_size": "302k+ characters",
+    "raiderio_population_characters_min": 302000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "69% H / 31% A",
+    "alliance_pct": 31,
+    "horde_pct": 69,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Al'Akir",
+    "type": "PvP",
+    "lang": "en",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Al'Akir",
+      "Burning Legion",
+      "Skullcrusher",
+      "Xavius"
+    ],
+    "raiderio_group_realm_slugs": [
+      "alakir",
+      "burning-legion",
+      "skullcrusher",
+      "xavius"
+    ],
+    "raiderio_group_realm_count": 4,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "100k+ characters",
+    "raiderio_population_characters_min": 100000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "68% H / 32% A",
+    "alliance_pct": 32,
+    "horde_pct": 68,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Ravencrest",
+    "type": "PvP",
+    "lang": "en",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Ravencrest"
+    ],
+    "raiderio_group_realm_slugs": [
+      "ravencrest"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Medium Population",
+    "raiderio_population_size": "198k+ characters",
+    "raiderio_population_characters_min": 198000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "86% A / 14% H",
+    "alliance_pct": 86,
+    "horde_pct": 14,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Ysondre",
+    "type": "PvP",
+    "lang": "fr",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Ysondre"
+    ],
+    "raiderio_group_realm_slugs": [
+      "ysondre"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "French",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "85k+ characters",
+    "raiderio_population_characters_min": 85000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "70% H / 30% A",
+    "alliance_pct": 30,
+    "horde_pct": 70,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Drak'thul",
+    "type": "PvP",
+    "lang": "en",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Burning Blade",
+      "Drak'thul"
+    ],
+    "raiderio_group_realm_slugs": [
+      "burning-blade",
+      "drakthul"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "110k+ characters",
+    "raiderio_population_characters_min": 110000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "63% H / 37% A",
+    "alliance_pct": 37,
+    "horde_pct": 63,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Eredar",
+    "type": "PvP",
+    "lang": "de",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Eredar"
+    ],
+    "raiderio_group_realm_slugs": [
+      "eredar"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "86k+ characters",
+    "raiderio_population_characters_min": 86000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "79% H / 21% A",
+    "alliance_pct": 21,
+    "horde_pct": 79,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Kargath",
+    "type": "PvE",
+    "lang": "de",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Ambossar",
+      "Kargath",
+      "Thrall"
+    ],
+    "raiderio_group_realm_slugs": [
+      "ambossar",
+      "kargath",
+      "thrall"
+    ],
+    "raiderio_group_realm_count": 3,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "127k+ characters",
+    "raiderio_population_characters_min": 127000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "70% H / 30% A",
+    "alliance_pct": 30,
+    "horde_pct": 70,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Stormscale",
+    "type": "PvP",
+    "lang": "en",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Stormscale"
+    ],
+    "raiderio_group_realm_slugs": [
+      "stormscale"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "104k+ characters",
+    "raiderio_population_characters_min": 104000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "76% H / 24% A",
+    "alliance_pct": 24,
+    "horde_pct": 76,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Stormreaver",
+    "type": "PvP",
+    "lang": "en",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Dragonmaw",
+      "Haomarush",
+      "Spinebreaker",
+      "Stormreaver",
+      "Vashj"
+    ],
+    "raiderio_group_realm_slugs": [
+      "dragonmaw",
+      "haomarush",
+      "spinebreaker",
+      "stormreaver",
+      "vashj"
+    ],
+    "raiderio_group_realm_count": 5,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "33k+ characters",
+    "raiderio_population_characters_min": 33000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "69% H / 31% A",
+    "alliance_pct": 31,
+    "horde_pct": 69,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Gor'dunni",
+    "type": "PvP",
+    "lang": "ru",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Гордунни (Gordunni)"
+    ],
+    "raiderio_group_realm_slugs": [
+      "gordunni"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "Russian",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Medium Population",
+    "raiderio_population_size": "181k+ characters",
+    "raiderio_population_characters_min": 181000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "91% A / 9% H",
+    "alliance_pct": 91,
+    "horde_pct": 9,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Dalaran",
+    "type": "PvP",
+    "lang": "fr",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Cho'gall",
+      "Dalaran",
+      "Eldre'Thalas",
+      "Marécage de Zangar",
+      "Sinstralis"
+    ],
+    "raiderio_group_realm_slugs": [
+      "chogall",
+      "dalaran",
+      "eldrethalas",
+      "marécage-de-zangar",
+      "sinstralis"
+    ],
+    "raiderio_group_realm_count": 5,
+    "raiderio_language": "French",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "106k+ characters",
+    "raiderio_population_characters_min": 106000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "65% A / 35% H",
+    "alliance_pct": 65,
+    "horde_pct": 35,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Antonidas",
+    "type": "PvE",
+    "lang": "de",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Antonidas"
+    ],
+    "raiderio_group_realm_slugs": [
+      "antonidas"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Medium Population",
+    "raiderio_population_size": "197k+ characters",
+    "raiderio_population_characters_min": 197000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "88% A / 12% H",
+    "alliance_pct": 88,
+    "horde_pct": 12,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Archimonde",
+    "type": "PvP",
+    "lang": "fr",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Archimonde"
+    ],
+    "raiderio_group_realm_slugs": [
+      "archimonde"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "French",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "100k+ characters",
+    "raiderio_population_characters_min": 100000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "58% H / 42% A",
+    "alliance_pct": 42,
+    "horde_pct": 58,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Argent Dawn",
+    "type": "RP",
+    "lang": "en",
+    "population": "Full",
+    "population_slug": "full",
+    "population_enum": "FULL",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Argent Dawn"
+    ],
+    "raiderio_group_realm_slugs": [
+      "argent-dawn"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Medium Population",
+    "raiderio_population_size": "218k+ characters",
+    "raiderio_population_characters_min": 218000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "72% A / 28% H",
+    "alliance_pct": 72,
+    "horde_pct": 28,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Sylvanas",
+    "type": "PvP",
+    "lang": "en",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Auchindoun",
+      "Dunemaul",
+      "Jaedenar",
+      "Sylvanas"
+    ],
+    "raiderio_group_realm_slugs": [
+      "auchindoun",
+      "dunemaul",
+      "jaedenar",
+      "sylvanas"
+    ],
+    "raiderio_group_realm_count": 4,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "74k+ characters",
+    "raiderio_population_characters_min": 74000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "75% A / 25% H",
+    "alliance_pct": 75,
+    "horde_pct": 25,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Nemesis",
+    "type": "PvP",
+    "lang": "it",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Nemesis"
+    ],
+    "raiderio_group_realm_slugs": [
+      "nemesis"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "Italian",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "43k+ characters",
+    "raiderio_population_characters_min": 43000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "66% H / 34% A",
+    "alliance_pct": 34,
+    "horde_pct": 66,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Shattered Hand",
+    "type": "PvP",
+    "lang": "en",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Bloodfeather",
+      "Burning Steppes",
+      "Darkspear",
+      "Executus",
+      "Kor'gall",
+      "Saurfang",
+      "Shattered Hand",
+      "Terokkar"
+    ],
+    "raiderio_group_realm_slugs": [
+      "bloodfeather",
+      "burning-steppes",
+      "darkspear",
+      "executus",
+      "korgall",
+      "saurfang",
+      "shattered-hand",
+      "terokkar"
+    ],
+    "raiderio_group_realm_count": 8,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "55k+ characters",
+    "raiderio_population_characters_min": 55000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "54% A / 46% H",
+    "alliance_pct": 54,
+    "horde_pct": 46,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Свежеватель Душ",
+    "type": "PvP",
+    "lang": "ru",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Свежеватель Душ (Soulflayer)"
+    ],
+    "raiderio_group_realm_slugs": [
+      "soulflayer"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "Russian",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "50k+ characters",
+    "raiderio_population_characters_min": 50000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "83% H / 17% A",
+    "alliance_pct": 17,
+    "horde_pct": 83,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Confrérie du Thorium",
+    "type": "RP",
+    "lang": "fr",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Confrérie du Thorium",
+      "Conseil des Ombres",
+      "Culte de la Rive noire",
+      "Kirin Tor",
+      "La Croisade écarlate",
+      "Les Clairvoyants",
+      "Les Sentinelles"
+    ],
+    "raiderio_group_realm_slugs": [
+      "confrérie-du-thorium",
+      "conseil-des-ombres",
+      "culte-de-la-rive-noire",
+      "kirin-tor",
+      "la-croisade-écarlate",
+      "les-clairvoyants",
+      "les-sentinelles"
+    ],
+    "raiderio_group_realm_count": 7,
+    "raiderio_language": "French",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "73k+ characters",
+    "raiderio_population_characters_min": 73000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "60% A / 40% H",
+    "alliance_pct": 60,
+    "horde_pct": 40,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Doomhammer",
+    "type": "PvE",
+    "lang": "en",
+    "population": "New Players",
+    "population_slug": "new-players",
+    "population_enum": "RECOMMENDED",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Doomhammer",
+      "Turalyon"
+    ],
+    "raiderio_group_realm_slugs": [
+      "doomhammer",
+      "turalyon"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "107k+ characters",
+    "raiderio_population_characters_min": 107000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "54% A / 46% H",
+    "alliance_pct": 54,
+    "horde_pct": 46,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Grim Batol",
+    "type": "PvP",
+    "lang": "en",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Aggra (Português)",
+      "Frostmane",
+      "Grim Batol"
+    ],
+    "raiderio_group_realm_slugs": [
+      "aggra-português",
+      "frostmane",
+      "grim-batol"
+    ],
+    "raiderio_group_realm_count": 3,
+    "raiderio_language": "English\nPortuguese",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "56k+ characters",
+    "raiderio_population_characters_min": 56000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "59% A / 41% H",
+    "alliance_pct": 59,
+    "horde_pct": 41,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Elune",
+    "type": "PvE",
+    "lang": "fr",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Elune",
+      "Varimathras"
+    ],
+    "raiderio_group_realm_slugs": [
+      "elune",
+      "varimathras"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "French",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "34k+ characters",
+    "raiderio_population_characters_min": 34000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "73% A / 27% H",
+    "alliance_pct": 73,
+    "horde_pct": 27,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Kilrogg",
+    "type": "PvE",
+    "lang": "en",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Arathor",
+      "Hellfire",
+      "Kilrogg",
+      "Nagrand",
+      "Runetotem"
+    ],
+    "raiderio_group_realm_slugs": [
+      "arathor",
+      "hellfire",
+      "kilrogg",
+      "nagrand",
+      "runetotem"
+    ],
+    "raiderio_group_realm_count": 5,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "65k+ characters",
+    "raiderio_population_characters_min": 65000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "67% A / 33% H",
+    "alliance_pct": 67,
+    "horde_pct": 33,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Magtheridon",
+    "type": "PvE",
+    "lang": "en",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Magtheridon"
+    ],
+    "raiderio_group_realm_slugs": [
+      "magtheridon"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "35k+ characters",
+    "raiderio_population_characters_min": 35000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "51% H / 49% A",
+    "alliance_pct": 49,
+    "horde_pct": 51,
+    "user_present_on_connected_group": true,
+    "user_present_realms_in_connected_group": [
+      "Magtheridon"
+    ]
+  },
+  {
+    "name": "Connected Defias Brotherhood",
+    "type": "RP-PvP",
+    "lang": "en",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Darkmoon Faire",
+      "Defias Brotherhood",
+      "Earthen Ring",
+      "Ravenholdt",
+      "Scarshield Legion",
+      "Sporeggar",
+      "The Venture Co"
+    ],
+    "raiderio_group_realm_slugs": [
+      "darkmoon-faire",
+      "defias-brotherhood",
+      "earthen-ring",
+      "ravenholdt",
+      "scarshield-legion",
+      "sporeggar",
+      "the-venture-co"
+    ],
+    "raiderio_group_realm_count": 7,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "65k+ characters",
+    "raiderio_population_characters_min": 65000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "55% A / 45% H",
+    "alliance_pct": 55,
+    "horde_pct": 45,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Dun Modr",
+    "type": "PvP",
+    "lang": "es",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "C'Thun",
+      "Dun Modr"
+    ],
+    "raiderio_group_realm_slugs": [
+      "cthun",
+      "dun-modr"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "Spanish",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "64k+ characters",
+    "raiderio_population_characters_min": 64000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "75% A / 25% H",
+    "alliance_pct": 75,
+    "horde_pct": 25,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Anub'arak",
+    "type": "PvP",
+    "lang": "de",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Aman'thul",
+      "Anub'arak",
+      "Dalvengyr",
+      "Frostmourne",
+      "Nazjatar",
+      "Zuluhed"
+    ],
+    "raiderio_group_realm_slugs": [
+      "amanthul",
+      "anubarak",
+      "dalvengyr",
+      "frostmourne",
+      "nazjatar",
+      "zuluhed"
+    ],
+    "raiderio_group_realm_count": 6,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "40k+ characters",
+    "raiderio_population_characters_min": 40000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "52% H / 48% A",
+    "alliance_pct": 48,
+    "horde_pct": 52,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Emerald Dream",
+    "type": "PvE",
+    "lang": "en",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Emerald Dream",
+      "Terenas"
+    ],
+    "raiderio_group_realm_slugs": [
+      "emerald-dream",
+      "terenas"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "24k+ characters",
+    "raiderio_population_characters_min": 24000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "68% A / 32% H",
+    "alliance_pct": 68,
+    "horde_pct": 32,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Uldaman",
+    "type": "PvE",
+    "lang": "fr",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Drek'Thar",
+      "Eitrigg",
+      "Krasus",
+      "Uldaman"
+    ],
+    "raiderio_group_realm_slugs": [
+      "drekthar",
+      "eitrigg",
+      "krasus",
+      "uldaman"
+    ],
+    "raiderio_group_realm_count": 4,
+    "raiderio_language": "French",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "34k+ characters",
+    "raiderio_population_characters_min": 34000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "59% A / 41% H",
+    "alliance_pct": 59,
+    "horde_pct": 41,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Well of Eternity",
+    "type": "PvE",
+    "lang": "it",
+    "population": "New Players",
+    "population_slug": "new-players",
+    "population_enum": "RECOMMENDED",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Pozzo dell'Eternità"
+    ],
+    "raiderio_group_realm_slugs": [
+      "pozzo-delleternità"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "Italian",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "39k+ characters",
+    "raiderio_population_characters_min": 39000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "60% A / 40% H",
+    "alliance_pct": 60,
+    "horde_pct": 40,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Azjol-Nerub",
+    "type": "PvE",
+    "lang": "en",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Azjol-Nerub",
+      "Quel'Thalas"
+    ],
+    "raiderio_group_realm_slugs": [
+      "azjolnerub",
+      "quelthalas"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "38k+ characters",
+    "raiderio_population_characters_min": 38000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "57% A / 43% H",
+    "alliance_pct": 57,
+    "horde_pct": 43,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Sunstrider",
+    "type": "PvP",
+    "lang": "en",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Ahn'Qiraj",
+      "Balnazzar",
+      "Boulderfist",
+      "Chromaggus",
+      "Daggerspine",
+      "Laughing Skull",
+      "Shattered Halls",
+      "Sunstrider",
+      "Talnivarr",
+      "Trollbane"
+    ],
+    "raiderio_group_realm_slugs": [
+      "ahnqiraj",
+      "balnazzar",
+      "boulderfist",
+      "chromaggus",
+      "daggerspine",
+      "laughing-skull",
+      "shattered-halls",
+      "sunstrider",
+      "talnivarr",
+      "trollbane"
+    ],
+    "raiderio_group_realm_count": 10,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "30k+ characters",
+    "raiderio_population_characters_min": 30000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "62% H / 38% A",
+    "alliance_pct": 38,
+    "horde_pct": 62,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Stormrage",
+    "type": "PvE",
+    "lang": "en",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Azuremyst",
+      "Stormrage"
+    ],
+    "raiderio_group_realm_slugs": [
+      "azuremyst",
+      "stormrage"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "18k+ characters",
+    "raiderio_population_characters_min": 18000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "68% A / 32% H",
+    "alliance_pct": 68,
+    "horde_pct": 32,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected The Maelstrom",
+    "type": "PvP",
+    "lang": "en",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Deathwing",
+      "Dragonblight",
+      "Ghostlands",
+      "Karazhan",
+      "Lightning's Blade",
+      "The Maelstrom"
+    ],
+    "raiderio_group_realm_slugs": [
+      "deathwing",
+      "dragonblight",
+      "ghostlands",
+      "karazhan",
+      "lightnings-blade",
+      "the-maelstrom"
+    ],
+    "raiderio_group_realm_count": 6,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "51k+ characters",
+    "raiderio_population_characters_min": 51000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "59% A / 41% H",
+    "alliance_pct": 59,
+    "horde_pct": 41,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Zirkel des Cenarius",
+    "type": "RP",
+    "lang": "de",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Der Mithrilorden",
+      "Der Rat von Dalaran",
+      "Die Nachtwache",
+      "Forscherliga",
+      "Todeswache",
+      "Zirkel des Cenarius"
+    ],
+    "raiderio_group_realm_slugs": [
+      "der-mithrilorden",
+      "der-rat-von-dalaran",
+      "die-nachtwache",
+      "forscherliga",
+      "todeswache",
+      "zirkel-des-cenarius"
+    ],
+    "raiderio_group_realm_count": 6,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "49k+ characters",
+    "raiderio_population_characters_min": 49000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "62% A / 38% H",
+    "alliance_pct": 62,
+    "horde_pct": 38,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Kael'Thas",
+    "type": "PvP",
+    "lang": "fr",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Arak-arahm",
+      "Kael'thas",
+      "Rashgarroth",
+      "Throk'Feroth"
+    ],
+    "raiderio_group_realm_slugs": [
+      "arakarahm",
+      "kaelthas",
+      "rashgarroth",
+      "throkferoth"
+    ],
+    "raiderio_group_realm_count": 4,
+    "raiderio_language": "French",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "19k+ characters",
+    "raiderio_population_characters_min": 19000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "56% H / 44% A",
+    "alliance_pct": 44,
+    "horde_pct": 56,
+    "user_present_on_connected_group": true,
+    "user_present_realms_in_connected_group": [
+      "Throk'Feroth"
+    ]
+  },
+  {
+    "name": "Connected Aggramar",
+    "type": "PvE",
+    "lang": "en",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Aggramar",
+      "Hellscream"
+    ],
+    "raiderio_group_realm_slugs": [
+      "aggramar",
+      "hellscream"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "20k+ characters",
+    "raiderio_population_characters_min": 20000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "59% A / 41% H",
+    "alliance_pct": 59,
+    "horde_pct": 41,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Outland",
+    "type": "PvP",
+    "lang": "en",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Outland"
+    ],
+    "raiderio_group_realm_slugs": [
+      "outland"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "60k+ characters",
+    "raiderio_population_characters_min": 60000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "77% A / 23% H",
+    "alliance_pct": 77,
+    "horde_pct": 23,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Dun Morogh",
+    "type": "PvE",
+    "lang": "de",
+    "population": "New Players",
+    "population_slug": "new-players",
+    "population_enum": "RECOMMENDED",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Dun Morogh",
+      "Norgannon"
+    ],
+    "raiderio_group_realm_slugs": [
+      "dun-morogh",
+      "norgannon"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "66k+ characters",
+    "raiderio_population_characters_min": 66000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "56% A / 44% H",
+    "alliance_pct": 56,
+    "horde_pct": 44,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Malfurion",
+    "type": "PvE",
+    "lang": "de",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Malfurion",
+      "Malygos"
+    ],
+    "raiderio_group_realm_slugs": [
+      "malfurion",
+      "malygos"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "32k+ characters",
+    "raiderio_population_characters_min": 32000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "58% A / 42% H",
+    "alliance_pct": 58,
+    "horde_pct": 42,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Lothar",
+    "type": "PvE",
+    "lang": "de",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Azshara",
+      "Baelgun",
+      "Krag'jin",
+      "Lothar"
+    ],
+    "raiderio_group_realm_slugs": [
+      "azshara",
+      "baelgun",
+      "kragjin",
+      "lothar"
+    ],
+    "raiderio_group_realm_count": 4,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "33k+ characters",
+    "raiderio_population_characters_min": 33000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "52% A / 48% H",
+    "alliance_pct": 52,
+    "horde_pct": 48,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Frostwolf",
+    "type": "PvP",
+    "lang": "de",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Frostwolf"
+    ],
+    "raiderio_group_realm_slugs": [
+      "frostwolf"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "34k+ characters",
+    "raiderio_population_characters_min": 34000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "81% H / 19% A",
+    "alliance_pct": 19,
+    "horde_pct": 81,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Nordrassil",
+    "type": "PvE",
+    "lang": "en",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Bronze Dragonflight",
+      "Nordrassil"
+    ],
+    "raiderio_group_realm_slugs": [
+      "bronze-dragonflight",
+      "nordrassil"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "16k+ characters",
+    "raiderio_population_characters_min": 16000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "67% A / 33% H",
+    "alliance_pct": 67,
+    "horde_pct": 33,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Пиратская Бухта",
+    "type": "PvP",
+    "lang": "ru",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Черный Шрам (Blackscar)",
+      "Пиратская Бухта (Booty Bay)",
+      "Борейская тундра (Borean Tundra)",
+      "Ткач Смерти (Deathweaver)",
+      "Гром (Grom)",
+      "Термоштепсель (Thermaplugg)"
+    ],
+    "raiderio_group_realm_slugs": [
+      "blackscar",
+      "booty-bay",
+      "borean-tundra",
+      "deathweaver",
+      "grom",
+      "thermaplugg"
+    ],
+    "raiderio_group_realm_count": 6,
+    "raiderio_language": "Russian",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "29k+ characters",
+    "raiderio_population_characters_min": 29000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "56% A / 44% H",
+    "alliance_pct": 56,
+    "horde_pct": 44,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Shadowsong",
+    "type": "PvE",
+    "lang": "en",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Aszune",
+      "Shadowsong"
+    ],
+    "raiderio_group_realm_slugs": [
+      "aszune",
+      "shadowsong"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "20k+ characters",
+    "raiderio_population_characters_min": 20000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "65% A / 35% H",
+    "alliance_pct": 65,
+    "horde_pct": 35,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Sargeras",
+    "type": "PvP",
+    "lang": "fr",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Garona",
+      "Ner'zhul",
+      "Sargeras"
+    ],
+    "raiderio_group_realm_slugs": [
+      "garona",
+      "nerzhul",
+      "sargeras"
+    ],
+    "raiderio_group_realm_count": 3,
+    "raiderio_language": "French",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "21k+ characters",
+    "raiderio_population_characters_min": 21000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "66% H / 34% A",
+    "alliance_pct": 34,
+    "horde_pct": 66,
+    "user_present_on_connected_group": true,
+    "user_present_realms_in_connected_group": [
+      "Sargeras"
+    ]
+  },
+  {
+    "name": "Aegwynn",
+    "type": "PvP",
+    "lang": "de",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Aegwynn"
+    ],
+    "raiderio_group_realm_slugs": [
+      "aegwynn"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "30k+ characters",
+    "raiderio_population_characters_min": 30000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "84% A / 16% H",
+    "alliance_pct": 84,
+    "horde_pct": 16,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Alleria",
+    "type": "PvE",
+    "lang": "de",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Alleria",
+      "Rexxar"
+    ],
+    "raiderio_group_realm_slugs": [
+      "alleria",
+      "rexxar"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "37k+ characters",
+    "raiderio_population_characters_min": 37000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "67% A / 33% H",
+    "alliance_pct": 67,
+    "horde_pct": 33,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Eonar",
+    "type": "PvE",
+    "lang": "en",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Aerie Peak",
+      "Blade's Edge",
+      "Bronzebeard",
+      "Eonar",
+      "Vek'nilash"
+    ],
+    "raiderio_group_realm_slugs": [
+      "aerie-peak",
+      "blades-edge",
+      "bronzebeard",
+      "eonar",
+      "veknilash"
+    ],
+    "raiderio_group_realm_count": 5,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "36k+ characters",
+    "raiderio_population_characters_min": 36000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "65% A / 35% H",
+    "alliance_pct": 65,
+    "horde_pct": 35,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Die Aldor",
+    "type": "RP",
+    "lang": "de",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Die Aldor"
+    ],
+    "raiderio_group_realm_slugs": [
+      "die-aldor"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "31k+ characters",
+    "raiderio_population_characters_min": 31000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "64% A / 36% H",
+    "alliance_pct": 64,
+    "horde_pct": 36,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Anetheron",
+    "type": "PvP",
+    "lang": "de",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Anetheron",
+      "Festung der Stürme",
+      "Gul'dan",
+      "Kil'jaeden",
+      "Nathrezim",
+      "Rajaxx"
+    ],
+    "raiderio_group_realm_slugs": [
+      "anetheron",
+      "festung-der-stürme",
+      "guldan",
+      "kiljaeden",
+      "nathrezim",
+      "rajaxx"
+    ],
+    "raiderio_group_realm_count": 6,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "23k+ characters",
+    "raiderio_population_characters_min": 23000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "64% H / 36% A",
+    "alliance_pct": 36,
+    "horde_pct": 64,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Twilight's Hammer",
+    "type": "PvP",
+    "lang": "en",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Agamaggan",
+      "Bloodscalp",
+      "Crushridge",
+      "Emeriss",
+      "Hakkar",
+      "Twilight's Hammer"
+    ],
+    "raiderio_group_realm_slugs": [
+      "agamaggan",
+      "bloodscalp",
+      "crushridge",
+      "emeriss",
+      "hakkar",
+      "twilights-hammer"
+    ],
+    "raiderio_group_realm_count": 6,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "20k+ characters",
+    "raiderio_population_characters_min": 20000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "65% H / 35% A",
+    "alliance_pct": 35,
+    "horde_pct": 65,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Medivh",
+    "type": "PvE",
+    "lang": "fr",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Medivh",
+      "Suramar"
+    ],
+    "raiderio_group_realm_slugs": [
+      "medivh",
+      "suramar"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "French",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "13k+ characters",
+    "raiderio_population_characters_min": 13000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "64% A / 36% H",
+    "alliance_pct": 64,
+    "horde_pct": 36,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Arthas",
+    "type": "PvP",
+    "lang": "de",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Arthas",
+      "Blutkessel",
+      "Durotan",
+      "Kel'Thuzad",
+      "Tirion",
+      "Vek'lor",
+      "Wrathbringer"
+    ],
+    "raiderio_group_realm_slugs": [
+      "arthas",
+      "blutkessel",
+      "durotan",
+      "kelthuzad",
+      "tirion",
+      "veklor",
+      "wrathbringer"
+    ],
+    "raiderio_group_realm_count": 7,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "39k+ characters",
+    "raiderio_population_characters_min": 39000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "56% A / 44% H",
+    "alliance_pct": 56,
+    "horde_pct": 44,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Garrosh",
+    "type": "PvE",
+    "lang": "de",
+    "population": "High",
+    "population_slug": "high",
+    "population_enum": "HIGH",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Garrosh",
+      "Nozdormu",
+      "Perenolde",
+      "Shattrath",
+      "Teldrassil"
+    ],
+    "raiderio_group_realm_slugs": [
+      "garrosh",
+      "nozdormu",
+      "perenolde",
+      "shattrath",
+      "teldrassil"
+    ],
+    "raiderio_group_realm_count": 5,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "52k+ characters",
+    "raiderio_population_characters_min": 52000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "62% A / 38% H",
+    "alliance_pct": 62,
+    "horde_pct": 38,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Alexstrasza",
+    "type": "PvE",
+    "lang": "de",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Alexstrasza",
+      "Madmortem",
+      "Nethersturm",
+      "Proudmoore"
+    ],
+    "raiderio_group_realm_slugs": [
+      "alexstrasza",
+      "madmortem",
+      "nethersturm",
+      "proudmoore"
+    ],
+    "raiderio_group_realm_count": 4,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "37k+ characters",
+    "raiderio_population_characters_min": 37000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "66% A / 34% H",
+    "alliance_pct": 66,
+    "horde_pct": 34,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Chants éternels",
+    "type": "PvE",
+    "lang": "fr",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Chants éternels",
+      "Vol'jin"
+    ],
+    "raiderio_group_realm_slugs": [
+      "chants-éternels",
+      "voljin"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "French",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "16k+ characters",
+    "raiderio_population_characters_min": 16000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "63% A / 37% H",
+    "alliance_pct": 63,
+    "horde_pct": 37,
+    "user_present_on_connected_group": true,
+    "user_present_realms_in_connected_group": [
+      "Vol'jin"
+    ]
+  },
+  {
+    "name": "Connected Kult der Verdammten",
+    "type": "RP-PvP",
+    "lang": "de",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Das Konsortium",
+      "Das Syndikat",
+      "Der Abyssische Rat",
+      "Die Arguswacht",
+      "Die Silberne Hand",
+      "Die Todeskrallen",
+      "Die ewige Wacht",
+      "Kult der Verdammten"
+    ],
+    "raiderio_group_realm_slugs": [
+      "das-konsortium",
+      "das-syndikat",
+      "der-abyssische-rat",
+      "die-arguswacht",
+      "die-silberne-hand",
+      "die-todeskrallen",
+      "die-ewige-wacht",
+      "kult-der-verdammten"
+    ],
+    "raiderio_group_realm_count": 8,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "35k+ characters",
+    "raiderio_population_characters_min": 35000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "56% A / 44% H",
+    "alliance_pct": 56,
+    "horde_pct": 44,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Alonsus",
+    "type": "PvE",
+    "lang": "en",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Alonsus",
+      "Anachronos",
+      "Kul Tiras"
+    ],
+    "raiderio_group_realm_slugs": [
+      "alonsus",
+      "anachronos",
+      "kul-tiras"
+    ],
+    "raiderio_group_realm_count": 3,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "19k+ characters",
+    "raiderio_population_characters_min": 19000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "69% A / 31% H",
+    "alliance_pct": 69,
+    "horde_pct": 31,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Exodar",
+    "type": "PvE",
+    "lang": "es",
+    "population": "New Players",
+    "population_slug": "new-players",
+    "population_enum": "RECOMMENDED",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Exodar",
+      "Minahonda"
+    ],
+    "raiderio_group_realm_slugs": [
+      "exodar",
+      "minahonda"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "Spanish",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "22k+ characters",
+    "raiderio_population_characters_min": 22000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "60% A / 40% H",
+    "alliance_pct": 60,
+    "horde_pct": 40,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Destromath",
+    "type": "PvP",
+    "lang": "de",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Destromath",
+      "Gilneas",
+      "Gorgonnash",
+      "Mannoroth",
+      "Nefarian",
+      "Nera'thor",
+      "Ulduar"
+    ],
+    "raiderio_group_realm_slugs": [
+      "destromath",
+      "gilneas",
+      "gorgonnash",
+      "mannoroth",
+      "nefarian",
+      "nerathor",
+      "ulduar"
+    ],
+    "raiderio_group_realm_count": 7,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "39k+ characters",
+    "raiderio_population_characters_min": 39000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "56% H / 44% A",
+    "alliance_pct": 44,
+    "horde_pct": 56,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Tyrande",
+    "type": "PvE",
+    "lang": "es",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Colinas Pardas",
+      "Los Errantes",
+      "Tyrande"
+    ],
+    "raiderio_group_realm_slugs": [
+      "colinas-pardas",
+      "los-errantes",
+      "tyrande"
+    ],
+    "raiderio_group_realm_count": 3,
+    "raiderio_language": "Spanish",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "25k+ characters",
+    "raiderio_population_characters_min": 25000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "62% A / 38% H",
+    "alliance_pct": 62,
+    "horde_pct": 38,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Frostwhisper",
+    "type": "PvP",
+    "lang": "en",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Bladefist",
+      "Darksorrow",
+      "Frostwhisper",
+      "Genjuros",
+      "Neptulon",
+      "Zenedar"
+    ],
+    "raiderio_group_realm_slugs": [
+      "bladefist",
+      "darksorrow",
+      "frostwhisper",
+      "genjuros",
+      "neptulon",
+      "zenedar"
+    ],
+    "raiderio_group_realm_count": 6,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "30k+ characters",
+    "raiderio_population_characters_min": 30000,
+    "raiderio_population_dominance": "Horde Dominant",
+    "raiderio_population_split": "55% H / 45% A",
+    "alliance_pct": 45,
+    "horde_pct": 55,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Moonglade",
+    "type": "RP",
+    "lang": "en",
+    "population": "Medium",
+    "population_slug": "medium",
+    "population_enum": "MEDIUM",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Moonglade",
+      "Steamwheedle Cartel",
+      "The Sha'tar"
+    ],
+    "raiderio_group_realm_slugs": [
+      "moonglade",
+      "steamwheedle-cartel",
+      "the-shatar"
+    ],
+    "raiderio_group_realm_count": 3,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "23k+ characters",
+    "raiderio_population_characters_min": 23000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "57% A / 43% H",
+    "alliance_pct": 57,
+    "horde_pct": 43,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Khaz'goroth",
+    "type": "PvE",
+    "lang": "de",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Arygos",
+      "Khaz'goroth"
+    ],
+    "raiderio_group_realm_slugs": [
+      "arygos",
+      "khazgoroth"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "German",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "18k+ characters",
+    "raiderio_population_characters_min": 18000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "59% A / 41% H",
+    "alliance_pct": 59,
+    "horde_pct": 41,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Коль-лич",
+    "type": "PvP",
+    "lang": "ru",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Голдринн (Goldrinn)",
+      "Седогрив (Greymane)",
+      "Король-лич (Lich King)"
+    ],
+    "raiderio_group_realm_slugs": [
+      "goldrinn",
+      "greymane",
+      "lich-king"
+    ],
+    "raiderio_group_realm_count": 3,
+    "raiderio_language": "Russian",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "10k+ characters",
+    "raiderio_population_characters_min": 10000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "57% A / 43% H",
+    "alliance_pct": 57,
+    "horde_pct": 43,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Дракономор",
+    "type": "PvE",
+    "lang": "ru",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Дракономор (Fordragon)"
+    ],
+    "raiderio_group_realm_slugs": [
+      "fordragon"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "Russian",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "6k+ characters",
+    "raiderio_population_characters_min": 6000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "60% A / 40% H",
+    "alliance_pct": 60,
+    "horde_pct": 40,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Азурегос",
+    "type": "PvE",
+    "lang": "ru",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Азурегос (Azuregos)"
+    ],
+    "raiderio_group_realm_slugs": [
+      "azuregos"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "Russian",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "6k+ characters",
+    "raiderio_population_characters_min": 6000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "64% A / 36% H",
+    "alliance_pct": 64,
+    "horde_pct": 36,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Khaz Modan",
+    "type": "PvE",
+    "lang": "fr",
+    "population": "New Players",
+    "population_slug": "new-players",
+    "population_enum": "RECOMMENDED",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Khaz Modan"
+    ],
+    "raiderio_group_realm_slugs": [
+      "khaz-modan"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "French",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "59k+ characters",
+    "raiderio_population_characters_min": 59000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "55% A / 45% H",
+    "alliance_pct": 55,
+    "horde_pct": 45,
+    "user_present_on_connected_group": true,
+    "user_present_realms_in_connected_group": [
+      "Khaz Modan"
+    ]
+  },
+  {
+    "name": "Вечная Песня",
+    "type": "PvE",
+    "lang": "ru",
+    "population": "New Players",
+    "population_slug": "new-players",
+    "population_enum": "RECOMMENDED",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Вечная Песня (Eversong)"
+    ],
+    "raiderio_group_realm_slugs": [
+      "eversong"
+    ],
+    "raiderio_group_realm_count": 1,
+    "raiderio_language": "Russian",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "44k+ characters",
+    "raiderio_population_characters_min": 44000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "53% A / 47% H",
+    "alliance_pct": 53,
+    "horde_pct": 47,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  },
+  {
+    "name": "Connected Thunderhorn",
+    "type": "PvE",
+    "lang": "en",
+    "population": "Low",
+    "population_slug": "low",
+    "population_enum": "LOW",
+    "raiderio_region": "eu",
+    "raiderio_group_realms": [
+      "Thunderhorn",
+      "Wildhammer"
+    ],
+    "raiderio_group_realm_slugs": [
+      "thunderhorn",
+      "wildhammer"
+    ],
+    "raiderio_group_realm_count": 2,
+    "raiderio_language": "English",
+    "raiderio_timezone": "+02:00 (CEST)",
+    "raiderio_population_label": "Low Population",
+    "raiderio_population_size": "22k+ characters",
+    "raiderio_population_characters_min": 22000,
+    "raiderio_population_dominance": "Alliance Dominant",
+    "raiderio_population_split": "65% A / 35% H",
+    "alliance_pct": 65,
+    "horde_pct": 35,
+    "user_present_on_connected_group": false,
+    "user_present_realms_in_connected_group": []
+  }
+]

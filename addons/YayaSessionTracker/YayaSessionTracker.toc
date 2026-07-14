@@ -1,0 +1,9 @@
+## Interface: 120005
+## Title: Yaya Session Tracker
+## Notes: Session GPH tracker with loot and internal mail filtering.
+## Author: Codex
+## Version: 0.1.0
+## SavedVariables: YayaSessionTrackerDB
+## OptionalDeps: TradeSkillMaster
+
+YayaSessionTracker.lua

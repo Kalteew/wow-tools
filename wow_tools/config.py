@@ -1,0 +1,18 @@
+from pathlib import Path
+
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = ROOT_DIR / "data"
+CACHE_DIR = DATA_DIR / "cache"
+REPORT_DIR = DATA_DIR / "reports"
+CALIBRATION_DIR = DATA_DIR / "calibration"
+ACCOUNT_DIR = DATA_DIR / "account"
+DB_PATH = DATA_DIR / "wow.sqlite3"
+HOURLY_ESTIMATES_PATH = CALIBRATION_DIR / "hourly-estimates.json"
+
+DEFAULT_REGION = "eu"
+DEFAULT_HTTP_TIMEOUT = 30
+
+WOWHEAD_LIST_TTL_SECONDS = 24 * 60 * 60
+WOWHEAD_ITEM_TTL_SECONDS = 7 * 24 * 60 * 60
+TSM_ITEM_TTL_SECONDS = 60 * 60

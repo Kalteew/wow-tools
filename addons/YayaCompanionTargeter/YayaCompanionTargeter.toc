@@ -1,0 +1,8 @@
+## Interface: 120005
+## Title: Yaya Companion Targeter
+## Notes: Auto-targets Shadowlands companion XP items to the lowest-level companion.
+## Author: Codex
+## Version: 0.1.0
+## SavedVariables: YayaCompanionTargeterDB
+
+YayaCompanionTargeter.lua

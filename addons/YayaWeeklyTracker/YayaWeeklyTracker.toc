@@ -1,0 +1,10 @@
+## Interface: 120005
+## Title: Yaya Weekly Tracker
+## Notes: Small weekly tracker near the player frame.
+## Author: Codex
+## Version: 0.1.0
+## OptionalDeps: TomTom
+## SavedVariables: YayaWeeklyTrackerAccountDB
+## SavedVariablesPerCharacter: YayaWeeklyTrackerDB
+
+YayaWeeklyTracker.lua

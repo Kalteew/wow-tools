@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "updated_at": "2026-05-06",
+  "notes": [
+    "These are community-sourced route observations used to calibrate units per hour for selected gathering families.",
+    "Typical is the default override used by the model. Low and high are sanity bands based on slower or more optimized reports.",
+    "When no sourced entry exists, the model falls back to local heuristics."
+  ],
+  "entries": [
+    {
+      "expansion": "Wrath of the Lich King",
+      "profession": "mining",
+      "family_name": "Cobalt Ore",
+      "route_hint": "Howling Fjord or Zul'Drak",
+      "units_per_hour": {
+        "low": 175.0,
+        "typical": 240.0,
+        "high": 300.0
+      },
+      "source_urls": [
+        "https://www.wowhead.com/item=36909/cobalt-ore"
+      ],
+      "source_note": "Wowhead comments include 44 ore in about 15 minutes in Howling Fjord, 456 in 2 hours with competition, 118 in under 25 minutes, and a 9.2 Zul'Drak lap with 42 ore in about 12 minutes. The override keeps the typical value conservative."
+    },
+    {
+      "expansion": "Wrath of the Lich King",
+      "profession": "mining",
+      "family_name": "Saronite Ore",
+      "route_hint": "Wintergrasp, Sholazar Basin, or Icecrown",
+      "units_per_hour": {
+        "low": 200.0,
+        "typical": 380.0,
+        "high": 500.0
+      },
+      "source_urls": [
+        "https://www.wowhead.com/item=36912/saronite-ore",
+        "https://www.wow-professions.com/farming/saronite-ore-farming"
+      ],
+      "source_note": "Wowhead comments cite about 200 ore per hour in Sholazar Basin, about 76 ore in less than 10 minutes on a Wintergrasp wall loop, 800 ore in 1 hour 40 minutes in Wintergrasp, and a stack of about 200 ore in 20 to 30 minutes. Wintergrasp is clearly the high end."
+    },
+    {
+      "expansion": "Mists of Pandaria",
+      "profession": "mining",
+      "family_name": "Ghost Iron Ore",
+      "route_hint": "Valley of the Four Winds, Jade Forest, or Townlong Steppes",
+      "units_per_hour": {
+        "low": 300.0,
+        "typical": 550.0,
+        "high": 700.0
+      },
+      "source_urls": [
+        "https://www.wowhead.com/item=72092/ghost-iron-ore",
+        "https://www.wow-professions.com/farming/ghost-iron-ore-farming.html"
+      ],
+      "source_note": "Wowhead comments report 10 to 15 stacks per hour with simple loops, 15 to 20 stacks per hour in Jade Forest, about 27 stacks per hour on a tight respawn route, about 632 ore in one hour in Valley of the Four Winds, and about 600 to 700 ore per hour in Townlong Steppes."
+    },
+    {
+      "expansion": "Legion",
+      "profession": "mining",
+      "family_name": "Leystone Ore",
+      "route_hint": "Val'sharah, Suramar, or Broken Shore mixed routes",
+      "units_per_hour": {
+        "low": 400.0,
+        "typical": 440.0,
+        "high": 480.0
+      },
+      "source_urls": [
+        "https://www.mmogah.com/news/wow/wow-gold-mining-strategy-in-legion",
+        "https://www.wow-professions.com/farming/leystone-ore-farming.html"
+      ],
+      "source_note": "A Legion mining guide on MMOGAH estimates about 440 Leystone and 160 Felslate in one hour. Wow-professions is used as the route reference."
+    },
+    {
+      "expansion": "Legion",
+      "profession": "mining",
+      "family_name": "Felslate",
+      "route_hint": "Broken Shore mixed route or basilisk body-mining",
+      "units_per_hour": {
+        "low": 120.0,
+        "typical": 160.0,
+        "high": 320.0
+      },
+      "source_urls": [
+        "https://www.mmogah.com/news/wow/wow-gold-mining-strategy-in-legion",
+        "https://www.wowhead.com/item=123919/felslate"
+      ],
+      "source_note": "MMOGAH estimates about 160 Felslate per hour in a mixed Legion mining route. Wowhead comments report around 75 in 30 minutes on Broken Shore and a more optimized basilisk method yielding more than 300 per hour, so the high band reflects specialized farming."
+    },
+    {
+      "expansion": "The Burning Crusade",
+      "profession": "mining",
+      "family_name": "Khorium Ore",
+      "route_hint": "Nagrand, especially repeated cave or boundary circuits",
+      "units_per_hour": {
+        "low": 5.0,
+        "typical": 10.0,
+        "high": 18.0
+      },
+      "source_urls": [
+        "https://www.wowhead.com/item=23426/khorium-ore"
+      ],
+      "source_note": "Wowhead comments describe Khorium as a rare replacement node. Several comments warn that more than 10 ore per hour is unlikely, while stronger laps report about 9 ore in 30 minutes or 1 to 4 nodes per 15 minute round."
+    },
+    {
+      "expansion": "Classic",
+      "profession": "herbalism",
+      "family_name": "Black Lotus",
+      "route_hint": "Silithus or Blasted Lands while actively clearing linked herb spawns",
+      "units_per_hour": {
+        "low": 1.0,
+        "typical": 2.5,
+        "high": 5.5
+      },
+      "source_urls": [
+        "https://www.wowhead.com/object=176589/black-lotus"
+      ],
+      "source_note": "Wowhead comments show a broad spread: some players report only 1 to 3 lotus across several hours, while more optimized Dragonflight-era farming that actively clears linked herb spawns reports up to 5 or 6 per hour."
+    },
+    {
+      "expansion": "Classic",
+      "profession": "skinning",
+      "family_name": "Rugged Leather",
+      "route_hint": "Dire Maul North mastiffs or other high-density legacy beast packs",
+      "units_per_hour": {
+        "low": 700.0,
+        "typical": 850.0,
+        "high": 950.0
+      },
+      "source_urls": [
+        "https://www.wowhead.com/cata/item=52976/savage-leather"
+      ],
+      "source_note": "A long-form Wowhead comment comparing legacy leathers reports about 894 Rugged Leather per hour from Gordok Mastiffs in Dire Maul North. The override is rounded slightly down for a conservative typical rate."
+    },
+    {
+      "expansion": "The Burning Crusade",
+      "profession": "skinning",
+      "family_name": "Knothide Leather",
+      "route_hint": "Karazhan bat and fel hound resets, or Terokkar Razorthorn Ravagers",
+      "units_per_hour": {
+        "low": 500.0,
+        "typical": 620.0,
+        "high": 740.0
+      },
+      "source_urls": [
+        "https://www.wow-professions.com/farming/knothide-leather-farming",
+        "https://www.wowhead.com/cata/item=52976/savage-leather"
+      ],
+      "source_note": "WoW-Professions estimates about 500 Knothide Leather per hour from Karazhan reset loops, while the Wowhead comparison comment reports about 738 per hour from Razorthorn Ravagers. Typical is set between both community baselines."
+    },
+    {
+      "expansion": "Wrath of the Lich King",
+      "profession": "skinning",
+      "family_name": "Borean Leather",
+      "route_hint": "Storm Peaks mammoth and jormungar loop, or Ruby Sanctum reset route",
+      "units_per_hour": {
+        "low": 320.0,
+        "typical": 500.0,
+        "high": 620.0
+      },
+      "source_urls": [
+        "https://www.wowhead.com/item=33568/borean-leather",
+        "https://www.wowhead.com/cata/item=52976/savage-leather",
+        "https://www.wow-professions.com/farming/borean-leather-farming"
+      ],
+      "source_note": "A Borean Leather Wowhead comment reports enough leather for about 25 Heavy Borean Leather per hour on a gorilla route, while another broad comparison comment reports about 513 Borean Leather per hour on a Storm Peaks route. Retail-friendly optimized routes cluster near the higher figure, so the typical value is set close to 500 with a wider low band."
+    },
+    {
+      "expansion": "Cataclysm",
+      "profession": "skinning",
+      "family_name": "Savage Leather",
+      "route_hint": "Tol Barad crocolisks or other high-density Cataclysm skinning loops",
+      "units_per_hour": {
+        "low": 300.0,
+        "typical": 500.0,
+        "high": 570.0
+      },
+      "source_urls": [
+        "https://www.wowhead.com/cata/item=52976/savage-leather",
+        "https://www.wow-professions.com/farming/savage-leather-farming.html"
+      ],
+      "source_note": "Wowhead comments cite about 567 Savage Leather per hour from Baradin Crocolisks and lower-yield alternatives such as Vash'jir around 160 per hour. The typical value favors the repeatable dense-route case without assuming perfect conditions."
+    },
+    {
+      "expansion": "Legion",
+      "profession": "skinning",
+      "family_name": "Stonehide Leather",
+      "route_hint": "Azsuna bloodgazer route or other fast-respawn Legion skinning camps",
+      "units_per_hour": {
+        "low": 700.0,
+        "typical": 1040.0,
+        "high": 1500.0
+      },
+      "source_urls": [
+        "https://www.wowhead.com/news/wow-economy-weekly-wrap-up-order-halls-legion-skinning-gold-value-and-old-school-282401",
+        "https://www.wow-professions.com/farming/stonehide-leather-farming"
+      ],
+      "source_note": "Wowhead's Legion economy wrap-up summarizes a 100-hour skinning sample at 104,381 Stonehide Leather, or about 1,044 per hour. Higher-end community farms can exceed that with gutting or specialized spots, so the high band allows for more optimized setups."
+    },
+    {
+      "expansion": "Battle for Azeroth",
+      "profession": "skinning",
+      "family_name": "Coarse Leather",
+      "route_hint": "Southwest Dazar'alor quillrats or other dense BfA hyperspawn skinning spots",
+      "units_per_hour": {
+        "low": 1500.0,
+        "typical": 1700.0,
+        "high": 2200.0
+      },
+      "source_urls": [
+        "https://www.reddit.com/r/woweconomy/comments/gl3tch/my_golfdarming_methods_mostly_raw_gold_including/"
+      ],
+      "source_note": "A community route write-up reports around 1,500 Coarse Leather per hour in a stable solo spot and more than 2,000 per hour in stronger quillrat hyperspawns. The model uses 1,700 as a conservative central value for good but not perfect BfA farms."
+    },
+    {
+      "expansion": "Shadowlands",
+      "profession": "skinning",
+      "family_name": "Desolate Leather",
+      "route_hint": "Revendreth or Ardenweald solo skinning loops",
+      "units_per_hour": {
+        "low": 900.0,
+        "typical": 1050.0,
+        "high": 1400.0
+      },
+      "source_urls": [
+        "https://www.reddit.com/r/woweconomy/comments/ng10oo/is_skinning_still_worth_it/",
+        "https://www.wow-professions.com/farming/desolate-leather-farming.html"
+      ],
+      "source_note": "One community report notes about 450 Desolate Leather in 30 minutes with side hides, implying roughly 900 per hour, while other Shadowlands solo farms report stronger results. The typical value is set slightly above 1,000 to reflect a competent route without assuming a 2x4 group."
+    }
+  ]
+}

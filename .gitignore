@@ -1,0 +1,38 @@
+# Dependencies and Python caches
+node_modules/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+
+# Local WoW/account data
+data/account/
+data/addon-profiles.json
+data/wow.sqlite3*
+
+# Generated caches, reports and exports
+data/cache/
+data/http-cache/
+data/reports/
+data/flipping/cache/
+data/flipping/generated/
+dist/
+tmp-*.html
+*.log
+
+# Local tooling metadata
+.agents/
+.codex/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/

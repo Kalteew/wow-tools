@@ -1,0 +1,8 @@
+## Interface: 120005
+## Title: Yaya Profession Specializations
+## Notes: Dumps profession specialization trees to SavedVariables.
+## Author: Codex
+## Version: 0.1.0
+## SavedVariables: YayaProfessionSpecializationsDB
+
+YayaProfessionSpecializations.lua

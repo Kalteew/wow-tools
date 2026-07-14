@@ -1,0 +1,45 @@
+{
+  "generated_from": "local TSM AppHelper snapshot and Midnight furniture groups",
+  "strategy": "non-commodity housing decor for cross-realm flipping",
+  "groups": {
+    "high": [
+      { "item_id": 265791, "name": "Haranir Canopy Bed", "profession": "leatherworking" },
+      { "item_id": 244710, "name": "Sin'dorei Headlamp", "profession": "engineering" },
+      { "item_id": 257420, "name": "Silvermoon Spire Fountain", "profession": "alchemy" },
+      { "item_id": 262600, "name": "Stitched Haranir Rug", "profession": "leatherworking" },
+      { "item_id": 262454, "name": "Shining Sin'dorei Hourglass", "profession": "jewelcrafting" },
+      { "item_id": 248965, "name": "Resplendent Highborne Statue", "profession": "jewelcrafting" },
+      { "item_id": 262449, "name": "Embossed Sin'dorei Fur Rug", "profession": "leatherworking" },
+      { "item_id": 262789, "name": "Small Telogrus Lamp", "profession": "engineering" },
+      { "item_id": 262589, "name": "Simple Haranir Table", "profession": "leatherworking" },
+      { "item_id": 253506, "name": "Rootbound Vat", "profession": "alchemy" }
+    ],
+    "mid": [
+      { "item_id": 262461, "name": "Tenebrous Ren'dorei Armillary", "profession": "jewelcrafting" },
+      { "item_id": 262469, "name": "Brilliant Phoenix Harp", "profession": "jewelcrafting" },
+      { "item_id": 262465, "name": "Ren'dorei Stargazer", "profession": "engineering" },
+      { "item_id": 262471, "name": "Bejeweled Sin'dorei Lyre", "profession": "jewelcrafting" },
+      { "item_id": 262602, "name": "Ren'dorei Warp Orb", "profession": "engineering" },
+      { "item_id": 264244, "name": "Plush Haranir Leather Pillow", "profession": "leatherworking" },
+      { "item_id": 262618, "name": "Ren'dorei Void Projector", "profession": "engineering" },
+      { "item_id": 243090, "name": "Sturdy Haranir Chair", "profession": "leatherworking" },
+      { "item_id": 263049, "name": "Ren'dorei Lightpost", "profession": "engineering" },
+      { "item_id": 256356, "name": "Sunsmoke Censer", "profession": "alchemy" },
+      { "item_id": 253457, "name": "Leather-Bound Haranir Wall Shelf", "profession": "leatherworking" }
+    ],
+    "watch": [
+      {
+        "item_id": 241286,
+        "name": "Light's Preservation",
+        "profession": "alchemy",
+        "reason": "commodity-like EU market in local TSM snapshot"
+      },
+      {
+        "item_id": 244714,
+        "name": "Sin'dorei Clampers",
+        "profession": "engineering",
+        "reason": "local TSM snapshot had zero sale signal"
+      }
+    ]
+  }
+}

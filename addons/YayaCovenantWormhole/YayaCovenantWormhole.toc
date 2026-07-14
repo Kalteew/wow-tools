@@ -1,0 +1,8 @@
+## Interface: 120005
+## Title: Yaya Covenant Wormhole
+## Notes: Auto-selects the Shadowlands wormhole destination matching your active covenant.
+## Author: Codex
+## Version: 0.1.0
+## SavedVariables: YayaCovenantWormholeDB
+
+YayaCovenantWormhole.lua

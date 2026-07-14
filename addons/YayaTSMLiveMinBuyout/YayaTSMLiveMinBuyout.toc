@@ -1,0 +1,8 @@
+## Interface: 120005
+## Title: Yaya TSM Live Min Buyout
+## Notes: Overlays TSM DBMinBuyout with live AH search prices for the current session.
+## Author: Codex
+## Version: 0.1.0
+## OptionalDeps: TradeSkillMaster
+
+YayaTSMLiveMinBuyout.lua

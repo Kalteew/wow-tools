@@ -1,0 +1,7 @@
+## Interface: 120005
+## Title: Yaya Warband Bank Default
+## Notes: Opens the bank on the warband bank tab by default.
+## Author: Codex
+## Version: 0.1.0
+
+YayaWarbandBankDefault.lua
