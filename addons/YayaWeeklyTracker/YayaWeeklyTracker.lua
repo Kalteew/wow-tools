@@ -104,8 +104,8 @@ local MIDNIGHT_PROFESSION_CONFIGS = {
     [2909] = {
         order = 3,
         label = "Ench",
-        weeklyKnowledgeCap = 6,
-        weeklyLootQuestIDs = { 95048, 95049, 95050, 95051, 95052, 95053 },
+        weeklyLootQuestIDs = { 93532, 93533 },
+        weeklyDisenchantQuestIDs = { 95048, 95049, 95050, 95051, 95052, 95053 },
         trainerMinSkill = 25,
         trainerWeeklyQuestIDs = { 93697, 93698, 93699 },
         treatiseMinSkill = 25,
@@ -1969,6 +1969,11 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         tokens[#tokens + 1] = ("loot %d/%d"):format(remainingWeeklyLoots, totalWeeklyLoots)
     elseif totalWeeklyLoots <= 0 and (config.weeklyKnowledgeCap or 0) > 0 then
         tokens[#tokens + 1] = ("loot %d/%d"):format(config.weeklyKnowledgeCap, config.weeklyKnowledgeCap)
+    end
+
+    local remainingDisenchants, totalDisenchants = CountRemainingTrackedQuests(config.weeklyDisenchantQuestIDs)
+    if remainingDisenchants > 0 then
+        tokens[#tokens + 1] = ("dez %d/%d"):format(remainingDisenchants, totalDisenchants)
     end
 
     local hasTrainerWeeklyUnlocked = row.skillLevel >= (config.trainerMinSkill or math.huge)

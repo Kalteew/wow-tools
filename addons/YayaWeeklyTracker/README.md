@@ -12,11 +12,12 @@ Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suiv
 Resume `Midnight` :
 
 - l'addon n'affiche que les metiers `Midnight` appris sur le personnage
-- chaque ligne est compacte, par exemple `Alch: T8/8 L4/4 hebdo traite DMF`
+- chaque ligne est compacte, par exemple `Alch: T8/8 loot 2/2 hebdo traite DMF`
 - si rien ne reste a faire pour un metier suivi, la ligne reste visible avec `ok`
 - si la concentration depasse `750`, la ligne affiche sa valeur en orange, par exemple `conc. 812`
 - `T` = tresors restants
-- `L` = connaissances repeatable restantes via loot/currency cette semaine
+- `loot` = connaissances restantes via coffres/loots cette semaine
+- `dez` = connaissances restantes via desenchantement pour l'Enchantement
 - `hebdo` = rappel quete hebdo trainer
 - `traite` = rappel traite hebdo si le metier est a `25+` et que l'option `Tracker les traites (inscription)` est active
 - `DMF` = Darkmoon Faire active et quete metier pas encore faite ce mois-ci
