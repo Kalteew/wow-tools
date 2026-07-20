@@ -126,3 +126,73 @@ Notes:
 - `YayaPremadeAssistant` automatically invites solo premade applicants by name and accepts invitations from groups you applied to; grouped applicants use a manual button.
 - `scripts/wow-addon-profiles.ps1` writes Blizzard `WTF/.../AddOns.txt` per character, so a low profile is active before first login.
 - On Windows you can also launch [wow_tools_gui.pyw](C:/Users/Yaya/source/tools/wow-tools/wow_tools_gui.pyw) directly to open the GUI without using the CLI.
+
+## Bootstrap complet sous Windows
+
+Copier ce prompt dans Codex pour reconstruire l'environnement `wow-tools`, les skills et les addons :
+
+```text
+Configure entièrement mon environnement WoW sous Windows. Exécute les actions, ne te contente pas de les expliquer.
+
+Chemins :
+- dépôt : C:\Users\Yaya\source\tools\wow-tools
+- skills Codex : C:\Users\Yaya\.codex\skills
+- addons Retail : C:\Program Files (x86)\World of Warcraft\_retail_\Interface\AddOns
+
+Actions :
+
+1. Vérifie Git, Python, Node.js et PowerShell. Installe uniquement les prérequis manquants.
+
+2. Crée C:\Users\Yaya\source\tools si nécessaire, puis clone :
+   https://github.com/Kalteew/wow-tools.git
+
+   Si le dépôt existe déjà, préserve les modifications locales et fais seulement une mise à jour fast-forward sûre.
+
+3. Dans wow-tools, installe les dépendances :
+   - npm ci
+   - npx playwright install chromium
+   - vérifie Python avec : python -m unittest discover -s tests
+
+4. Crée le dossier des skills Codex et installe/restaure tous les skills WoW, TSM et Yaya disponibles dans mon profil. Minimum attendu :
+   - world-of-warcraft
+   - wow-addon-development
+   - wow-local-account-data
+   - wow-profession-recipes
+   - wow-realm-population
+   - wow-flipping-housing
+   - tsm-api
+   - tsm-docs
+   - tsm-restock-groups
+   - yaya-queue-crafting-orders
+   - yaya-weekly-tracker
+
+   Utilise le gestionnaire de skills disponible. Ne réécris pas un skill existant valide. Vérifie la présence de chaque SKILL.md et signale clairement toute source introuvable.
+
+5. Vérifie que WoW Retail est fermé. Sauvegarde les dossiers d'addons existants avant remplacement, sans toucher à WTF ni aux SavedVariables.
+
+6. Depuis la racine du dépôt, installe ces addons avec le script officiel :
+   .\scripts\sync-wow-addon.ps1 -AddonNames YayaWeeklyTracker,YayaQueue,YayaSessionTracker,YayaCraftingOrders
+
+7. Installe la dernière version stable Retail de TomTom depuis sa source officielle :
+   https://www.curseforge.com/wow/addons/tomtom
+
+   Utilise CurseForge si disponible, sinon télécharge l'archive officielle et extrais-la correctement dans le dossier AddOns. Le résultat attendu est :
+   ...\AddOns\TomTom\TomTom.toc
+
+8. Valide :
+   - les 5 fichiers .toc sont présents ;
+   - les 4 addons Yaya installés correspondent au dépôt, par comparaison de hash ;
+   - TomTom est une version Retail stable ;
+   - aucune archive ou arborescence imbriquée incorrecte ne reste dans AddOns ;
+   - le dépôt Git est opérationnel.
+
+9. Termine par un résumé très court :
+   - dépôt et branche ;
+   - dépendances ;
+   - skills installés/manquants ;
+   - addons installés ;
+   - emplacement des sauvegardes ;
+   - éventuels blocages.
+
+Travaille de manière autonome, préserve toute donnée existante et ne demande confirmation qu'en cas de vrai blocage ou d'action destructive ambiguë.
+```
