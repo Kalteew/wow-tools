@@ -226,10 +226,63 @@ local ARTISAN_CONSORTIUM_PAYOUT_ITEM_IDS = {
     [227713] = true,
     [246585] = true,
 }
+runtimeState.surplusReagentContainers = {
+    [260534] = { order = 1, label = "Alch" }, -- Master Alchemist's Surplus Reagents
+    [260538] = { order = 2, label = "Eng" }, -- Master Engineer's Surplus Reagents
+}
 runtimeState.midnightEnchantingWeeklyReagents = {
     [93697] = { itemID = 243599, itemName = "Eversinging Dust", quantity = 20 },
     [93698] = { itemID = 243602, itemName = "Radiant Shard", quantity = 10 },
     [93699] = { itemID = 243605, itemName = "Dawn Crystal", quantity = 1 },
+}
+runtimeState.generalWeeklyQuests = {
+    abundanceQuestIDs = { 89507 }, -- Abundant Offerings
+    midnightWorldBossQuestIDs = {
+        92560, -- Lu'ashal
+        92123, -- Cragpine
+        92034, -- Thorm'belan
+        92636, -- Predaxas
+    },
+    worldBossMaxUsefulItemLevel = 250,
+    runestoneQuestIDs = {
+        90573, -- Fortify the Runestones: Magisters
+        90574, -- Fortify the Runestones: Blood Knights
+        90575, -- Fortify the Runestones: Farstriders
+        90576, -- Fortify the Runestones: Shades of the Row
+    },
+    halduronWorldQuestID = 95468, -- Hope in the Darkest Corners
+    neighborhoodWeeklyQuestIDs = {
+        95413, -- Community Engagement
+        95416, -- Going Postal
+        95438, -- Lost Animals
+        95440, -- Housewarming
+    },
+    neighborhoodWeeklyActiveQuestIDs = {
+        95413, -- Community Engagement
+        95416, -- Going Postal
+        95438, -- Lost Animals
+        95439, -- Lost Animals breadcrumb
+        95440, -- Housewarming
+        95482, -- Lost Animals breadcrumb
+    },
+    liadrinWrapperQuestID = 93744, -- Unity Against the Void
+    liadrinWeeklyQuestIDs = {
+        93766, -- Midnight: World Quests
+        93767, -- Midnight: Arcantina
+        93769, -- Midnight: Housing
+        93889, -- Midnight: Saltheril's Soiree
+        93890, -- Midnight: Abundance
+        93891, -- Midnight: Legends of the Haranir
+        93892, -- Midnight: Stormarion Assault
+        93909, -- Midnight: Delves
+        93910, -- Midnight: Prey
+        93911, -- Midnight: Dungeons
+        93912, -- Midnight: Raid
+        93913, -- Midnight: World Boss
+        94457, -- Midnight: Battlegrounds
+        95842, -- Midnight: Void Assaults
+        95843, -- Midnight: Ritual Sites
+    },
 }
 
 local function AddMidnightKnowledgeItems(skillLineID, itemIDs)
@@ -607,12 +660,15 @@ local midnightCaches = {
     knowledgeDirty = true,
     payout = nil,
     payoutDirty = true,
+    surplusReagents = nil,
+    surplusReagentsDirty = true,
 }
 local treasureWaypointUIDs = {}
 local treasureWaypointSignature
 local debugSignatures = {
     knowledge = nil,
     payout = nil,
+    surplusReagents = nil,
     trackedProfessions = nil,
     tracker = nil,
     treasure = nil,
@@ -781,6 +837,8 @@ local function InvalidateTrackedMidnightProfessions()
     midnightCaches.knowledgeDirty = true
     midnightCaches.payout = nil
     midnightCaches.payoutDirty = true
+    midnightCaches.surplusReagents = nil
+    midnightCaches.surplusReagentsDirty = true
 end
 
 local function InvalidateMidnightKnowledgeConsumableCache()
@@ -791,6 +849,11 @@ end
 local function InvalidateArtisanConsortiumPayoutCache()
     midnightCaches.payout = nil
     midnightCaches.payoutDirty = true
+end
+
+trackerUI.InvalidateSurplusReagentContainerCache = function()
+    midnightCaches.surplusReagents = nil
+    midnightCaches.surplusReagentsDirty = true
 end
 
 local function GetLocalizedMapName(mapID, fallback)
@@ -992,6 +1055,21 @@ end
 
 local function IsAnyQuestDone(questIDs)
     for _, questID in ipairs(questIDs) do
+        if IsQuestDone(questID) then
+            return true
+        end
+    end
+
+    return false
+end
+
+trackerUI.IsAnyQuestDoneOnAccount = function(questIDs)
+    for _, questID in ipairs(questIDs) do
+        if C_QuestLog and C_QuestLog.IsQuestFlaggedCompletedOnAccount
+            and C_QuestLog.IsQuestFlaggedCompletedOnAccount(questID) then
+            return true
+        end
+
         if IsQuestDone(questID) then
             return true
         end
@@ -1681,6 +1759,60 @@ local function FindArtisanConsortiumPayoutInBags()
     return result
 end
 
+trackerUI.FindSurplusReagentContainersInBags = function()
+    if not midnightCaches.surplusReagentsDirty and midnightCaches.surplusReagents then
+        return midnightCaches.surplusReagents
+    end
+
+    local byItemID = {}
+    local maxBagIndex = math.max(NUM_TOTAL_EQUIPPED_BAG_SLOTS or 0, NUM_BAG_SLOTS or 0, 5)
+
+    for bagID = 0, maxBagIndex do
+        local slotCount = GetContainerNumSlotsCompat(bagID)
+        for slotIndex = 1, slotCount do
+            local itemID = GetContainerItemIDCompat(bagID, slotIndex)
+            local config = itemID and runtimeState.surplusReagentContainers[itemID] or nil
+            if config then
+                local state = byItemID[itemID]
+                if not state then
+                    state = {
+                        itemID = itemID,
+                        itemLink = GetContainerItemLinkCompat(bagID, slotIndex),
+                        itemName = GetItemInfo and GetItemInfo(itemID) or nil,
+                        label = config.label,
+                        order = config.order,
+                        totalCount = 0,
+                    }
+                    byItemID[itemID] = state
+                end
+                state.totalCount = state.totalCount + math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
+            end
+        end
+    end
+
+    local results = {}
+    for _, state in pairs(byItemID) do
+        results[#results + 1] = state
+    end
+    table.sort(results, function(left, right)
+        return (left.order or 99) < (right.order or 99)
+    end)
+
+    local debugParts = {}
+    for _, state in ipairs(results) do
+        debugParts[#debugParts + 1] = ("%s:%d"):format(tostring(state.itemID), state.totalCount or 0)
+    end
+    local debugSignature = table.concat(debugParts, ",")
+    if debugSignature ~= debugSignatures.surplusReagents then
+        debugSignatures.surplusReagents = debugSignature
+        DebugLog("Surplus reagent containers = %s", debugSignature ~= "" and debugSignature or "none")
+    end
+
+    midnightCaches.surplusReagents = results
+    midnightCaches.surplusReagentsDirty = false
+    return results
+end
+
 trackerUI.UpdateMidnightKnowledgeButton = function(state)
     local button = trackerFrame and trackerFrame.knowledgeButton or nil
     if not button then
@@ -1756,6 +1888,38 @@ trackerUI.UpdateArtisanConsortiumPayoutButton = function(state)
     return false
 end
 
+trackerUI.UpdateSurplusReagentButtons = function(states)
+    local buttons = trackerFrame and trackerFrame.surplusReagentButtons or EMPTY_TABLE
+    local visibleCount = 0
+
+    for index, button in ipairs(buttons) do
+        local state = states and states[index] or nil
+        if state and state.itemID then
+            button:SetText(("Ouvrir surplus %s x%d"):format(state.label or "", state.totalCount or 1))
+            button.itemID = state.itemID
+            button.itemLink = state.itemLink
+            button.itemName = state.itemName
+            if not (InCombatLockdown and InCombatLockdown()) then
+                button:SetAttribute("type", "item")
+                button:SetAttribute("item", "item:" .. tostring(state.itemID))
+            end
+            button:Show()
+            visibleCount = visibleCount + 1
+        else
+            button.itemID = nil
+            button.itemLink = nil
+            button.itemName = nil
+            if not (InCombatLockdown and InCombatLockdown()) then
+                button:SetAttribute("type", nil)
+                button:SetAttribute("item", nil)
+            end
+            button:Hide()
+        end
+    end
+
+    return visibleCount
+end
+
 trackerUI.GetOwnedItemCount = function(itemID)
     if type(itemID) ~= "number" or itemID <= 0 then
         return 0
@@ -1814,6 +1978,7 @@ trackerUI.UpdateEnchantingWeeklyQueueButton = function(trackedRows)
         button.itemID = nil
         button.itemName = nil
         button.questTitle = nil
+        button.needed = nil
         button.missing = nil
         button:Hide()
         return false
@@ -1825,8 +1990,9 @@ trackerUI.UpdateEnchantingWeeklyQueueButton = function(trackedRows)
         button.itemID = weekly.itemID
         button.itemName = weekly.itemName
         button.questTitle = weekly.questTitle
+        button.needed = weekly.needed
         button.missing = weekly.missing
-        button:SetText(("YQ Ench %dx %s"):format(weekly.missing, weekly.itemName))
+        button:SetText(("YQ Ench +%dx %s"):format(weekly.needed, weekly.itemName))
         button:Show()
         return true
     end
@@ -1835,6 +2001,7 @@ trackerUI.UpdateEnchantingWeeklyQueueButton = function(trackedRows)
     button.itemID = nil
     button.itemName = nil
     button.questTitle = nil
+    button.needed = nil
     button.missing = nil
     button:Hide()
     return false
@@ -3108,6 +3275,73 @@ AddEntry = function(entries, label, state, options)
     entries[#entries + 1] = entry
 end
 
+trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
+    local level = UnitLevel and UnitLevel("player") or 0
+    local config = runtimeState.generalWeeklyQuests
+
+    if level > 81 and not IsAnyQuestDone(config.abundanceQuestIDs) then
+        AddEntry(entries, "Abondance", "todo")
+    end
+
+    if level < 90 then
+        return
+    end
+
+    local worldBossQuestID = FindActiveQuest(config.midnightWorldBossQuestIDs, activeByQuestID)
+    if worldBossQuestID and not IsQuestDone(worldBossQuestID) then
+        local rewardMoney = GetQuestRewardMoney(worldBossQuestID)
+        local averageItemLevel, equippedItemLevel = 0, 0
+        if GetAverageItemLevel then
+            averageItemLevel, equippedItemLevel = GetAverageItemLevel()
+        end
+        equippedItemLevel = equippedItemLevel or averageItemLevel or 0
+
+        if rewardMoney <= 0 then
+            RequestQuestRewardData(worldBossQuestID)
+        end
+
+        if rewardMoney > 0 then
+            local gold = math.floor((rewardMoney / 10000) + 0.5)
+            AddEntry(entries, (GetQuestTitle(worldBossQuestID) or "World boss Midnight") .. " " .. gold .. "g", "todo")
+        elseif equippedItemLevel > 0 and equippedItemLevel < config.worldBossMaxUsefulItemLevel then
+            AddEntry(entries, GetQuestTitle(worldBossQuestID) or "World boss Midnight", "todo")
+        end
+    end
+
+    if not IsAnyQuestDone(config.runestoneQuestIDs) then
+        AddEntry(entries, "Defense des runestones", "todo")
+    end
+
+    if IsQuestActiveOnMap(config.halduronWorldQuestID, activeByQuestID)
+        and not IsQuestDone(config.halduronWorldQuestID) then
+        AddEntry(entries, "Halduron: World Quests", "todo")
+    end
+
+    if not trackerUI.IsAnyQuestDoneOnAccount(config.neighborhoodWeeklyQuestIDs) then
+        local activeNeighborhoodQuestID = FindActiveQuest(config.neighborhoodWeeklyActiveQuestIDs, activeByQuestID)
+        local label = "Weekly Neighborhood"
+        if activeNeighborhoodQuestID then
+            local activeQuest = activeByQuestID and activeByQuestID[activeNeighborhoodQuestID]
+            label = "Neighborhood: " .. ((activeQuest and activeQuest.title) or GetQuestTitle(activeNeighborhoodQuestID) or "weekly")
+        end
+        AddEntry(entries, label, "todo")
+    end
+
+    local activeLiadrinQuestID = FindActiveQuest(config.liadrinWeeklyQuestIDs, activeByQuestID)
+    local isLiadrinWeeklyActive = activeLiadrinQuestID
+        or IsQuestActiveOnMap(config.liadrinWrapperQuestID, activeByQuestID)
+    if isLiadrinWeeklyActive
+        and not IsQuestDone(config.liadrinWrapperQuestID)
+        and not IsAnyQuestDone(config.liadrinWeeklyQuestIDs) then
+        local label = "Weekly Liadrin"
+        if activeLiadrinQuestID then
+            local activeQuest = activeByQuestID and activeByQuestID[activeLiadrinQuestID]
+            label = "Liadrin: " .. ((activeQuest and activeQuest.title) or GetQuestTitle(activeLiadrinQuestID) or "weekly")
+        end
+        AddEntry(entries, label, "todo")
+    end
+end
+
 trackerUI.BuildEntries = function(trackedRows)
     local entries = {}
     local questLog = GetQuestLogSnapshot()
@@ -3150,6 +3384,8 @@ trackerUI.BuildEntries = function(trackedRows)
             AddEntry(entries, CONTAINING_THE_HELSWORN_LABEL, "todo")
         end
     end
+
+    trackerUI.AddGeneralWeeklyEntries(entries, activeByQuestID)
 
     trackerUI.AddMidnightProfessionEntries(entries, trackedRows)
 
@@ -3284,16 +3520,18 @@ UpdateTracker = function()
         local entries = trackerUI.BuildEntries(trackedRows)
         local knowledgeItemState = DebugSafeCall("FindMidnightKnowledgeConsumableInBags", FindMidnightKnowledgeConsumableInBags, trackedRows)
         local payoutItemState = DebugSafeCall("FindArtisanConsortiumPayoutInBags", FindArtisanConsortiumPayoutInBags)
+        local surplusReagentStates = DebugSafeCall("FindSurplusReagentContainersInBags", trackerUI.FindSurplusReagentContainersInBags)
         local hasKnowledgeButton = DebugSafeCall("UpdateMidnightKnowledgeButton", trackerUI.UpdateMidnightKnowledgeButton, knowledgeItemState) or false
         local hasPayoutButton = DebugSafeCall("UpdateArtisanConsortiumPayoutButton", trackerUI.UpdateArtisanConsortiumPayoutButton, payoutItemState) or false
+        local surplusButtonCount = DebugSafeCall("UpdateSurplusReagentButtons", trackerUI.UpdateSurplusReagentButtons, surplusReagentStates) or 0
         local hasEnchantingWeeklyButton = DebugSafeCall("UpdateEnchantingWeeklyQueueButton", trackerUI.UpdateEnchantingWeeklyQueueButton, trackedRows) or false
         local hasTreasureButton = DebugSafeCall("UpdateMidnightTreasureButton", trackerUI.UpdateMidnightTreasureButton, trackedRows) or false
-        local trackerDebugSignature = ("%d|kp=%s|po=%s|eq=%s|tt=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasPayoutButton), tostring(hasEnchantingWeeklyButton), tostring(hasTreasureButton))
+        local trackerDebugSignature = ("%d|kp=%s|po=%s|sr=%d|eq=%s|tt=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasEnchantingWeeklyButton), tostring(hasTreasureButton))
         if trackerDebugSignature ~= debugSignatures.tracker then
             debugSignatures.tracker = trackerDebugSignature
-            DebugLog("UpdateTracker entries=%d kpButton=%s payoutButton=%s enchWeeklyButton=%s treasureButton=%s", #entries, tostring(hasKnowledgeButton), tostring(hasPayoutButton), tostring(hasEnchantingWeeklyButton), tostring(hasTreasureButton))
+            DebugLog("UpdateTracker entries=%d kpButton=%s payoutButton=%s surplusButtons=%d enchWeeklyButton=%s treasureButton=%s", #entries, tostring(hasKnowledgeButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasEnchantingWeeklyButton), tostring(hasTreasureButton))
         end
-        if #entries == 0 and not hasKnowledgeButton and not hasPayoutButton and not hasEnchantingWeeklyButton and not hasTreasureButton then
+        if #entries == 0 and not hasKnowledgeButton and not hasPayoutButton and surplusButtonCount == 0 and not hasEnchantingWeeklyButton and not hasTreasureButton then
             DebugLog("UpdateTracker hide frame: no entries and no buttons")
             trackerFrame:Hide()
             return
@@ -3313,7 +3551,9 @@ UpdateTracker = function()
                 line:SetPoint("TOPLEFT", 6, -offsetY)
                 line:SetText(trackerUI.FormatEntry(entry))
                 line:Show()
-                offsetY = offsetY + (entry.prominent and 18 or 14)
+                local minimumLineHeight = entry.prominent and 18 or 14
+                local renderedLineHeight = line.GetStringHeight and line:GetStringHeight() or minimumLineHeight
+                offsetY = offsetY + math.max(minimumLineHeight, math.ceil(renderedLineHeight) + 2)
             else
                 line:SetText("")
                 line:Hide()
@@ -3336,9 +3576,28 @@ UpdateTracker = function()
             offsetY = offsetY + 24
         end
 
+        local lastSurplusButton
+        for index = 1, surplusButtonCount do
+            local button = trackerFrame.surplusReagentButtons[index]
+            button:ClearAllPoints()
+            if lastSurplusButton then
+                button:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
+            elseif hasPayoutButton then
+                button:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
+            elseif hasKnowledgeButton then
+                button:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
+            else
+                button:SetPoint("TOPLEFT", 6, -(offsetY + 2))
+            end
+            lastSurplusButton = button
+            offsetY = offsetY + 24
+        end
+
         if hasEnchantingWeeklyButton then
             trackerFrame.enchantingWeeklyButton:ClearAllPoints()
-            if hasPayoutButton then
+            if lastSurplusButton then
+                trackerFrame.enchantingWeeklyButton:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
+            elseif hasPayoutButton then
                 trackerFrame.enchantingWeeklyButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
             elseif hasKnowledgeButton then
                 trackerFrame.enchantingWeeklyButton:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
@@ -3352,6 +3611,8 @@ UpdateTracker = function()
             trackerFrame.treasureButton:ClearAllPoints()
             if hasEnchantingWeeklyButton then
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.enchantingWeeklyButton, "BOTTOMLEFT", 0, -4)
+            elseif lastSurplusButton then
+                trackerFrame.treasureButton:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
             elseif hasPayoutButton then
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
             elseif hasKnowledgeButton then
@@ -3441,19 +3702,43 @@ trackerUI.CreateTrackerFrame = function()
     end)
     trackerFrame.payoutButton:SetScript("OnLeave", GameTooltip_Hide)
 
+    trackerFrame.surplusReagentButtons = {}
+    for index = 1, 2 do
+        local button = CreateFrame("Button", addonName .. "SurplusReagentButton" .. index, trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+        button:SetSize(178, 20)
+        button:RegisterForClicks("AnyUp", "AnyDown")
+        button:SetText("Ouvrir surplus")
+        button:Hide()
+        button:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText("Ouvre ce type de conteneur de composants en surplus.")
+            if self.itemLink then
+                GameTooltip:AddLine(self.itemLink, 0.5, 0.8, 1, true)
+            end
+            GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", GameTooltip_Hide)
+        trackerFrame.surplusReagentButtons[index] = button
+    end
+
     trackerFrame.enchantingWeeklyButton = CreateFrame("Button", addonName .. "EnchantingWeeklyButton", trackerFrame, "UIPanelButtonTemplate")
     trackerFrame.enchantingWeeklyButton:SetSize(178, 20)
     trackerFrame.enchantingWeeklyButton:RegisterForClicks("AnyUp")
     trackerFrame.enchantingWeeklyButton:SetText("YQ Ench")
     trackerFrame.enchantingWeeklyButton:Hide()
     trackerFrame.enchantingWeeklyButton:SetScript("OnClick", function(self)
-        if not (self.itemID and self.missing and self.missing > 0 and YayaQueueAPI and type(YayaQueueAPI.AddItem) == "function") then
+        if not (self.itemID and self.needed and self.needed > 0 and self.missing and self.missing > 0
+            and YayaQueueAPI and type(YayaQueueAPI.AddItem) == "function") then
             return
         end
 
-        local ok = YayaQueueAPI.AddItem(self.itemID, self.missing, self.itemName)
+        local ok = YayaQueueAPI.AddItem(self.itemID, self.needed, self.itemName)
         if ok then
-            print(("YWT: Ajoute %dx %s a YayaQueue"):format(self.missing, self.itemName or ("item:" .. tostring(self.itemID))))
+            print(("YWT: Ajoute +%dx %s a la queue existante (%d manquants pour la weekly)"):format(
+                self.needed,
+                self.itemName or ("item:" .. tostring(self.itemID)),
+                self.missing
+            ))
             if YayaQueueAPI.Refresh then
                 YayaQueueAPI.Refresh()
             end
@@ -3462,7 +3747,7 @@ trackerUI.CreateTrackerFrame = function()
     end)
     trackerFrame.enchantingWeeklyButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Ajoute l'achat de la weekly Enchanting a YayaQueue.")
+        GameTooltip:SetText("Ajoute 20 reagents supplementaires a la queue YayaQueue existante.")
         if self.questTitle then
             GameTooltip:AddLine(self.questTitle, 1, 1, 1, true)
         end
@@ -3521,6 +3806,9 @@ eventFrame:RegisterEvent("CHAT_MSG_CURRENCY")
 eventFrame:RegisterEvent("CHAT_MSG_MONEY")
 eventFrame:RegisterEvent("CHAT_MSG_LOOT")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+eventFrame:RegisterEvent("PLAYER_LEVEL_UP")
+eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+eventFrame:RegisterEvent("PLAYER_AVG_ITEM_LEVEL_UPDATE")
 eventFrame:SetScript("OnEvent", function(_, event, ...)
     DebugLog("Event %s", tostring(event))
     if event == "PLAYER_LOGIN" then
@@ -3545,8 +3833,10 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
                 InvalidateTrackedMidnightProfessions()
                 InvalidateMidnightKnowledgeConsumableCache()
                 InvalidateArtisanConsortiumPayoutCache()
+                trackerUI.InvalidateSurplusReagentContainerCache()
                 debugSignatures.knowledge = nil
                 debugSignatures.payout = nil
+                debugSignatures.surplusReagents = nil
                 debugSignatures.trackedProfessions = nil
                 debugSignatures.tracker = nil
                 debugSignatures.treasure = nil
@@ -3576,11 +3866,22 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         ScheduleTrackerRefresh(0, true)
     elseif event == "QUEST_TURNED_IN" then
         local questID = ...
+        local reagentInfo = runtimeState.midnightEnchantingWeeklyReagents[questID]
+        if reagentInfo and YayaQueueAPI and type(YayaQueueAPI.RemoveItem) == "function" then
+            local ok, removedQuantity = YayaQueueAPI.RemoveItem(reagentInfo.itemID, reagentInfo.quantity)
+            if ok and removedQuantity and removedQuantity > 0 then
+                print(("YWT: Retire %dx %s de YayaQueue (weekly rendue)"):format(
+                    removedQuantity,
+                    reagentInfo.itemName or ("item:" .. tostring(reagentInfo.itemID))
+                ))
+            end
+        end
         QueuePendingNzothCache(questID)
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "BAG_UPDATE_DELAYED" then
         InvalidateMidnightKnowledgeConsumableCache()
         InvalidateArtisanConsortiumPayoutCache()
+        trackerUI.InvalidateSurplusReagentContainerCache()
         ScheduleTrackerRefresh(0.05, false)
         if activeCacheOpen then
             ScheduleFinalizeActiveCacheOpen(0.35)
@@ -3588,6 +3889,10 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
     elseif event == "PLAYER_ENTERING_WORLD" or event == "SPELLS_CHANGED" or event == "SKILL_LINES_CHANGED" or event == "TRADE_SKILL_SHOW" then
         InvalidateTrackedMidnightProfessions()
         ScheduleTrackerRefresh(0.05, true)
+    elseif event == "PLAYER_LEVEL_UP" then
+        ScheduleTrackerRefresh(0.05, false)
+    elseif event == "PLAYER_EQUIPMENT_CHANGED" or event == "PLAYER_AVG_ITEM_LEVEL_UPDATE" then
+        ScheduleTrackerRefresh(0.05, false)
     elseif event == "QUEST_LOG_UPDATE"
         or event == "SPELL_UPDATE_COOLDOWN"
         or event == "AREA_POIS_UPDATED"

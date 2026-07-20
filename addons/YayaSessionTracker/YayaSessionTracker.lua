@@ -8,6 +8,8 @@ local MISSION_CONTAINER_PENDING_TTL_SECONDS = 30 * 24 * 60 * 60
 local MISSION_CONTAINER_FINALIZE_DELAY_SECONDS = 1.25
 local MAX_SESSIONS = 250
 local DEFAULT_PRICE_SOURCE = "first(dbmarket, dbregionmarketavg, vendorsell)"
+local ITEM_BIND_ON_ACQUIRE = LE_ITEM_BIND_ON_ACQUIRE or (Enum and Enum.ItemBind and Enum.ItemBind.OnAcquire) or 1
+local ITEM_BIND_QUEST = LE_ITEM_BIND_QUEST or (Enum and Enum.ItemBind and Enum.ItemBind.Quest) or 4
 local FOLLOWER_TYPE_ID = Enum and Enum.GarrisonFollowerType and Enum.GarrisonFollowerType.FollowerType_9_0_GarrisonFollower or 123
 local BLIZZARD_GARRISON_UI_ADDON = "Blizzard_GarrisonUI"
 local REPLENISH_THE_RESERVOIR_QUEST_IDS = {
@@ -542,20 +544,26 @@ local function GetItemDetails(itemRef)
         return
     end
 
-    local name, _, quality, _, _, _, _, _, _, _, sellPrice = GetItemInfo(itemRef)
-    return name, quality, sellPrice or 0
+    local name, _, quality, _, _, _, _, _, _, _, sellPrice, _, _, bindType = GetItemInfo(itemRef)
+    return name, quality, sellPrice or 0, bindType
 end
 
 local function GetUnitPrice(entry, priceSource)
     local itemQuality = entry.itemQuality
     local sellPrice = entry.vendorSellPrice
+    local itemBindType = entry.itemBindType
 
-    if itemQuality == nil then
-        local _, resolvedQuality, resolvedSellPrice = GetItemDetails(entry.itemLink)
+    if itemQuality == nil or itemBindType == nil then
+        local _, resolvedQuality, resolvedSellPrice, resolvedBindType = GetItemDetails(entry.itemLink or entry.itemString)
         itemQuality = resolvedQuality
         if resolvedSellPrice and resolvedSellPrice > 0 then
             sellPrice = resolvedSellPrice
         end
+        itemBindType = resolvedBindType
+    end
+
+    if itemBindType == ITEM_BIND_ON_ACQUIRE or itemBindType == ITEM_BIND_QUEST then
+        return sellPrice or 0
     end
 
     if itemQuality == 0 then
@@ -601,13 +609,14 @@ local function BuildItemSummaryFromItem(itemID, quantity, itemLink, priceSource)
 
     local resolvedItemID = itemID or GetItemIDFromLink(itemLink)
     local itemString = GetItemStringFromLink(itemLink) or GetItemStringFromID(resolvedItemID)
-    local itemName, itemQuality, vendorSellPrice = GetItemDetails(itemLink or resolvedItemID)
+    local itemName, itemQuality, vendorSellPrice, itemBindType = GetItemDetails(itemLink or resolvedItemID)
     local entry = {
         itemString = itemString,
         itemLink = itemLink,
         itemName = itemName or GetItemName(itemString, itemLink),
         itemQuality = itemQuality,
         vendorSellPrice = vendorSellPrice or 0,
+        itemBindType = itemBindType,
         quantity = quantity or 1,
     }
 
@@ -1149,12 +1158,13 @@ local function RecordItemGain(itemString, itemLink, quantity)
         return
     end
 
-    local itemName, itemQuality, vendorSellPrice = GetItemDetails(itemLink)
+    local itemName, itemQuality, vendorSellPrice, itemBindType = GetItemDetails(itemLink)
     activeSession.items[itemString] = activeSession.items[itemString] or {
         itemLink = itemLink,
         itemName = itemName or GetItemName(itemString, itemLink),
         itemQuality = itemQuality,
         vendorSellPrice = vendorSellPrice or 0,
+        itemBindType = itemBindType,
         quantity = 0,
         firstLootAt = GetNow(),
     }
@@ -1167,6 +1177,9 @@ local function RecordItemGain(itemString, itemLink, quantity)
     end
     if vendorSellPrice and vendorSellPrice > 0 then
         entry.vendorSellPrice = vendorSellPrice
+    end
+    if itemBindType ~= nil then
+        entry.itemBindType = itemBindType
     end
     entry.quantity = (entry.quantity or 0) + quantity
     entry.lastLootAt = GetNow()

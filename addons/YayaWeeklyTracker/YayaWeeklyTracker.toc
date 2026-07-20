@@ -3,7 +3,7 @@
 ## Notes: Small weekly tracker near the player frame.
 ## Author: Codex
 ## Version: 0.1.0
-## OptionalDeps: TomTom
+## OptionalDeps: TomTom, YayaQueue
 ## SavedVariables: YayaWeeklyTrackerAccountDB
 ## SavedVariablesPerCharacter: YayaWeeklyTrackerDB
 

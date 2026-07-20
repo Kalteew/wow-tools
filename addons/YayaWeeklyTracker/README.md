@@ -7,12 +7,19 @@ Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suiv
 - `Visions N'Zoth (bi-hebdo)` via l'assaut mineur actif
 - `Jard`
 - `Containing the Helsworn` si la recompense est du gold brut
+- `Abondance` a partir du niveau 82
+- le world boss `Midnight` actif s'il donne de l'or, ou si l'ilvl equipe moyen du personnage est inferieur a `250`, au niveau 90
+- `Defense des runestones` de la Soiree de Saltheril, au niveau 90
+- la weekly de Halduron uniquement quand `Hope in the Darkest Corners` est active
+- la weekly `Neighborhood` au niveau 90, avec son nom quand elle est dans le journal et une completion partagee par tout le Warband
+- la weekly de Liadrin quand son wrapper ou son objectif choisi est actif
 - un resume `Midnight` par metier appris sur le perso courant
 
 Resume `Midnight` :
 
 - l'addon n'affiche que les metiers `Midnight` appris sur le personnage
 - chaque ligne est compacte, par exemple `Alch: T8/8 loot 2/2 hebdo traite DMF`
+- les lignes longues se replient avec une hauteur adaptee, sans chevaucher la ligne suivante
 - si rien ne reste a faire pour un metier suivi, la ligne reste visible avec `ok`
 - si la concentration depasse `750`, la ligne affiche sa valeur en orange, par exemple `conc. 812`
 - `T` = tresors restants
@@ -26,7 +33,9 @@ Resume `Midnight` :
 - les waypoints sont refresh quand un tresor passe en `fait`
 - l'addon n'impose pas la `CrazyArrow` de TomTom; il pose seulement les markers carte/minimap
 - un bouton `Ouvrir payout` apparait si un `Artisan's Consortium Payout` est detecte dans les sacs
-- un bouton `YQ Ench ...` apparait si la weekly `Midnight Enchanting` active demande un reagent manquant; il ajoute l'achat a `YayaQueue`
+- deux boutons independants `Ouvrir surplus Alch` et `Ouvrir surplus Eng` apparaissent pour les conteneurs de composants en surplus correspondants, afin de pouvoir alterner les clics pendant leur ouverture
+- un bouton `YQ Ench +...` apparait si la weekly `Midnight Enchanting` active demande un reagent manquant; chaque clic ajoute la quantite complete de la weekly a la queue existante, en plus des besoins des crafts deja presents
+- quand cette weekly est rendue, YWT retire sa quantite complete de la demande directe YayaQueue sans toucher aux besoins des recettes
 
 Etat des lignes :
 
@@ -99,6 +108,12 @@ IDs utilises :
 - `Replenish the Reservoir` = `61981`, `61982`, `61983`, `61984`
 - `Victory in Our Name` = `63622`
 - `Containing the Helsworn` = `64273`
+- `Abundant Offerings` = `89507`
+- world bosses `Midnight` = `92560`, `92123`, `92034`, `92636`
+- `Fortify the Runestones` = `90573`, `90574`, `90575`, `90576`
+- `Hope in the Darkest Corners` = `95468`
+- weekly `Neighborhood` = `95413`, `95416`, `95438`, `95440` (breadcrumbs `95439`, `95482`)
+- weekly de Liadrin = wrapper `93744`; objectifs `93766`, `93767`, `93769`, `93889`, `93890`, `93891`, `93892`, `93909`, `93910`, `93911`, `93912`, `93913`, `94457`, `95842`, `95843`
 - `Worth Its Weight` = `41174`
 - `Fit for an Elven Queen` = `41175`
 - `Sifting Through the Rubble` = `41176`
