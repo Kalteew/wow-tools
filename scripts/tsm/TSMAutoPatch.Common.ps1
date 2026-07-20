@@ -9,7 +9,7 @@ $script:DefaultAddonCandidates = @(
     "C:\Program Files\World of Warcraft\_retail_\Interface\AddOns\TradeSkillMaster",
     "D:\World of Warcraft\_retail_\Interface\AddOns\TradeSkillMaster",
     "E:\World of Warcraft\_retail_\Interface\AddOns\TradeSkillMaster",
-    "C:\Users\Yaya\Games\World of Warcraft\_retail_\Interface\AddOns\TradeSkillMaster"
+    (Join-Path $env:USERPROFILE "Games\World of Warcraft\_retail_\Interface\AddOns\TradeSkillMaster")
 )
 
 function Get-TSMAutoPatchLogPath {
