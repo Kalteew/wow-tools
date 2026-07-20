@@ -16,7 +16,7 @@ Notes :
 
 - la queue est locale a l'addon, sans dependance obligatoire; l'ajout groupe des first crafts utilise CraftSim et sa source de prix
 - par defaut la quantite correspond a un nombre de crafts, pas a un nombre d'outputs
-- les first crafts deja en file et ceux dont un prix de composant est inconnu sont ignores; un composant lie sans prix AH est accepte a cout marginal nul seulement s'il est deja possede
+- les first crafts deja en file, y compris via une commande patron hors recraft, et ceux dont un prix de composant est inconnu sont ignores; un composant lie sans prix AH est accepte a cout marginal nul seulement s'il est deja possede
 - le bouton `first craft` n'est affiche que si la profession ouverte contient au moins une recette reellement ajoutable (cout, prix, queue et cooldown valides)
 - les recettes a cooldown ne sont ajoutees que si une charge est disponible; les pools partages soustraient les crafts deja en queue puis reservent une charge par nouvel ajout
 - les qualites de composants choisies par CraftSim sont memorisees puis transmises directement au craft; les composants simples restent geres automatiquement par Blizzard

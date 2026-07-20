@@ -2789,10 +2789,17 @@ local function IsEligibleFirstCraftInfo(info)
         and not info.isRecraft and not info.isSalvageRecipe
 end
 
+local function DoesQueuedEntryCoverFirstCraft(entry, recipeID)
+    local queuedRecipeID = tonumber(entry and entry.recipeID)
+    return queuedRecipeID
+        and (recipeID == nil or queuedRecipeID == tonumber(recipeID))
+        and not (entry.queueKind == "patron" and entry.isRecraft == true)
+end
+
 local function HasQueuedRecipe(recipeID)
     EnsureDB()
     for _, entry in ipairs(db.queue) do
-        if entry.queueKind ~= "patron" and tonumber(entry.recipeID) == tonumber(recipeID) then
+        if DoesQueuedEntryCoverFirstCraft(entry, recipeID) then
             return true
         end
     end
@@ -2811,7 +2818,7 @@ local function HasAddableFirstCraft()
         or nil
     local queuedRecipeIDs = {}
     for _, entry in ipairs(db.queue) do
-        if entry.queueKind ~= "patron" and tonumber(entry.recipeID) then
+        if DoesQueuedEntryCoverFirstCraft(entry) then
             queuedRecipeIDs[#queuedRecipeIDs + 1] = tostring(entry.recipeID)
         end
     end
