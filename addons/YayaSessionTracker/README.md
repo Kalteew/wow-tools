@@ -11,7 +11,7 @@ Ce que suit le MVP :
 - gold net de session via `PLAYER_MONEY`
 - items recuperes via `CHAT_MSG_LOOT`
 - valorisation via `TSM_API.GetCustomPriceValue(...)`
-- exception : les items gris utilisent seulement le prix vendeur
+- exceptions : les items gris et lies quand ramasses utilisent seulement le prix vendeur
 - bouton `R` sur la frame pour reset la session
 - activites stockees pour :
 - `Shadowlands mission table`

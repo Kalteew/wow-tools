@@ -1,0 +1,8 @@
+## Interface: 120005
+## Title: Yaya Premade Assistant
+## Notes: Auto-invite et auto-accept pour les groupes premades.
+## Author: Codex
+## Version: 0.1.0
+## SavedVariables: YayaPremadeAssistantDB
+
+YayaPremadeAssistant.lua

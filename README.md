@@ -86,6 +86,7 @@ Bundled addons:
 - [addons/YayaCovenantWormhole](C:/Users/Yaya/source/tools/wow-tools/addons/YayaCovenantWormhole)
 - [addons/YayaAddonProfiles](C:/Users/Yaya/source/tools/wow-tools/addons/YayaAddonProfiles)
 - [addons/YayaProfessionSpecializations](C:/Users/Yaya/source/tools/wow-tools/addons/YayaProfessionSpecializations)
+- [addons/YayaPremadeAssistant](C:/Users/Yaya/source/tools/wow-tools/addons/YayaPremadeAssistant)
 
 Notes:
 
@@ -122,5 +123,6 @@ Notes:
 - `YayaCompanionTargeter` auto-targets known Shadowlands companion XP items to the lowest-level eligible companion, with an optional tracked-only shortlist mode.
 - `YayaCovenantWormhole` auto-selects the Shadowlands wormhole destination that matches the active covenant, unless `Shift` is held.
 - `YayaAddonProfiles` manages addon profiles including `Jouer`, `Gold`, and `Flipping`, with per-character assignments and quick capture/apply commands.
+- `YayaPremadeAssistant` automatically invites solo premade applicants by name and accepts invitations from groups you applied to; grouped applicants use a manual button.
 - `scripts/wow-addon-profiles.ps1` writes Blizzard `WTF/.../AddOns.txt` per character, so a low profile is active before first login.
 - On Windows you can also launch [wow_tools_gui.pyw](C:/Users/Yaya/source/tools/wow-tools/wow_tools_gui.pyw) directly to open the GUI without using the CLI.
