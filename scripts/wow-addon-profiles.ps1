@@ -347,7 +347,7 @@ switch ($Action) {
     }
     "capture" {
         if (-not $Character -or -not $Profile) {
-            throw "Usage: -Action capture -Character Kalteew -Profile play"
+            throw "Usage: -Action capture -Character CharacterName -Profile play"
         }
         $path = Get-AddOnsFilePath -Context $context -Name $Character
         $profileObject = Get-Profile -Config $config -Name $Profile
@@ -358,7 +358,7 @@ switch ($Action) {
     }
     "assign" {
         if (-not $Character -or -not $Profile) {
-            throw "Usage: -Action assign -Character Kalteew -Profile gold"
+            throw "Usage: -Action assign -Character CharacterName -Profile gold"
         }
         Get-Profile -Config $config -Name $Profile | Out-Null
         Get-CharacterRoot -Context $context -Name $Character | Out-Null
@@ -368,7 +368,7 @@ switch ($Action) {
     }
     "apply" {
         if (-not $Character) {
-            throw "Usage: -Action apply -Character Kalteew [-Profile gold]"
+            throw "Usage: -Action apply -Character CharacterName [-Profile gold]"
         }
         $profileToApply = if ($Profile) { $Profile } else { Get-AssignedProfile -Config $config -Context $context -Name $Character }
         if (-not $profileToApply) {

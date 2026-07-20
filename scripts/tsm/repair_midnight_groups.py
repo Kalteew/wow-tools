@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 from datetime import datetime
@@ -7,13 +8,21 @@ from pathlib import Path
 from typing import Any
 
 from wow_tools.config import DB_PATH
+from wow_tools.local_account import resolve_paths
 from wow_tools.lua_table import parse_lua_assignments
 from wow_tools.restock_planner import build_restock_plan
 
 
-TSM_PATH = Path(
-    r"C:\Program Files (x86)\World of Warcraft\_retail_\WTF\Account\417185157#1\SavedVariables\TradeSkillMaster.lua"
-)
+TSM_PATH: Path
+
+
+def _configure_local_paths() -> None:
+    global TSM_PATH
+    paths = resolve_paths(
+        retail_root=os.environ.get("WOW_RETAIL_ROOT"),
+        account_root=os.environ.get("WOW_ACCOUNT_ROOT"),
+    )
+    TSM_PATH = Path(paths["saved_variables"]) / "TradeSkillMaster.lua"
 TARGET_PROFESSIONS = [
     "tailoring",
     "enchanting",
@@ -303,6 +312,7 @@ def _tsm_crafted_item_strings(db: dict[str, Any]) -> dict[int, set[str]]:
 
 
 def main() -> None:
+    _configure_local_paths()
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup_path = TSM_PATH.with_name(f"{TSM_PATH.name}.{timestamp}.midnight-fix.bak")
     backup_path.write_text(TSM_PATH.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")

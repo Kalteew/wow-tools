@@ -15,6 +15,8 @@ venv/
 data/account/
 data/addon-profiles.json
 data/wow.sqlite3*
+WTF/
+SavedVariables/
 
 # Generated caches, reports and exports
 data/cache/
@@ -29,6 +31,7 @@ tmp-*.html
 # Local tooling metadata
 .agents/
 .codex/
+.codex-backups/
 
 # OS and editor files
 .DS_Store

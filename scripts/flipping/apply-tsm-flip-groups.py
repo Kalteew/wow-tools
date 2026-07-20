@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -14,11 +15,19 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from wow_tools.lua_table import parse_lua_assignments
+from wow_tools.local_account import resolve_paths
 
 GROUP_DIR = ROOT / "data" / "flipping" / "generated" / "flipping-groups"
-TSM_PATH = Path(
-    r"C:\Program Files (x86)\World of Warcraft\_retail_\WTF\Account\417185157#1\SavedVariables\TradeSkillMaster.lua"
-)
+TSM_PATH: Path
+
+
+def _configure_local_paths() -> None:
+    global TSM_PATH
+    paths = resolve_paths(
+        retail_root=os.environ.get("WOW_RETAIL_ROOT"),
+        account_root=os.environ.get("WOW_ACCOUNT_ROOT"),
+    )
+    TSM_PATH = Path(paths["saved_variables"]) / "TradeSkillMaster.lua"
 
 CUSTOM_SOURCES = {
     "flipvalue": "first(dbregionsaleavg, dbregionmarketavg, dbhistorical)",
@@ -176,6 +185,7 @@ def _shopping_op(max_price: str, restock_quantity: str = "1") -> dict[str, Any]:
 
 
 def main() -> int:
+    _configure_local_paths()
     if _wow_is_running():
         raise SystemExit("WoW.exe is running. Close the game before applying TSM flip groups.")
     if not TSM_PATH.exists():

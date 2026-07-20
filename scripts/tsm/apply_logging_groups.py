@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -12,12 +13,20 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from wow_tools.lua_table import parse_lua_assignments
+from wow_tools.local_account import resolve_paths
 
 
-TSM_PATH = Path(
-    r"C:\Program Files (x86)\World of Warcraft\_retail_\WTF\Account\417185157#1\SavedVariables\TradeSkillMaster.lua"
-)
+TSM_PATH: Path
 CONFIG_PATH = REPO_ROOT / "data" / "tsm" / "logging_groups.json"
+
+
+def _configure_local_paths() -> None:
+    global TSM_PATH
+    paths = resolve_paths(
+        retail_root=os.environ.get("WOW_RETAIL_ROOT"),
+        account_root=os.environ.get("WOW_ACCOUNT_ROOT"),
+    )
+    TSM_PATH = Path(paths["saved_variables"]) / "TradeSkillMaster.lua"
 
 
 def _wow_is_running() -> bool:
@@ -107,6 +116,7 @@ def _remove_logging(groups: dict[str, Any], items: dict[str, Any]) -> None:
 
 
 def main() -> None:
+    _configure_local_paths()
     if _wow_is_running():
         raise SystemExit("WoW.exe is running. Close the game before applying logging groups.")
 

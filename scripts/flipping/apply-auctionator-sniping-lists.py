@@ -4,6 +4,7 @@ import argparse
 import csv
 import html
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -16,6 +17,10 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from wow_tools.local_account import resolve_paths
 
 GROUP_CSV = ROOT / "data" / "flipping" / "generated" / "flipping-groups" / "flipping-groups.csv"
 OUTPUT_DIR = ROOT / "data" / "flipping" / "generated" / "sniping"
@@ -23,12 +28,20 @@ NAME_CACHE = ROOT / "data" / "flipping" / "cache" / "wowhead-flipping-names.json
 ITEM_PAGE_CACHE = ROOT / "data" / "flipping" / "cache" / "wowhead-item-names"
 PET_INDEX_CACHE = ROOT / "data" / "flipping" / "cache" / "wowhead-pets.html"
 
-AUCTIONATOR_PATH = Path(
-    r"C:\Program Files (x86)\World of Warcraft\_retail_\WTF\Account\417185157#1\SavedVariables\Auctionator.lua"
-)
-PBS_PATH = Path(
-    r"C:\Program Files (x86)\World of Warcraft\_retail_\WTF\Account\417185157#1\SavedVariables\PointBlankSniper.lua"
-)
+SAVED_VARIABLES_PATH: Path
+AUCTIONATOR_PATH: Path
+PBS_PATH: Path
+
+
+def _configure_local_paths() -> None:
+    global SAVED_VARIABLES_PATH, AUCTIONATOR_PATH, PBS_PATH
+    paths = resolve_paths(
+        retail_root=os.environ.get("WOW_RETAIL_ROOT"),
+        account_root=os.environ.get("WOW_ACCOUNT_ROOT"),
+    )
+    SAVED_VARIABLES_PATH = Path(paths["saved_variables"])
+    AUCTIONATOR_PATH = SAVED_VARIABLES_PATH / "Auctionator.lua"
+    PBS_PATH = SAVED_VARIABLES_PATH / "PointBlankSniper.lua"
 
 LISTS = {
     "housing": "FLIP Housing",
@@ -257,7 +270,7 @@ def _resolve_names_from_local_item_links(rows_by_group: dict[str, list[dict[str,
     if not item_ids:
         return
     roots = [
-        Path(r"C:\Program Files (x86)\World of Warcraft\_retail_\WTF\Account\417185157#1\SavedVariables"),
+        SAVED_VARIABLES_PATH,
         Path(r"C:\Program Files (x86)\World of Warcraft\_retail_\Interface\AddOns\TradeSkillMaster"),
     ]
     pattern = re.compile(r"Hitem:(\d+)[^|]*\|h\[([^\]]+)\]\|h")
@@ -508,6 +521,8 @@ def main() -> int:
     parser.add_argument("--allow-partial", action="store_true")
     parser.add_argument("--workers", type=int, default=6)
     args = parser.parse_args()
+
+    _configure_local_paths()
 
     if _wow_is_running():
         raise SystemExit("WoW.exe is running. Close the game before patching Auctionator/PBS SavedVariables.")

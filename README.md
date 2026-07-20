@@ -52,41 +52,41 @@ python scripts\flipping\apply-tsm-flip-groups.py
 python scripts\flipping\apply-auctionator-sniping-lists.py
 python scripts\flipping\apply-auctionator-sniping-lists.py --skip-web --allow-partial
 .\scripts\wow-addon-profiles.ps1 status
-.\scripts\wow-addon-profiles.ps1 capture -Character Kalteew -Profile play
-.\scripts\wow-addon-profiles.ps1 assign -Character Yayatest -Profile gold
+.\scripts\wow-addon-profiles.ps1 capture -Character CharacterName -Profile play
+.\scripts\wow-addon-profiles.ps1 assign -Character AltName -Profile gold
 .\scripts\wow-addon-profiles.ps1 apply-assigned
-.\scripts\wow-addon-profiles.ps1 apply -Character Yayatest -Profile gold -DryRun
-.\scripts\wow-addon-profiles.ps1 apply -Character Yayatest -Profile flipping -DryRun
+.\scripts\wow-addon-profiles.ps1 apply -Character AltName -Profile gold -DryRun
+.\scripts\wow-addon-profiles.ps1 apply -Character AltName -Profile flipping -DryRun
 ```
 
 Data is stored under:
 
-- [data/wow.sqlite3](C:/Users/Yaya/source/tools/wow-tools/data/wow.sqlite3)
-- [data/cache](C:/Users/Yaya/source/tools/wow-tools/data/cache)
-- [data/calibration/hourly-estimates.json](C:/Users/Yaya/source/tools/wow-tools/data/calibration/hourly-estimates.json)
-- [data/account](C:/Users/Yaya/source/tools/wow-tools/data/account)
-- [data/flipping](C:/Users/Yaya/source/tools/wow-tools/data/flipping)
-- [data/reports](C:/Users/Yaya/source/tools/wow-tools/data/reports)
+- `data/wow.sqlite3`
+- `data/cache`
+- [data/calibration/hourly-estimates.json](data/calibration/hourly-estimates.json)
+- `data/account`
+- [data/flipping](data/flipping)
+- `data/reports`
 
 Key files:
 
-- [wow_tools/cli.py](C:/Users/Yaya/source/tools/wow-tools/wow_tools/cli.py)
-- [wow_tools/farm_model.py](C:/Users/Yaya/source/tools/wow-tools/wow_tools/farm_model.py)
-- [wow_tools/seeds.py](C:/Users/Yaya/source/tools/wow-tools/wow_tools/seeds.py)
-- [wow_tools/sources/wowhead.py](C:/Users/Yaya/source/tools/wow-tools/wow_tools/sources/wowhead.py)
-- [wow_tools/sources/tsm.py](C:/Users/Yaya/source/tools/wow-tools/wow_tools/sources/tsm.py)
-- [wow_tools/local_account.py](C:/Users/Yaya/source/tools/wow-tools/wow_tools/local_account.py)
+- [wow_tools/cli.py](wow_tools/cli.py)
+- [wow_tools/farm_model.py](wow_tools/farm_model.py)
+- [wow_tools/seeds.py](wow_tools/seeds.py)
+- [wow_tools/sources/wowhead.py](wow_tools/sources/wowhead.py)
+- [wow_tools/sources/tsm.py](wow_tools/sources/tsm.py)
+- [wow_tools/local_account.py](wow_tools/local_account.py)
 
 Bundled addons:
 
-- [addons/YayaWeeklyTracker](C:/Users/Yaya/source/tools/wow-tools/addons/YayaWeeklyTracker)
-- [addons/YayaSessionTracker](C:/Users/Yaya/source/tools/wow-tools/addons/YayaSessionTracker)
-- [addons/YayaTSMLiveMinBuyout](C:/Users/Yaya/source/tools/wow-tools/addons/YayaTSMLiveMinBuyout)
-- [addons/YayaCompanionTargeter](C:/Users/Yaya/source/tools/wow-tools/addons/YayaCompanionTargeter)
-- [addons/YayaCovenantWormhole](C:/Users/Yaya/source/tools/wow-tools/addons/YayaCovenantWormhole)
-- [addons/YayaAddonProfiles](C:/Users/Yaya/source/tools/wow-tools/addons/YayaAddonProfiles)
-- [addons/YayaProfessionSpecializations](C:/Users/Yaya/source/tools/wow-tools/addons/YayaProfessionSpecializations)
-- [addons/YayaPremadeAssistant](C:/Users/Yaya/source/tools/wow-tools/addons/YayaPremadeAssistant)
+- [addons/YayaWeeklyTracker](addons/YayaWeeklyTracker)
+- [addons/YayaSessionTracker](addons/YayaSessionTracker)
+- [addons/YayaTSMLiveMinBuyout](addons/YayaTSMLiveMinBuyout)
+- [addons/YayaCompanionTargeter](addons/YayaCompanionTargeter)
+- [addons/YayaCovenantWormhole](addons/YayaCovenantWormhole)
+- [addons/YayaAddonProfiles](addons/YayaAddonProfiles)
+- [addons/YayaProfessionSpecializations](addons/YayaProfessionSpecializations)
+- [addons/YayaPremadeAssistant](addons/YayaPremadeAssistant)
 
 Notes:
 
@@ -112,6 +112,7 @@ Notes:
   - `data/account/account-digest.json`: compact decision-oriented summary
   - `data/account/account-digest.md`: short human-readable recap
 - `local-summary` reads your local WoW `SavedVariables` plus TSM `AppData.lua` to expose alts, gold, and local TSM sync freshness.
+- Local patching scripts auto-detect the most recent account; set `WOW_RETAIL_ROOT` or `WOW_ACCOUNT_ROOT` to override it.
 - `local-items` aggregates observed items across character bags, equipment, auctions, bank, reagent bank, and warband bank if those sections were scanned in-game.
 - `local-items --all --json` dumps the full observed account inventory snapshot across all scanned characters and warband storage.
 - `local-prices` reads the local TSM AppHelper datasets directly from `Interface\AddOns\TradeSkillMaster_AppHelper\AppData.lua`.
@@ -125,7 +126,7 @@ Notes:
 - `YayaAddonProfiles` manages addon profiles including `Jouer`, `Gold`, and `Flipping`, with per-character assignments and quick capture/apply commands.
 - `YayaPremadeAssistant` automatically invites solo premade applicants by name and accepts invitations from groups you applied to; grouped applicants use a manual button.
 - `scripts/wow-addon-profiles.ps1` writes Blizzard `WTF/.../AddOns.txt` per character, so a low profile is active before first login.
-- On Windows you can also launch [wow_tools_gui.pyw](C:/Users/Yaya/source/tools/wow-tools/wow_tools_gui.pyw) directly to open the GUI without using the CLI.
+- On Windows you can also launch [wow_tools_gui.pyw](wow_tools_gui.pyw) directly to open the GUI without using the CLI.
 
 ## Bootstrap complet sous Windows
 
@@ -135,15 +136,15 @@ Copier ce prompt dans Codex pour reconstruire l'environnement `wow-tools`, les s
 Configure entièrement mon environnement WoW sous Windows. Exécute les actions, ne te contente pas de les expliquer.
 
 Chemins :
-- dépôt : C:\Users\Yaya\source\tools\wow-tools
-- skills Codex : C:\Users\Yaya\.codex\skills
+- dépôt : %USERPROFILE%\source\tools\wow-tools
+- skills Codex : %USERPROFILE%\.codex\skills
 - addons Retail : C:\Program Files (x86)\World of Warcraft\_retail_\Interface\AddOns
 
 Actions :
 
 1. Vérifie Git, Python, Node.js et PowerShell. Installe uniquement les prérequis manquants.
 
-2. Crée C:\Users\Yaya\source\tools si nécessaire, puis clone :
+2. Crée %USERPROFILE%\source\tools si nécessaire, puis clone :
    https://github.com/Kalteew/wow-tools.git
 
    Si le dépôt existe déjà, préserve les modifications locales et fais seulement une mise à jour fast-forward sûre.
