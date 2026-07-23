@@ -59,6 +59,12 @@ local REQUEST_TIMEOUT = 12
 local REQUEST_SETTLE_DELAY = 0.25
 local REQUEST_READINESS_RETRY_DELAY = 0.15
 local REQUEST_READINESS_RETRY_LIMIT = 20
+Pane.retryConfig = {
+	requestFailureDelay = 0.5,
+	requestFailureLimit = 3,
+	orderTypeDelay = 0.15,
+	orderTypeLimit = 20,
+}
 local ITEM_DATA_REFRESH_DELAY = 0.75
 local INITIALIZE_RETRY_DELAY = 0.1
 local DONT_BUY_OVERLAY_TEXTURE = "Interface\\RaidFrame\\ReadyCheck-NotReady"
@@ -4264,6 +4270,7 @@ function Pane:BuildFrame()
 	self.noOrders:Hide()
 
 	root:SetScript("OnShow", function()
+		ns.Debug("ui", "custom pane OnShow")
 		Pane:ApplyReferenceLayout()
 		Pane:ApplyLeftFilterButtonVisuals()
 		C_Timer.After(0, function()
@@ -4342,6 +4349,54 @@ function Pane:GetCurrentProfessionID()
 	end
 
 	return nil
+end
+
+function Pane:DebugState(reason)
+	local ordersPage = ProfessionsFrame and ProfessionsFrame.OrdersPage
+	local profession = self:GetCurrentProfessionID()
+	local nearFocus = false
+	if profession
+		and type(C_TradeSkillUI) == "table"
+		and type(C_TradeSkillUI.IsNearProfessionSpellFocus) == "function" then
+		local ok, result = pcall(C_TradeSkillUI.IsNearProfessionSpellFocus, profession)
+		nearFocus = ok and not not result
+	end
+
+	local rawCount = -1
+	if type(C_CraftingOrders) == "table" and type(C_CraftingOrders.GetCrafterOrders) == "function" then
+		local ok, rawOrders = pcall(C_CraftingOrders.GetCrafterOrders)
+		if ok and type(rawOrders) == "table" then
+			rawCount = #rawOrders
+		end
+	end
+
+	ns.Debug(
+		"state",
+		"reason=%s init=%s ready=%s pageShown=%s rootShown=%s rootVisible=%s type=%s profession=%s focus=%s session=%s request=%s id=%s requestProfession=%s requestSession=%s needs=%s/%s/%s retry=%s/%s pending=%s raw=%s prepared=%s visible=%s",
+		tostring(reason),
+		tostring(self.initialized == true),
+		tostring(ns.IsProfessionsReady()),
+		tostring(ordersPage and ordersPage:IsShown() or false),
+		tostring(self.root and self.root:IsShown() or false),
+		tostring(self.root and self.root:IsVisible() or false),
+		tostring(self:GetCurrentOrderType()),
+		tostring(profession),
+		tostring(nearFocus),
+		tostring(self.visibleSessionId),
+		tostring(self.requesting == true),
+		tostring(self.activeRequestID),
+		tostring(self.activeRequestProfession),
+		tostring(self.activeRequestSessionId),
+		tostring(self.needsRequest == true),
+		tostring(self.needsRebuild == true),
+		tostring(self.needsRender == true),
+		tostring(self.requestReadinessRetryCount or 0),
+		tostring(self.requestFailureRetryCount or 0),
+		tostring(self.pendingReason),
+		tostring(rawCount),
+		tostring(#(self.allOrders or EMPTY_LIST)),
+		tostring(#(self.orders or EMPTY_LIST))
+	)
 end
 
 function Pane:RepositionOrderActionButtons()
@@ -5049,8 +5104,10 @@ function Pane:BeginVisibleSession()
 	self.autoQueuedOrderIDsBySession = {}
 	self.requestSettleUntil = nil
 	self.requestReadinessRetryCount = 0
+	self.requestFailureRetryCount = 0
 	self:SetVisibleProfession(self:GetCurrentProfessionID())
 	self:GetCurrentProfessionSelection()
+	self:DebugState("visible-session")
 end
 
 function Pane:BumpPreparedOrderGeneration()
@@ -5087,11 +5144,20 @@ end
 
 function Pane:ScheduleRequestReadinessRetry(reason)
 	if (self.requestReadinessRetryCount or 0) >= REQUEST_READINESS_RETRY_LIMIT then
+		ns.Debug("request", "readiness retries exhausted reason=%s", tostring(reason))
+		self:DebugState("readiness-exhausted")
 		self:UpdateEmptyState()
 		return false
 	end
 
 	self.requestReadinessRetryCount = (self.requestReadinessRetryCount or 0) + 1
+	ns.Debug(
+		"request",
+		"readiness retry=%s/%s reason=%s",
+		tostring(self.requestReadinessRetryCount),
+		tostring(REQUEST_READINESS_RETRY_LIMIT),
+		tostring(reason)
+	)
 	self:SchedulePendingRefresh(reason or "show", REQUEST_READINESS_RETRY_DELAY)
 	self:UpdateEmptyState()
 	return true
@@ -5212,6 +5278,13 @@ function Pane:StartRequestTimeout(requestID)
 
 		local timedOutProfession = Pane.activeRequestProfession
 		local timedOutSessionId = Pane.activeRequestSessionId
+		ns.Debug(
+			"request",
+			"timeout id=%s profession=%s session=%s",
+			tostring(requestID),
+			tostring(timedOutProfession),
+			tostring(timedOutSessionId)
+		)
 		local professionMatches = timedOutProfession ~= nil
 			and timedOutProfession == Pane:GetCurrentProfessionID()
 		if timedOutProfession and timedOutSessionId then
@@ -5238,6 +5311,14 @@ function Pane:RequestOrders(reason, profession)
 	self.activeRequestProfession = profession
 	self.activeRequestSessionId = requestSessionId
 	self.activeRequestReason = reason
+	ns.Debug(
+		"request",
+		"start id=%s reason=%s profession=%s session=%s",
+		tostring(requestID),
+		tostring(reason),
+		tostring(profession),
+		tostring(requestSessionId)
+	)
 	self:UpdateEmptyState()
 	self.lastRequestAt = now
 	self:StartRequestTimeout(requestID)
@@ -5254,6 +5335,19 @@ function Pane:RequestOrders(reason, profession)
 			local currentProfession = self:GetCurrentProfessionID()
 			local isActiveRequest = self.activeRequestID == requestID
 			local isCurrentSession = requestSessionId == self.visibleSessionId
+			local rawCount = #(C_CraftingOrders.GetCrafterOrders() or EMPTY_LIST)
+			ns.Debug(
+				"request",
+				"callback id=%s result=%s type=%s currentProfession=%s active=%s currentSession=%s rootShown=%s raw=%s",
+				tostring(requestID),
+				tostring(result),
+				tostring(orderType),
+				tostring(currentProfession),
+				tostring(isActiveRequest),
+				tostring(isCurrentSession),
+				tostring(self.root and self.root:IsShown() or false),
+				tostring(rawCount)
+			)
 			if isActiveRequest then
 				self:ClearRequestState(requestID)
 			end
@@ -5263,6 +5357,7 @@ function Pane:RequestOrders(reason, profession)
 				and profession == currentProfession
 				and self.root
 				and self.root:IsShown() then
+				self.requestFailureRetryCount = 0
 				if isCurrentSession then
 					self.lastSuccessfulRequest = {
 						visibleSessionId = requestSessionId,
@@ -5275,6 +5370,27 @@ function Pane:RequestOrders(reason, profession)
 
 				self.requestSettleUntil = GetTime() + REQUEST_SETTLE_DELAY
 				self:MarkDirty("request-success")
+			elseif result ~= 0
+				and isActiveRequest
+				and isCurrentSession
+				and profession == currentProfession
+				and self.root
+				and self.root:IsShown() then
+				self.requestFailureRetryCount = (self.requestFailureRetryCount or 0) + 1
+				if self.requestFailureRetryCount <= Pane.retryConfig.requestFailureLimit then
+					self.needsRequest = true
+					ns.Debug(
+						"request",
+						"retry after failure=%s/%s result=%s",
+						tostring(self.requestFailureRetryCount),
+						tostring(Pane.retryConfig.requestFailureLimit),
+						tostring(result)
+					)
+					self:SchedulePendingRefresh("request-failed", Pane.retryConfig.requestFailureDelay)
+				else
+					ns.Debug("request", "failure retries exhausted result=%s", tostring(result))
+					self:DebugState("request-failure-exhausted")
+				end
 			end
 		end,
 	})
@@ -5288,8 +5404,15 @@ function Pane:MaybeRequestOrders(reason)
 	local profession = self:GetCurrentProfessionID()
 	if self.requesting then
 		if self.activeRequestProfession == profession then
+			ns.Debug("request", "skip active request profession=%s", tostring(profession))
 			self.needsRequest = false
 		else
+			ns.Debug(
+				"request",
+				"clear stale request activeProfession=%s currentProfession=%s",
+				tostring(self.activeRequestProfession),
+				tostring(profession)
+			)
 			self:ClearRequestState()
 		end
 		return false
@@ -5297,12 +5420,14 @@ function Pane:MaybeRequestOrders(reason)
 
 	local now = GetTime()
 	if self.lastRequestAt and (now - self.lastRequestAt) < REQUEST_COOLDOWN then
+		ns.Debug("request", "cooldown profession=%s", tostring(profession))
 		self:SchedulePendingRefresh(reason or "request-cooldown", (self.lastRequestAt + REQUEST_COOLDOWN) - now)
 		self:UpdateEmptyState()
 		return false
 	end
 
 	if not profession then
+		ns.Debug("request", "profession unavailable")
 		self:ScheduleRequestReadinessRetry(reason)
 		return false
 	end
@@ -5310,6 +5435,7 @@ function Pane:MaybeRequestOrders(reason)
 	if type(C_TradeSkillUI) ~= "table"
 		or type(C_TradeSkillUI.IsNearProfessionSpellFocus) ~= "function"
 		or not C_TradeSkillUI.IsNearProfessionSpellFocus(profession) then
+		ns.Debug("request", "profession focus unavailable profession=%s", tostring(profession))
 		self:ScheduleRequestReadinessRetry(reason)
 		return false
 	end
@@ -5387,6 +5513,15 @@ function Pane:RebuildPreparedOrders()
 	self.hasUnresolvedItemData = hasUnresolvedItemData
 	self.unresolvedItemIDs = unresolvedItemIDs
 	self:PruneSelectedOrders()
+	ns.Debug(
+		"rebuild",
+		"profession=%s raw=%s prepared=%s visible=%s unresolved=%s",
+		tostring(currentProfession),
+		tostring(#rawOrders),
+		tostring(#preparedOrders),
+		tostring(#(self.orders or EMPTY_LIST)),
+		tostring(hasUnresolvedItemData)
+	)
 	return true
 end
 
@@ -5543,15 +5678,48 @@ end
 
 function Pane:SyncCurrentOrderType(reason)
 	local orderType = self:GetCurrentOrderType()
+	ns.Debug("ui", "sync order type reason=%s type=%s", tostring(reason), tostring(orderType))
 	if orderType == nil then
+		self:ScheduleOrderTypeSyncRetry(reason)
 		return
 	end
 
+	self.orderTypeSyncRetryCount = 0
 	local showCustomPane = orderType == ns.ORDER_TYPE_NPC
 	self:SetCustomPaneShown(showCustomPane)
 	if showCustomPane then
 		self:MarkDirty(reason or "order-type")
 	end
+end
+
+function Pane:ScheduleOrderTypeSyncRetry(reason)
+	local ordersPage = ProfessionsFrame and ProfessionsFrame.OrdersPage
+	if self.orderTypeSyncRetryQueued or not (ordersPage and ordersPage:IsShown()) then
+		return false
+	end
+	if (self.orderTypeSyncRetryCount or 0) >= Pane.retryConfig.orderTypeLimit then
+		ns.Debug("ui", "order type retries exhausted reason=%s", tostring(reason))
+		self:DebugState("order-type-exhausted")
+		return false
+	end
+
+	self.orderTypeSyncRetryCount = (self.orderTypeSyncRetryCount or 0) + 1
+	self.orderTypeSyncRetryQueued = true
+	ns.Debug(
+		"ui",
+		"order type retry=%s/%s reason=%s",
+		tostring(self.orderTypeSyncRetryCount),
+		tostring(Pane.retryConfig.orderTypeLimit),
+		tostring(reason)
+	)
+	C_Timer.After(Pane.retryConfig.orderTypeDelay, function()
+		if not Pane then
+			return
+		end
+		Pane.orderTypeSyncRetryQueued = nil
+		Pane:SyncCurrentOrderType(reason or "order-type-retry")
+	end)
+	return true
 end
 
 function Pane:InitializeHooks()
@@ -5563,6 +5731,8 @@ function Pane:InitializeHooks()
 	if type(ordersPage.SetCraftingOrderType) == "function" and not self.orderTypeHooked then
 		self.orderTypeHooked = true
 		hooksecurefunc(ordersPage, "SetCraftingOrderType", function(_, orderType)
+			ns.Debug("ui", "SetCraftingOrderType type=%s", tostring(orderType))
+			Pane.orderTypeSyncRetryCount = 0
 			local showCustomPane = orderType == ns.ORDER_TYPE_NPC
 			Pane:SetCustomPaneShown(showCustomPane)
 			if showCustomPane then
@@ -5574,9 +5744,11 @@ function Pane:InitializeHooks()
 	if not self.ordersPageShowHooked then
 		self.ordersPageShowHooked = true
 		ordersPage:HookScript("OnShow", function()
+			ns.Debug("ui", "orders page OnShow")
 			Pane:SyncCurrentOrderType("show")
 			C_Timer.After(0, function()
 				if Pane then
+					Pane:SyncCurrentOrderType("show-deferred")
 					Pane:RepositionOrderActionButtons()
 					Pane:UpdateNextOrderButton()
 				end
@@ -5629,12 +5801,14 @@ function Pane:InitializeEvents()
 
 	self.eventsInitialized = true
 	ns.RegisterEvent("CRAFTINGORDERS_UPDATE_ORDER_COUNT", function(_, orderType)
+		ns.Debug("event", "CRAFTINGORDERS_UPDATE_ORDER_COUNT type=%s", tostring(orderType))
 		if orderType == ns.ORDER_TYPE_NPC then
 			Pane:MarkDirty("order-count")
 		end
 	end)
 
 	ns.RegisterEvent("CRAFTINGORDERS_CAN_REQUEST", function()
+		ns.Debug("event", "CRAFTINGORDERS_CAN_REQUEST")
 		Pane:MarkDirty("can-request")
 	end)
 
@@ -5654,6 +5828,7 @@ function Pane:InitializeEvents()
 	end)
 
 	ns.RegisterEvent("TRADE_SKILL_DATA_SOURCE_CHANGED", function()
+		ns.Debug("event", "TRADE_SKILL_DATA_SOURCE_CHANGED profession=%s", tostring(Pane:GetCurrentProfessionID()))
 		Pane:MarkDirty("trade-skill-source")
 		Pane:MarkDetailWarningDirty()
 	end)

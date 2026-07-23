@@ -82,6 +82,7 @@ Bundled addons:
 - [addons/YayaWeeklyTracker](addons/YayaWeeklyTracker)
 - [addons/YayaSessionTracker](addons/YayaSessionTracker)
 - [addons/YayaTSMLiveMinBuyout](addons/YayaTSMLiveMinBuyout)
+- [addons/YayaTSMMailingFix](addons/YayaTSMMailingFix)
 - [addons/YayaCompanionTargeter](addons/YayaCompanionTargeter)
 - [addons/YayaCovenantWormhole](addons/YayaCovenantWormhole)
 - [addons/YayaAddonProfiles](addons/YayaAddonProfiles)
@@ -121,6 +122,7 @@ Notes:
 - `scripts/flipping/apply-tsm-flip-groups.py` backs up and patches TSM flip groups/operations only when WoW is closed.
 - `scripts/flipping/apply-auctionator-sniping-lists.py` builds matching Auctionator/PBS sniping files, always writes complete TSM import files, installs only fully named Auctionator lists, and backs up Auctionator/PBS SavedVariables.
 - `YayaTSMLiveMinBuyout` overlays TSM `DBMinBuyout` with live AH search prices for the current session.
+- `YayaTSMMailingFix` refreshes TSM bag tracking before group mailing and uses the live bag-slot lock state so items are not silently skipped.
 - `YayaCompanionTargeter` auto-targets known Shadowlands companion XP items to the lowest-level eligible companion, with an optional tracked-only shortlist mode.
 - `YayaCovenantWormhole` auto-selects the Shadowlands wormhole destination that matches the active covenant, unless `Shift` is held.
 - `YayaAddonProfiles` manages addon profiles including `Jouer`, `Gold`, and `Flipping`, with per-character assignments and quick capture/apply commands.

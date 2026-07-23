@@ -548,6 +548,13 @@ local function GetItemDetails(itemRef)
     return name, quality, sellPrice or 0, bindType
 end
 
+local function IsWarboundUntilEquipped(itemRef)
+    return itemRef
+        and C_Item
+        and C_Item.IsItemBindToAccountUntilEquip
+        and C_Item.IsItemBindToAccountUntilEquip(itemRef) == true
+end
+
 local function GetUnitPrice(entry, priceSource)
     local itemQuality = entry.itemQuality
     local sellPrice = entry.vendorSellPrice
@@ -1154,7 +1161,7 @@ local function RecordIgnoredGold(delta, isIncome)
 end
 
 local function RecordItemGain(itemString, itemLink, quantity)
-    if not activeSession or not itemString or quantity <= 0 then
+    if not activeSession or not itemString or quantity <= 0 or IsWarboundUntilEquipped(itemLink) then
         return
     end
 

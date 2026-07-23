@@ -636,6 +636,7 @@ local DEFAULT_POSITION = {
 local EMPTY_TABLE = {}
 local TRACKER_DEFAULTS = {
     debugEnabled = true,
+    hideInCombat = false,
     refreshDelaySeconds = 0.20,
     questStateCacheTTLSeconds = 5,
     questRewardCacheTTLSeconds = 30,
@@ -710,6 +711,9 @@ end
 
 local function GetAccountDB()
     YayaWeeklyTrackerAccountDB = YayaWeeklyTrackerAccountDB or {}
+    if YayaWeeklyTrackerAccountDB.hideInCombat == nil then
+        YayaWeeklyTrackerAccountDB.hideInCombat = TRACKER_DEFAULTS.hideInCombat
+    end
     return YayaWeeklyTrackerAccountDB
 end
 
@@ -1718,7 +1722,7 @@ local function FindArtisanConsortiumPayoutInBags()
     end
 
     local maxBagIndex = math.max(NUM_TOTAL_EQUIPPED_BAG_SLOTS or 0, NUM_BAG_SLOTS or 0, 5)
-    local firstMatch
+    local matches = {}
     local totalCount = 0
 
     for bagID = 0, maxBagIndex do
@@ -1727,31 +1731,58 @@ local function FindArtisanConsortiumPayoutInBags()
             local itemID = GetContainerItemIDCompat(bagID, slotIndex)
             if itemID and ARTISAN_CONSORTIUM_PAYOUT_ITEM_IDS[itemID] then
                 totalCount = totalCount + math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
-                if not firstMatch then
-                    firstMatch = {
-                        bagID = bagID,
-                        itemID = itemID,
-                        itemLink = GetContainerItemLinkCompat(bagID, slotIndex),
-                        itemName = GetItemInfo and GetItemInfo(itemID) or nil,
-                        slotIndex = slotIndex,
-                    }
-                end
+                matches[#matches + 1] = {
+                    bagID = bagID,
+                    itemID = itemID,
+                    itemLink = GetContainerItemLinkCompat(bagID, slotIndex),
+                    itemName = GetItemInfo and GetItemInfo(itemID) or nil,
+                    slotIndex = slotIndex,
+                    targetKey = tostring(bagID) .. ":" .. tostring(slotIndex),
+                }
             end
+        end
+    end
+
+    runtimeState.attemptedPayoutTargetKeys = runtimeState.attemptedPayoutTargetKeys or {}
+    local startIndex = 1
+    for index, match in ipairs(matches) do
+        if match.targetKey == runtimeState.lastPayoutTargetKey then
+            startIndex = (index % #matches) + 1
+            break
+        end
+    end
+
+    local selectedMatch
+    for offset = 0, #matches - 1 do
+        local match = matches[((startIndex + offset - 1) % #matches) + 1]
+        if not runtimeState.attemptedPayoutTargetKeys[match.targetKey] then
+            selectedMatch = match
+            break
         end
     end
 
     local result = {
         totalCount = totalCount,
-        bagID = firstMatch and firstMatch.bagID or nil,
-        itemID = firstMatch and firstMatch.itemID or nil,
-        itemLink = firstMatch and firstMatch.itemLink or nil,
-        itemName = firstMatch and firstMatch.itemName or nil,
-        slotIndex = firstMatch and firstMatch.slotIndex or nil,
+        bagID = selectedMatch and selectedMatch.bagID or nil,
+        itemID = selectedMatch and selectedMatch.itemID or nil,
+        itemLink = selectedMatch and selectedMatch.itemLink or nil,
+        itemName = selectedMatch and selectedMatch.itemName or nil,
+        slotIndex = selectedMatch and selectedMatch.slotIndex or nil,
+        targetKey = selectedMatch and selectedMatch.targetKey or nil,
     }
-    local debugSignature = ("%d:%s"):format(result.totalCount or 0, tostring(result.itemID or "none"))
+    local debugSignature = ("%d:%s:%s"):format(
+        result.totalCount or 0,
+        tostring(result.itemID or "none"),
+        tostring(result.targetKey or "none")
+    )
     if debugSignature ~= debugSignatures.payout then
         debugSignatures.payout = debugSignature
-        DebugLog("Payout items = count:%d first:%s", result.totalCount or 0, tostring(result.itemID or "none"))
+        DebugLog(
+            "Payout items = count:%d selected:%s target:%s",
+            result.totalCount or 0,
+            tostring(result.itemID or "none"),
+            tostring(result.targetKey or "none")
+        )
     end
 
     midnightCaches.payout = result
@@ -1865,24 +1896,33 @@ trackerUI.UpdateArtisanConsortiumPayoutButton = function(state)
 
     if state and state.itemID then
         button:SetText(("Ouvrir payout x%d"):format(state.totalCount or 1))
+        button.bagID = state.bagID
+        button.slotIndex = state.slotIndex
+        button.payoutTargetKey = state.targetKey
         button.itemID = state.itemID
         button.itemLink = state.itemLink
         button.itemName = state.itemName
         if not (InCombatLockdown and InCombatLockdown()) then
-            local itemTarget = state.itemName or state.itemLink or ("item:" .. tostring(state.itemID or 0))
             button:SetAttribute("type", "item")
-            button:SetAttribute("item", itemTarget)
+            button:SetAttribute("item", "item:" .. tostring(state.itemID))
+            button:SetAttribute("bag", nil)
+            button:SetAttribute("slot", nil)
         end
         button:Show()
         return true
     end
 
+    button.bagID = nil
+    button.slotIndex = nil
+    button.payoutTargetKey = nil
     button.itemID = nil
     button.itemLink = nil
     button.itemName = nil
     if not (InCombatLockdown and InCombatLockdown()) then
         button:SetAttribute("type", nil)
         button:SetAttribute("item", nil)
+        button:SetAttribute("bag", nil)
+        button:SetAttribute("slot", nil)
     end
     button:Hide()
     return false
@@ -2205,6 +2245,7 @@ trackerUI.AddMidnightProfessionEntries = function(entries, trackedRows)
                     row.config.label,
                     warningText and (" " .. warningText) or ""
                 ),
+                satisfied = not warningText,
             })
         end
     end
@@ -3460,6 +3501,70 @@ trackerUI.ResetPosition = function()
     trackerUI.ApplyPosition()
 end
 
+trackerUI.ApplyCombatVisibility = function()
+    local visibilityFrame = runtimeState.combatVisibilityFrame
+    if not visibilityFrame then
+        return
+    end
+
+    if InCombatLockdown and InCombatLockdown() then
+        runtimeState.combatVisibilityUpdateDeferred = true
+        return
+    end
+
+    runtimeState.combatVisibilityUpdateDeferred = false
+    if GetAccountDB().hideInCombat then
+        RegisterStateDriver(visibilityFrame, "visibility", "[combat] hide; show")
+    else
+        UnregisterStateDriver(visibilityFrame, "visibility")
+        visibilityFrame:Show()
+    end
+end
+
+trackerUI.RegisterOptions = function()
+    if runtimeState.optionsPanel then
+        return
+    end
+
+    local panel = CreateFrame("Frame")
+    panel.name = "Yaya Weekly Tracker"
+
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText(panel.name)
+
+    local description = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+    description:SetText("Options account-wide du tracker.")
+
+    local checkbox = CreateFrame("CheckButton", addonName .. "HideInCombatCheckbox", panel, "UICheckButtonTemplate")
+    checkbox:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -16)
+    local checkboxLabel = checkbox.Text or checkbox.text
+    if not checkboxLabel then
+        checkboxLabel = checkbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        checkboxLabel:SetPoint("LEFT", checkbox, "RIGHT", 2, 1)
+        checkbox.Text = checkboxLabel
+    end
+    checkboxLabel:SetText("Cacher integralement la frame en combat")
+    checkbox:SetScript("OnClick", function(self)
+        GetAccountDB().hideInCombat = self:GetChecked() and true or false
+        trackerUI.ApplyCombatVisibility()
+    end)
+
+    panel:SetScript("OnShow", function()
+        checkbox:SetChecked(GetAccountDB().hideInCombat)
+    end)
+
+    if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
+        runtimeState.optionsCategory = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
+        Settings.RegisterAddOnCategory(runtimeState.optionsCategory)
+    elseif InterfaceOptions_AddCategory then
+        InterfaceOptions_AddCategory(panel)
+    end
+
+    runtimeState.optionsPanel = panel
+end
+
 runtimeState.ensureVisibleDefaultPosition = function()
     if not trackerFrame or not trackerFrame.GetCenter then
         return
@@ -3531,8 +3636,15 @@ UpdateTracker = function()
             debugSignatures.tracker = trackerDebugSignature
             DebugLog("UpdateTracker entries=%d kpButton=%s payoutButton=%s surplusButtons=%d enchWeeklyButton=%s treasureButton=%s", #entries, tostring(hasKnowledgeButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasEnchantingWeeklyButton), tostring(hasTreasureButton))
         end
-        if #entries == 0 and not hasKnowledgeButton and not hasPayoutButton and surplusButtonCount == 0 and not hasEnchantingWeeklyButton and not hasTreasureButton then
-            DebugLog("UpdateTracker hide frame: no entries and no buttons")
+        local hasUsefulEntry = false
+        for _, entry in ipairs(entries) do
+            if not entry.satisfied then
+                hasUsefulEntry = true
+                break
+            end
+        end
+        if not hasUsefulEntry and not hasKnowledgeButton and not hasPayoutButton and surplusButtonCount == 0 and not hasEnchantingWeeklyButton and not hasTreasureButton then
+            DebugLog("UpdateTracker hide frame: all professions complete and no other actions")
             trackerFrame:Hide()
             return
         end
@@ -3636,7 +3748,14 @@ UpdateTracker = function()
 end
 
 trackerUI.CreateTrackerFrame = function()
-    trackerFrame = CreateFrame("Frame", addonName .. "Frame", UIParent)
+    runtimeState.combatVisibilityFrame = CreateFrame(
+        "Frame",
+        addonName .. "CombatVisibilityFrame",
+        UIParent,
+        "SecureHandlerStateTemplate"
+    )
+    runtimeState.combatVisibilityFrame:Show()
+    trackerFrame = CreateFrame("Frame", addonName .. "Frame", runtimeState.combatVisibilityFrame)
     DebugLog("CreateTrackerFrame %s", tostring(addonName .. "Frame"))
     trackerFrame:SetFrameStrata("MEDIUM")
     trackerFrame:SetSize(190, 24)
@@ -3690,11 +3809,30 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.payoutButton = CreateFrame("Button", addonName .. "PayoutButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
     trackerFrame.payoutButton:SetSize(178, 20)
     trackerFrame.payoutButton:RegisterForClicks("AnyUp", "AnyDown")
+    trackerFrame.payoutButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.payoutButton:SetText("Ouvrir payout")
     trackerFrame.payoutButton:Hide()
+    trackerFrame.payoutButton:HookScript("PostClick", function(self, _, down)
+        if down then
+            return
+        end
+
+        if InCombatLockdown and InCombatLockdown() then
+            runtimeState.trackerRefreshDeferredByCombat = true
+            return
+        end
+
+        runtimeState.lastPayoutTargetKey = self.payoutTargetKey
+        runtimeState.attemptedPayoutTargetKeys = runtimeState.attemptedPayoutTargetKeys or {}
+        if self.payoutTargetKey then
+            runtimeState.attemptedPayoutTargetKeys[self.payoutTargetKey] = true
+        end
+        InvalidateArtisanConsortiumPayoutCache()
+        trackerUI.UpdateArtisanConsortiumPayoutButton(FindArtisanConsortiumPayoutInBags())
+    end)
     trackerFrame.payoutButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Ouvre le prochain Artisan's Consortium Payout trouve dans les sacs.")
+        GameTooltip:SetText("Ouvre un Artisan's Consortium Payout different du clic precedent si possible.")
         if self.itemLink then
             GameTooltip:AddLine(self.itemLink, 0.5, 0.8, 1, true)
         end
@@ -3783,6 +3921,7 @@ trackerUI.CreateTrackerFrame = function()
     end
 
     trackerUI.ApplyPosition()
+    trackerUI.ApplyCombatVisibility()
     DebugLog("CreateTrackerFrame done")
 end
 
@@ -3814,6 +3953,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
     if event == "PLAYER_LOGIN" then
         MigrateLegacyPosition()
         trackerUI.CreateTrackerFrame()
+        trackerUI.RegisterOptions()
         HookCacheItemUse()
 
         SLASH_YAYAWEEKLYTRACKER1 = "/ywt"
@@ -3879,6 +4019,8 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         QueuePendingNzothCache(questID)
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "BAG_UPDATE_DELAYED" then
+        runtimeState.attemptedPayoutTargetKeys = runtimeState.attemptedPayoutTargetKeys or {}
+        wipe(runtimeState.attemptedPayoutTargetKeys)
         InvalidateMidnightKnowledgeConsumableCache()
         InvalidateArtisanConsortiumPayoutCache()
         trackerUI.InvalidateSurplusReagentContainerCache()
@@ -3901,6 +4043,9 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         or event == "COVENANT_SANCTUM_RENOWN_LEVEL_CHANGED" then
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "PLAYER_REGEN_ENABLED" then
+        if runtimeState.combatVisibilityUpdateDeferred then
+            trackerUI.ApplyCombatVisibility()
+        end
         if runtimeState.trackerRefreshDeferredByCombat then
             runtimeState.trackerRefreshDeferredByCombat = false
             ScheduleTrackerRefresh(0, false)

@@ -6,7 +6,7 @@ local db
 local MAX_QUEUE_QTY = 9999
 local MAX_CRAFT_LINES = 8
 local MAX_AH_LINES = 10
-local MAX_VENDOR_BUTTONS = 3
+local MAX_VENDOR_BUTTONS = 1
 local CRAFT_PANEL_EXPANDED_HEIGHT = 340
 local CRAFT_PANEL_COLLAPSED_HEIGHT = 88
 local FIRST_CRAFT_COST_LIMIT = 1000 * 10000
@@ -2265,21 +2265,27 @@ local function RunPatronNextAction()
             return
         end
 
-        BeginCraftClickLock()
         local reagentInfo = NormalizeCraftingReagents(stateInfo.entry.craftingReagents)
         if #reagentInfo == 0 then
             reagentInfo = transaction:CreateCraftingReagentInfoTbl()
         end
         local applyConcentration = NormalizeApplyConcentration(stateInfo.entry.applyConcentration)
         local craftAmount = math.max(1, math.floor(tonumber(stateInfo.craftAmount) or 1))
+        local vellumLocation
         if recipeInfo and recipeInfo.isEnchantingRecipe and type(C_TradeSkillUI.CraftEnchant) == "function" then
-            local vellumLocation = GetItemLocationFromItemID(38682)
+            vellumLocation = GetItemLocationFromItemID(38682)
             if not vellumLocation then
                 state.ah.statusMessage = "Vellin manquant"
-                EndCraftClickLock()
                 ScheduleRefresh()
                 return
             end
+        end
+
+        -- Keep one batch active until its final confirmed craft, like TSM's
+        -- Craft Next state. This is the durable guard against rapid repeat clicks.
+        BeginNextActionLock("craft", 0, 30.0)
+        BeginCraftClickLock()
+        if recipeInfo and recipeInfo.isEnchantingRecipe and type(C_TradeSkillUI.CraftEnchant) == "function" then
             QueuePendingCraftEntry(stateInfo.entry, craftAmount)
             C_TradeSkillUI.CraftEnchant(stateInfo.entry.recipeID, craftAmount, reagentInfo, vellumLocation, applyConcentration)
         else
@@ -2481,9 +2487,7 @@ end
 local function BuyVendorTask(itemID, quantity)
     local merchantIndex = state.merchantIndexByItemID[itemID]
     if not merchantIndex then
-        state.ah.statusMessage = "Marchand incompatible"
-        ScheduleRefresh()
-        return
+        return nil, "Marchand incompatible"
     end
 
     local _, _, _, stackSize, numAvailable = GetMerchantItemInfoCompat(merchantIndex)
@@ -2494,23 +2498,43 @@ local function BuyVendorTask(itemID, quantity)
         purchaseCount = math.min(purchaseCount, numAvailable)
     end
     if purchaseCount <= 0 then
-        state.ah.statusMessage = "Rupture de stock"
-        ScheduleRefresh()
-        return
+        return nil, "Rupture de stock"
     end
 
     local totalQuantity = purchaseCount * stackSize
     BuyMerchantQuantity(merchantIndex, totalQuantity)
-    state.ah.statusMessage = "Achete " .. totalQuantity .. "x " .. GetItemName(itemID)
+    return totalQuantity
+end
+
+local function BuyVendorTasks(tasks)
+    local purchasedTypes = 0
+    local purchasedQuantity = 0
+    local lastError
+
+    for _, task in ipairs(tasks or {}) do
+        local quantity, err = BuyVendorTask(task.itemID, task.missing)
+        if quantity then
+            purchasedTypes = purchasedTypes + 1
+            purchasedQuantity = purchasedQuantity + quantity
+        elseif err then
+            lastError = err
+        end
+    end
+
+    if purchasedTypes > 0 then
+        state.ah.statusMessage = "Achats demandes: " .. purchasedQuantity .. " objets (" .. purchasedTypes .. " composants)"
+    else
+        state.ah.statusMessage = lastError or "Aucun achat marchand"
+    end
     ScheduleRefresh()
 end
 
-local function QueueRecipeContext(context, qtyBox)
+local function QueueRecipeContext(context, qtyBox, quantityOverride)
     if not context then
         return nil
     end
 
-    local quantity = GetQuantityInput(qtyBox)
+    local quantity = quantityOverride and ClampQuantity(quantityOverride) or GetQuantityInput(qtyBox)
     context.professionID = tonumber(context.professionID) or GetCurrentProfessionID()
     context.applyConcentration = NormalizeApplyConcentration(context.applyConcentration)
     context.mode = "crafts"
@@ -2518,6 +2542,123 @@ local function QueueRecipeContext(context, qtyBox)
     state.ah.statusMessage = "Ajoute " .. quantity .. "x " .. context.recipeName
     ScheduleRefresh()
     return quantity
+end
+
+local function BuildCompleteRecipeReagents(schematic, craftingReagents, recipeInfo)
+    local selectedBySlot = {}
+    for _, reagentInfo in ipairs(craftingReagents or {}) do
+        local dataSlotIndex = tonumber(reagentInfo and reagentInfo.dataSlotIndex)
+        if dataSlotIndex then
+            selectedBySlot[dataSlotIndex] = selectedBySlot[dataSlotIndex] or {}
+            selectedBySlot[dataSlotIndex][#selectedBySlot[dataSlotIndex] + 1] = reagentInfo
+        end
+    end
+
+    local quantityByItemID = {}
+    local consumedSlots = {}
+    local function AddItem(itemID, quantity)
+        itemID = tonumber(itemID)
+        quantity = math.max(0, tonumber(quantity) or 0)
+        if itemID and itemID > 0 and quantity > 0 then
+            quantityByItemID[itemID] = (quantityByItemID[itemID] or 0) + quantity
+        end
+    end
+
+    for _, slot in ipairs(schematic and schematic.reagentSlotSchematics or {}) do
+        local dataSlotIndex = tonumber(slot.dataSlotIndex)
+        local selectedQuantity = 0
+        for _, reagentInfo in ipairs(dataSlotIndex and selectedBySlot[dataSlotIndex] or {}) do
+            selectedQuantity = selectedQuantity + math.max(0, tonumber(reagentInfo.quantity) or 0)
+            AddItem(reagentInfo.reagent and reagentInfo.reagent.itemID, reagentInfo.quantity)
+        end
+        if dataSlotIndex then
+            consumedSlots[dataSlotIndex] = true
+        end
+
+        local isRequiredBasic = slot.required
+            and slot.reagentType == Enum.CraftingReagentType.Basic
+            and (slot.dataSlotType == Enum.TradeskillSlotDataType.Reagent
+                or slot.dataSlotType == Enum.TradeskillSlotDataType.ModifiedReagent)
+        if isRequiredBasic then
+            local missingQuantity = math.max(0, (tonumber(slot.quantityRequired) or 0) - selectedQuantity)
+            local fallbackReagent = slot.reagents and slot.reagents[1] or nil
+            AddItem(fallbackReagent and fallbackReagent.itemID, missingQuantity)
+        end
+    end
+
+    for dataSlotIndex, reagentInfos in pairs(selectedBySlot) do
+        if not consumedSlots[dataSlotIndex] then
+            for _, reagentInfo in ipairs(reagentInfos) do
+                AddItem(reagentInfo.reagent and reagentInfo.reagent.itemID, reagentInfo.quantity)
+            end
+        end
+    end
+
+    local reagents = {}
+    for itemID, quantity in pairs(quantityByItemID) do
+        reagents[#reagents + 1] = {
+            itemID = itemID,
+            quantity = quantity,
+        }
+    end
+    table.sort(reagents, function(left, right)
+        return left.itemID < right.itemID
+    end)
+    return AddEnchantingVellumReagent(reagents, recipeInfo)
+end
+
+local function GetConcentrationDumpState(schematicForm)
+    if not schematicForm or type(C_TradeSkillUI) ~= "table" then
+        return nil
+    end
+
+    local transaction = (type(schematicForm.GetTransaction) == "function"
+        and SafeCall(schematicForm.GetTransaction, schematicForm)) or schematicForm.transaction
+    local context = GetRecipeContextFromSchematicForm(schematicForm)
+    local recipeID = context and context.recipeID or nil
+    local recipeInfo = recipeID and SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID) or nil
+    local recipeLevel = type(schematicForm.GetCurrentRecipeLevel) == "function"
+        and SafeCall(schematicForm.GetCurrentRecipeLevel, schematicForm) or nil
+    local schematic = recipeID and SafeCall(C_TradeSkillUI.GetRecipeSchematic, recipeID, false, recipeLevel) or nil
+    local craftingReagents = transaction and type(transaction.CreateCraftingReagentInfoTbl) == "function"
+        and SafeCall(transaction.CreateCraftingReagentInfoTbl, transaction) or {}
+    if type(craftingReagents) ~= "table" then
+        craftingReagents = {}
+    end
+
+    local allocationItemGUID = transaction and type(transaction.GetAllocationItemGUID) == "function"
+        and SafeCall(transaction.GetAllocationItemGUID, transaction) or nil
+    local operationInfo = recipeID and type(C_TradeSkillUI.GetCraftingOperationInfo) == "function"
+        and SafeCall(C_TradeSkillUI.GetCraftingOperationInfo, recipeID, craftingReagents, allocationItemGUID, false) or nil
+    local concentrationCost = math.max(0, tonumber(operationInfo and operationInfo.concentrationCost) or 0)
+    local currencyID = tonumber(operationInfo and operationInfo.concentrationCurrencyID)
+
+    if not currencyID and type(C_TradeSkillUI.GetConcentrationCurrencyID) == "function" then
+        local skillLineID = type(C_TradeSkillUI.GetProfessionChildSkillLineID) == "function"
+            and SafeCall(C_TradeSkillUI.GetProfessionChildSkillLineID) or nil
+        currencyID = skillLineID and tonumber(SafeCall(C_TradeSkillUI.GetConcentrationCurrencyID, skillLineID)) or nil
+    end
+
+    local currencyInfo = currencyID and type(C_CurrencyInfo) == "table"
+        and type(C_CurrencyInfo.GetCurrencyInfo) == "function"
+        and SafeCall(C_CurrencyInfo.GetCurrencyInfo, currencyID) or nil
+    local available = math.max(0, tonumber(currencyInfo and currencyInfo.quantity) or 0)
+    local maxQuantity = concentrationCost > 0 and math.min(MAX_QUEUE_QTY, math.floor(available / concentrationCost)) or 0
+
+    if context then
+        context.applyConcentration = true
+        context.craftingReagents = NormalizeCraftingReagents(craftingReagents)
+        if type(schematic) == "table" then
+            context.reagents = BuildCompleteRecipeReagents(schematic, context.craftingReagents, recipeInfo)
+        end
+    end
+
+    return {
+        available = available,
+        cost = concentrationCost,
+        maxQuantity = maxQuantity,
+        context = context,
+    }
 end
 
 local function IsCraftSimPriceKnown(priceData, itemID)
@@ -3026,25 +3167,29 @@ local function UpdateVendorButtons(summary)
         return
     end
 
-    local buttonIndex = 1
+    local tasks = {}
     for _, task in ipairs(summary.vendorTasks) do
-        if buttonIndex > MAX_VENDOR_BUTTONS then
-            break
-        end
-
         if state.merchantIndexByItemID[task.itemID] then
-            local button = state.craft.vendorButtons[buttonIndex]
-            if button then
-                button.itemID = task.itemID
-                button.quantity = task.missing
-                button:SetText("Acheter " .. task.missing .. "x " .. task.name)
-                button:Show()
-                buttonIndex = buttonIndex + 1
-            end
+            tasks[#tasks + 1] = {
+                itemID = task.itemID,
+                missing = task.missing,
+                name = task.name,
+            }
         end
     end
 
-    if buttonIndex > 1 and state.craft.vendorTitle then
+    local button = state.craft.vendorButtons[1]
+    if button and #tasks > 0 then
+        button.tasks = tasks
+        if #tasks == 1 then
+            button:SetText("Acheter " .. tasks[1].missing .. "x " .. tasks[1].name)
+        else
+            button:SetText("Tout acheter (" .. #tasks .. " composants)")
+        end
+        button:Show()
+    end
+
+    if #tasks > 0 and state.craft.vendorTitle then
         state.craft.vendorTitle:Show()
     end
 end
@@ -3087,7 +3232,13 @@ local function UpdateCraftPanel(summary)
             else
                 state.craft.nextButton:Disable()
             end
+            if GetNextActionLock() then
+                state.craft.nextButton:SetButtonState("PUSHED", true)
+            else
+                state.craft.nextButton:SetButtonState("NORMAL", false)
+            end
         else
+            state.craft.nextButton:SetButtonState("NORMAL", false)
             state.craft.nextButton:Hide()
         end
     end
@@ -3399,6 +3550,42 @@ local function EnsureCraftingQueueButton(schematicForm)
     AnchorQueueButton(button, craftingPage and (craftingPage.CreateButton or craftingPage.CreateAllButton), parent)
     local minusButton = CreateQuantityControls(button)
 
+    local dumpConcentrationButton = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    dumpConcentrationButton:SetSize(90, 22)
+    dumpConcentrationButton:SetPoint("RIGHT", minusButton, "LEFT", -10, 0)
+    dumpConcentrationButton:SetFrameLevel((parent:GetFrameLevel() or 1) + 5)
+    dumpConcentrationButton:SetText("dump conc.")
+    dumpConcentrationButton:Hide()
+    dumpConcentrationButton.schematicForm = schematicForm
+    dumpConcentrationButton:SetScript("OnClick", function(self)
+        local dumpState = GetConcentrationDumpState(self.schematicForm)
+        if not (dumpState and dumpState.available > 500 and dumpState.context and dumpState.maxQuantity > 0) then
+            Print("Concentration ou recette indisponible.")
+            return
+        end
+
+        local quantity = QueueRecipeContext(dumpState.context, nil, dumpState.maxQuantity)
+        Print("Ajoute " .. quantity .. "x " .. dumpState.context.recipeName .. " avec concentration.")
+    end)
+    dumpConcentrationButton:SetScript("OnEnter", function(self)
+        local dumpState = GetConcentrationDumpState(self.schematicForm)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Vider la concentration")
+        if dumpState and dumpState.cost > 0 then
+            GameTooltip:AddLine(
+                "Ajoute " .. dumpState.maxQuantity .. " craft(s) avec concentration ("
+                    .. dumpState.available .. " disponibles, " .. dumpState.cost .. " par craft).",
+                1, 1, 1, true
+            )
+        else
+            GameTooltip:AddLine("Le cout de concentration de cette recette est indisponible.", 1, 0.25, 0.25, true)
+        end
+        GameTooltip:Show()
+    end)
+    dumpConcentrationButton:SetScript("OnLeave", GameTooltip_Hide)
+    button.dumpConcentrationButton = dumpConcentrationButton
+    button.firstCraftAnchor = minusButton
+
     local firstCraftButton = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     firstCraftButton:SetSize(95, 22)
     firstCraftButton:SetPoint("RIGHT", minusButton, "LEFT", -10, 0)
@@ -3440,7 +3627,21 @@ local function UpdateCraftingQueueButton()
     if isVisible then
         button:SetEnabled(GetRecipeContextFromSchematicForm(schematicForm) ~= nil)
     end
+    local dumpState = isVisible and GetConcentrationDumpState(schematicForm) or nil
+    local showDumpConcentration = dumpState and dumpState.available > 500 or false
+    if button.dumpConcentrationButton then
+        button.dumpConcentrationButton:SetShown(showDumpConcentration)
+        button.dumpConcentrationButton:SetEnabled(
+            showDumpConcentration and dumpState.context ~= nil and dumpState.maxQuantity > 0
+        )
+    end
     if button.firstCraftButton then
+        button.firstCraftButton:ClearAllPoints()
+        if showDumpConcentration and button.dumpConcentrationButton then
+            button.firstCraftButton:SetPoint("RIGHT", button.dumpConcentrationButton, "LEFT", -10, 0)
+        else
+            button.firstCraftButton:SetPoint("RIGHT", button.firstCraftAnchor, "LEFT", -10, 0)
+        end
         local hasAddableFirstCraft = isVisible and HasAddableFirstCraft()
         button.firstCraftButton:SetShown(hasAddableFirstCraft)
         button.firstCraftButton:SetEnabled(
@@ -3713,7 +3914,7 @@ local function CreateCraftPanel()
             button:SetPoint("BOTTOMLEFT", vendorButtons[index - 1], "TOPLEFT", 0, 4)
         end
         button:SetScript("OnClick", function(self)
-            BuyVendorTask(self.itemID, self.quantity)
+            BuyVendorTasks(self.tasks)
         end)
         button:Hide()
         vendorButtons[index] = button
@@ -4102,6 +4303,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
         addon:RegisterEvent("SPELLS_CHANGED")
         addon:RegisterEvent("SKILL_LINES_CHANGED")
         addon:RegisterEvent("SPELL_DATA_LOAD_RESULT")
+        addon:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
         addon:RegisterEvent("BAG_UPDATE_DELAYED")
         addon:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
         pcall(addon.RegisterEvent, addon, "PLAYERREAGENTBANKSLOTS_CHANGED")
@@ -4187,6 +4389,19 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
             recipeName = recipeID and ConsumeCraftFromQueue(recipeID) or nil
         else
             PopPendingCraftRecipe()
+        end
+        local nextActionLock = GetNextActionLock()
+        if nextActionLock
+            and nextActionLock.action == "craft"
+            and nextActionLock.orderID == 0
+            and pendingEntry
+            and (tonumber(pendingEntry.orderID) or 0) == 0 then
+            if (tonumber(pendingEntry.amount) or 0) <= 0 then
+                ClearNextActionLock("craft-batch-complete")
+            else
+                nextActionLock.expiresAt = GetTime() + 30.0
+                DebugPrint("next-lock progress action=craft remaining=" .. tostring(pendingEntry.amount))
+            end
         end
         DebugPrint("event=UNIT_SPELLCAST_SUCCEEDED spellID=" .. tostring(arg3) .. " recipe=" .. tostring(pendingEntry and pendingEntry.recipeID) .. " order=" .. tostring(pendingEntry and pendingEntry.orderID) .. " remainingEntryAmount=" .. tostring(pendingEntry and pendingEntry.amount) .. " matched=" .. tostring(recipeName) .. " pendingEntries=" .. tostring(#state.pendingCraftEntries) .. " pendingBatches=" .. tostring(#state.pendingCraftBatches))
         if recipeName then

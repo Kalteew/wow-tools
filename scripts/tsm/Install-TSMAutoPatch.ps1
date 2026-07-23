@@ -25,7 +25,7 @@ Start-Process -FilePath "powershell.exe" -ArgumentList @(
     "-WindowStyle", "Hidden",
     "-ExecutionPolicy", "Bypass",
     "-File", $watcherPath,
-    "-AddonPath", $resolvedAddonPath
+    "-AddonPath", ('"{0}"' -f $resolvedAddonPath)
 ) -WindowStyle Hidden
 
 Write-Host ("Installed. TSM path: {0}" -f $resolvedAddonPath)

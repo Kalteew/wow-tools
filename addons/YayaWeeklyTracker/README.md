@@ -20,7 +20,8 @@ Resume `Midnight` :
 - l'addon n'affiche que les metiers `Midnight` appris sur le personnage
 - chaque ligne est compacte, par exemple `Alch: T8/8 loot 2/2 hebdo traite DMF`
 - les lignes longues se replient avec une hauteur adaptee, sans chevaucher la ligne suivante
-- si rien ne reste a faire pour un metier suivi, la ligne reste visible avec `ok`
+- si rien ne reste a faire pour un metier suivi, la ligne affiche `ok` tant qu'une autre action garde la frame ouverte
+- si tous les metiers suivis sont `ok` et qu'aucune autre ligne ou bouton ne reste, la frame est masquee
 - si la concentration depasse `750`, la ligne affiche sa valeur en orange, par exemple `conc. 812`
 - `T` = tresors restants
 - `loot` = connaissances restantes via coffres/loots cette semaine
@@ -32,7 +33,7 @@ Resume `Midnight` :
 - si `TomTom` est installe, l'addon ajoute automatiquement au login les waypoints des tresors `Midnight` encore non recuperes pour les metiers du personnage courant
 - les waypoints sont refresh quand un tresor passe en `fait`
 - l'addon n'impose pas la `CrazyArrow` de TomTom; il pose seulement les markers carte/minimap
-- un bouton `Ouvrir payout` apparait si un `Artisan's Consortium Payout` est detecte dans les sacs
+- un bouton `Ouvrir payout` apparait si un `Artisan's Consortium Payout` est detecte dans les sacs; chaque clic cible un payout encore present et un clic excedentaire reste sans effet
 - deux boutons independants `Ouvrir surplus Alch` et `Ouvrir surplus Eng` apparaissent pour les conteneurs de composants en surplus correspondants, afin de pouvoir alterner les clics pendant leur ouverture
 - un bouton `YQ Ench +...` apparait si la weekly `Midnight Enchanting` active demande un reagent manquant; chaque clic ajoute la quantite complete de la weekly a la queue existante, en plus des besoins des crafts deja presents
 - quand cette weekly est rendue, YWT retire sa quantite complete de la demande directe YayaQueue sans toucher aux besoins des recettes
@@ -53,6 +54,8 @@ Exception :
 - `Jard` n'affiche jamais `a debloquer`
 
 La position de la frame est conservee entre les personnages.
+
+Dans `Echap > Options > AddOns > Yaya Weekly Tracker`, l'option account-wide `Cacher integralement la frame en combat` masque toute la frame et ses boutons jusqu'a la fin du combat. Elle est desactivee par defaut.
 
 L'addon enregistre aussi en account-wide les personnages qui connaissent `Jard` dans `YayaWeeklyTrackerAccountDB.jardOwners`.
 
