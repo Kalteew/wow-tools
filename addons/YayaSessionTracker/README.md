@@ -23,6 +23,7 @@ Ce que suit le MVP :
 Ce qui est ignore :
 
 - les items recuperes depuis la boite aux lettres
+- les items `Warbound until Equipped`
 - les transferts de gold entre tes propres persos
 - les frais de courrier lies a ces transferts internes
 

@@ -18,3 +18,5 @@ Notes:
 
 - le calcul de profit depend des donnees TSM
 - l'ajout dans `YayaQueue` queue des crafts de work orders en mode `crafts`, sans se baser sur les outputs deja presents en inventaire
+- `/ypo debug` active ou desactive les traces de chargement pour la session
+- `/ypo debug status` affiche un instantane de l'etat courant

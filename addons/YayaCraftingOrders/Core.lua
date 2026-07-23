@@ -252,6 +252,56 @@ local function Print(message)
 	DEFAULT_CHAT_FRAME:AddMessage(("|cff4cc9f0%s|r: %s"):format(title, tostring(message)))
 end
 
+function ns.IsDebugEnabled()
+	return ns.debugEnabled == true
+end
+
+function ns.Debug(category, message, ...)
+	if not ns.IsDebugEnabled() then
+		return
+	end
+
+	local text = tostring(message)
+	if select("#", ...) > 0 then
+		local ok, formatted = pcall(string.format, text, ...)
+		text = ok and formatted or (text .. " [format error]")
+	end
+
+	Print(("DEBUG [%s] %s"):format(tostring(category or "state"), text))
+end
+
+function ns.SetDebugEnabled(enabled)
+	ns.debugEnabled = not not enabled
+	Print(ns.debugEnabled and "Debug activé." or "Debug désactivé.")
+	if ns.debugEnabled and ns.BrowsePane and ns.BrowsePane.DebugState then
+		ns.BrowsePane:DebugState("debug-enabled")
+	end
+end
+
+local function HandleSlashCommand(input)
+	local command = strtrim(tostring(input or "")):lower()
+	if command == "debug" then
+		ns.SetDebugEnabled(not ns.IsDebugEnabled())
+	elseif command == "debug on" then
+		ns.SetDebugEnabled(true)
+	elseif command == "debug off" then
+		ns.SetDebugEnabled(false)
+	elseif command == "debug status" then
+		Print(ns.IsDebugEnabled() and "Debug activé." or "Debug désactivé.")
+		if ns.BrowsePane and ns.BrowsePane.DebugState then
+			local wasEnabled = ns.debugEnabled
+			ns.debugEnabled = true
+			ns.BrowsePane:DebugState("manual-status")
+			ns.debugEnabled = wasEnabled
+		end
+	else
+		Print("Commandes : /ypo debug, /ypo debug on, /ypo debug off, /ypo debug status")
+	end
+end
+
+SLASH_YAYAPATRONORDERS1 = "/ypo"
+SlashCmdList.YAYAPATRONORDERS = HandleSlashCommand
+
 function ns.RegisterEvent(eventName, callback)
 	eventFrame:RegisterEvent(eventName)
 	eventCallbacks[eventName] = callback

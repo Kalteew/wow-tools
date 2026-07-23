@@ -85,14 +85,18 @@ function Replace-ExactBlock {
         [string]$Label
     )
 
-    if ($Content.Value.Contains($Patched)) {
+    $newline = if ($Content.Value.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $normalizedOriginal = [regex]::Replace($Original, "\r?\n", $newline)
+    $normalizedPatched = [regex]::Replace($Patched, "\r?\n", $newline)
+
+    if ($Content.Value.Contains($normalizedPatched)) {
         return $false
     }
-    if (-not $Content.Value.Contains($Original)) {
+    if (-not $Content.Value.Contains($normalizedOriginal)) {
         throw "Unexpected code in $Label."
     }
 
-    $Content.Value = $Content.Value.Replace($Original, $Patched)
+    $Content.Value = $Content.Value.Replace($normalizedOriginal, $normalizedPatched)
     return $true
 }
 
@@ -185,7 +189,9 @@ end
 -- ============================================================================
 -- Groups
 '@
-    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\API.lua UI hooks") -or $changed
+    if (-not $content.Contains("function TSM_API.MailSelectedGroups(")) {
+        $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\API.lua UI hooks") -or $changed
+    }
 
     $original = @'
 function TSM_API.ShowMailGroups()
