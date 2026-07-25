@@ -4,6 +4,8 @@ Addon Retail simple pour :
 
 - ajouter une recette depuis l'UI Blizzard des metiers avec la quantite placee a cote du bouton `Ajouter YQ`
 - afficher `dump conc.` sur une recette quand le metier ouvert depasse 500 concentration, puis ajouter le maximum de crafts concentrés permis par la concentration actuelle
+- pour `dump conc.`, inclure le réactif requis sélectionné dans l’UI (par exemple Mote of Primal Energy), même s’il manque au snapshot de transaction
+- respecter `Use best quality reagents` lors de l'ajout : la demande et le craft utilisent la meilleure variante de chaque composant de qualité
 - ajouter en une fois les first crafts connus non realises dont le cout CraftSim est strictement inferieur a 1000 po
 - garder une frame flottante a l'ecran pour suivre la queue
 - accepter des ajouts externes via `YayaQueueAPI.AddRecipe(...)`, des besoins supplementaires via `YayaQueueAPI.AddItem(...)`, leur retrait via `YayaQueueAPI.RemoveItem(...)` et des cibles idempotentes via `YayaQueueAPI.SetItemTarget(...)`
