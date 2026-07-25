@@ -332,6 +332,7 @@ local function NormalizeQueueEntries()
                     queueKind = rawEntry.queueKind == "patron" and "patron" or nil,
                     isRecraft = rawEntry.isRecraft == true,
                     applyConcentration = NormalizeApplyConcentration(rawEntry.applyConcentration),
+                    useBestQualityReagents = rawEntry.useBestQualityReagents == true and true or nil,
                     pendingSubmit = rawEntry.pendingSubmit == true,
                     profitValue = tonumber(rawEntry.profitValue) or nil,
                     profitKnown = rawEntry.profitKnown == true,
@@ -996,7 +997,55 @@ local function GetSelectedRecipeID()
     return nil
 end
 
-local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, subtractAllocated)
+local function GetRecipeReagentQuality(itemID)
+    if not itemID or type(C_TradeSkillUI) ~= "table" then
+        return nil
+    end
+
+    if type(C_TradeSkillUI.GetItemReagentQualityByItemInfo) == "function" then
+        local quality = SafeCall(C_TradeSkillUI.GetItemReagentQualityByItemInfo, itemID)
+        if type(quality) == "number" and quality > 0 then
+            return quality
+        end
+    end
+
+    return nil
+end
+
+local function GetRecipeSlotReagent(slot, useBestQualityReagents)
+    local reagents = slot and slot.reagents or nil
+    local selected = reagents and reagents[1] or nil
+    if not (selected and useBestQualityReagents == true) then
+        return selected
+    end
+
+    local selectedQuality = GetRecipeReagentQuality(selected.itemID)
+    for index = 2, #reagents do
+        local candidate = reagents[index]
+        local candidateQuality = GetRecipeReagentQuality(candidate and candidate.itemID)
+        if candidateQuality and (not selectedQuality or candidateQuality > selectedQuality) then
+            selected = candidate
+            selectedQuality = candidateQuality
+        end
+    end
+    return selected
+end
+
+local function ShouldUseBestQualityReagents(form)
+    local checkbox = form and form.AllocateBestQualityCheckbox
+    if checkbox and type(checkbox.GetChecked) == "function" then
+        local checked = SafeCall(checkbox.GetChecked, checkbox)
+        if checked ~= nil then
+            return checked == true
+        end
+    end
+
+    return type(Professions) == "table"
+        and type(Professions.ShouldAllocateBestQualityReagents) == "function"
+        and SafeCall(Professions.ShouldAllocateBestQualityReagents) == true
+end
+
+local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, subtractAllocated, useBestQualityReagents)
     if not recipeID or type(schematic) ~= "table" then
         return nil
     end
@@ -1007,7 +1056,7 @@ local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, 
             and slot.reagentType == Enum.CraftingReagentType.Basic
             and (slot.dataSlotType == Enum.TradeskillSlotDataType.Reagent
                 or slot.dataSlotType == Enum.TradeskillSlotDataType.ModifiedReagent)
-        local reagent = isRequiredBasic and slot.reagents and slot.reagents[1] or nil
+        local reagent = isRequiredBasic and GetRecipeSlotReagent(slot, useBestQualityReagents) or nil
         local itemID = reagent and reagent.itemID or nil
         local quantityRequired = tonumber(slot.quantityRequired) or 0
         if subtractAllocated and transaction and type(transaction.GetAllocations) == "function" then
@@ -1036,6 +1085,7 @@ local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, 
         outputPerCraft = math.max(1, tonumber(schematic.quantityMin) or 1),
         reagents = reagents,
         applyConcentration = transaction and type(transaction.IsApplyingConcentration) == "function" and transaction:IsApplyingConcentration() or false,
+        useBestQualityReagents = useBestQualityReagents == true and true or nil,
     }
 end
 
@@ -1056,7 +1106,7 @@ local function GetRecipeContextFromSchematicForm(form)
 
     local recipeLevel = form and type(form.GetCurrentRecipeLevel) == "function" and SafeCall(form.GetCurrentRecipeLevel, form) or nil
     local schematic = SafeCall(C_TradeSkillUI.GetRecipeSchematic, recipeID, false, recipeLevel)
-    return BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, false)
+    return BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, false, ShouldUseBestQualityReagents(form))
 end
 
 local function GetRecipeContextFromCustomerOrdersForm(form)
@@ -1068,7 +1118,7 @@ local function GetRecipeContextFromCustomerOrdersForm(form)
     end
 
     local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID)
-    return BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, true)
+    return BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, true, false)
 end
 
 local function GetCurrentRecipeContext()
@@ -1153,6 +1203,7 @@ local function AddRecipeToQueue(context, quantity)
             and (entry.reagentSignature or "") == reagentSignature
             and (tonumber(entry.orderID) or 0) == (tonumber(context.orderID) or 0)
             and NormalizeApplyConcentration(entry.applyConcentration) == NormalizeApplyConcentration(context.applyConcentration)
+            and (entry.useBestQualityReagents == true) == (context.useBestQualityReagents == true)
         then
             if mode == "crafts" then
                 entry.craftQty = ClampQuantity((entry.craftQty or 0) + quantity)
@@ -1174,6 +1225,7 @@ local function AddRecipeToQueue(context, quantity)
             entry.queueKind = context.queueKind == "patron" and "patron" or nil
             entry.isRecraft = context.isRecraft == true
             entry.applyConcentration = NormalizeApplyConcentration(context.applyConcentration)
+            entry.useBestQualityReagents = context.useBestQualityReagents == true and true or nil
             entry.pendingSubmit = context.pendingSubmit == true
             entry.profitValue = tonumber(context.profitValue) or nil
             entry.profitKnown = context.profitKnown == true
@@ -1199,6 +1251,7 @@ local function AddRecipeToQueue(context, quantity)
         queueKind = context.queueKind == "patron" and "patron" or nil,
         isRecraft = context.isRecraft == true,
         applyConcentration = NormalizeApplyConcentration(context.applyConcentration),
+        useBestQualityReagents = context.useBestQualityReagents == true and true or nil,
         pendingSubmit = context.pendingSubmit == true,
         profitValue = tonumber(context.profitValue) or nil,
         profitKnown = context.profitKnown == true,
@@ -1735,7 +1788,7 @@ local function FindTransactionReagent(transaction, allocation)
     return nil
 end
 
-local function ApplyQueuedSlotAllocations(transaction, schematicForm, clearSlotIndices, slotAllocations)
+local function ApplyQueuedSlotAllocations(transaction, schematicForm, clearSlotIndices, slotAllocations, useBestQualityReagents)
     if not transaction then
         return false
     end
@@ -1745,8 +1798,10 @@ local function ApplyQueuedSlotAllocations(transaction, schematicForm, clearSlotI
             return false
         end
         if type(Professions) == "table" and type(Professions.AllocateAllBasicReagents) == "function" then
-            local useBestQuality = type(Professions.ShouldAllocateBestQualityReagents) == "function"
-                and SafeCall(Professions.ShouldAllocateBestQualityReagents) == true
+            local useBestQuality = useBestQualityReagents == true
+                or (useBestQualityReagents == nil
+                    and type(Professions.ShouldAllocateBestQualityReagents) == "function"
+                    and SafeCall(Professions.ShouldAllocateBestQualityReagents) == true)
             return pcall(Professions.AllocateAllBasicReagents, transaction, useBestQuality)
         end
         return true
@@ -1842,7 +1897,13 @@ local function ApplyQueuedRecipeConfigNow()
             return false
         end
     end
-    if not ApplyQueuedSlotAllocations(transaction, schematicForm, pending.clearSlotIndices, pending.slotAllocations) then
+    if not ApplyQueuedSlotAllocations(
+        transaction,
+        schematicForm,
+        pending.clearSlotIndices,
+        pending.slotAllocations,
+        pending.useBestQualityReagents
+    ) then
         return false
     end
     if type(schematicForm.TriggerEvent) == "function"
@@ -2203,6 +2264,7 @@ local function RunPatronNextAction()
         state.pendingQueuedRecipeConfig = {
             recipeID = recipeID,
             applyConcentration = NormalizeApplyConcentration(stateInfo.entry.applyConcentration),
+            useBestQualityReagents = stateInfo.entry.useBestQualityReagents == true and true or nil,
             -- CraftSim and TSM pass CraftingReagentInfo (dataSlotIndex) directly
             -- when crafting. Legacy YayaQueue plans confused it with the UI's
             -- slotIndex and could allocate two different reagents to one slot.
@@ -2544,7 +2606,75 @@ local function QueueRecipeContext(context, qtyBox, quantityOverride)
     return quantity
 end
 
-local function BuildCompleteRecipeReagents(schematic, craftingReagents, recipeInfo)
+local function IsRequiredRecipeReagentSlot(slot)
+    return slot
+        and slot.required
+        and type(slot.reagents) == "table"
+        and #slot.reagents > 0
+end
+
+local function GetSelectedRequiredReagentItemID(schematicForm, schematicSlot)
+    local possibleItemIDs = {}
+    local onlyItemID
+    local possibleCount = 0
+    for _, reagent in ipairs(schematicSlot and schematicSlot.reagents or {}) do
+        local itemID = tonumber(reagent and reagent.itemID)
+        if itemID and itemID > 0 then
+            possibleItemIDs[itemID] = true
+            onlyItemID = itemID
+            possibleCount = possibleCount + 1
+        end
+    end
+
+    -- Required selectable reagents are not returned by
+    -- transaction:CreateCraftingReagentInfoTbl(). Blizzard exposes the selected
+    -- item on the visible reagent-slot button instead (same seam used by CraftSim).
+    for _, slotGroup in pairs(schematicForm and schematicForm.reagentSlots or {}) do
+        if type(slotGroup) == "table" then
+            for _, reagentSlot in pairs(slotGroup) do
+                local button = type(reagentSlot) == "table" and reagentSlot.Button or nil
+                local itemID = button and type(button.GetItemID) == "function"
+                    and tonumber(SafeCall(button.GetItemID, button)) or nil
+                if itemID and possibleItemIDs[itemID] then
+                    return itemID
+                end
+            end
+        end
+    end
+
+    return possibleCount == 1 and onlyItemID or nil
+end
+
+local function BuildCompleteCraftingReagents(schematicForm, schematic, craftingReagents)
+    local complete = NormalizeCraftingReagents(craftingReagents)
+
+    for _, slot in ipairs(schematic and schematic.reagentSlotSchematics or {}) do
+        local dataSlotIndex = tonumber(slot.dataSlotIndex)
+        local isRequiredSelectable = IsRequiredRecipeReagentSlot(slot)
+            and slot.reagentType ~= Enum.CraftingReagentType.Basic
+        if isRequiredSelectable and dataSlotIndex then
+            local itemID = GetSelectedRequiredReagentItemID(schematicForm, slot)
+            if itemID then
+                for index = #complete, 1, -1 do
+                    if tonumber(complete[index] and complete[index].dataSlotIndex) == dataSlotIndex then
+                        table.remove(complete, index)
+                    end
+                end
+                complete[#complete + 1] = {
+                    dataSlotIndex = dataSlotIndex,
+                    reagent = {
+                        itemID = itemID,
+                    },
+                    quantity = math.max(0, tonumber(slot.quantityRequired) or 0),
+                }
+            end
+        end
+    end
+
+    return complete
+end
+
+local function BuildCompleteRecipeReagents(schematic, craftingReagents, recipeInfo, useBestQualityReagents)
     local selectedBySlot = {}
     for _, reagentInfo in ipairs(craftingReagents or {}) do
         local dataSlotIndex = tonumber(reagentInfo and reagentInfo.dataSlotIndex)
@@ -2575,13 +2705,9 @@ local function BuildCompleteRecipeReagents(schematic, craftingReagents, recipeIn
             consumedSlots[dataSlotIndex] = true
         end
 
-        local isRequiredBasic = slot.required
-            and slot.reagentType == Enum.CraftingReagentType.Basic
-            and (slot.dataSlotType == Enum.TradeskillSlotDataType.Reagent
-                or slot.dataSlotType == Enum.TradeskillSlotDataType.ModifiedReagent)
-        if isRequiredBasic then
+        if IsRequiredRecipeReagentSlot(slot) then
             local missingQuantity = math.max(0, (tonumber(slot.quantityRequired) or 0) - selectedQuantity)
-            local fallbackReagent = slot.reagents and slot.reagents[1] or nil
+            local fallbackReagent = GetRecipeSlotReagent(slot, useBestQualityReagents)
             AddItem(fallbackReagent and fallbackReagent.itemID, missingQuantity)
         end
     end
@@ -2625,6 +2751,9 @@ local function GetConcentrationDumpState(schematicForm)
     if type(craftingReagents) ~= "table" then
         craftingReagents = {}
     end
+    if type(schematic) == "table" then
+        craftingReagents = BuildCompleteCraftingReagents(schematicForm, schematic, craftingReagents)
+    end
 
     local allocationItemGUID = transaction and type(transaction.GetAllocationItemGUID) == "function"
         and SafeCall(transaction.GetAllocationItemGUID, transaction) or nil
@@ -2647,9 +2776,14 @@ local function GetConcentrationDumpState(schematicForm)
 
     if context then
         context.applyConcentration = true
-        context.craftingReagents = NormalizeCraftingReagents(craftingReagents)
+        context.craftingReagents = craftingReagents
         if type(schematic) == "table" then
-            context.reagents = BuildCompleteRecipeReagents(schematic, context.craftingReagents, recipeInfo)
+            context.reagents = BuildCompleteRecipeReagents(
+                schematic,
+                context.craftingReagents,
+                recipeInfo,
+                context.useBestQualityReagents
+            )
         end
     end
 
@@ -3564,6 +3698,22 @@ local function EnsureCraftingQueueButton(schematicForm)
             return
         end
 
+        DebugPrint(
+            "dump-add recipe="
+                .. tostring(dumpState.context.recipeID)
+                .. " crafts="
+                .. tostring(dumpState.maxQuantity)
+                .. " cost="
+                .. tostring(dumpState.cost)
+        )
+        for _, reagent in ipairs(dumpState.context.reagents or {}) do
+            DebugPrint(
+                "dump-reagent itemID="
+                    .. tostring(reagent.itemID)
+                    .. " perCraft="
+                    .. tostring(reagent.quantity)
+            )
+        end
         local quantity = QueueRecipeContext(dumpState.context, nil, dumpState.maxQuantity)
         Print("Ajoute " .. quantity .. "x " .. dumpState.context.recipeName .. " avec concentration.")
     end)
