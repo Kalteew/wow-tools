@@ -10,6 +10,7 @@ local TSM_PROVIDER = {
 	key = "tsm",
 	name = "TradeSkillMaster",
 }
+local CONTAINER_PROVIDER_KEY = "yaya_container_average"
 
 local function NormalizeUnitPrice(value)
 	if type(value) ~= "number" or value ~= value or value <= 0 then
@@ -85,6 +86,23 @@ local function GetTSMPrice(item, priceSource)
 	return NormalizeUnitPrice(ok and value or nil)
 end
 
+local function GetContainerAveragePrice(item)
+	local api = _G.YayaContainerValuesAPI
+	if not (api and type(api.GetAverageValue) == "function") then
+		return nil
+	end
+
+	local ok, value, sampleCount, state = pcall(api.GetAverageValue, item)
+	value = ok and NormalizeUnitPrice(value) or nil
+	if value and type(sampleCount) == "number" and sampleCount > 0 then
+		return value, sampleCount
+	end
+	if ok and state == "missing_price" and type(sampleCount) == "number" and sampleCount > 0 then
+		return false, sampleCount
+	end
+	return nil
+end
+
 function Pricing:RefreshProviders()
 	local tsmDetected = ns.IsAddonLoaded("TradeSkillMaster")
 		and TSM_API
@@ -149,6 +167,17 @@ function Pricing:GetPriceInfo(item, count)
 	local provider = self:GetActiveProvider()
 	local providerKey = provider and provider.key or nil
 	local isMarketable = GetMarketableState(item)
+	local containerPrice, containerSamples = GetContainerAveragePrice(item)
+	if containerPrice == false then
+		local priceInfo = BuildPriceInfo(item, count, CONTAINER_PROVIDER_KEY, "container_average_missing", nil, true)
+		priceInfo.sampleCount = containerSamples
+		return priceInfo
+	end
+	if containerPrice then
+		local priceInfo = BuildPriceInfo(item, count, CONTAINER_PROVIDER_KEY, "container_average", containerPrice, true)
+		priceInfo.sampleCount = containerSamples
+		return priceInfo
+	end
 
 	if isMarketable == false then
 		return BuildPriceInfo(item, count, providerKey, "not_marketable", nil, false)

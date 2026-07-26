@@ -1,5 +1,7 @@
 # Yaya Weekly Tracker
 
+La section Hebdo est affichee dans la frame partagee `YayaFrame`, avec la section Session si `YayaSessionTracker` est installe. La position et le deplacement sont communs aux deux addons ; l'option de masquage en combat de YWT masque la frame partagee.
+
 Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suivre :
 
 - `Archeo Legion 5000g dispo` en premiere ligne si la rotation `Worth Its Weight` est active
@@ -7,13 +9,13 @@ Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suiv
 - `Visions N'Zoth (bi-hebdo)` via l'assaut mineur actif
 - `Jard`
 - `Containing the Helsworn` si la recompense est du gold brut
-- `Abondance` a partir du niveau 82
+- `Abondance` a partir du niveau 80
 - le world boss `Midnight` actif s'il donne de l'or, ou si l'ilvl equipe moyen du personnage est inferieur a `250`, au niveau 90
 - `Defense des runestones` de la Soiree de Saltheril, au niveau 90
 - la weekly de Halduron uniquement quand `Hope in the Darkest Corners` est active
 - la weekly `Neighborhood` au niveau 90, avec son nom quand elle est dans le journal et une completion partagee par tout le Warband
 - la weekly de Liadrin quand son wrapper ou son objectif choisi est actif
-- un resume `Midnight` par metier appris sur le perso courant
+- un resume `Midnight` par metier appris sur le perso courant, a partir du niveau 80
 
 Resume `Midnight` :
 
@@ -22,7 +24,7 @@ Resume `Midnight` :
 - les lignes longues se replient avec une hauteur adaptee, sans chevaucher la ligne suivante
 - si rien ne reste a faire pour un metier suivi, la ligne affiche `ok` tant qu'une autre action garde la frame ouverte
 - si tous les metiers suivis sont `ok` et qu'aucune autre ligne ou bouton ne reste, la frame est masquee
-- si la concentration depasse `750`, la ligne affiche sa valeur en orange, par exemple `conc. 812`
+- si la moxie depasse `600`, la ligne affiche sa valeur en orange, par exemple `moxie 612`
 - `T` = tresors restants
 - `loot` = connaissances restantes via coffres/loots cette semaine
 - `dez` = connaissances restantes via desenchantement pour l'Enchantement
@@ -34,7 +36,8 @@ Resume `Midnight` :
 - les waypoints sont refresh quand un tresor passe en `fait`
 - l'addon n'impose pas la `CrazyArrow` de TomTom; il pose seulement les markers carte/minimap
 - un bouton `Ouvrir payout` apparait si un `Artisan's Consortium Payout` est detecte dans les sacs; chaque clic cible un payout encore present et un clic excedentaire reste sans effet
-- deux boutons independants `Ouvrir surplus Alch` et `Ouvrir surplus Eng` apparaissent pour les conteneurs de composants en surplus correspondants, afin de pouvoir alterner les clics pendant leur ouverture
+- des boutons independants `Ouvrir surplus` apparaissent pour les conteneurs de composants en surplus des 11 metiers Midnight reconnus, afin de pouvoir alterner les clics pendant leur ouverture
+- si YayaContainerValues est charge, ces boutons lui signalent l'item avant l'ouverture afin d'attribuer correctement les outputs
 - un bouton `YQ Ench +...` apparait si la weekly `Midnight Enchanting` active demande un reagent manquant; chaque clic ajoute la quantite complete de la weekly a la queue existante, en plus des besoins des crafts deja presents
 - quand cette weekly est rendue, YWT retire sa quantite complete de la demande directe YayaQueue sans toucher aux besoins des recettes
 
@@ -53,7 +56,7 @@ Exception :
 
 - `Jard` n'affiche jamais `a debloquer`
 
-La position de la frame est conservee entre les personnages.
+La frame est ancree par son coin haut gauche et s'etend vers le bas droite. Sa position est conservee entre les personnages.
 
 Dans `Echap > Options > AddOns > Yaya Weekly Tracker`, l'option account-wide `Cacher integralement la frame en combat` masque toute la frame et ses boutons jusqu'a la fin du combat. Elle est desactivee par defaut.
 

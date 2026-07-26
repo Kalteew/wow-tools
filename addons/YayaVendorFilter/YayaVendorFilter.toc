@@ -2,7 +2,7 @@
 ## Title: Yaya Vendor Filter
 ## Notes: Masque et compacte les recettes connues et les objets deja collectionnes chez les vendeurs.
 ## Author: Yaya
-## Version: 0.2.2
+## Version: 0.2.3
 ## SavedVariables: YayaVendorFilterDB
 
 YayaVendorFilter.lua

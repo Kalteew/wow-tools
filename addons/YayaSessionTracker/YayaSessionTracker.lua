@@ -230,39 +230,23 @@ local function GetFramePosition()
 end
 
 local function SaveFramePosition()
-    if not trackerFrame then
+    if not YayaFrameAPI or type(YayaFrameAPI.SavePosition) ~= "function" then
         return
     end
-
-    local point, _, relativePoint, x, y = trackerFrame:GetPoint(1)
-    local settings = GetSettings()
-    settings.position = {
-        point = point,
-        relativePoint = relativePoint,
-        x = x,
-        y = y,
-    }
+    YayaFrameAPI:SavePosition()
 end
 
 local function ApplyFramePosition()
-    if not trackerFrame then
+    if not YayaFrameAPI or type(YayaFrameAPI.ApplyPosition) ~= "function" then
         return
     end
-
-    local position = GetFramePosition()
-    trackerFrame:ClearAllPoints()
-    trackerFrame:SetPoint(position.point, UIParent, position.relativePoint, position.x, position.y)
+    YayaFrameAPI:ApplyPosition()
 end
 
 local function ResetFramePosition()
-    local settings = GetSettings()
-    settings.position = {
-        point = DEFAULT_POSITION.point,
-        relativePoint = DEFAULT_POSITION.relativePoint,
-        x = DEFAULT_POSITION.x,
-        y = DEFAULT_POSITION.y,
-    }
-    ApplyFramePosition()
+    if YayaFrameAPI and type(YayaFrameAPI.ResetPosition) == "function" then
+        YayaFrameAPI:ResetPosition()
+    end
 end
 
 local function RegisterKnownCharacter()
@@ -556,6 +540,21 @@ local function IsWarboundUntilEquipped(itemRef)
 end
 
 local function GetUnitPrice(entry, priceSource)
+    local containerAPI = _G.YayaContainerValuesAPI
+    local itemID = entry.itemID or GetItemIDFromLink(entry.itemLink)
+    if not itemID and type(entry.itemString) == "string" then
+        itemID = tonumber(entry.itemString:match("^i:(%d+)$"))
+    end
+    if containerAPI and type(containerAPI.GetAverageValue) == "function" and itemID then
+        local ok, containerValue, sampleCount, containerState = pcall(containerAPI.GetAverageValue, itemID)
+        if ok and type(containerValue) == "number" and containerValue > 0 and (sampleCount or 0) > 0 then
+            return containerValue
+        end
+        if ok and containerState == "missing_price" and (sampleCount or 0) > 0 then
+            return 0
+        end
+    end
+
     local itemQuality = entry.itemQuality
     local sellPrice = entry.vendorSellPrice
     local itemBindType = entry.itemBindType
@@ -618,6 +617,7 @@ local function BuildItemSummaryFromItem(itemID, quantity, itemLink, priceSource)
     local itemString = GetItemStringFromLink(itemLink) or GetItemStringFromID(resolvedItemID)
     local itemName, itemQuality, vendorSellPrice, itemBindType = GetItemDetails(itemLink or resolvedItemID)
     local entry = {
+        itemID = resolvedItemID,
         itemString = itemString,
         itemLink = itemLink,
         itemName = itemName or GetItemName(itemString, itemLink),
@@ -1728,21 +1728,20 @@ function UpdateFrame()
     end
 
     PersistActiveSession()
+    if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
+        YayaFrameAPI:Refresh()
+    end
 end
 
 local function CreateTrackerFrame()
-    trackerFrame = CreateFrame("Frame", addonName .. "Frame", UIParent)
+    if not YayaFrameAPI or type(YayaFrameAPI.GetFrame) ~= "function" then
+        return
+    end
+
+    trackerFrame = CreateFrame("Frame", addonName .. "Frame", YayaFrameAPI:GetFrame())
     trackerFrame:SetFrameStrata("MEDIUM")
     trackerFrame:SetSize(132, 92)
     trackerFrame:SetClampedToScreen(true)
-    trackerFrame:SetMovable(true)
-    trackerFrame:EnableMouse(true)
-    trackerFrame:RegisterForDrag("LeftButton")
-    trackerFrame:SetScript("OnDragStart", trackerFrame.StartMoving)
-    trackerFrame:SetScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
-        SaveFramePosition()
-    end)
 
     trackerFrame.bg = trackerFrame:CreateTexture(nil, "BACKGROUND")
     trackerFrame.bg:SetAllPoints()
@@ -1771,7 +1770,7 @@ local function CreateTrackerFrame()
         trackerFrame.lines[index] = line
     end
 
-    ApplyFramePosition()
+    YayaFrameAPI:AttachSection(addonName, trackerFrame, 10)
     UpdateFrame()
 end
 

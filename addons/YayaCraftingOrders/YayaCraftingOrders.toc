@@ -5,7 +5,7 @@
 ## Notes: Patron orders fork with TSM pricing and YayaQueue integration.
 ## Category: Professions
 ## IconTexture: Interface\AddOns\YayaCraftingOrders\CraftingOrdersPP_Icon
-## OptionalDeps: Blizzard_Professions, TradeSkillMaster, YayaQueue
+## OptionalDeps: Blizzard_Professions, TradeSkillMaster, YayaQueue, YayaContainerValues
 ## SavedVariables: YayaCraftingOrdersDB
 
 Locale.lua

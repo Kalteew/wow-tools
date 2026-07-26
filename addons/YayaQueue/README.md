@@ -4,13 +4,16 @@ Addon Retail simple pour :
 
 - ajouter une recette depuis l'UI Blizzard des metiers avec la quantite placee a cote du bouton `Ajouter YQ`
 - afficher `dump conc.` sur une recette quand le metier ouvert depasse 500 concentration, puis ajouter le maximum de crafts concentrés permis par la concentration actuelle
+- inclure les slots de réactifs requis sélectionnables (par exemple Mote of Primal Energy), même s’ils ne sont pas exposés par l’API comme `Basic`
 - ajouter en une fois les first crafts connus non realises dont le cout CraftSim est strictement inferieur a 1000 po
 - garder une frame flottante a l'ecran pour suivre la queue
 - accepter des ajouts externes via `YayaQueueAPI.AddRecipe(...)`, des besoins supplementaires via `YayaQueueAPI.AddItem(...)`, leur retrait via `YayaQueueAPI.RemoveItem(...)` et des cibles idempotentes via `YayaQueueAPI.SetItemTarget(...)`
 - afficher ce qu'il reste a acheter a l'HV ou au marchand
 - afficher un bouton unique d'achat groupé chez les marchands compatibles
+- acheter automatiquement les composants manquants à l'ouverture d'un marchand compatible (désactivable avec `/yq vendor off`)
 - exposer un onglet `YayaQueue` a l'HV avec un bouton unique `Rechercher tout` puis `Acheter suivant`
 - afficher un bouton `Next` en bas de la queue pour avancer les crafts normaux et les patron orders, ouvrir automatiquement le bon onglet `Recipes` / `Patron Orders`, memoriser l'option concentration et proposer une etape `Mailbox` apres achat HV
+- reutiliser le bind scroll de `TSMMacro` quand cette macro existe : ses actions `Shopping Buyout` / `Craft Next` sont remplacees au login par des relais YQ, qui retombent sur TSM hors contexte YQ
 - recalculer automatiquement les besoins selon l'inventaire courant
 
 Notes :
@@ -26,6 +29,7 @@ Notes :
 - `Next` reste verrouille pendant tout un lot de crafts et ne se reactive qu'au dernier craft confirme
 - les reagents optionnels complexes ne sont pas encore memorises
 - les items marchand sont detectes quand ils ont deja ete vus sur un marchand
+- l'achat automatique marchand lance une seule séquence par ouverture ; chaque item accepté n'est soumis qu'une fois, avec vérification des sacs et jusqu'à 10 relances pour les échecs
 - les items non-commodities a l'HV sont achetes une enchere a la fois
 - les resultats de recherche provenant d'autres addons AH ne remplacent pas le cache de recherche `YayaQueue`
 - un achat deja recu dans les sacs n'est pas recompte comme un faux envoi `Mailbox`

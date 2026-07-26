@@ -11,6 +11,7 @@ Ce que suit le MVP :
 - gold net de session via `PLAYER_MONEY`
 - items recuperes via `CHAT_MSG_LOOT`
 - valorisation via `TSM_API.GetCustomPriceValue(...)`
+- utilise aussi la moyenne de `YayaContainerValues` quand l'item est un container suivi
 - exceptions : les items gris et lies quand ramasses utilisent seulement le prix vendeur
 - bouton `R` sur la frame pour reset la session
 - activites stockees pour :
@@ -39,3 +40,7 @@ SavedVariables :
 Commande :
 
 - `/yst reset` pour remettre la frame a sa position par defaut
+
+## Integration YayaFrame
+
+La section Session est affichee dans la frame partagee `YayaFrame`, qui gere la position commune et le deplacement.

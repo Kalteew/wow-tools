@@ -68,7 +68,7 @@ local CHASING_MADNESS_QUEST_ID = 57405
 local LEGION_ARCHAEOLOGY_GOLD_LABEL = "Archeo Legion 5000g dispo"
 local LEGION_ARCHAEOLOGY_GOLD_ROTATION_DAYS = 13 * 14
 local LEGION_ARCHAEOLOGY_GOLD_WINDOW_DAYS = 14
-local CONCENTRATION_WARNING_THRESHOLD = 750
+local MOXIE_WARNING_THRESHOLD = 600
 local LEGION_ARCHAEOLOGY_GOLD_EU_START_DATE = {
     year = 2025,
     month = 4,
@@ -194,6 +194,20 @@ local MIDNIGHT_PROFESSION_CONFIGS = {
     },
 }
 
+local MIDNIGHT_MOXIE_CURRENCY_IDS = {
+    [2906] = 3256, -- Alchemy
+    [2907] = 3257, -- Blacksmithing
+    [2909] = 3258, -- Enchanting
+    [2910] = 3259, -- Engineering
+    [2912] = 3260, -- Herbalism
+    [2913] = 3261, -- Inscription
+    [2914] = 3262, -- Jewelcrafting
+    [2915] = 3263, -- Leatherworking
+    [2916] = 3264, -- Mining
+    [2917] = 3265, -- Skinning
+    [2918] = 3266, -- Tailoring
+}
+
 local MIDNIGHT_KNOWLEDGE_ITEM_SKILL_LINE_IDS = {}
 local MIDNIGHT_TREATISES_BY_SKILL_LINE_ID = {
     [2906] = { itemID = 245755, weeklyQuestID = 95127 },
@@ -209,6 +223,8 @@ local MIDNIGHT_TREATISES_BY_SKILL_LINE_ID = {
     [2918] = { itemID = 245756, weeklyQuestID = 95137 },
 }
 runtimeState = runtimeState or {}
+runtimeState.minimumMidnightProfessionLevel = 80
+runtimeState.currencyQuantities = {}
 runtimeState.baseProfessionToMidnightSkillLineID = {
     [171] = 2906, -- Alchemy
     [164] = 2907, -- Blacksmithing
@@ -228,7 +244,16 @@ local ARTISAN_CONSORTIUM_PAYOUT_ITEM_IDS = {
 }
 runtimeState.surplusReagentContainers = {
     [260534] = { order = 1, label = "Alch" }, -- Master Alchemist's Surplus Reagents
-    [260538] = { order = 2, label = "Eng" }, -- Master Engineer's Surplus Reagents
+    [260536] = { order = 2, label = "BS" }, -- Master Smith's Surplus Reagents
+    [260537] = { order = 3, label = "Ench" }, -- Master Enchanter's Surplus Reagents
+    [260538] = { order = 4, label = "Eng" }, -- Master Engineer's Surplus Reagents
+    [260539] = { order = 5, label = "Herb" }, -- Master Herbalist's Surplus Reagents
+    [260540] = { order = 6, label = "Insc" }, -- Master Scribe's Surplus Reagents
+    [260541] = { order = 7, label = "JC" }, -- Master Jewelcrafter's Surplus Reagents
+    [260542] = { order = 8, label = "LW" }, -- Master Leatherworker's Surplus Reagents
+    [260543] = { order = 9, label = "Mine" }, -- Master Miner's Surplus Reagents
+    [260544] = { order = 10, label = "Skin" }, -- Master Skinner's Surplus Reagents
+    [260545] = { order = 11, label = "Tail" }, -- Master Tailor's Surplus Reagents
 }
 runtimeState.midnightEnchantingWeeklyReagents = {
     [93697] = { itemID = 243599, itemName = "Eversinging Dust", quantity = 20 },
@@ -628,7 +653,7 @@ local LEGENDARY_CLOAK_UPGRADE_STEPS = {
 
 local DEFAULT_POSITION = {
     point = "TOPLEFT",
-    relativePoint = "TOPRIGHT",
+    relativePoint = "TOPLEFT",
     x = 14,
     y = -8,
 }
@@ -872,6 +897,11 @@ local function GetLocalizedMapName(mapID, fallback)
 end
 
 local function GetCurrencyQuantity(currencyID)
+    local eventQuantity = runtimeState.currencyQuantities[currencyID]
+    if type(eventQuantity) == "number" then
+        return eventQuantity
+    end
+
     if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
         local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
         if type(info) == "table" then
@@ -1404,10 +1434,6 @@ end
 
 local function GetProfessionSkillLineInfo(skillLineID)
     local info = SafeCall(C_TradeSkillUI and C_TradeSkillUI.GetProfessionInfoBySkillLineID, skillLineID)
-    local concentrationCurrencyID = SafeCall(C_TradeSkillUI and C_TradeSkillUI.GetConcentrationCurrencyID, skillLineID)
-    if type(concentrationCurrencyID) ~= "number" or concentrationCurrencyID <= 0 then
-        concentrationCurrencyID = nil
-    end
     if type(info) == "table" then
         DebugLog(
             "ProfessionInfoBySkillLineID input=%s professionID=%s parentProfessionID=%s skillLineID=%s skill=%s/%s",
@@ -1425,7 +1451,6 @@ local function GetProfessionSkillLineInfo(skillLineID)
             parentProfessionName = info.parentProfessionName,
             skillLevel = info.skillLevel or 0,
             maxSkillLevel = info.maxSkillLevel or 0,
-            concentrationCurrencyID = concentrationCurrencyID or info.concentrationCurrencyID,
         }
     end
 
@@ -1440,11 +1465,15 @@ local function GetProfessionSkillLineInfo(skillLineID)
         skillLineID = skillLineID,
         skillLevel = skillLevel or 0,
         maxSkillLevel = maxSkillLevel or 0,
-        concentrationCurrencyID = concentrationCurrencyID,
     }
 end
 
 local function GetTrackedMidnightProfessions()
+    local playerLevel = UnitLevel and UnitLevel("player") or 0
+    if playerLevel < runtimeState.minimumMidnightProfessionLevel then
+        return EMPTY_TABLE
+    end
+
     if not midnightCaches.trackedProfessionsDirty and midnightCaches.trackedProfessions then
         return midnightCaches.trackedProfessions
     end
@@ -1480,11 +1509,11 @@ local function GetTrackedMidnightProfessions()
         end
     end
 
-    local function AddTrackedProfession(skillLineID, skillLevel, maxSkillLevel, concentrationCurrencyID)
+    local function AddTrackedProfession(skillLineID, skillLevel, maxSkillLevel)
         local existingRow = rowBySkillLineID[skillLineID]
         if existingRow then
-            if concentrationCurrencyID and not existingRow.concentrationCurrencyID then
-                existingRow.concentrationCurrencyID = concentrationCurrencyID
+            if MIDNIGHT_MOXIE_CURRENCY_IDS[skillLineID] and not existingRow.moxieCurrencyID then
+                existingRow.moxieCurrencyID = MIDNIGHT_MOXIE_CURRENCY_IDS[skillLineID]
             end
             return
         end
@@ -1504,7 +1533,7 @@ local function GetTrackedMidnightProfessions()
             skillLineID = skillLineID,
             skillLevel = skillLevel or 0,
             maxSkillLevel = maxSkillLevel or 0,
-            concentrationCurrencyID = concentrationCurrencyID,
+            moxieCurrencyID = MIDNIGHT_MOXIE_CURRENCY_IDS[skillLineID],
         }
         rows[#rows + 1] = row
         rowBySkillLineID[skillLineID] = row
@@ -1521,8 +1550,7 @@ local function GetTrackedMidnightProfessions()
                     AddTrackedProfession(
                         resolvedSkillLineID,
                         info.skillLevel,
-                        info.maxSkillLevel,
-                        info.concentrationCurrencyID
+                        info.maxSkillLevel
                     )
                 end
             end
@@ -1557,15 +1585,13 @@ local function GetTrackedMidnightProfessions()
             AddTrackedProfession(
                 resolvedSkillLineID,
                 info.skillLevel,
-                info.maxSkillLevel,
-                info.concentrationCurrencyID
+                info.maxSkillLevel
             )
         elseif info and info.parentSkillLineID and learnedParentSkillLineIDs[info.parentSkillLineID] and (info.maxSkillLevel or 0) > 0 then
             AddTrackedProfession(
                 skillLineID,
                 info.skillLevel,
-                info.maxSkillLevel,
-                info.concentrationCurrencyID
+                info.maxSkillLevel
             )
         end
     end
@@ -2209,21 +2235,27 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
 end
 
 trackerUI.GetMidnightProfessionWarningText = function(row)
-    local currencyID = row and row.concentrationCurrencyID or nil
+    local currencyID = row and row.moxieCurrencyID or nil
     if not currencyID and row and row.skillLineID then
-        currencyID = SafeCall(C_TradeSkillUI and C_TradeSkillUI.GetConcentrationCurrencyID, row.skillLineID)
-        if type(currencyID) ~= "number" or currencyID <= 0 then
-            currencyID = nil
-        end
-        row.concentrationCurrencyID = currencyID
+        currencyID = MIDNIGHT_MOXIE_CURRENCY_IDS[row.skillLineID]
+        row.moxieCurrencyID = currencyID
     end
     if not currencyID then
         return
     end
 
-    local currentConcentration = GetCurrencyQuantity(currencyID)
-    if currentConcentration > CONCENTRATION_WARNING_THRESHOLD then
-        return ("|cffff9966conc. %d|r"):format(currentConcentration)
+    local currentMoxie = GetCurrencyQuantity(currencyID)
+    if currentMoxie > MOXIE_WARNING_THRESHOLD then
+        return ("|cffff9966moxie %d|r"):format(currentMoxie)
+    end
+end
+
+trackerUI.NotifyContainerOpening = function(button, _, down)
+    if down or not button or not button.itemID then
+        return
+    end
+    if YayaContainerValuesAPI and type(YayaContainerValuesAPI.BeginOpening) == "function" then
+        YayaContainerValuesAPI.BeginOpening(button.itemID)
     end
 end
 
@@ -3320,7 +3352,7 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
     local level = UnitLevel and UnitLevel("player") or 0
     local config = runtimeState.generalWeeklyQuests
 
-    if level > 81 and not IsAnyQuestDone(config.abundanceQuestIDs) then
+    if level >= 80 and not IsAnyQuestDone(config.abundanceQuestIDs) then
         AddEntry(entries, "Abondance", "todo")
     end
 
@@ -3430,7 +3462,8 @@ trackerUI.BuildEntries = function(trackedRows)
 
     trackerUI.AddMidnightProfessionEntries(entries, trackedRows)
 
-    if #entries == 0 and trackedRows and #trackedRows == 0 then
+    local level = UnitLevel and UnitLevel("player") or 0
+    if level >= runtimeState.minimumMidnightProfessionLevel and trackedRows and #trackedRows == 0 then
         local displayText = "Midnight: |cffff6666aucun metier detecte|r"
         if HasLearnedMidnightBaseProfession() then
             displayText = "Midnight: |cffffcc66ouvre les metiers pour charger les infos manquantes|r"
@@ -3469,41 +3502,25 @@ trackerUI.EnsureTrackerLine = function(index)
 end
 
 trackerUI.SavePosition = function()
-    local point, _, relativePoint, x, y = trackerFrame:GetPoint(1)
-    local accountDB = GetAccountDB()
-    accountDB.point = point
-    accountDB.relativePoint = relativePoint
-    accountDB.x = math.floor(x + 0.5)
-    accountDB.y = math.floor(y + 0.5)
+    if YayaFrameAPI and type(YayaFrameAPI.SavePosition) == "function" then
+        YayaFrameAPI:SavePosition()
+    end
 end
 
 trackerUI.ApplyPosition = function()
-    trackerFrame:ClearAllPoints()
-
-    local db = YayaWeeklyTrackerAccountDB
-    if HasSavedPosition(db) then
-        trackerFrame:SetPoint(db.point, UIParent, db.relativePoint, db.x, db.y)
-        DebugLog("ApplyPosition saved point=%s relative=%s x=%s y=%s", tostring(db.point), tostring(db.relativePoint), tostring(db.x), tostring(db.y))
-        return
+    if YayaFrameAPI and type(YayaFrameAPI.ApplyPosition) == "function" then
+        YayaFrameAPI:ApplyPosition()
     end
-
-    local anchor = PlayerFrame or UIParent
-    trackerFrame:SetPoint(DEFAULT_POSITION.point, anchor, DEFAULT_POSITION.relativePoint, DEFAULT_POSITION.x, DEFAULT_POSITION.y)
-    DebugLog("ApplyPosition default point=%s relative=%s x=%s y=%s", tostring(DEFAULT_POSITION.point), tostring(DEFAULT_POSITION.relativePoint), tostring(DEFAULT_POSITION.x), tostring(DEFAULT_POSITION.y))
 end
 
 trackerUI.ResetPosition = function()
-    local accountDB = GetAccountDB()
-    accountDB.point = nil
-    accountDB.relativePoint = nil
-    accountDB.x = nil
-    accountDB.y = nil
-    trackerUI.ApplyPosition()
+    if YayaFrameAPI and type(YayaFrameAPI.ResetPosition) == "function" then
+        YayaFrameAPI:ResetPosition()
+    end
 end
 
 trackerUI.ApplyCombatVisibility = function()
-    local visibilityFrame = runtimeState.combatVisibilityFrame
-    if not visibilityFrame then
+    if not YayaFrameAPI or type(YayaFrameAPI.SetHideInCombat) ~= "function" then
         return
     end
 
@@ -3513,12 +3530,7 @@ trackerUI.ApplyCombatVisibility = function()
     end
 
     runtimeState.combatVisibilityUpdateDeferred = false
-    if GetAccountDB().hideInCombat then
-        RegisterStateDriver(visibilityFrame, "visibility", "[combat] hide; show")
-    else
-        UnregisterStateDriver(visibilityFrame, "visibility")
-        visibilityFrame:Show()
-    end
+    YayaFrameAPI:SetHideInCombat(GetAccountDB().hideInCombat == true)
 end
 
 trackerUI.RegisterOptions = function()
@@ -3610,6 +3622,9 @@ runtimeState.showTrackerDiagnostic = function(message)
             extraLine:Hide()
         end
     end
+    if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
+        YayaFrameAPI:Refresh()
+    end
 end
 
 UpdateTracker = function()
@@ -3646,6 +3661,9 @@ UpdateTracker = function()
         if not hasUsefulEntry and not hasKnowledgeButton and not hasPayoutButton and surplusButtonCount == 0 and not hasEnchantingWeeklyButton and not hasTreasureButton then
             DebugLog("UpdateTracker hide frame: all professions complete and no other actions")
             trackerFrame:Hide()
+            if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
+                YayaFrameAPI:Refresh()
+            end
             return
         end
 
@@ -3672,18 +3690,18 @@ UpdateTracker = function()
             end
         end
 
-        if hasKnowledgeButton then
-            trackerFrame.knowledgeButton:ClearAllPoints()
-            trackerFrame.knowledgeButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
+        if hasPayoutButton then
+            trackerFrame.payoutButton:ClearAllPoints()
+            trackerFrame.payoutButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
             offsetY = offsetY + 24
         end
 
-        if hasPayoutButton then
-            trackerFrame.payoutButton:ClearAllPoints()
-            if hasKnowledgeButton then
-                trackerFrame.payoutButton:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
+        if hasKnowledgeButton then
+            trackerFrame.knowledgeButton:ClearAllPoints()
+            if hasPayoutButton then
+                trackerFrame.knowledgeButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
             else
-                trackerFrame.payoutButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
+                trackerFrame.knowledgeButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
             end
             offsetY = offsetY + 24
         end
@@ -3694,10 +3712,10 @@ UpdateTracker = function()
             button:ClearAllPoints()
             if lastSurplusButton then
                 button:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
-            elseif hasPayoutButton then
-                button:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
             elseif hasKnowledgeButton then
                 button:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
+            elseif hasPayoutButton then
+                button:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
             else
                 button:SetPoint("TOPLEFT", 6, -(offsetY + 2))
             end
@@ -3709,10 +3727,10 @@ UpdateTracker = function()
             trackerFrame.enchantingWeeklyButton:ClearAllPoints()
             if lastSurplusButton then
                 trackerFrame.enchantingWeeklyButton:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
-            elseif hasPayoutButton then
-                trackerFrame.enchantingWeeklyButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
             elseif hasKnowledgeButton then
                 trackerFrame.enchantingWeeklyButton:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
+            elseif hasPayoutButton then
+                trackerFrame.enchantingWeeklyButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
             else
                 trackerFrame.enchantingWeeklyButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
             end
@@ -3725,10 +3743,10 @@ UpdateTracker = function()
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.enchantingWeeklyButton, "BOTTOMLEFT", 0, -4)
             elseif lastSurplusButton then
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
-            elseif hasPayoutButton then
-                trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
             elseif hasKnowledgeButton then
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
+            elseif hasPayoutButton then
+                trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
             else
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
             end
@@ -3738,6 +3756,9 @@ UpdateTracker = function()
         local height = offsetY + 4
         trackerFrame:SetHeight(height)
         trackerFrame.bg:SetHeight(height)
+        if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
+            YayaFrameAPI:Refresh()
+        end
         DebugLog("UpdateTracker final height=%d", height)
     end)
 
@@ -3748,26 +3769,15 @@ UpdateTracker = function()
 end
 
 trackerUI.CreateTrackerFrame = function()
-    runtimeState.combatVisibilityFrame = CreateFrame(
-        "Frame",
-        addonName .. "CombatVisibilityFrame",
-        UIParent,
-        "SecureHandlerStateTemplate"
-    )
-    runtimeState.combatVisibilityFrame:Show()
-    trackerFrame = CreateFrame("Frame", addonName .. "Frame", runtimeState.combatVisibilityFrame)
+    if not YayaFrameAPI or type(YayaFrameAPI.GetFrame) ~= "function" then
+        return
+    end
+
+    trackerFrame = CreateFrame("Frame", addonName .. "Frame", YayaFrameAPI:GetFrame())
     DebugLog("CreateTrackerFrame %s", tostring(addonName .. "Frame"))
     trackerFrame:SetFrameStrata("MEDIUM")
     trackerFrame:SetSize(190, 24)
     trackerFrame:SetClampedToScreen(true)
-    trackerFrame:SetMovable(true)
-    trackerFrame:EnableMouse(true)
-    trackerFrame:RegisterForDrag("LeftButton")
-    trackerFrame:SetScript("OnDragStart", trackerFrame.StartMoving)
-    trackerFrame:SetScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
-        trackerUI.SavePosition()
-    end)
 
     trackerFrame.bg = trackerFrame:CreateTexture(nil, "BACKGROUND")
     trackerFrame.bg:SetPoint("TOPLEFT")
@@ -3812,6 +3822,7 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.payoutButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.payoutButton:SetText("Ouvrir payout")
     trackerFrame.payoutButton:Hide()
+    trackerFrame.payoutButton:HookScript("PreClick", trackerUI.NotifyContainerOpening)
     trackerFrame.payoutButton:HookScript("PostClick", function(self, _, down)
         if down then
             return
@@ -3841,12 +3852,14 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.payoutButton:SetScript("OnLeave", GameTooltip_Hide)
 
     trackerFrame.surplusReagentButtons = {}
-    for index = 1, 2 do
+    for index = 1, 11 do
         local button = CreateFrame("Button", addonName .. "SurplusReagentButton" .. index, trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
         button:SetSize(178, 20)
         button:RegisterForClicks("AnyUp", "AnyDown")
+        button:SetAttribute("useOnKeyDown", false)
         button:SetText("Ouvrir surplus")
         button:Hide()
+        button:HookScript("PreClick", trackerUI.NotifyContainerOpening)
         button:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
             GameTooltip:SetText("Ouvre ce type de conteneur de composants en surplus.")
@@ -3920,7 +3933,7 @@ trackerUI.CreateTrackerFrame = function()
         trackerUI.EnsureTrackerLine(index)
     end
 
-    trackerUI.ApplyPosition()
+    YayaFrameAPI:AttachSection(addonName, trackerFrame, 20)
     trackerUI.ApplyCombatVisibility()
     DebugLog("CreateTrackerFrame done")
 end
@@ -4051,6 +4064,10 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             ScheduleTrackerRefresh(0, false)
         end
     elseif event == "CURRENCY_DISPLAY_UPDATE" then
+        local currencyID, quantity = ...
+        if type(currencyID) == "number" and type(quantity) == "number" then
+            runtimeState.currencyQuantities[currencyID] = quantity
+        end
         ScheduleTrackerRefresh(0.05, false)
         if activeCacheOpen then
             ScheduleFinalizeActiveCacheOpen(0.35)

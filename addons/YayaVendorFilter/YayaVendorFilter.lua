@@ -110,6 +110,7 @@ local function AnalyzeTooltip(index)
     local result = {
         known = false,
         permanentMismatch = false,
+        equipMismatch = false,
         skillBlocked = false,
         skillText = nil,
         requiredProfession = nil,
@@ -131,7 +132,7 @@ local function AnalyzeTooltip(index)
     for _, line in ipairs(data.lines) do
         if type(line) == "table" and lineTypes and line.type == lineTypes.EquipSlot
             and (line.isValidItemType == false or line.isValidInvSlot == false) then
-            result.permanentMismatch = true
+            result.equipMismatch = true
         end
 
         if type(line) == "table" and usageRequirement and requirementTypes
@@ -439,11 +440,17 @@ local function IsWrongArmorType(details)
 end
 
 local function IsIrrelevantItem(itemID, itemLink, details, tooltip)
-    if tooltip.permanentMismatch or IsWrongArmorType(details) then
+    if HasRequiredProfession(itemID, itemLink, details, tooltip) == false then
         return true
     end
 
-    if HasRequiredProfession(itemID, itemLink, details, tooltip) == false then
+    if tooltip.permanentMismatch then
+        return true
+    end
+
+    local recipeClassID = Enum and Enum.ItemClass and Enum.ItemClass.Recipe or 9
+    if details.classID ~= recipeClassID
+        and (tooltip.equipMismatch or IsWrongArmorType(details)) then
         return true
     end
     return false

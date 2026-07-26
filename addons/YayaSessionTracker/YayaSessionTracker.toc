@@ -4,6 +4,7 @@
 ## Author: Codex
 ## Version: 0.1.0
 ## SavedVariables: YayaSessionTrackerDB
-## OptionalDeps: TradeSkillMaster
+## Dependencies: YayaFrame
+## OptionalDeps: TradeSkillMaster, YayaContainerValues
 
 YayaSessionTracker.lua

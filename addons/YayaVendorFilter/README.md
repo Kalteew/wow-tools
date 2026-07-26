@@ -11,8 +11,9 @@ Filtre l'interface vendeur de Blizzard pour masquer et compacter :
   personnage ne possede pas.
 
 Une recette reste affichee si le personnage possede le bon metier mais n'a pas
-encore le niveau de competence requis. Les restrictions temporaires de niveau,
-specialisation ou reputation ne sont pas masquees.
+encore le niveau de competence requis, meme si sa fabrication ne peut pas etre
+equipee par sa classe. Les restrictions temporaires de niveau, specialisation
+ou reputation ne sont pas masquees.
 
 Le bouton `Masquer inutiles` dans la fenetre du vendeur active ou desactive le
 filtre. Le choix est conserve pour le compte.

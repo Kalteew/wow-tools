@@ -10,6 +10,10 @@ local MAX_VENDOR_BUTTONS = 1
 local CRAFT_PANEL_EXPANDED_HEIGHT = 340
 local CRAFT_PANEL_COLLAPSED_HEIGHT = 88
 local FIRST_CRAFT_COST_LIMIT = 1000 * 10000
+local MERCHANT_AUTO_BUY_MAX_RETRIES = 10
+local MERCHANT_AUTO_BUY_INITIAL_DELAY = 0.02
+local MERCHANT_AUTO_BUY_RETRY_DELAY = 0.08
+local MERCHANT_AUTO_BUY_VERIFY_DELAY = 0.08
 local debugNextCraft = false
 local DEBUG_LOG_LIMIT = 400
 local COMMODITY_SORT = { sortOrder = 0, reverseSort = false }
@@ -60,6 +64,12 @@ local state = {
     },
     searchCache = {},
     merchantIndexByItemID = {},
+    merchantAutoBuyGeneration = 0,
+    merchantAutoBuyScheduled = false,
+    merchantAutoBuyAttempted = false,
+    merchantAutoBuyRetries = 0,
+    merchantAutoBuyPending = nil,
+    merchantAutoBuySubmitted = {},
     itemLoadPending = {},
     incomingItemCounts = {},
     observedItemCounts = {},
@@ -84,6 +94,7 @@ local state = {
 
 local RefreshAll
 local OnAuctionActionClick
+local RunPatronNextAction
 local ClearPendingCraftEntries
 local QueuePendingCraftEntry
 local PopPendingCraftEntry
@@ -368,6 +379,9 @@ EnsureDB = function()
     end
     if type(YayaQueueDB.debugLog) ~= "table" then
         YayaQueueDB.debugLog = {}
+    end
+    if YayaQueueDB.autoBuyVendor == nil then
+        YayaQueueDB.autoBuyVendor = true
     end
     db = YayaQueueDB
     for itemID in pairs(KNOWN_VENDOR_ITEMS) do
@@ -996,6 +1010,13 @@ local function GetSelectedRecipeID()
     return nil
 end
 
+local function IsRequiredRecipeReagentSlot(slot)
+    return slot
+        and slot.required
+        and type(slot.reagents) == "table"
+        and #slot.reagents > 0
+end
+
 local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, subtractAllocated)
     if not recipeID or type(schematic) ~= "table" then
         return nil
@@ -1003,11 +1024,7 @@ local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, 
 
     local reagents = {}
     for slotIndex, slot in ipairs(schematic.reagentSlotSchematics or {}) do
-        local isRequiredBasic = slot.required
-            and slot.reagentType == Enum.CraftingReagentType.Basic
-            and (slot.dataSlotType == Enum.TradeskillSlotDataType.Reagent
-                or slot.dataSlotType == Enum.TradeskillSlotDataType.ModifiedReagent)
-        local reagent = isRequiredBasic and slot.reagents and slot.reagents[1] or nil
+        local reagent = IsRequiredRecipeReagentSlot(slot) and slot.reagents[1] or nil
         local itemID = reagent and reagent.itemID or nil
         local quantityRequired = tonumber(slot.quantityRequired) or 0
         if subtractAllocated and transaction and type(transaction.GetAllocations) == "function" then
@@ -1097,11 +1114,7 @@ local function GetCurrentRecipeContext()
 
     local reagents = {}
     for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
-        local isRequiredBasic = slot.required
-            and slot.reagentType == Enum.CraftingReagentType.Basic
-            and (slot.dataSlotType == Enum.TradeskillSlotDataType.Reagent
-                or slot.dataSlotType == Enum.TradeskillSlotDataType.ModifiedReagent)
-        local reagent = isRequiredBasic and slot.reagents and slot.reagents[1] or nil
+        local reagent = IsRequiredRecipeReagentSlot(slot) and slot.reagents[1] or nil
         local itemID = reagent and reagent.itemID or nil
         local quantityRequired = tonumber(slot.quantityRequired) or 0
         if type(itemID) == "number" and itemID > 0 and quantityRequired > 0 then
@@ -2166,7 +2179,7 @@ local function GetPatronNextButtonState()
     }
 end
 
-local function RunPatronNextAction()
+RunPatronNextAction = function()
     local stateInfo = GetPatronNextButtonState()
     if not stateInfo or not stateInfo.entry then
         state.ah.statusMessage = "Aucun patron order"
@@ -2347,6 +2360,82 @@ local function RunPatronNextAction()
     end
 end
 
+local TSM_MACRO_NAME = "TSMMacro"
+local TSM_BUY_BUTTON = "TSMShoppingBuyoutBtn"
+local TSM_CRAFT_BUTTON = "TSMCraftingBtn"
+local YQ_TSM_BUY_BUTTON = "YQTSMBuy"
+local YQ_TSM_CRAFT_BUTTON = "YQTSMNext"
+
+local function ClickExistingButton(name)
+    local button = _G[name]
+    if button and type(button.Click) == "function" then
+        pcall(button.Click, button)
+    end
+end
+
+local function IsYayaAuctionContextActive()
+    return AuctionHouseFrame
+        and AuctionHouseFrame:IsShown()
+        and state.ah.frame
+        and state.ah.frame:IsShown()
+end
+
+local function IsYayaCraftContextActive()
+    return ProfessionsFrame
+        and ProfessionsFrame:IsShown()
+        and state.craft.panel
+        and state.craft.panel:IsShown()
+        and state.craft.nextButton
+        and state.craft.nextButton:IsShown()
+end
+
+local function CreateTSMMacroBridgeButton(name, onClick)
+    local button = _G[name] or CreateFrame("Button", name, UIParent)
+    button:SetSize(1, 1)
+    button:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -100, -100)
+    button:SetAlpha(0)
+    button:SetScript("OnClick", onClick)
+    button:Show()
+end
+
+local function UpdateTSMMacroBridge()
+    if InCombatLockdown and InCombatLockdown() then
+        return
+    end
+
+    CreateTSMMacroBridgeButton(YQ_TSM_BUY_BUTTON, function()
+        if IsYayaAuctionContextActive() then
+            OnAuctionActionClick()
+        else
+            ClickExistingButton(TSM_BUY_BUTTON)
+        end
+    end)
+    CreateTSMMacroBridgeButton(YQ_TSM_CRAFT_BUTTON, function()
+        if IsYayaCraftContextActive() then
+            RunPatronNextAction()
+        else
+            ClickExistingButton(TSM_CRAFT_BUTTON)
+        end
+    end)
+
+    local macroName, macroIcon = GetMacroInfo(TSM_MACRO_NAME)
+    if not macroName then
+        return
+    end
+
+    local body = GetMacroBody(TSM_MACRO_NAME)
+    if type(body) ~= "string" or body == "" then
+        return
+    end
+
+    local updatedBody = body
+        :gsub("/click " .. TSM_BUY_BUTTON .. "([^\r\n]*)", "/click " .. YQ_TSM_BUY_BUTTON .. "%1")
+        :gsub("/click " .. TSM_CRAFT_BUTTON .. "([^\r\n]*)", "/click " .. YQ_TSM_CRAFT_BUTTON .. "%1")
+    if updatedBody ~= body then
+        EditMacro(TSM_MACRO_NAME, macroName, macroIcon, updatedBody)
+    end
+end
+
 local function PruneSearchCache(summary)
     local activeItems = {}
     for _, task in ipairs(summary.auctionTasks) do
@@ -2477,11 +2566,17 @@ end
 local function BuyMerchantQuantity(index, quantity)
     local maxStack = math.max(1, GetMerchantItemMaxStackCompat(index) or quantity or 1)
     quantity = math.max(0, math.floor(tonumber(quantity) or 0))
+    local purchasedQuantity = 0
     while quantity > 0 do
         local buyQuantity = math.min(quantity, maxStack)
-        BuyMerchantItem(index, buyQuantity)
+        local ok, err = pcall(BuyMerchantItem, index, buyQuantity)
+        if not ok then
+            return false, err, purchasedQuantity
+        end
+        purchasedQuantity = purchasedQuantity + buyQuantity
         quantity = quantity - buyQuantity
     end
+    return true, nil, purchasedQuantity
 end
 
 local function BuyVendorTask(itemID, quantity)
@@ -2502,7 +2597,13 @@ local function BuyVendorTask(itemID, quantity)
     end
 
     local totalQuantity = purchaseCount * stackSize
-    BuyMerchantQuantity(merchantIndex, totalQuantity)
+    local ok, err, purchasedQuantity = BuyMerchantQuantity(merchantIndex, totalQuantity)
+    if purchasedQuantity and purchasedQuantity > 0 then
+        return purchasedQuantity
+    end
+    if not ok then
+        return nil, "Achat bloque: " .. tostring(err)
+    end
     return totalQuantity
 end
 
@@ -2510,12 +2611,14 @@ local function BuyVendorTasks(tasks)
     local purchasedTypes = 0
     local purchasedQuantity = 0
     local lastError
+    local purchasedItems = {}
 
     for _, task in ipairs(tasks or {}) do
         local quantity, err = BuyVendorTask(task.itemID, task.missing)
         if quantity then
             purchasedTypes = purchasedTypes + 1
             purchasedQuantity = purchasedQuantity + quantity
+            purchasedItems[task.itemID] = true
         elseif err then
             lastError = err
         end
@@ -2527,6 +2630,128 @@ local function BuyVendorTasks(tasks)
         state.ah.statusMessage = lastError or "Aucun achat marchand"
     end
     ScheduleRefresh()
+    return purchasedItems
+end
+
+local function GetCurrentMerchantTasks(summary, excludedItems)
+    local tasks = {}
+    for _, task in ipairs(summary and summary.vendorTasks or {}) do
+        if state.merchantIndexByItemID[task.itemID]
+            and not (excludedItems and excludedItems[task.itemID])
+        then
+            tasks[#tasks + 1] = {
+                itemID = task.itemID,
+                missing = task.missing,
+                name = task.name,
+            }
+        end
+    end
+    return tasks
+end
+
+local ScheduleAutoBuyVendor
+
+local function AttemptAutoBuyVendor(generation)
+    CacheMerchantItems()
+    local tasks = GetCurrentMerchantTasks(BuildQueueSummary(), state.merchantAutoBuySubmitted)
+    if #tasks == 0 then
+        state.merchantAutoBuyRetries = state.merchantAutoBuyRetries + 1
+        if state.merchantAutoBuyRetries < MERCHANT_AUTO_BUY_MAX_RETRIES then
+            ScheduleAutoBuyVendor(MERCHANT_AUTO_BUY_RETRY_DELAY)
+        else
+            state.merchantAutoBuyAttempted = true
+            DebugPrint("merchant-auto-buy no-compatible-task")
+        end
+        return
+    end
+
+    local ownedBefore = {}
+    for _, task in ipairs(tasks) do
+        ownedBefore[task.itemID] = GetImmediateOwnedCount(task.itemID)
+    end
+
+    state.merchantAutoBuyRetries = state.merchantAutoBuyRetries + 1
+    state.merchantAutoBuyPending = {
+        tasks = tasks,
+        ownedBefore = ownedBefore,
+    }
+    DebugPrint("merchant-auto-buy attempt=" .. tostring(state.merchantAutoBuyRetries) .. " tasks=" .. tostring(#tasks))
+    local purchasedItems = BuyVendorTasks(tasks)
+    for itemID in pairs(purchasedItems) do
+        state.merchantAutoBuySubmitted[itemID] = true
+    end
+    ScheduleAutoBuyVendor(MERCHANT_AUTO_BUY_VERIFY_DELAY)
+end
+
+local function VerifyAutoBuyVendor(generation)
+    if generation ~= state.merchantAutoBuyGeneration
+        or not state.merchantAutoBuyPending
+        or not MerchantFrame
+        or not MerchantFrame:IsShown()
+    then
+        return
+    end
+
+    CacheMerchantItems()
+    local pending = state.merchantAutoBuyPending
+    local remainingTasks = GetCurrentMerchantTasks(BuildQueueSummary(), state.merchantAutoBuySubmitted)
+    local received = false
+    for _, task in ipairs(pending.tasks) do
+        local currentOwned = GetImmediateOwnedCount(task.itemID)
+        if currentOwned > (pending.ownedBefore[task.itemID] or 0) then
+            received = true
+            break
+        end
+    end
+
+    state.merchantAutoBuyPending = nil
+    if #remainingTasks == 0 then
+        state.merchantAutoBuyAttempted = true
+        DebugPrint("merchant-auto-buy success")
+        return
+    end
+
+    if received then
+        DebugPrint("merchant-auto-buy partial-success remaining=" .. tostring(#remainingTasks))
+    else
+        DebugPrint("merchant-auto-buy no-bag-change remaining=" .. tostring(#remainingTasks))
+    end
+
+    if state.merchantAutoBuyRetries < MERCHANT_AUTO_BUY_MAX_RETRIES then
+        ScheduleAutoBuyVendor(MERCHANT_AUTO_BUY_RETRY_DELAY)
+    else
+        state.merchantAutoBuyAttempted = true
+        DebugPrint("merchant-auto-buy retry-limit")
+    end
+end
+
+ScheduleAutoBuyVendor = function(delay)
+    EnsureDB()
+    if not db.autoBuyVendor
+        or state.merchantAutoBuyAttempted
+        or state.merchantAutoBuyScheduled
+    then
+        return
+    end
+
+    state.merchantAutoBuyScheduled = true
+    local generation = state.merchantAutoBuyGeneration
+    C_Timer.After(delay or 0.05, function()
+        state.merchantAutoBuyScheduled = false
+        if generation ~= state.merchantAutoBuyGeneration
+            or state.merchantAutoBuyAttempted
+            or not MerchantFrame
+            or not MerchantFrame:IsShown()
+        then
+            return
+        end
+
+        if state.merchantAutoBuyPending then
+            VerifyAutoBuyVendor(generation)
+        else
+            AttemptAutoBuyVendor(generation)
+        end
+    end)
 end
 
 local function QueueRecipeContext(context, qtyBox, quantityOverride)
@@ -2575,11 +2800,10 @@ local function BuildCompleteRecipeReagents(schematic, craftingReagents, recipeIn
             consumedSlots[dataSlotIndex] = true
         end
 
-        local isRequiredBasic = slot.required
-            and slot.reagentType == Enum.CraftingReagentType.Basic
-            and (slot.dataSlotType == Enum.TradeskillSlotDataType.Reagent
-                or slot.dataSlotType == Enum.TradeskillSlotDataType.ModifiedReagent)
-        if isRequiredBasic then
+        -- Some required selectable reagents (for example Mote of Primal Energy)
+        -- are not exposed as CraftingReagentType.Basic. They still belong in
+        -- the queue when the transaction only contains a partial allocation.
+        if IsRequiredRecipeReagentSlot(slot) then
             local missingQuantity = math.max(0, (tonumber(slot.quantityRequired) or 0) - selectedQuantity)
             local fallbackReagent = slot.reagents and slot.reagents[1] or nil
             AddItem(fallbackReagent and fallbackReagent.itemID, missingQuantity)
@@ -3167,16 +3391,7 @@ local function UpdateVendorButtons(summary)
         return
     end
 
-    local tasks = {}
-    for _, task in ipairs(summary.vendorTasks) do
-        if state.merchantIndexByItemID[task.itemID] then
-            tasks[#tasks + 1] = {
-                itemID = task.itemID,
-                missing = task.missing,
-                name = task.name,
-            }
-        end
-    end
+    local tasks = GetCurrentMerchantTasks(summary)
 
     local button = state.craft.vendorButtons[1]
     if button and #tasks > 0 then
@@ -4291,6 +4506,10 @@ end
 addon:SetScript("OnEvent", function(_, event, arg1, arg2)
     InstallRecipeDescriptionGuard()
     if event == "ADDON_LOADED" then
+        if arg1 == "TradeSkillMaster" then
+            C_Timer.After(0, UpdateTSMMacroBridge)
+            return
+        end
         if arg1 ~= addonName then
             return
         end
@@ -4327,6 +4546,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
         addon:RegisterEvent("AUCTION_CANCELED")
         addon:RegisterEvent("CHAT_MSG_SYSTEM")
         addon:RegisterEvent("UI_ERROR_MESSAGE")
+        C_Timer.After(0, UpdateTSMMacroBridge)
+        ScheduleRefresh()
+        return
+    end
+
+    if event == "PLAYER_ENTERING_WORLD" then
+        UpdateTSMMacroBridge()
         ScheduleRefresh()
         return
     end
@@ -4435,7 +4661,22 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
     end
 
     if event == "MERCHANT_SHOW" or event == "MERCHANT_UPDATE" then
+        if event == "MERCHANT_SHOW" then
+            state.merchantAutoBuyGeneration = state.merchantAutoBuyGeneration + 1
+            state.merchantAutoBuyAttempted = false
+            state.merchantAutoBuyRetries = 0
+            state.merchantAutoBuyPending = nil
+            state.merchantAutoBuyScheduled = false
+            wipe(state.merchantAutoBuySubmitted)
+        end
         CacheMerchantItems()
+        ScheduleAutoBuyVendor(event == "MERCHANT_SHOW" and MERCHANT_AUTO_BUY_INITIAL_DELAY or MERCHANT_AUTO_BUY_RETRY_DELAY)
+        ScheduleRefresh()
+        return
+    end
+
+    if event == "BAG_UPDATE_DELAYED" and state.merchantAutoBuyPending then
+        ScheduleAutoBuyVendor(0)
         ScheduleRefresh()
         return
     end
@@ -4735,6 +4976,17 @@ SlashCmdList.YAYAQUEUE = function(message)
     if command == "debug" then
         debugNextCraft = not debugNextCraft
         Print("Debug " .. (debugNextCraft and "active" or "inactif"))
+        return
+    end
+    if command == "vendor on" or command == "vendor off" then
+        EnsureDB()
+        db.autoBuyVendor = command == "vendor on"
+        Print("Achat automatique marchand " .. (db.autoBuyVendor and "active" or "inactif") .. ".")
+        return
+    end
+    if command == "vendor" or command == "vendor status" then
+        EnsureDB()
+        Print("Achat automatique marchand " .. (db.autoBuyVendor and "active" or "inactif") .. ".")
         return
     end
     if command == "log clear" then
