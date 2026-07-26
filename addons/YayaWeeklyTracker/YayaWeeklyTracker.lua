@@ -69,6 +69,10 @@ local LEGION_ARCHAEOLOGY_GOLD_LABEL = "Archeo Legion 5000g dispo"
 local LEGION_ARCHAEOLOGY_GOLD_ROTATION_DAYS = 13 * 14
 local LEGION_ARCHAEOLOGY_GOLD_WINDOW_DAYS = 14
 local MOXIE_WARNING_THRESHOLD = 600
+local MIDNIGHT_UNALLOYED_ABUNDANCE_CURRENCY_ID = 3377
+local MIDNIGHT_KNOWLEDGE_BOOK_MOXIE_COST = 75
+local MIDNIGHT_KNOWLEDGE_BOOK_ABUNDANCE_COST = 1600
+local MIDNIGHT_RECIPE_MOXIE_COST = 150
 local LEGION_ARCHAEOLOGY_GOLD_EU_START_DATE = {
     year = 2025,
     month = 4,
@@ -206,6 +210,42 @@ local MIDNIGHT_MOXIE_CURRENCY_IDS = {
     [2916] = 3264, -- Mining
     [2917] = 3265, -- Skinning
     [2918] = 3266, -- Tailoring
+}
+
+local MIDNIGHT_KNOWLEDGE_BOOKS_BY_SKILL_LINE_ID = {
+    [2906] = { { label = "Voidstorm", questID = 93794, mapID = 2405, x = 52.6, y = 72.9 } },
+    [2907] = { { label = "Voidstorm", questID = 93795, mapID = 2405, x = 52.6, y = 72.9 } },
+    [2909] = {
+        { label = "Silvermoon", questID = 92374, mapID = 2395, x = 43.4, y = 47.4 },
+        { label = "Abundance", questID = 92186, abundance = true, mapID = 2395, x = 56.78, y = 65.79 },
+    },
+    [2910] = { { label = "Voidstorm", questID = 93796, mapID = 2405, x = 52.6, y = 72.9 } },
+    [2912] = {
+        { label = "Harandar", questID = 93411, mapID = 2413, x = 51.0, y = 50.8 },
+        { label = "Abundance", questID = 92174, abundance = true, mapID = 2413, x = 66.14, y = 61.69 },
+    },
+    [2913] = { { label = "Harandar", questID = 93412, mapID = 2413, x = 51.0, y = 50.8 } },
+    [2914] = { { label = "Silvermoon", questID = 93222, mapID = 2395, x = 43.4, y = 47.4 } },
+    [2915] = { { label = "Zul'Aman", questID = 92371, mapID = 2437, x = 45.8, y = 65.8 } },
+    [2916] = {
+        { label = "Zul'Aman", questID = 92372, mapID = 2437, x = 45.8, y = 65.8 },
+        { label = "Abundance", questID = 92187, abundance = true, mapID = 2405, x = 38.82, y = 53.31 },
+    },
+    [2917] = {
+        { label = "Zul'Aman", questID = 92373, mapID = 2437, x = 45.8, y = 65.8 },
+        { label = "Abundance", questID = 92188, abundance = true, mapID = 2437, x = 31.62, y = 26.14 },
+    },
+    [2918] = { { label = "Silvermoon", questID = 93201, mapID = 2395, x = 43.4, y = 47.4 } },
+}
+
+local MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID = {
+    [2906] = {
+        { label = "Potion Recklessness", itemID = 259459, moxieCost = 150, mapID = 2405, x = 52.6, y = 72.9 },
+    },
+    [2909] = {
+        { label = "outil multicraft", itemID = 256749, moxieCost = 150, mapID = 2413, x = 51.0, y = 50.8 },
+        { label = "forme Haranir", itemID = 256743, moxieCost = 150, mapID = 2413, x = 51.0, y = 50.8 },
+    },
 }
 
 local MIDNIGHT_KNOWLEDGE_ITEM_SKILL_LINE_IDS = {}
@@ -691,6 +731,8 @@ local midnightCaches = {
 }
 local treasureWaypointUIDs = {}
 local treasureWaypointSignature
+local knowledgeBookWaypointUIDs = {}
+local knowledgeBookWaypointSignature
 local debugSignatures = {
     knowledge = nil,
     payout = nil,
@@ -2088,6 +2130,125 @@ trackerUI.ClearMidnightTreasureWaypoints = function()
     treasureWaypointSignature = nil
 end
 
+trackerUI.ClearMidnightKnowledgeBookWaypoints = function()
+    if TomTom and type(TomTom.RemoveWaypoint) == "function" then
+        for _, uid in ipairs(knowledgeBookWaypointUIDs) do
+            TomTom:RemoveWaypoint(uid)
+        end
+    end
+    wipe(knowledgeBookWaypointUIDs)
+    knowledgeBookWaypointSignature = nil
+end
+
+local function IsMidnightRecipeKnown(itemID)
+    if not (itemID and C_TradeSkillUI and type(C_TradeSkillUI.GetRecipeInfoForItemID) == "function") then
+        return true
+    end
+
+    local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfoForItemID, itemID)
+    if type(recipeInfo) ~= "table" then
+        return true
+    end
+    if type(recipeInfo.learned) == "boolean" then
+        return recipeInfo.learned
+    end
+    if recipeInfo.recipeID and type(C_TradeSkillUI.GetRecipeInfo) == "function" then
+        local fullInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeInfo.recipeID)
+        if type(fullInfo) == "table" and type(fullInfo.learned) == "boolean" then
+            return fullInfo.learned
+        end
+    end
+    return true
+end
+
+trackerUI.GetMidnightRecipeStatus = function(row)
+    local result = { missingRecipes = {}, requiredMoxie = 0, currentMoxie = 0 }
+    local recipes = row and row.skillLineID and MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID[row.skillLineID]
+    if not recipes then
+        return result
+    end
+
+    for _, recipe in ipairs(recipes) do
+        if not IsMidnightRecipeKnown(recipe.itemID) then
+            result.missingRecipes[#result.missingRecipes + 1] = recipe
+            result.requiredMoxie = result.requiredMoxie + (recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST)
+        end
+    end
+    if result.requiredMoxie > 0 then
+        result.currentMoxie = GetCurrencyQuantity(row.moxieCurrencyID or MIDNIGHT_MOXIE_CURRENCY_IDS[row.skillLineID])
+    end
+    return result
+end
+
+trackerUI.BuildMidnightKnowledgeBookWaypointPlan = function(trackedRows)
+    local plan = {}
+    local seen = {}
+    local signatureParts = {}
+
+    for _, row in ipairs(trackedRows or GetTrackedMidnightProfessions()) do
+        local bookStatus = trackerUI.GetMidnightKnowledgeBookStatus(row)
+        for _, book in ipairs(bookStatus.missingBooks) do
+            local key = ("%s:%s:%s:%s"):format(book.mapID, book.x, book.y, book.label)
+            if not seen[key] then
+                seen[key] = true
+                plan[#plan + 1] = {
+                    mapID = book.mapID,
+                    x = book.x / 100,
+                    y = book.y / 100,
+                    title = ("YWT livre KP - %s"):format(book.label),
+                }
+            end
+            signatureParts[#signatureParts + 1] = tostring(row.skillLineID) .. ":" .. tostring(book.questID)
+        end
+        local recipeStatus = trackerUI.GetMidnightRecipeStatus(row)
+        for _, recipe in ipairs(recipeStatus.missingRecipes) do
+            local key = ("%s:%s:%s:%s"):format(recipe.mapID, recipe.x, recipe.y, recipe.label)
+            if not seen[key] then
+                seen[key] = true
+                plan[#plan + 1] = {
+                    mapID = recipe.mapID,
+                    x = recipe.x / 100,
+                    y = recipe.y / 100,
+                    title = ("YWT recette - %s"):format(recipe.label),
+                }
+            end
+            signatureParts[#signatureParts + 1] = tostring(row.skillLineID) .. ":recipe:" .. tostring(recipe.itemID)
+        end
+    end
+
+    table.sort(signatureParts)
+    return plan, table.concat(signatureParts, ",")
+end
+
+trackerUI.SyncMidnightKnowledgeBookWaypoints = function(trackedRows)
+    if not (TomTom and type(TomTom.AddWaypoint) == "function" and type(TomTom.RemoveWaypoint) == "function") then
+        if #knowledgeBookWaypointUIDs > 0 then
+            trackerUI.ClearMidnightKnowledgeBookWaypoints()
+        end
+        return
+    end
+
+    local plan, signature = trackerUI.BuildMidnightKnowledgeBookWaypointPlan(trackedRows)
+    if signature == knowledgeBookWaypointSignature then
+        return
+    end
+
+    trackerUI.ClearMidnightKnowledgeBookWaypoints()
+    for _, waypoint in ipairs(plan) do
+        local uid = TomTom:AddWaypoint(waypoint.mapID, waypoint.x, waypoint.y, {
+            title = waypoint.title,
+            from = addonName,
+            persistent = false,
+            crazy = false,
+            silent = true,
+        })
+        if uid then
+            knowledgeBookWaypointUIDs[#knowledgeBookWaypointUIDs + 1] = uid
+        end
+    end
+    knowledgeBookWaypointSignature = signature
+end
+
 trackerUI.BuildMidnightTreasureWaypointPlan = function(trackedRows)
     local plan = {}
     local signatureParts = {}
@@ -2117,10 +2278,13 @@ trackerUI.SyncMidnightTreasureWaypoints = function()
         if #treasureWaypointUIDs > 0 then
             trackerUI.ClearMidnightTreasureWaypoints()
         end
+        trackerUI.ClearMidnightKnowledgeBookWaypoints()
         return
     end
 
-    local plan, signature = trackerUI.BuildMidnightTreasureWaypointPlan(GetTrackedMidnightProfessions())
+    local trackedRows = GetTrackedMidnightProfessions()
+    trackerUI.SyncMidnightKnowledgeBookWaypoints(trackedRows)
+    local plan, signature = trackerUI.BuildMidnightTreasureWaypointPlan(trackedRows)
     if signature == treasureWaypointSignature then
         return
     end
@@ -2148,6 +2312,7 @@ end
 
 trackerUI.RetriggerMidnightTreasureWaypoints = function()
     trackerUI.ClearMidnightTreasureWaypoints()
+    trackerUI.ClearMidnightKnowledgeBookWaypoints()
     trackerUI.SyncMidnightTreasureWaypoints()
 end
 
@@ -2192,9 +2357,10 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     end
 
     local tokens = {}
+    local oneTimeTokens = {}
     local remainingTreasures, totalTreasures = CountRemainingTrackedQuests(config.treasureQuestIDs)
     if remainingTreasures > 0 then
-        tokens[#tokens + 1] = ("T%d/%d"):format(remainingTreasures, totalTreasures)
+        oneTimeTokens[#oneTimeTokens + 1] = ("T%d/%d"):format(remainingTreasures, totalTreasures)
     end
 
     local remainingWeeklyLoots, totalWeeklyLoots = CountRemainingTrackedQuests(config.weeklyLootQuestIDs)
@@ -2231,7 +2397,50 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         tokens[#tokens + 1] = "DMF"
     end
 
-    return tokens
+    local bookStatus = trackerUI.GetMidnightKnowledgeBookStatus(row)
+    for _, book in ipairs(bookStatus.missingBooks) do
+        oneTimeTokens[#oneTimeTokens + 1] = ("+10KP (%s)"):format(book.label)
+    end
+
+    local recipeStatus = trackerUI.GetMidnightRecipeStatus(row)
+    for _, recipe in ipairs(recipeStatus.missingRecipes) do
+        oneTimeTokens[#oneTimeTokens + 1] = ("recette (%s)"):format(recipe.label)
+    end
+
+    return tokens, oneTimeTokens
+end
+
+trackerUI.GetMidnightKnowledgeBookStatus = function(row)
+    local result = {
+        missingBooks = {},
+        requiredMoxie = 0,
+        requiredAbundance = 0,
+        currentMoxie = 0,
+        currentAbundance = 0,
+    }
+    local books = row and row.skillLineID and MIDNIGHT_KNOWLEDGE_BOOKS_BY_SKILL_LINE_ID[row.skillLineID]
+    if not books or (row.skillLevel or 0) < 25 then
+        return result
+    end
+
+    for _, book in ipairs(books) do
+        if not IsQuestDone(book.questID) then
+            result.missingBooks[#result.missingBooks + 1] = book
+            if book.abundance then
+                result.requiredAbundance = result.requiredAbundance + MIDNIGHT_KNOWLEDGE_BOOK_ABUNDANCE_COST
+            else
+                result.requiredMoxie = result.requiredMoxie + MIDNIGHT_KNOWLEDGE_BOOK_MOXIE_COST
+            end
+        end
+    end
+
+    if result.requiredMoxie > 0 then
+        result.currentMoxie = GetCurrencyQuantity(row.moxieCurrencyID or MIDNIGHT_MOXIE_CURRENCY_IDS[row.skillLineID])
+    end
+    if result.requiredAbundance > 0 then
+        result.currentAbundance = GetCurrencyQuantity(MIDNIGHT_UNALLOYED_ABUNDANCE_CURRENCY_ID)
+    end
+    return result
 end
 
 trackerUI.GetMidnightProfessionWarningText = function(row)
@@ -2245,8 +2454,25 @@ trackerUI.GetMidnightProfessionWarningText = function(row)
     end
 
     local currentMoxie = GetCurrencyQuantity(currencyID)
-    if currentMoxie > MOXIE_WARNING_THRESHOLD then
-        return ("|cffff9966moxie %d|r"):format(currentMoxie)
+    local bookStatus = trackerUI.GetMidnightKnowledgeBookStatus(row)
+    local recipeStatus = trackerUI.GetMidnightRecipeStatus(row)
+    local warningParts = {}
+    local requiredMoxie = bookStatus.requiredMoxie + recipeStatus.requiredMoxie
+    if requiredMoxie > 0 and currentMoxie < requiredMoxie then
+        local moxieText = ("moxie %d/%d"):format(currentMoxie, requiredMoxie)
+        warningParts[#warningParts + 1] = "|cffff3333" .. moxieText .. "|r"
+    elseif currentMoxie > MOXIE_WARNING_THRESHOLD then
+        warningParts[#warningParts + 1] = ("|cffff9966moxie %d|r"):format(currentMoxie)
+    end
+    if bookStatus.requiredAbundance > 0 and bookStatus.currentAbundance < bookStatus.requiredAbundance then
+        local abundanceText = ("abondance %d/%d"):format(
+            bookStatus.currentAbundance,
+            bookStatus.requiredAbundance
+        )
+        warningParts[#warningParts + 1] = "|cffff3333" .. abundanceText .. "|r"
+    end
+    if #warningParts > 0 then
+        return table.concat(warningParts, " ")
     end
 end
 
@@ -2261,7 +2487,7 @@ end
 
 trackerUI.AddMidnightProfessionEntries = function(entries, trackedRows)
     for _, row in ipairs(trackedRows or GetTrackedMidnightProfessions()) do
-        local tokens = trackerUI.BuildMidnightProfessionTokens(row)
+        local tokens, oneTimeTokens = trackerUI.BuildMidnightProfessionTokens(row)
         local warningText = trackerUI.GetMidnightProfessionWarningText(row)
         if #tokens > 0 then
             AddEntry(entries, row.config.label, "todo", {
@@ -2271,13 +2497,22 @@ trackerUI.AddMidnightProfessionEntries = function(entries, trackedRows)
                     warningText and (" " .. warningText) or ""
                 ),
             })
-        else
+        elseif #oneTimeTokens == 0 then
             AddEntry(entries, row.config.label, "todo", {
                 displayText = ("%s: |cff999999ok|r%s"):format(
                     row.config.label,
                     warningText and (" " .. warningText) or ""
                 ),
                 satisfied = not warningText,
+            })
+        end
+        if #oneTimeTokens > 0 then
+            AddEntry(entries, row.config.label .. " 1x", "todo", {
+                displayText = ("%s 1x: |cffd6b36a%s|r%s"):format(
+                    row.config.label,
+                    table.concat(oneTimeTokens, " "),
+                    warningText and (" " .. warningText) or ""
+                ),
             })
         end
     end
@@ -3948,6 +4183,7 @@ eventFrame:RegisterEvent("SPELLS_CHANGED")
 eventFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 eventFrame:RegisterEvent("SKILL_LINES_CHANGED")
 eventFrame:RegisterEvent("TRADE_SKILL_SHOW")
+eventFrame:RegisterEvent("TRADE_SKILL_DATA_SOURCE_CHANGED")
 eventFrame:RegisterEvent("AREA_POIS_UPDATED")
 eventFrame:RegisterEvent("QUEST_DATA_LOAD_RESULT")
 eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
@@ -4041,7 +4277,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         if activeCacheOpen then
             ScheduleFinalizeActiveCacheOpen(0.35)
         end
-    elseif event == "PLAYER_ENTERING_WORLD" or event == "SPELLS_CHANGED" or event == "SKILL_LINES_CHANGED" or event == "TRADE_SKILL_SHOW" then
+    elseif event == "PLAYER_ENTERING_WORLD" or event == "SPELLS_CHANGED" or event == "SKILL_LINES_CHANGED" or event == "TRADE_SKILL_SHOW" or event == "TRADE_SKILL_DATA_SOURCE_CHANGED" then
         InvalidateTrackedMidnightProfessions()
         ScheduleTrackerRefresh(0.05, true)
     elseif event == "PLAYER_LEVEL_UP" then
