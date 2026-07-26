@@ -1,7 +1,0 @@
-## Interface: 120005
-## Title: Yaya Overlay Glow Compat
-## Notes: Restores missing ActionButton overlay glow helpers for older addons.
-## Author: Codex
-## Version: 0.1.0
-
-YayaOverlayGlowCompat.lua

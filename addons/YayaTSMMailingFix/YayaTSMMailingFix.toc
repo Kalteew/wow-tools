@@ -1,8 +1,0 @@
-## Interface: 120007
-## Title: Yaya TSM Mailing Fix
-## Notes: Prevents TSM group mailing from skipping stale or falsely locked bag slots.
-## Author: Codex
-## Version: 0.1.0
-## Dependencies: TradeSkillMaster
-
-YayaTSMMailingFix.lua
