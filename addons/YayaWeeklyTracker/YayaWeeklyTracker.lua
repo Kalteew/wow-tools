@@ -240,11 +240,11 @@ local MIDNIGHT_KNOWLEDGE_BOOKS_BY_SKILL_LINE_ID = {
 
 local MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID = {
     [2906] = {
-        { label = "Potion Recklessness", itemID = 259459, moxieCost = 150, mapID = 2405, x = 52.6, y = 72.9 },
+        { label = "Potion Recklessness", spellID = 1230859, itemID = 259459, moxieCost = 150, mapID = 2405, x = 52.6, y = 72.9 },
     },
     [2909] = {
-        { label = "outil multicraft", itemID = 256749, moxieCost = 150, mapID = 2413, x = 51.0, y = 50.8 },
-        { label = "forme Haranir", itemID = 256743, moxieCost = 150, mapID = 2413, x = 51.0, y = 50.8 },
+        { label = "outil multicraft", spellID = 1236078, itemID = 256749, moxieCost = 150, mapID = 2413, x = 51.0, y = 50.8 },
+        { label = "forme Haranir", spellID = 1236464, itemID = 256743, moxieCost = 150, mapID = 2413, x = 51.0, y = 50.8 },
     },
 }
 
@@ -2140,22 +2140,30 @@ trackerUI.ClearMidnightKnowledgeBookWaypoints = function()
     knowledgeBookWaypointSignature = nil
 end
 
-local function IsMidnightRecipeKnown(itemID)
-    if not (itemID and C_TradeSkillUI and type(C_TradeSkillUI.GetRecipeInfoForItemID) == "function") then
+local function IsMidnightRecipeKnown(recipe)
+    if not (recipe and C_TradeSkillUI) then
         return true
     end
 
-    local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfoForItemID, itemID)
-    if type(recipeInfo) ~= "table" then
+    if recipe.spellID and type(C_TradeSkillUI.IsRecipeProfessionLearned) == "function" then
+        local learned = SafeCall(C_TradeSkillUI.IsRecipeProfessionLearned, recipe.spellID)
+        if type(learned) == "boolean" then
+            return learned
+        end
+    end
+
+    if recipe.spellID and type(C_TradeSkillUI.GetRecipeInfo) == "function" then
+        local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipe.spellID)
+        if type(recipeInfo) == "table" and type(recipeInfo.learned) == "boolean" then
+            return recipeInfo.learned
+        end
         return true
     end
-    if type(recipeInfo.learned) == "boolean" then
-        return recipeInfo.learned
-    end
-    if recipeInfo.recipeID and type(C_TradeSkillUI.GetRecipeInfo) == "function" then
-        local fullInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeInfo.recipeID)
-        if type(fullInfo) == "table" and type(fullInfo.learned) == "boolean" then
-            return fullInfo.learned
+
+    if recipe.itemID and type(C_TradeSkillUI.GetRecipeInfoForItemID) == "function" then
+        local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfoForItemID, recipe.itemID)
+        if type(recipeInfo) == "table" and type(recipeInfo.learned) == "boolean" then
+            return recipeInfo.learned
         end
     end
     return true
@@ -2169,7 +2177,7 @@ trackerUI.GetMidnightRecipeStatus = function(row)
     end
 
     for _, recipe in ipairs(recipes) do
-        if not IsMidnightRecipeKnown(recipe.itemID) then
+        if not IsMidnightRecipeKnown(recipe) then
             result.missingRecipes[#result.missingRecipes + 1] = recipe
             result.requiredMoxie = result.requiredMoxie + (recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST)
         end
@@ -2485,32 +2493,31 @@ trackerUI.NotifyContainerOpening = function(button, _, down)
     end
 end
 
-trackerUI.AddMidnightProfessionEntries = function(entries, trackedRows)
+trackerUI.AddMidnightProfessionEntries = function(entries, trackedRows, oneTimeEntries)
+    local oneTimeRows = {}
     for _, row in ipairs(trackedRows or GetTrackedMidnightProfessions()) do
         local tokens, oneTimeTokens = trackerUI.BuildMidnightProfessionTokens(row)
-        local warningText = trackerUI.GetMidnightProfessionWarningText(row)
         if #tokens > 0 then
             AddEntry(entries, row.config.label, "todo", {
                 displayText = ("%s: |cff7fff7f%s|r%s"):format(
                     row.config.label,
                     table.concat(tokens, " "),
-                    warningText and (" " .. warningText) or ""
+                    ""
                 ),
-            })
-        elseif #oneTimeTokens == 0 then
-            AddEntry(entries, row.config.label, "todo", {
-                displayText = ("%s: |cff999999ok|r%s"):format(
-                    row.config.label,
-                    warningText and (" " .. warningText) or ""
-                ),
-                satisfied = not warningText,
             })
         end
         if #oneTimeTokens > 0 then
-            AddEntry(entries, row.config.label .. " 1x", "todo", {
-                displayText = ("%s 1x: |cffd6b36a%s|r%s"):format(
-                    row.config.label,
-                    table.concat(oneTimeTokens, " "),
+            oneTimeRows[#oneTimeRows + 1] = { row = row, tokens = oneTimeTokens }
+        end
+    end
+
+    if #oneTimeRows > 0 then
+        for _, state in ipairs(oneTimeRows) do
+            local warningText = trackerUI.GetMidnightProfessionWarningText(state.row)
+            AddEntry(oneTimeEntries or entries, state.row.config.label, "todo", {
+                displayText = ("%s: |cffd6b36a%s|r%s"):format(
+                    state.row.config.label,
+                    table.concat(state.tokens, " "),
                     warningText and (" " .. warningText) or ""
                 ),
             })
@@ -3678,24 +3685,49 @@ trackerUI.BuildEntries = function(trackedRows)
     --     AddEntry(entries, "Visions N'Zoth (bi-hebdo)", "todo")
     -- end
 
-    AddReplenishTheReservoirEntry(entries, activeByQuestID)
+    local weeklyEntries = {}
+    local oneTimeEntries = {}
+
+    AddReplenishTheReservoirEntry(weeklyEntries, activeByQuestID)
 
     if HasJardRecipe() and GetRemainingSpellCooldown(JARD_SPELL_ID) <= 0 then
-        AddEntry(entries, "Jard", "todo")
+        AddEntry(weeklyEntries, "Jard", "todo")
     end
 
     if IsQuestActiveOnMap(CONTAINING_THE_HELSWORN_QUEST_ID, activeByQuestID)
         and HasFlatGoldQuestReward(CONTAINING_THE_HELSWORN_QUEST_ID) then
         if not IsQuestDone(VICTORY_IN_OUR_NAME_QUEST_ID) then
-            AddEntry(entries, CONTAINING_THE_HELSWORN_LABEL, "locked")
+            AddEntry(weeklyEntries, CONTAINING_THE_HELSWORN_LABEL, "locked")
         elseif not IsQuestDone(CONTAINING_THE_HELSWORN_QUEST_ID) then
-            AddEntry(entries, CONTAINING_THE_HELSWORN_LABEL, "todo")
+            AddEntry(weeklyEntries, CONTAINING_THE_HELSWORN_LABEL, "todo")
         end
     end
 
-    trackerUI.AddGeneralWeeklyEntries(entries, activeByQuestID)
+    trackerUI.AddGeneralWeeklyEntries(weeklyEntries, activeByQuestID)
 
-    trackerUI.AddMidnightProfessionEntries(entries, trackedRows)
+    trackerUI.AddMidnightProfessionEntries(weeklyEntries, trackedRows, oneTimeEntries)
+
+    if #weeklyEntries > 0 then
+        AddEntry(entries, "Hebdo", "todo", {
+            prominent = true,
+            displayText = "|cff7fff7fHebdo|r",
+            satisfied = true,
+        })
+        for _, entry in ipairs(weeklyEntries) do
+            entries[#entries + 1] = entry
+        end
+    end
+
+    if #oneTimeEntries > 0 then
+        AddEntry(entries, "One time", "todo", {
+            prominent = true,
+            displayText = "|cffd6b36aOne time|r",
+            satisfied = true,
+        })
+        for _, entry in ipairs(oneTimeEntries) do
+            entries[#entries + 1] = entry
+        end
+    end
 
     local level = UnitLevel and UnitLevel("player") or 0
     if level >= runtimeState.minimumMidnightProfessionLevel and trackedRows and #trackedRows == 0 then
@@ -4184,6 +4216,7 @@ eventFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 eventFrame:RegisterEvent("SKILL_LINES_CHANGED")
 eventFrame:RegisterEvent("TRADE_SKILL_SHOW")
 eventFrame:RegisterEvent("TRADE_SKILL_DATA_SOURCE_CHANGED")
+eventFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 eventFrame:RegisterEvent("AREA_POIS_UPDATED")
 eventFrame:RegisterEvent("QUEST_DATA_LOAD_RESULT")
 eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
@@ -4280,6 +4313,12 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
     elseif event == "PLAYER_ENTERING_WORLD" or event == "SPELLS_CHANGED" or event == "SKILL_LINES_CHANGED" or event == "TRADE_SKILL_SHOW" or event == "TRADE_SKILL_DATA_SOURCE_CHANGED" then
         InvalidateTrackedMidnightProfessions()
         ScheduleTrackerRefresh(0.05, true)
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+        local unit = ...
+        if unit == "player" then
+            InvalidateTrackedMidnightProfessions()
+            ScheduleTrackerRefresh(0.20, true)
+        end
     elseif event == "PLAYER_LEVEL_UP" then
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "PLAYER_EQUIPMENT_CHANGED" or event == "PLAYER_AVG_ITEM_LEVEL_UPDATE" then

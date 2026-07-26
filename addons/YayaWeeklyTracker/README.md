@@ -34,7 +34,8 @@ Resume `Midnight` :
 - `+10KP (zone)` = livre de connaissance Midnight encore non consomme ; les livres d'Abundance sont suivis en plus pour Enchantement, Herboristerie, Minage et Depeçage
 - `moxie x/y` et `abondance x/y` = recapitulatif du cout des livres manquants ; la valeur passe en rouge si la monnaie manque
 - les recettes manquantes suivies sont `Potion of Recklessness`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire
-- les rappels recurrents et les objectifs ponctuels sont affiches sur des lignes separees ; les livres KP et recettes apparaissent dans la ligne `1x`
+- les rappels recurrents sont regroupes dans la section `Hebdo` uniquement s'il reste quelque chose a faire ; les tresors, livres KP et recettes sont dans `One time`, sans lignes `ok`
+- la consommation d'une recette suivie force aussi un refresh apres le sort de consommation, sans devoir ouvrir le metier
 - le bloc couvre surtout la partie actionable des guides `Midnight` : tresors, repeatable loot, trainer, traite, Darkmoon
 - si `TomTom` est installe, l'addon ajoute automatiquement au login les waypoints des tresors `Midnight` encore non recuperes pour les metiers du personnage courant
 - les waypoints sont refresh quand un tresor passe en `fait`
