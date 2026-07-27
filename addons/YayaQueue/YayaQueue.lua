@@ -2918,27 +2918,35 @@ local function BuildCompleteRecipeReagents(schematic, craftingReagents, recipeIn
     return AddEnchantingVellumReagent(reagents, recipeInfo)
 end
 
-local function AddVisibleRequiredReagents(schematicForm, schematic, craftingReagents)
+local function AddVisibleRequiredReagents(schematicForm, schematic, craftingReagents, transaction)
     local slotFrames = {}
     local visitedFrames = {}
+    local function TrackSlotFrame(frame)
+        if not frame or type(frame.GetReagentSlotSchematic) ~= "function" or not frame.Button
+            or (type(frame.Button.GetItemID) ~= "function" and type(frame.Button.GetCurrencyID) ~= "function") then
+            return
+        end
+
+        local slot = SafeCall(frame.GetReagentSlotSchematic, frame)
+        local itemID = tonumber(SafeCall(frame.Button.GetItemID, frame.Button))
+        local currencyID = type(frame.Button.GetCurrencyID) == "function"
+            and tonumber(SafeCall(frame.Button.GetCurrencyID, frame.Button)) or nil
+        if slot and ((itemID and itemID > 0) or (currencyID and currencyID > 0)) then
+            slotFrames[#slotFrames + 1] = {
+                itemID = itemID,
+                currencyID = currencyID,
+                slotIndex = tonumber(slot.slotIndex),
+                dataSlotIndex = tonumber(slot.dataSlotIndex),
+            }
+        end
+    end
+
     local function Visit(frame, depth)
         if not frame or visitedFrames[frame] or depth > 4 then
             return
         end
         visitedFrames[frame] = true
-
-        if type(frame.GetReagentSlotSchematic) == "function" and frame.Button
-            and type(frame.Button.GetItemID) == "function" then
-            local slot = SafeCall(frame.GetReagentSlotSchematic, frame)
-            local itemID = tonumber(SafeCall(frame.Button.GetItemID, frame.Button))
-            if slot and itemID and itemID > 0 then
-                slotFrames[#slotFrames + 1] = {
-                    itemID = itemID,
-                    slotIndex = tonumber(slot.slotIndex),
-                    dataSlotIndex = tonumber(slot.dataSlotIndex),
-                }
-            end
-        end
+        TrackSlotFrame(frame)
 
         if type(frame.GetChildren) == "function" then
             for _, child in ipairs({ frame:GetChildren() }) do
@@ -2952,22 +2960,36 @@ local function AddVisibleRequiredReagents(schematicForm, schematic, craftingReag
     for _, frame in ipairs((schematicForm and schematicForm.extraSlotFrames) or {}) do
         Visit(frame, 0)
     end
+    for _, slotGroup in pairs((schematicForm and schematicForm.reagentSlots) or {}) do
+        if type(slotGroup) == "table" then
+            for _, frame in pairs(slotGroup) do
+                Visit(frame, 0)
+            end
+        end
+    end
     Visit(schematicForm, 0)
 
-    for _, slot in ipairs(schematic and schematic.reagentSlotSchematics or {}) do
+    for schematicIndex, slot in ipairs(schematic and schematic.reagentSlotSchematics or {}) do
         local dataSlotIndex = tonumber(slot.dataSlotIndex)
         local requiredQuantity = math.max(0, tonumber(slot.quantityRequired) or 0)
         local allowedItems = {}
+        local allowedCurrencies = {}
         local allocatedQuantity = 0
         for _, candidate in ipairs(slot.reagents or {}) do
             local itemID = tonumber(candidate.itemID)
+            local currencyID = tonumber(candidate.currencyID)
             if itemID then
                 allowedItems[itemID] = true
+            elseif currencyID then
+                allowedCurrencies[currencyID] = true
             end
         end
         for _, reagentInfo in ipairs(craftingReagents or {}) do
             local itemID = tonumber(reagentInfo and reagentInfo.reagent and reagentInfo.reagent.itemID)
-            if itemID and allowedItems[itemID] then
+            local currencyID = tonumber(reagentInfo and reagentInfo.reagent and reagentInfo.reagent.currencyID)
+            local infoSlotIndex = tonumber(reagentInfo and reagentInfo.dataSlotIndex)
+            local sameSlot = not dataSlotIndex or not infoSlotIndex or infoSlotIndex == dataSlotIndex
+            if sameSlot and ((itemID and allowedItems[itemID]) or (currencyID and allowedCurrencies[currencyID])) then
                 allocatedQuantity = allocatedQuantity + math.max(0, tonumber(reagentInfo.quantity) or 0)
             end
         end
@@ -2977,21 +2999,46 @@ local function AddVisibleRequiredReagents(schematicForm, schematic, craftingReag
         -- slots need to be restored here, matching CraftSim's reagent model.
         if IsRequiredSelectableReagentSlot(slot) and missingQuantity > 0 then
             local selectedItemID
+            local selectedCurrencyID
             for _, slotFrame in ipairs(slotFrames) do
                 local indexMatches = slotFrame.dataSlotIndex == dataSlotIndex
                     or slotFrame.slotIndex == tonumber(slot.slotIndex)
-                if allowedItems[slotFrame.itemID] and (indexMatches or selectedItemID == nil) then
+                local itemMatches = slotFrame.itemID and allowedItems[slotFrame.itemID]
+                local currencyMatches = slotFrame.currencyID and allowedCurrencies[slotFrame.currencyID]
+                if (itemMatches or currencyMatches)
+                    and (indexMatches or (selectedItemID == nil and selectedCurrencyID == nil)) then
                     selectedItemID = slotFrame.itemID
+                    selectedCurrencyID = slotFrame.currencyID
                     if indexMatches then
                         break
                     end
                 end
             end
 
-            if selectedItemID then
+            if not selectedItemID and not selectedCurrencyID and transaction
+                and type(transaction.GetAllocations) == "function" then
+                local allocations = SafeCall(transaction.GetAllocations, transaction, schematicIndex)
+                if not allocations and tonumber(slot.slotIndex) and tonumber(slot.slotIndex) ~= schematicIndex then
+                    allocations = SafeCall(transaction.GetAllocations, transaction, tonumber(slot.slotIndex))
+                end
+                if allocations and type(allocations.FindAllocationByReagent) == "function" then
+                    for _, candidate in ipairs(slot.reagents or {}) do
+                        local allocation = SafeCall(allocations.FindAllocationByReagent, allocations, candidate)
+                        local quantity = allocation and type(allocation.GetQuantity) == "function"
+                            and tonumber(SafeCall(allocation.GetQuantity, allocation)) or 0
+                        if quantity and quantity > 0 then
+                            selectedItemID = tonumber(candidate.itemID)
+                            selectedCurrencyID = tonumber(candidate.currencyID)
+                            break
+                        end
+                    end
+                end
+            end
+
+            if selectedItemID or selectedCurrencyID then
                 craftingReagents[#craftingReagents + 1] = {
                     dataSlotIndex = dataSlotIndex,
-                    reagent = { itemID = selectedItemID },
+                    reagent = { itemID = selectedItemID, currencyID = selectedCurrencyID },
                     quantity = missingQuantity,
                 }
             end
@@ -3018,7 +3065,7 @@ local function GetConcentrationDumpState(schematicForm)
     if type(craftingReagents) ~= "table" then
         craftingReagents = {}
     end
-    craftingReagents = AddVisibleRequiredReagents(schematicForm, schematic, craftingReagents)
+    craftingReagents = AddVisibleRequiredReagents(schematicForm, schematic, craftingReagents, transaction)
 
     local allocationItemGUID = transaction and type(transaction.GetAllocationItemGUID) == "function"
         and SafeCall(transaction.GetAllocationItemGUID, transaction) or nil
@@ -4087,7 +4134,7 @@ function YQQuality.BuildRecipeState(form, useConcentration)
     local base = type(transaction.CreateCraftingReagentInfoTbl) == "function"
         and SafeCall(transaction.CreateCraftingReagentInfoTbl, transaction) or {}
     if type(schematic) ~= "table" or type(base) ~= "table" then return nil end
-    base = AddVisibleRequiredReagents(form, schematic, base)
+    base = AddVisibleRequiredReagents(form, schematic, base, transaction)
     base = YQQuality.FilterOperationReagents(schematic, base)
 
     local slots = {}
