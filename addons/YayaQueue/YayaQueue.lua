@@ -1313,11 +1313,15 @@ local function GetEntryConcentrationCost(entry)
     return math.max(0, tonumber(operationInfo and operationInfo.concentrationCost) or 0)
 end
 
-local function GetQueuedConcentrationReservation()
+local function GetQueuedConcentrationReservation(professionID)
     EnsureDB()
+    professionID = tonumber(professionID)
     local reserved = 0
     for _, entry in ipairs(db.queue) do
-        reserved = reserved + GetEntryCraftsRemaining(entry) * GetEntryConcentrationCost(entry)
+        local entryProfessionID = tonumber(entry.professionID)
+        if not professionID or entryProfessionID == professionID then
+            reserved = reserved + GetEntryCraftsRemaining(entry) * GetEntryConcentrationCost(entry)
+        end
     end
     return reserved
 end
@@ -3029,7 +3033,7 @@ local function GetConcentrationDumpState(schematicForm)
         and type(C_CurrencyInfo.GetCurrencyInfo) == "function"
         and SafeCall(C_CurrencyInfo.GetCurrencyInfo, currencyID) or nil
     local available = math.max(0, tonumber(currencyInfo and currencyInfo.quantity) or 0)
-    local queuedReservation = GetQueuedConcentrationReservation()
+    local queuedReservation = GetQueuedConcentrationReservation(GetCurrentProfessionID())
     local availableAfterQueue = math.max(0, available - queuedReservation)
     local maxQuantity = concentrationCost > 0
         and math.min(MAX_QUEUE_QTY, math.floor(availableAfterQueue / concentrationCost))
@@ -4262,7 +4266,7 @@ function YQQuality.HasEnoughConcentration(candidate, quantity)
     local currencyInfo = currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
         and SafeCall(C_CurrencyInfo.GetCurrencyInfo, currencyID) or nil
     local available = math.max(0, tonumber(currencyInfo and currencyInfo.quantity) or 0)
-    local queuedReservation = GetQueuedConcentrationReservation()
+    local queuedReservation = GetQueuedConcentrationReservation(GetCurrentProfessionID())
     local availableAfterQueue = math.max(0, available - queuedReservation)
     local required = concentrationCost * ClampQuantity(quantity)
     return currencyID ~= nil and availableAfterQueue >= required
