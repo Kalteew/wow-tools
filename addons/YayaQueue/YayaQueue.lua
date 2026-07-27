@@ -3031,8 +3031,9 @@ local function GetConcentrationDumpState(schematicForm)
     local available = math.max(0, tonumber(currencyInfo and currencyInfo.quantity) or 0)
     local queuedReservation = GetQueuedConcentrationReservation()
     local threshold = 500
-    local availableForDump = math.max(0, available - queuedReservation - threshold)
-    local maxQuantity = concentrationCost > 0
+    local availableAfterQueue = math.max(0, available - queuedReservation)
+    local availableForDump = availableAfterQueue > threshold and availableAfterQueue or 0
+    local maxQuantity = availableForDump > 0 and concentrationCost > 0
         and math.min(MAX_QUEUE_QTY, math.floor(availableForDump / concentrationCost))
         or 0
 
@@ -4265,9 +4266,9 @@ function YQQuality.HasEnoughConcentration(candidate, quantity)
         and SafeCall(C_CurrencyInfo.GetCurrencyInfo, currencyID) or nil
     local available = math.max(0, tonumber(currencyInfo and currencyInfo.quantity) or 0)
     local queuedReservation = GetQueuedConcentrationReservation()
-    local availableAfterQueue = math.max(0, available - queuedReservation - 500)
+    local availableAfterQueue = math.max(0, available - queuedReservation)
     local required = concentrationCost * ClampQuantity(quantity)
-    return currencyID ~= nil and availableAfterQueue >= required
+    return currencyID ~= nil and availableAfterQueue > 500 and availableAfterQueue >= required
 end
 
 local function CreateQuantityControls(button, includeReset, onChanged)
