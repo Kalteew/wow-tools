@@ -352,6 +352,7 @@ local function NormalizeQueueEntries()
                     clearSlotIndices = NormalizeSlotIndices(rawEntry.clearSlotIndices),
                     targetQuality = NormalizeTargetQuality(rawEntry.targetQuality),
                     targetQualitySimplified = rawEntry.targetQualitySimplified == true,
+                    concentrationCost = tonumber(rawEntry.concentrationCost) or nil,
                     orderID = tonumber(rawEntry.orderID) or nil,
                     professionID = tonumber(rawEntry.professionID) or nil,
                     queueKind = rawEntry.queueKind == "patron" and "patron" or nil,
@@ -1213,6 +1214,7 @@ local function AddRecipeToQueue(context, quantity)
             entry.clearSlotIndices = clearSlotIndices
             entry.targetQuality = NormalizeTargetQuality(context.targetQuality)
             entry.targetQualitySimplified = context.targetQualitySimplified == true
+            entry.concentrationCost = tonumber(context.concentrationCost) or nil
             entry.orderID = tonumber(context.orderID) or nil
             entry.professionID = tonumber(context.professionID) or nil
             entry.queueKind = context.queueKind == "patron" and "patron" or nil
@@ -1240,6 +1242,7 @@ local function AddRecipeToQueue(context, quantity)
         clearSlotIndices = clearSlotIndices,
         targetQuality = NormalizeTargetQuality(context.targetQuality),
         targetQualitySimplified = context.targetQualitySimplified == true,
+        concentrationCost = tonumber(context.concentrationCost) or nil,
         orderID = tonumber(context.orderID) or nil,
         professionID = tonumber(context.professionID) or nil,
         queueKind = context.queueKind == "patron" and "patron" or nil,
@@ -1283,6 +1286,41 @@ local function GetEntryCraftsRemaining(entry)
     local remainingOutput = entry.outputItemID and math.max(0, outputQty - ownedOutput) or outputQty
     local craftsRemaining = math.ceil(remainingOutput / outputPerCraft)
     return craftsRemaining, remainingOutput
+end
+
+local function GetEntryConcentrationCost(entry)
+    if not entry or entry.applyConcentration ~= true then
+        return 0
+    end
+
+    local storedCost = tonumber(entry.concentrationCost)
+    if storedCost and storedCost > 0 then
+        return storedCost
+    end
+
+    if type(C_TradeSkillUI) ~= "table"
+        or type(C_TradeSkillUI.GetCraftingOperationInfo) ~= "function"
+        or not entry.recipeID then
+        return 0
+    end
+
+    local operationInfo = SafeCall(
+        C_TradeSkillUI.GetCraftingOperationInfo,
+        entry.recipeID,
+        NormalizeCraftingReagents(entry.craftingReagents),
+        nil,
+        false
+    )
+    return math.max(0, tonumber(operationInfo and operationInfo.concentrationCost) or 0)
+end
+
+local function GetQueuedConcentrationReservation()
+    EnsureDB()
+    local reserved = 0
+    for _, entry in ipairs(db.queue) do
+        reserved = reserved + GetEntryCraftsRemaining(entry) * GetEntryConcentrationCost(entry)
+    end
+    return reserved
 end
 
 local function GetNextQueueEntry()
@@ -2992,10 +3030,16 @@ local function GetConcentrationDumpState(schematicForm)
         and type(C_CurrencyInfo.GetCurrencyInfo) == "function"
         and SafeCall(C_CurrencyInfo.GetCurrencyInfo, currencyID) or nil
     local available = math.max(0, tonumber(currencyInfo and currencyInfo.quantity) or 0)
-    local maxQuantity = concentrationCost > 0 and math.min(MAX_QUEUE_QTY, math.floor(available / concentrationCost)) or 0
+    local queuedReservation = GetQueuedConcentrationReservation()
+    local threshold = 500
+    local availableForDump = math.max(0, available - queuedReservation - threshold)
+    local maxQuantity = concentrationCost > 0
+        and math.min(MAX_QUEUE_QTY, math.floor(availableForDump / concentrationCost))
+        or 0
 
     if context then
         context.applyConcentration = true
+        context.concentrationCost = concentrationCost
         context.craftingReagents = NormalizeCraftingReagents(craftingReagents)
         if type(schematic) == "table" then
             context.reagents = BuildCompleteRecipeReagents(schematic, context.craftingReagents, recipeInfo)
@@ -3004,6 +3048,9 @@ local function GetConcentrationDumpState(schematicForm)
 
     return {
         available = available,
+        queuedReservation = queuedReservation,
+        threshold = threshold,
+        availableForDump = availableForDump,
         cost = concentrationCost,
         maxQuantity = maxQuantity,
         context = context,
@@ -4453,6 +4500,7 @@ function YQQuality.EnsureSelector(schematicForm)
         context.clearSlotIndices = {}
         context.reagents = BuildCompleteRecipeReagents(schematic, candidate.reagents, recipeInfo)
         context.applyConcentration = target.useConcentration == true
+        context.concentrationCost = tonumber(candidate.operation and candidate.operation.concentrationCost) or nil
         context.targetQuality = target.quality
         context.targetQualitySimplified = recipeState.simplifiedResult == true
         context.mode = "crafts"

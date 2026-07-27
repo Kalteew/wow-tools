@@ -5,7 +5,7 @@ Addon Retail simple pour :
 - ajouter une recette depuis l'UI Blizzard des metiers avec la quantite placee a cote du bouton `Ajouter YQ`
 - afficher sur la page de fabrication une frame de sélection de qualité YQ, avec icônes de qualité, qualité maximale atteignable, concentration optionnelle, quantité conservée entre les recettes avec reset `R` et choix automatique des réactifs les moins chers
 - afficher cette frame comme une fenêtre flottante déplaçable, avec une icône par réactif et les quantités réparties par qualité
-- afficher toujours `dump conc.` sur une recette visible, puis le griser si la concentration ne permet pas d'ajouter au moins un craft
+- afficher toujours `dump conc.` sur une recette visible, puis le griser si la concentration restante après la queue ne permet pas d'ajouter au moins un craft tout en conservant le seuil de 500
 - inclure le réactif actuellement sélectionné dans les slots requis sélectionnables (par exemple Mote of Primal Energy), même si l’API de transaction l’omet
 - ajouter en une fois les first crafts connus non realises dont le cout CraftSim est strictement inferieur a 1000 po
 - garder une frame flottante a l'ecran pour suivre la queue
