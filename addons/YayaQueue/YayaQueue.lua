@@ -3,21 +3,22 @@ local addonName = ...
 local addon = CreateFrame("Frame")
 local db
 
-local MAX_QUEUE_QTY = 9999
-local MAX_CRAFT_LINES = 8
-local MAX_AH_LINES = 10
-local CRAFT_PANEL_EXPANDED_HEIGHT = 340
-local CRAFT_PANEL_COLLAPSED_HEIGHT = 88
-local FIRST_CRAFT_COST_LIMIT = 1000 * 10000
-local MERCHANT_AUTO_BUY_MAX_RETRIES = 10
-local MERCHANT_AUTO_BUY_INITIAL_DELAY = 0.02
-local MERCHANT_AUTO_BUY_RETRY_DELAY = 0.08
-local MERCHANT_AUTO_BUY_VERIFY_DELAY = 0.08
-local debugNextCraft = false
-local DEBUG_LOG_LIMIT = 400
-local COMMODITY_SORT = { sortOrder = 0, reverseSort = false }
-local ITEM_SORTS = { { sortOrder = 4, reverseSort = false } }
-local KNOWN_VENDOR_ITEMS = {
+local CONFIG = {
+    MAX_QUEUE_QTY = 9999,
+    MAX_CRAFT_LINES = 8,
+    MAX_AH_LINES = 10,
+    CRAFT_PANEL_EXPANDED_HEIGHT = 340,
+    CRAFT_PANEL_COLLAPSED_HEIGHT = 88,
+    FIRST_CRAFT_COST_LIMIT = 1000 * 10000,
+    MERCHANT_AUTO_BUY_MAX_RETRIES = 10,
+    MERCHANT_AUTO_BUY_INITIAL_DELAY = 0.02,
+    MERCHANT_AUTO_BUY_RETRY_DELAY = 0.08,
+    MERCHANT_AUTO_BUY_VERIFY_DELAY = 0.08,
+    debugNextCraft = false,
+    DEBUG_LOG_LIMIT = 400,
+    COMMODITY_SORT = { sortOrder = 0, reverseSort = false },
+    ITEM_SORTS = { { sortOrder = 4, reverseSort = false } },
+    KNOWN_VENDOR_ITEMS = {
     [38682] = true, -- Enchanting Vellum
     [240991] = true, -- Sunglass Vial
     [242641] = true, -- Cooking Spirits
@@ -33,6 +34,7 @@ local KNOWN_VENDOR_ITEMS = {
     [251665] = true, -- Silverleaf Thread
     [253302] = true, -- Malleable Wireframe
     [253303] = true, -- Pile of Junk
+    },
 }
 
 local state = {
@@ -49,6 +51,8 @@ local state = {
         qualityFrame = nil,
         qualityTarget = nil,
         qualityState = nil,
+        qualityCache = nil,
+        qualityPriceCache = {},
     },
     ah = {
         frame = nil,
@@ -125,7 +129,7 @@ local function AppendPersistentDebugLog(prefix, message)
 
     local timestamp = date and date("%H:%M:%S") or tostring(math.floor(GetTime and GetTime() or 0))
     db.debugLog[#db.debugLog + 1] = ("[%s] %s%s"):format(timestamp, prefix or "", tostring(message or ""))
-    local overflow = #db.debugLog - DEBUG_LOG_LIMIT
+    local overflow = #db.debugLog - CONFIG.DEBUG_LOG_LIMIT
     if overflow > 0 then
         for _ = 1, overflow do
             table.remove(db.debugLog, 1)
@@ -149,7 +153,7 @@ local function ClearPersistentDebugLog()
 end
 
 local function DebugPrint(message)
-    if not debugNextCraft then
+    if not CONFIG.debugNextCraft then
         return
     end
     AppendPersistentDebugLog("YQ DEBUG ", message)
@@ -161,8 +165,8 @@ local function ClampQuantity(value)
     value = math.floor(value)
     if value < 1 then
         value = 1
-    elseif value > MAX_QUEUE_QTY then
-        value = MAX_QUEUE_QTY
+    elseif value > CONFIG.MAX_QUEUE_QTY then
+        value = CONFIG.MAX_QUEUE_QTY
     end
     return value
 end
@@ -398,7 +402,7 @@ EnsureDB = function()
         YayaQueueDB.autoBuyVendor = true
     end
     db = YayaQueueDB
-    for itemID in pairs(KNOWN_VENDOR_ITEMS) do
+    for itemID in pairs(CONFIG.KNOWN_VENDOR_ITEMS) do
         db.vendorItems[itemID] = true
     end
     NormalizeQueueEntries()
@@ -720,7 +724,7 @@ local function GetOwnedCount(itemID)
 end
 
 local function DebugPrintReagentCount(prefix, itemID, needed, mailbox)
-    if not debugNextCraft or type(itemID) ~= "number" or itemID <= 0 then
+    if not CONFIG.debugNextCraft or type(itemID) ~= "number" or itemID <= 0 then
         return
     end
 
@@ -773,7 +777,7 @@ local function FormatMoneyEstimate(value)
 end
 
 local function IsKnownVendorItem(itemID)
-    return KNOWN_VENDOR_ITEMS[itemID] or state.merchantIndexByItemID[itemID] or (db and db.vendorItems and db.vendorItems[itemID]) or false
+    return CONFIG.KNOWN_VENDOR_ITEMS[itemID] or state.merchantIndexByItemID[itemID] or (db and db.vendorItems and db.vendorItems[itemID]) or false
 end
 
 local function GetMerchantNumItemsCompat()
@@ -2735,8 +2739,8 @@ local function AttemptAutoBuyVendor(generation)
     local tasks = GetCurrentMerchantTasks(BuildQueueSummary(), state.merchantAutoBuySubmitted)
     if #tasks == 0 then
         state.merchantAutoBuyRetries = state.merchantAutoBuyRetries + 1
-        if state.merchantAutoBuyRetries < MERCHANT_AUTO_BUY_MAX_RETRIES then
-            ScheduleAutoBuyVendor(MERCHANT_AUTO_BUY_RETRY_DELAY)
+        if state.merchantAutoBuyRetries < CONFIG.MERCHANT_AUTO_BUY_MAX_RETRIES then
+            ScheduleAutoBuyVendor(CONFIG.MERCHANT_AUTO_BUY_RETRY_DELAY)
         else
             state.merchantAutoBuyAttempted = true
             DebugPrint("merchant-auto-buy no-compatible-task")
@@ -2759,7 +2763,7 @@ local function AttemptAutoBuyVendor(generation)
     for itemID in pairs(purchasedItems) do
         state.merchantAutoBuySubmitted[itemID] = true
     end
-    ScheduleAutoBuyVendor(MERCHANT_AUTO_BUY_VERIFY_DELAY)
+    ScheduleAutoBuyVendor(CONFIG.MERCHANT_AUTO_BUY_VERIFY_DELAY)
 end
 
 local function VerifyAutoBuyVendor(generation)
@@ -2796,8 +2800,8 @@ local function VerifyAutoBuyVendor(generation)
         DebugPrint("merchant-auto-buy no-bag-change remaining=" .. tostring(#remainingTasks))
     end
 
-    if state.merchantAutoBuyRetries < MERCHANT_AUTO_BUY_MAX_RETRIES then
-        ScheduleAutoBuyVendor(MERCHANT_AUTO_BUY_RETRY_DELAY)
+    if state.merchantAutoBuyRetries < CONFIG.MERCHANT_AUTO_BUY_MAX_RETRIES then
+        ScheduleAutoBuyVendor(CONFIG.MERCHANT_AUTO_BUY_RETRY_DELAY)
     else
         state.merchantAutoBuyAttempted = true
         DebugPrint("merchant-auto-buy retry-limit")
@@ -3036,7 +3040,7 @@ local function GetConcentrationDumpState(schematicForm)
     local queuedReservation = GetQueuedConcentrationReservation(GetCurrentProfessionID())
     local availableAfterQueue = math.max(0, available - queuedReservation)
     local maxQuantity = concentrationCost > 0
-        and math.min(MAX_QUEUE_QTY, math.floor(availableAfterQueue / concentrationCost))
+        and math.min(CONFIG.MAX_QUEUE_QTY, math.floor(availableAfterQueue / concentrationCost))
         or 0
 
     if context then
@@ -3297,7 +3301,7 @@ local function BuildFirstCraftContext(
         end
     end
 
-    if craftingCost >= FIRST_CRAFT_COST_LIMIT then
+    if craftingCost >= CONFIG.FIRST_CRAFT_COST_LIMIT then
         return nil, "expensive"
     end
 
@@ -3599,7 +3603,7 @@ local function UpdateCraftPanel(summary)
         state.craft.selectedText:SetText("")
     end
 
-    state.craft.panel:SetHeight(hasTasks and CRAFT_PANEL_EXPANDED_HEIGHT or CRAFT_PANEL_COLLAPSED_HEIGHT)
+    state.craft.panel:SetHeight(hasTasks and CONFIG.CRAFT_PANEL_EXPANDED_HEIGHT or CONFIG.CRAFT_PANEL_COLLAPSED_HEIGHT)
     if state.craft.todoTitle then
         state.craft.todoTitle:SetShown(hasTasks)
     end
@@ -3607,7 +3611,7 @@ local function UpdateCraftPanel(summary)
         line:SetShown(hasTasks)
     end
 
-    SetLineText(state.craft.lines, MAX_CRAFT_LINES, BuildCraftLines(summary))
+    SetLineText(state.craft.lines, CONFIG.MAX_CRAFT_LINES, BuildCraftLines(summary))
     UpdateVendorButtons(summary)
 
     local nextState = GetPatronNextButtonState()
@@ -3664,6 +3668,11 @@ local function ShowAuctionFrame()
     if state.ah.tab.libAHTab and state.ah.tab.libTabID then
         state.ah.tab.libAHTab:SetSelected(state.ah.tab.libTabID)
         ScheduleRefresh()
+        C_Timer.After(0, function()
+            if state.ah.frame and state.ah.frame:IsShown() then
+                OnAuctionActionClick()
+            end
+        end)
         return
     end
 
@@ -3677,6 +3686,11 @@ local function ShowAuctionFrame()
     AuctionHouseFrame:SetTitle(state.ah.tab.tabHeader or "YayaQueue")
     state.ah.frame:Show()
     ScheduleRefresh()
+    C_Timer.After(0, function()
+        if state.ah.frame and state.ah.frame:IsShown() then
+            OnAuctionActionClick()
+        end
+    end)
 end
 
 local function CaptureSearchCache(itemID)
@@ -3772,7 +3786,7 @@ local function UpdateAuctionLines(summary)
         end
     end
 
-    SetLineText(state.ah.lines, MAX_AH_LINES, lines)
+    SetLineText(state.ah.lines, CONFIG.MAX_AH_LINES, lines)
 end
 
 local function UpdateAuctionButton(summary)
@@ -3845,9 +3859,14 @@ end
 function YQQuality.GetItemPrice(itemID)
     itemID = tonumber(itemID)
     if not itemID or itemID <= 0 then return nil end
+    local cachedPrice = state.craft.qualityPriceCache[itemID]
+    if cachedPrice then return cachedPrice end
     for _, priceSource in ipairs({ "vendorbuy", "dbminbuyout", "dbmarket" }) do
         local price = YQQuality.GetTSMPrice(priceSource, itemID)
-        if price then return price end
+        if price then
+            state.craft.qualityPriceCache[itemID] = price
+            return price
+        end
     end
     local containerAPI = _G.YayaContainerValuesAPI
     if containerAPI and type(containerAPI.GetAverageValue) == "function" then
@@ -3934,6 +3953,71 @@ function YQQuality.ReplaceReagent(reagents, slot, allocations)
         end
     end
     return result
+end
+
+function YQQuality.BuildCacheKey(recipeID, recipeLevel, useConcentration, allocationGUID, baseline, slots)
+    local optimizedSlots = {}
+    local parts = {
+        tostring(recipeID),
+        tostring(recipeLevel or ""),
+        useConcentration == true and "1" or "0",
+        tostring(allocationGUID or ""),
+    }
+    for _, slotData in ipairs(slots or {}) do
+        local slotIndex = tonumber(slotData.slot and slotData.slot.dataSlotIndex)
+        if slotIndex then optimizedSlots[slotIndex] = true end
+        parts[#parts + 1] = "s:" .. tostring(slotIndex or "")
+            .. ":" .. tostring(slotData.slot and slotData.slot.quantityRequired or "")
+        for _, option in ipairs(slotData.options or {}) do
+            parts[#parts + 1] = "o:" .. tostring(option.itemID or "")
+                .. ":" .. tostring(option.quality or "")
+                .. ":" .. tostring(option.price or "?")
+        end
+    end
+    local fixedReagents = {}
+    for _, info in ipairs(baseline or {}) do
+        local slotIndex = tonumber(info.dataSlotIndex)
+        if not optimizedSlots[slotIndex] then
+            fixedReagents[#fixedReagents + 1] = table.concat({
+                tostring(slotIndex or ""),
+                tostring(info.reagent and info.reagent.itemID or ""),
+                tostring(info.reagent and info.reagent.currencyID or ""),
+                tostring(info.quantity or 0),
+            }, ":")
+        end
+    end
+    table.sort(fixedReagents)
+    for _, signature in ipairs(fixedReagents) do
+        parts[#parts + 1] = "r:" .. signature
+    end
+    return table.concat(parts, "|")
+end
+
+function YQQuality.GetCachedRecipeState(recipeID, cacheKey)
+    local cache = state.craft.qualityCache
+    if type(cache) ~= "table" or cache.recipeID ~= recipeID then
+        cache = { recipeID = recipeID, entries = {}, count = 0 }
+        state.craft.qualityCache = cache
+    end
+    return cache.entries[cacheKey], cache
+end
+
+function YQQuality.CacheRecipeState(cache, cacheKey, recipeState)
+    if not cache.entries[cacheKey] then
+        if cache.count >= 8 then
+            cache.entries = {}
+            cache.count = 0
+        end
+        cache.count = cache.count + 1
+    end
+    cache.entries[cacheKey] = recipeState
+end
+
+function YQQuality.ClearRecipeCache(clearPrices)
+    state.craft.qualityCache = nil
+    if clearPrices then
+        state.craft.qualityPriceCache = {}
+    end
 end
 
 function YQQuality.BuildCompositions(slotData)
@@ -4056,6 +4140,16 @@ function YQQuality.BuildRecipeState(form, useConcentration)
         result.reagentQualityCount = math.max(result.reagentQualityCount, #slotData.options)
         baseline = YQQuality.ReplaceReagent(baseline, slotData.slot, slotData.compositions[1].allocations)
     end
+    local cacheKey = YQQuality.BuildCacheKey(
+        recipeID, level, useConcentration, allocationGUID, baseline, slots
+    )
+    local cachedState, qualityCache = YQQuality.GetCachedRecipeState(recipeID, cacheKey)
+    if cachedState then
+        cachedState.recipeInfo = recipeInfo
+        cachedState.schematic = schematic
+        DebugPrint("quality-cache hit recipe=" .. tostring(recipeID))
+        return cachedState
+    end
     local baselineOperation = SafeCall(C_TradeSkillUI.GetCraftingOperationInfo, recipeID, baseline, allocationGUID, false)
     if not baselineOperation then return nil end
     local baselineSkill = (tonumber(baselineOperation and baselineOperation.baseSkill) or 0)
@@ -4100,6 +4194,7 @@ function YQQuality.BuildRecipeState(form, useConcentration)
     end
 
     local visited = 0
+    local bestByQuality = {}
     for _, stateData in pairs(states) do
         visited = visited + 1
         local operation = SafeCall(
@@ -4111,15 +4206,21 @@ function YQQuality.BuildRecipeState(form, useConcentration)
         )
         local quality = tonumber(operation and operation.craftingQuality) or 0
         if operation and quality > 0 then
-            result.candidates[#result.candidates + 1] = {
-                quality = quality,
-                cost = stateData.cost,
-                reagents = YQQuality.CopyReagents(stateData.reagents),
-                operation = operation,
-            }
+            local currentBest = bestByQuality[quality]
+            if not currentBest or stateData.cost < currentBest.cost then
+                bestByQuality[quality] = {
+                    quality = quality,
+                    cost = stateData.cost,
+                    reagents = YQQuality.CopyReagents(stateData.reagents),
+                    operation = operation,
+                }
+            end
             result.minQuality = math.min(result.minQuality, quality)
             result.reachableQuality = math.max(result.reachableQuality, quality)
         end
+    end
+    for _, candidate in pairs(bestByQuality) do
+        result.candidates[#result.candidates + 1] = candidate
     end
     if result.maxQuality <= 0 then result.maxQuality = result.reachableQuality end
     result.simplifiedResult = result.maxQuality == 2
@@ -4136,6 +4237,7 @@ function YQQuality.BuildRecipeState(form, useConcentration)
         if left.cost ~= right.cost then return left.cost < right.cost end
         return false
     end)
+    YQQuality.CacheRecipeState(qualityCache, cacheKey, result)
     return result
 end
 
@@ -4545,7 +4647,7 @@ function YQQuality.UpdateSelector()
     if not frame then return end
     local isVisible = schematicForm:IsShown()
     frame:SetShown(isVisible and not frame.userClosed)
-    if not isVisible then return end
+    if not isVisible or frame.userClosed then return end
 
     local target = state.craft.qualityTarget
     local useConcentration = target and target.useConcentration == true or false
@@ -5044,7 +5146,7 @@ local function CreateCraftPanel()
     end
 
     local panel = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    panel:SetSize(274, CRAFT_PANEL_EXPANDED_HEIGHT)
+    panel:SetSize(274, CONFIG.CRAFT_PANEL_EXPANDED_HEIGHT)
     panel:SetFrameStrata("HIGH")
     panel:SetClampedToScreen(true)
     panel:SetMovable(true)
@@ -5096,7 +5198,7 @@ local function CreateCraftPanel()
     todoTitle:SetText("A faire")
 
     local lines = {}
-    for index = 1, MAX_CRAFT_LINES do
+    for index = 1, CONFIG.MAX_CRAFT_LINES do
         local line = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         if index == 1 then
             line:SetPoint("TOPLEFT", todoTitle, "BOTTOMLEFT", 0, -6)
@@ -5201,7 +5303,7 @@ local function CreateAuctionFrame()
     totalText:SetText("Total estime: ?")
 
     local lines = {}
-    for index = 1, MAX_AH_LINES do
+    for index = 1, CONFIG.MAX_AH_LINES do
         local line = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         if index == 1 then
             line:SetPoint("TOPLEFT", totalText, "BOTTOMLEFT", 0, -10)
@@ -5309,7 +5411,7 @@ local function SendSearchQuery(itemID, purpose)
         purpose = purpose,
     }
     state.ah.statusMessage = "Recherche " .. GetItemName(itemID)
-    C_AuctionHouse.SendSearchQuery(itemKey, isCommodity and COMMODITY_SORT or ITEM_SORTS, not isCommodity)
+    C_AuctionHouse.SendSearchQuery(itemKey, isCommodity and CONFIG.COMMODITY_SORT or CONFIG.ITEM_SORTS, not isCommodity)
     ScheduleRefresh()
     return true
 end
@@ -5538,6 +5640,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
         addon:RegisterEvent("TRADE_SKILL_ITEM_CRAFTED_RESULT")
         addon:RegisterEvent("SPELLS_CHANGED")
         addon:RegisterEvent("SKILL_LINES_CHANGED")
+        addon:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
         addon:RegisterEvent("SPELL_DATA_LOAD_RESULT")
         addon:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
         addon:RegisterEvent("BAG_UPDATE_DELAYED")
@@ -5576,6 +5679,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
 
     if event == "TRADE_SKILL_SHOW" then
         if state.craft.qualityFrame then state.craft.qualityFrame.userClosed = false end
+        YQQuality.ClearRecipeCache(true)
         C_Timer.After(0, ScheduleRefresh)
         return
     end
@@ -5584,6 +5688,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
         state.firstCraftAvailability = {}
         state.craft.qualityTarget = nil
         state.craft.qualityState = nil
+        YQQuality.ClearRecipeCache(true)
         if state.craft.qualityFrame then state.craft.qualityFrame:Hide() end
         DebugPrint("event=TRADE_SKILL_CLOSE pendingEntries=" .. tostring(#state.pendingCraftEntries) .. " pendingBatches=" .. tostring(#state.pendingCraftBatches) .. " lock=" .. tostring(IsCraftClickLocked()))
         if not IsCraftClickLocked() and #state.pendingCraftEntries == 0 and #state.pendingCraftBatches == 0 then
@@ -5618,6 +5723,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
 
     if event == "TRADE_SKILL_ITEM_CRAFTED_RESULT" then
         state.firstCraftAvailability = {}
+        YQQuality.ClearRecipeCache(false)
         EndCraftClickLock()
         local itemID = arg1 and arg1.itemID or nil
         local quantity = arg1 and arg1.quantity or nil
@@ -5631,8 +5737,10 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
         return
     end
 
-    if event == "SPELLS_CHANGED" or event == "SKILL_LINES_CHANGED" then
+    if event == "SPELLS_CHANGED" or event == "SKILL_LINES_CHANGED"
+        or event == "PLAYER_EQUIPMENT_CHANGED" then
         state.firstCraftAvailability = {}
+        YQQuality.ClearRecipeCache(false)
         ScheduleRefresh()
         return
     end
@@ -5713,7 +5821,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
             wipe(state.merchantAutoBuySubmitted)
         end
         CacheMerchantItems()
-        ScheduleAutoBuyVendor(event == "MERCHANT_SHOW" and MERCHANT_AUTO_BUY_INITIAL_DELAY or MERCHANT_AUTO_BUY_RETRY_DELAY)
+        ScheduleAutoBuyVendor(event == "MERCHANT_SHOW" and CONFIG.MERCHANT_AUTO_BUY_INITIAL_DELAY or CONFIG.MERCHANT_AUTO_BUY_RETRY_DELAY)
         ScheduleRefresh()
         return
     end
@@ -5827,7 +5935,7 @@ function YayaQueueAPI.AddRecipe(context, quantity)
     end
 
     if context.queueKind == "patron" and WasPatronOrderCompletedRecently(context.orderID) then
-        if debugNextCraft then
+        if CONFIG.debugNextCraft then
             DebugPrint("skip-add-recipe completed-order recipe=" .. tostring(context.recipeID) .. " order=" .. tostring(context.orderID))
         end
         return false, "Order deja terminee"
@@ -5840,7 +5948,7 @@ function YayaQueueAPI.AddRecipe(context, quantity)
     context.mode = NormalizeQueueMode(context.mode)
     context.outputPerCraft = math.max(1, tonumber(context.outputPerCraft) or 1)
     context.reagents = NormalizeReagents(context.reagents)
-    if debugNextCraft then
+    if CONFIG.debugNextCraft then
         local reagentParts = {}
         for _, reagent in ipairs(context.reagents) do
             reagentParts[#reagentParts + 1] = tostring(reagent.itemID) .. "x" .. tostring(reagent.quantity)
@@ -6017,8 +6125,8 @@ SlashCmdList.YAYAQUEUE = function(message)
         return
     end
     if command == "debug" then
-        debugNextCraft = not debugNextCraft
-        Print("Debug " .. (debugNextCraft and "active" or "inactif"))
+        CONFIG.debugNextCraft = not CONFIG.debugNextCraft
+        Print("Debug " .. (CONFIG.debugNextCraft and "active" or "inactif"))
         return
     end
     if command == "vendor on" or command == "vendor off" then

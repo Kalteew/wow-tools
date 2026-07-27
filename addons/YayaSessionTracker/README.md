@@ -12,7 +12,7 @@ Ce que suit le MVP :
 - items recuperes via `CHAT_MSG_LOOT`
 - valorisation via `TSM_API.GetCustomPriceValue(...)`
 - utilise aussi la moyenne de `YayaContainerValues` quand l'item est un container suivi
-- exceptions : les items gris et lies quand ramasses utilisent seulement le prix vendeur
+- les items gris sont valorises au prix vendeur
 - bouton `R` sur la frame pour reset la session
 - activites stockees pour :
 - `Shadowlands mission table`
@@ -25,6 +25,7 @@ Ce qui est ignore :
 
 - les items recuperes depuis la boite aux lettres
 - les items `Warbound until Equipped`
+- les items `Soulbound` / lies quand ramasses
 - les transferts de gold entre tes propres persos
 - les frais de courrier lies a ces transferts internes
 

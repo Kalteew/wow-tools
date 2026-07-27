@@ -264,6 +264,7 @@ local MIDNIGHT_TREATISES_BY_SKILL_LINE_ID = {
 }
 runtimeState = runtimeState or {}
 runtimeState.minimumMidnightProfessionLevel = 80
+runtimeState.unspentKnowledgeWarningThreshold = 5
 runtimeState.currencyQuantities = {}
 runtimeState.baseProfessionToMidnightSkillLineID = {
     [171] = 2906, -- Alchemy
@@ -702,11 +703,25 @@ local EMPTY_TABLE = {}
 local TRACKER_DEFAULTS = {
     debugEnabled = true,
     hideInCombat = false,
+    trackAbundance = true,
+    trackSoiree = true,
+    trackNeighborhood = true,
+    trackLiadrin = true,
+    trackTreatises = true,
+    trackProfessionWeeklies = true,
     refreshDelaySeconds = 0.20,
     questStateCacheTTLSeconds = 5,
     questRewardCacheTTLSeconds = 30,
     questRewardMissCacheTTLSeconds = 2,
     debugLogLimit = 400,
+}
+runtimeState.trackingOptions = {
+    { key = "trackAbundance", label = "Tracker Abondance" },
+    { key = "trackSoiree", label = "Tracker Soiree" },
+    { key = "trackNeighborhood", label = "Tracker Neighborhood" },
+    { key = "trackLiadrin", label = "Tracker Liadrin" },
+    { key = "trackTreatises", label = "Tracker les traites (inscription)" },
+    { key = "trackProfessionWeeklies", label = "Tracker les weeklies metiers" },
 }
 local TRACKED_ASSAULT_CACHE_ITEM_IDS = {}
 local NZOTH_ASSAULT_DETAILS_BY_ITEM_ID = {}
@@ -717,6 +732,10 @@ runtimeState.activeCacheFinalizeToken = 0
 runtimeState.trackerRefreshToken = 0
 runtimeState.trackerNeedsJardOwnerRefresh = false
 runtimeState.trackerRefreshDeferredByCombat = false
+runtimeState.tradeSkillBootstrapAttempted = false
+runtimeState.tradeSkillBootstrapPending = false
+runtimeState.tradeSkillBootstrapArmed = false
+runtimeState.tradeSkillBootstrapProfessionID = nil
 local questStateCache = {}
 local questRewardCache = {}
 local midnightCaches = {
@@ -780,6 +799,11 @@ local function GetAccountDB()
     YayaWeeklyTrackerAccountDB = YayaWeeklyTrackerAccountDB or {}
     if YayaWeeklyTrackerAccountDB.hideInCombat == nil then
         YayaWeeklyTrackerAccountDB.hideInCombat = TRACKER_DEFAULTS.hideInCombat
+    end
+    for _, option in ipairs(runtimeState.trackingOptions) do
+        if YayaWeeklyTrackerAccountDB[option.key] == nil then
+            YayaWeeklyTrackerAccountDB[option.key] = TRACKER_DEFAULTS[option.key]
+        end
     end
     return YayaWeeklyTrackerAccountDB
 end
@@ -2081,7 +2105,8 @@ trackerUI.UpdateEnchantingWeeklyQueueButton = function(trackedRows)
         return false
     end
 
-    if not (YayaQueueAPI and type(YayaQueueAPI.AddItem) == "function") then
+    if GetAccountDB().trackProfessionWeeklies == false
+        or not (YayaQueueAPI and type(YayaQueueAPI.AddItem) == "function") then
         button.questID = nil
         button.itemID = nil
         button.itemName = nil
@@ -2366,43 +2391,56 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
 
     local tokens = {}
     local oneTimeTokens = {}
+    local accountDB = GetAccountDB()
+    local trackProfessionWeeklies = accountDB.trackProfessionWeeklies ~= false
     local remainingTreasures, totalTreasures = CountRemainingTrackedQuests(config.treasureQuestIDs)
     if remainingTreasures > 0 then
         oneTimeTokens[#oneTimeTokens + 1] = ("T%d/%d"):format(remainingTreasures, totalTreasures)
     end
 
     local remainingWeeklyLoots, totalWeeklyLoots = CountRemainingTrackedQuests(config.weeklyLootQuestIDs)
-    if remainingWeeklyLoots > 0 then
+    if trackProfessionWeeklies and remainingWeeklyLoots > 0 then
         tokens[#tokens + 1] = ("loot %d/%d"):format(remainingWeeklyLoots, totalWeeklyLoots)
-    elseif totalWeeklyLoots <= 0 and (config.weeklyKnowledgeCap or 0) > 0 then
+    elseif trackProfessionWeeklies and totalWeeklyLoots <= 0 and (config.weeklyKnowledgeCap or 0) > 0 then
         tokens[#tokens + 1] = ("loot %d/%d"):format(config.weeklyKnowledgeCap, config.weeklyKnowledgeCap)
     end
 
     local remainingDisenchants, totalDisenchants = CountRemainingTrackedQuests(config.weeklyDisenchantQuestIDs)
-    if remainingDisenchants > 0 then
+    if trackProfessionWeeklies and remainingDisenchants > 0 then
         tokens[#tokens + 1] = ("dez %d/%d"):format(remainingDisenchants, totalDisenchants)
     end
 
     local hasTrainerWeeklyUnlocked = row.skillLevel >= (config.trainerMinSkill or math.huge)
     local hasTrainerWeeklyCompleted = IsAnyQuestDone(config.trainerWeeklyQuestIDs or EMPTY_TABLE)
-    if hasTrainerWeeklyUnlocked and (not config.trainerWeeklyQuestIDs or not hasTrainerWeeklyCompleted) then
+    if trackProfessionWeeklies
+        and hasTrainerWeeklyUnlocked
+        and (not config.trainerWeeklyQuestIDs or not hasTrainerWeeklyCompleted) then
         tokens[#tokens + 1] = "hebdo"
     end
 
     local hasTreatiseUnlocked = row.skillLevel >= (config.treatiseMinSkill or math.huge)
-    local accountDB = YayaWeeklyTrackerAccountDB
-    local treatiseTrackingEnabled = true
-    if type(accountDB) == "table" and accountDB.trackTreatises ~= nil then
-        treatiseTrackingEnabled = accountDB.trackTreatises and true or false
-    end
+    local treatiseTrackingEnabled = accountDB.trackTreatises ~= false
     local treatiseInfo = MIDNIGHT_TREATISES_BY_SKILL_LINE_ID[row.skillLineID]
     local hasTreatiseCompleted = treatiseInfo and IsQuestDone(treatiseInfo.weeklyQuestID) or false
     if treatiseTrackingEnabled and hasTreatiseUnlocked and not hasTreatiseCompleted then
         tokens[#tokens + 1] = "traite"
     end
 
-    if IsDarkmoonFaireActive() and config.darkmoonQuestID and not IsQuestDone(config.darkmoonQuestID) then
+    if trackProfessionWeeklies
+        and IsDarkmoonFaireActive()
+        and config.darkmoonQuestID
+        and not IsQuestDone(config.darkmoonQuestID) then
         tokens[#tokens + 1] = "DMF"
+    end
+
+    local knowledgeInfo = SafeCall(
+        C_ProfSpecs and C_ProfSpecs.GetCurrencyInfoForSkillLine,
+        row.skillLineID
+    )
+    local unspentKnowledge = type(knowledgeInfo) == "table" and knowledgeInfo.numAvailable or 0
+    if type(unspentKnowledge) == "number"
+        and unspentKnowledge > runtimeState.unspentKnowledgeWarningThreshold then
+        tokens[#tokens + 1] = ("|cffff6666KP %d a placer|r"):format(unspentKnowledge)
     end
 
     local bookStatus = trackerUI.GetMidnightKnowledgeBookStatus(row)
@@ -3481,6 +3519,92 @@ local function ScheduleTrackerRefresh(delaySeconds, refreshJardOwners)
     end)
 end
 
+trackerUI.FinishTradeSkillBootstrap = function()
+    if not runtimeState.tradeSkillBootstrapPending then
+        return
+    end
+
+    runtimeState.tradeSkillBootstrapPending = false
+    if type(C_TradeSkillUI) == "table" and type(C_TradeSkillUI.CloseTradeSkill) == "function" then
+        pcall(C_TradeSkillUI.CloseTradeSkill)
+    end
+    InvalidateTrackedMidnightProfessions()
+    DebugLog("TradeSkill bootstrap ferme")
+    ScheduleTrackerRefresh(0.05, true)
+end
+
+trackerUI.ArmTradeSkillBootstrap = function(frame)
+    local trackedRows = GetTrackedMidnightProfessions()
+    if trackedRows and #trackedRows > 0 then
+        if runtimeState.tradeSkillBootstrapArmed then
+            frame:SetScript("OnKeyDown", nil)
+            runtimeState.tradeSkillBootstrapArmed = false
+        end
+        return false
+    end
+
+    if runtimeState.tradeSkillBootstrapAttempted
+        or runtimeState.tradeSkillBootstrapPending
+        or runtimeState.tradeSkillBootstrapArmed
+        or _G.ForceLoadTradeSkillData
+        or (UnitLevel and UnitLevel("player") or 0) < runtimeState.minimumMidnightProfessionLevel
+        or not GetProfessions
+        or not GetProfessionInfo
+        or type(C_TradeSkillUI) ~= "table"
+        or type(C_TradeSkillUI.OpenTradeSkill) ~= "function" then
+        return false
+    end
+
+    local professionIndices = { GetProfessions() }
+    for _, professionIndex in ipairs(professionIndices) do
+        if professionIndex then
+            local _, _, skillLevel, _, _, _, professionID = GetProfessionInfo(professionIndex)
+            if professionID
+                and runtimeState.baseProfessionToMidnightSkillLineID[professionID]
+                and (skillLevel or 0) > 0 then
+                runtimeState.tradeSkillBootstrapArmed = true
+                runtimeState.tradeSkillBootstrapProfessionID = professionID
+                frame:SetPropagateKeyboardInput(true)
+                frame:SetScript("OnKeyDown", function(self)
+                    if InCombatLockdown and InCombatLockdown() then
+                        return
+                    end
+
+                    self:SetScript("OnKeyDown", nil)
+                    runtimeState.tradeSkillBootstrapArmed = false
+                    runtimeState.tradeSkillBootstrapAttempted = true
+                    runtimeState.tradeSkillBootstrapPending = true
+                    local ok, err = pcall(
+                        C_TradeSkillUI.OpenTradeSkill,
+                        runtimeState.tradeSkillBootstrapProfessionID
+                    )
+                    if not ok then
+                        runtimeState.tradeSkillBootstrapPending = false
+                        DebugLog(
+                            "TradeSkill bootstrap echec id=%s: %s",
+                            tostring(runtimeState.tradeSkillBootstrapProfessionID),
+                            tostring(err)
+                        )
+                        return
+                    end
+
+                    DebugLog(
+                        "TradeSkill bootstrap ouvre id=%s",
+                        tostring(runtimeState.tradeSkillBootstrapProfessionID)
+                    )
+                    if C_Timer and C_Timer.After then
+                        C_Timer.After(2, trackerUI.FinishTradeSkillBootstrap)
+                    end
+                end)
+                DebugLog("TradeSkill bootstrap arme id=%s", tostring(professionID))
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
 local function IsUnsafeChatMessage(value)
     return type(value) ~= "string" or (issecretvalue and issecretvalue(value))
 end
@@ -3593,8 +3717,9 @@ end
 trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
     local level = UnitLevel and UnitLevel("player") or 0
     local config = runtimeState.generalWeeklyQuests
+    local accountDB = GetAccountDB()
 
-    if level >= 80 and not IsAnyQuestDone(config.abundanceQuestIDs) then
+    if accountDB.trackAbundance ~= false and level >= 80 and not IsAnyQuestDone(config.abundanceQuestIDs) then
         AddEntry(entries, "Abondance", "todo")
     end
 
@@ -3623,7 +3748,7 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
         end
     end
 
-    if not IsAnyQuestDone(config.runestoneQuestIDs) then
+    if accountDB.trackSoiree ~= false and not IsAnyQuestDone(config.runestoneQuestIDs) then
         AddEntry(entries, "Defense des runestones", "todo")
     end
 
@@ -3632,7 +3757,8 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
         AddEntry(entries, "Halduron: World Quests", "todo")
     end
 
-    if not trackerUI.IsAnyQuestDoneOnAccount(config.neighborhoodWeeklyQuestIDs) then
+    if accountDB.trackNeighborhood ~= false
+        and not trackerUI.IsAnyQuestDoneOnAccount(config.neighborhoodWeeklyQuestIDs) then
         local activeNeighborhoodQuestID = FindActiveQuest(config.neighborhoodWeeklyActiveQuestIDs, activeByQuestID)
         local label = "Weekly Neighborhood"
         if activeNeighborhoodQuestID then
@@ -3645,7 +3771,8 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
     local activeLiadrinQuestID = FindActiveQuest(config.liadrinWeeklyQuestIDs, activeByQuestID)
     local isLiadrinWeeklyActive = activeLiadrinQuestID
         or IsQuestActiveOnMap(config.liadrinWrapperQuestID, activeByQuestID)
-    if isLiadrinWeeklyActive
+    if accountDB.trackLiadrin ~= false
+        and isLiadrinWeeklyActive
         and not IsQuestDone(config.liadrinWrapperQuestID)
         and not IsAnyQuestDone(config.liadrinWeeklyQuestIDs) then
         local label = "Weekly Liadrin"
@@ -3701,6 +3828,12 @@ trackerUI.BuildEntries = function(trackedRows)
         elseif not IsQuestDone(CONTAINING_THE_HELSWORN_QUEST_ID) then
             AddEntry(weeklyEntries, CONTAINING_THE_HELSWORN_LABEL, "todo")
         end
+    end
+
+    if SafeCall(C_WeeklyRewards and C_WeeklyRewards.HasAvailableRewards) == true then
+        AddEntry(weeklyEntries, "Great Vault", "todo", {
+            displayText = "Great Vault: |cffff6666a ouvrir|r",
+        })
     end
 
     trackerUI.AddGeneralWeeklyEntries(weeklyEntries, activeByQuestID)
@@ -3830,8 +3963,38 @@ trackerUI.RegisterOptions = function()
         trackerUI.ApplyCombatVisibility()
     end)
 
+    panel.trackingCheckboxes = {}
+    local previousCheckbox = checkbox
+    for index, option in ipairs(runtimeState.trackingOptions) do
+        local trackingCheckbox = CreateFrame(
+            "CheckButton",
+            addonName .. "TrackingCheckbox" .. index,
+            panel,
+            "UICheckButtonTemplate"
+        )
+        trackingCheckbox:SetPoint("TOPLEFT", previousCheckbox, "BOTTOMLEFT", 0, -6)
+        trackingCheckbox.optionKey = option.key
+        local trackingLabel = trackingCheckbox.Text or trackingCheckbox.text
+        if not trackingLabel then
+            trackingLabel = trackingCheckbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+            trackingLabel:SetPoint("LEFT", trackingCheckbox, "RIGHT", 2, 1)
+            trackingCheckbox.Text = trackingLabel
+        end
+        trackingLabel:SetText(option.label)
+        trackingCheckbox:SetScript("OnClick", function(self)
+            GetAccountDB()[self.optionKey] = self:GetChecked() and true or false
+            ScheduleTrackerRefresh(0, false)
+        end)
+        panel.trackingCheckboxes[index] = trackingCheckbox
+        previousCheckbox = trackingCheckbox
+    end
+
     panel:SetScript("OnShow", function()
-        checkbox:SetChecked(GetAccountDB().hideInCombat)
+        local accountDB = GetAccountDB()
+        checkbox:SetChecked(accountDB.hideInCombat)
+        for _, trackingCheckbox in ipairs(panel.trackingCheckboxes) do
+            trackingCheckbox:SetChecked(accountDB[trackingCheckbox.optionKey] ~= false)
+        end
     end)
 
     if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
@@ -4216,6 +4379,8 @@ eventFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 eventFrame:RegisterEvent("SKILL_LINES_CHANGED")
 eventFrame:RegisterEvent("TRADE_SKILL_SHOW")
 eventFrame:RegisterEvent("TRADE_SKILL_DATA_SOURCE_CHANGED")
+eventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
+eventFrame:RegisterEvent("TRAIT_TREE_CURRENCY_INFO_UPDATED")
 eventFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 eventFrame:RegisterEvent("AREA_POIS_UPDATED")
 eventFrame:RegisterEvent("QUEST_DATA_LOAD_RESULT")
@@ -4230,13 +4395,23 @@ eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("PLAYER_LEVEL_UP")
 eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 eventFrame:RegisterEvent("PLAYER_AVG_ITEM_LEVEL_UPDATE")
+eventFrame:RegisterEvent("WEEKLY_REWARDS_UPDATE")
 eventFrame:SetScript("OnEvent", function(_, event, ...)
     DebugLog("Event %s", tostring(event))
+    if event == "TRADE_SKILL_SHOW" and runtimeState.tradeSkillBootstrapPending then
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, trackerUI.FinishTradeSkillBootstrap)
+        else
+            trackerUI.FinishTradeSkillBootstrap()
+        end
+    end
+
     if event == "PLAYER_LOGIN" then
         MigrateLegacyPosition()
         trackerUI.CreateTrackerFrame()
         trackerUI.RegisterOptions()
         HookCacheItemUse()
+        trackerUI.ArmTradeSkillBootstrap(eventFrame)
 
         SLASH_YAYAWEEKLYTRACKER1 = "/ywt"
         SlashCmdList.YAYAWEEKLYTRACKER = function(message)
@@ -4310,9 +4485,16 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         if activeCacheOpen then
             ScheduleFinalizeActiveCacheOpen(0.35)
         end
-    elseif event == "PLAYER_ENTERING_WORLD" or event == "SPELLS_CHANGED" or event == "SKILL_LINES_CHANGED" or event == "TRADE_SKILL_SHOW" or event == "TRADE_SKILL_DATA_SOURCE_CHANGED" then
+    elseif event == "PLAYER_ENTERING_WORLD"
+        or event == "SPELLS_CHANGED"
+        or event == "SKILL_LINES_CHANGED"
+        or event == "TRADE_SKILL_SHOW"
+        or event == "TRADE_SKILL_DATA_SOURCE_CHANGED"
+        or event == "TRAIT_CONFIG_UPDATED"
+        or event == "TRAIT_TREE_CURRENCY_INFO_UPDATED" then
         InvalidateTrackedMidnightProfessions()
         ScheduleTrackerRefresh(0.05, true)
+        trackerUI.ArmTradeSkillBootstrap(eventFrame)
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
         local unit = ...
         if unit == "player" then
@@ -4328,7 +4510,8 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         or event == "AREA_POIS_UPDATED"
         or event == "QUEST_DATA_LOAD_RESULT"
         or event == "ZONE_CHANGED_NEW_AREA"
-        or event == "COVENANT_SANCTUM_RENOWN_LEVEL_CHANGED" then
+        or event == "COVENANT_SANCTUM_RENOWN_LEVEL_CHANGED"
+        or event == "WEEKLY_REWARDS_UPDATE" then
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "PLAYER_REGEN_ENABLED" then
         if runtimeState.combatVisibilityUpdateDeferred then

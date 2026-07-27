@@ -539,7 +539,28 @@ local function IsWarboundUntilEquipped(itemRef)
         and C_Item.IsItemBindToAccountUntilEquip(itemRef) == true
 end
 
+local function IsSoulbound(itemRef, bindType)
+    if bindType == ITEM_BIND_ON_ACQUIRE or bindType == ITEM_BIND_QUEST then
+        return true
+    end
+
+    if itemRef and C_Item and C_Item.IsItemSoulbound then
+        local ok, isSoulbound = pcall(C_Item.IsItemSoulbound, itemRef)
+        return ok and isSoulbound == true
+    end
+    return false
+end
+
 local function GetUnitPrice(entry, priceSource)
+    local knownBindType = entry.itemBindType
+    if knownBindType == nil then
+        local _, _, _, resolvedBindType = GetItemDetails(entry.itemLink or entry.itemString)
+        knownBindType = resolvedBindType
+    end
+    if IsSoulbound(entry.itemLink or entry.itemString, knownBindType) then
+        return 0
+    end
+
     local containerAPI = _G.YayaContainerValuesAPI
     local itemID = entry.itemID or GetItemIDFromLink(entry.itemLink)
     if not itemID and type(entry.itemString) == "string" then
@@ -568,8 +589,8 @@ local function GetUnitPrice(entry, priceSource)
         itemBindType = resolvedBindType
     end
 
-    if itemBindType == ITEM_BIND_ON_ACQUIRE or itemBindType == ITEM_BIND_QUEST then
-        return sellPrice or 0
+    if IsSoulbound(entry.itemLink or entry.itemString, itemBindType) then
+        return 0
     end
 
     if itemQuality == 0 then
@@ -1161,11 +1182,14 @@ local function RecordIgnoredGold(delta, isIncome)
 end
 
 local function RecordItemGain(itemString, itemLink, quantity)
-    if not activeSession or not itemString or quantity <= 0 or IsWarboundUntilEquipped(itemLink) then
+    local _, _, _, itemBindType = GetItemDetails(itemLink)
+    if not activeSession or not itemString or quantity <= 0
+        or IsWarboundUntilEquipped(itemLink)
+        or IsSoulbound(itemLink, itemBindType) then
         return
     end
 
-    local itemName, itemQuality, vendorSellPrice, itemBindType = GetItemDetails(itemLink)
+    local itemName, itemQuality, vendorSellPrice = GetItemDetails(itemLink)
     activeSession.items[itemString] = activeSession.items[itemString] or {
         itemLink = itemLink,
         itemName = itemName or GetItemName(itemString, itemLink),

@@ -9,6 +9,7 @@ Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suiv
 - `Visions N'Zoth (bi-hebdo)` via l'assaut mineur actif
 - `Jard`
 - `Containing the Helsworn` si la recompense est du gold brut
+- `Great Vault: a ouvrir` quand une recompense est disponible
 - `Abondance` a partir du niveau 80
 - le world boss `Midnight` actif s'il donne de l'or, ou si l'ilvl equipe moyen du personnage est inferieur a `250`, au niveau 90
 - `Defense des runestones` de la Soiree de Saltheril, au niveau 90
@@ -20,6 +21,7 @@ Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suiv
 Resume `Midnight` :
 
 - l'addon n'affiche que les metiers `Midnight` appris sur le personnage
+- si les donnees de metier ne sont pas encore chargees, l'addon ouvre puis referme un des metiers appris au prochain appui clavier pour initialiser leur suivi
 - chaque ligne est compacte, par exemple `Alch: T8/8 loot 2/2 hebdo traite DMF`
 - les lignes longues se replient avec une hauteur adaptee, sans chevaucher la ligne suivante
 - si rien ne reste a faire pour un metier suivi, la ligne affiche `ok` tant qu'une autre action garde la frame ouverte
@@ -31,6 +33,7 @@ Resume `Midnight` :
 - `hebdo` = rappel quete hebdo trainer
 - `traite` = rappel traite hebdo si le metier est a `25+` et que l'option `Tracker les traites (inscription)` est active
 - `DMF` = Darkmoon Faire active et quete metier pas encore faite ce mois-ci
+- `KP x a placer` en rouge = plus de `5` points de connaissance non depenses dans ce metier
 - `+10KP (zone)` = livre de connaissance Midnight encore non consomme ; les livres d'Abundance sont suivis en plus pour Enchantement, Herboristerie, Minage et Depeçage
 - `moxie x/y` et `abondance x/y` = recapitulatif du cout des livres manquants ; la valeur passe en rouge si la monnaie manque
 - les recettes manquantes suivies sont `Potion of Recklessness`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire
@@ -65,7 +68,10 @@ Exception :
 
 La frame est ancree par son coin haut gauche et s'etend vers le bas droite. Sa position est conservee entre les personnages.
 
-Dans `Echap > Options > AddOns > Yaya Weekly Tracker`, l'option account-wide `Cacher integralement la frame en combat` masque toute la frame et ses boutons jusqu'a la fin du combat. Elle est desactivee par defaut.
+Dans `Echap > Options > AddOns > Yaya Weekly Tracker`, les options account-wide permettent de :
+
+- cacher integralement la frame en combat (desactive par defaut)
+- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des traites et des weeklies metiers (tous actives par defaut)
 
 L'addon enregistre aussi en account-wide les personnages qui connaissent `Jard` dans `YayaWeeklyTrackerAccountDB.jardOwners`.
 

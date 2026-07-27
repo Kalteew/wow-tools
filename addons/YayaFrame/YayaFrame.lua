@@ -1,10 +1,10 @@
 local addonName = ...
 
 local DEFAULT_POSITION = {
-    point = "TOPLEFT",
-    relativePoint = "TOPRIGHT",
+    point = "BOTTOMLEFT",
+    relativePoint = "BOTTOMLEFT",
     x = 14,
-    y = -8,
+    y = 8,
 }
 
 local api = {}
@@ -34,6 +34,25 @@ local function CopyLegacyPosition(target, source)
     return true
 end
 
+local function GetBottomLeftPosition()
+    if not rootFrame then
+        return nil, nil
+    end
+
+    local left = rootFrame:GetLeft()
+    local bottom = rootFrame:GetBottom()
+    if not left or not bottom then
+        return nil, nil
+    end
+
+    return left, bottom
+end
+
+local function SetBottomLeftPosition(x, y)
+    rootFrame:ClearAllPoints()
+    rootFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, y)
+end
+
 local function SortSections(left, right)
     if left.order == right.order then
         return left.id < right.id
@@ -48,8 +67,21 @@ local function Layout()
 
     table.sort(sections, SortSections)
 
-    local offsetY = 0
+    local totalHeight = 0
     local hasVisibleSection = false
+    for _, section in ipairs(sections) do
+        local frame = section.frame
+        if frame and frame:IsShown() then
+            totalHeight = totalHeight + math.max(1, frame:GetHeight())
+            hasVisibleSection = true
+        end
+    end
+
+    local height = math.max(1, totalHeight)
+    rootFrame:SetHeight(height)
+    rootFrame.bg:SetHeight(height)
+
+    local offsetY = 0
     for _, section in ipairs(sections) do
         local frame = section.frame
         if frame and frame:IsShown() then
@@ -57,12 +89,9 @@ local function Layout()
             frame:SetPoint("TOPLEFT", rootFrame, "TOPLEFT", 0, -offsetY)
             frame:SetPoint("TOPRIGHT", rootFrame, "TOPRIGHT", 0, -offsetY)
             offsetY = offsetY + math.max(1, frame:GetHeight())
-            hasVisibleSection = true
         end
     end
 
-    rootFrame:SetHeight(math.max(1, offsetY))
-    rootFrame.bg:SetHeight(math.max(1, offsetY))
     if hasVisibleSection then
         rootFrame:Show()
     else
@@ -89,6 +118,10 @@ local function CreateFrames()
     rootFrame:SetScript("OnDragStart", rootFrame.StartMoving)
     rootFrame:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
+        local x, y = GetBottomLeftPosition()
+        if x and y then
+            SetBottomLeftPosition(x, y)
+        end
         api:SavePosition()
     end)
 
@@ -191,11 +224,18 @@ function api:ApplyPosition()
     rootFrame:ClearAllPoints()
     if HasSavedPosition(db) then
         rootFrame:SetPoint(db.point, UIParent, db.relativePoint, db.x, db.y)
+        local x, y = GetBottomLeftPosition()
+        if x and y then
+            SetBottomLeftPosition(x, y)
+            db.point = "BOTTOMLEFT"
+            db.relativePoint = "BOTTOMLEFT"
+            db.x = math.floor(x + 0.5)
+            db.y = math.floor(y + 0.5)
+        end
         return
     end
 
-    local anchor = PlayerFrame or UIParent
-    rootFrame:SetPoint(DEFAULT_POSITION.point, anchor, DEFAULT_POSITION.relativePoint, DEFAULT_POSITION.x, DEFAULT_POSITION.y)
+    SetBottomLeftPosition(DEFAULT_POSITION.x, DEFAULT_POSITION.y)
 end
 
 function api:ResetPosition()
