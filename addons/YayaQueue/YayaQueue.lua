@@ -4265,8 +4265,10 @@ function YQQuality.HasEnoughConcentration(candidate, quantity)
     local currencyInfo = currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
         and SafeCall(C_CurrencyInfo.GetCurrencyInfo, currencyID) or nil
     local available = math.max(0, tonumber(currencyInfo and currencyInfo.quantity) or 0)
+    local queuedReservation = GetQueuedConcentrationReservation()
+    local availableAfterQueue = math.max(0, available - queuedReservation - 500)
     local required = concentrationCost * ClampQuantity(quantity)
-    return currencyID ~= nil and available >= required
+    return currencyID ~= nil and availableAfterQueue >= required
 end
 
 local function CreateQuantityControls(button, includeReset, onChanged)

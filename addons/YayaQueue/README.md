@@ -28,7 +28,7 @@ Notes :
 - les qualites de composants choisies par CraftSim sont memorisees puis transmises directement au craft; les composants simples restent geres automatiquement par Blizzard
 - le bouton de sélection de qualité fonctionne sans CraftSim en simulant les allocations mixtes via l'API native de métier et optimise la qualité de résultat exacte sélectionnée; les composants fixes et automatiques restent hors de l'appel de simulation Blizzard comme dans CraftSim, Midnight utilise 2 qualités de réactifs tandis que les équipements conservent jusqu'à 5 qualités de résultat
 - la frame qualité affiche le `dbminbuyout` TSM du résultat exact et un profit estimé par qualité après commission HV de 5 % et coût complet des réactifs en or; un équipement est chiffré avec son niveau d'objet exact, les composants marchand utilisent `vendorbuy`, les monnaies de métier sont exclues comme dans CraftSim et une donnée d'objet inconnue reste affichée `?`
-- `Ajouter YQ` est bloqué si la concentration disponible ne couvre pas tout le lot; décocher la concentration resélectionne la qualité maximale atteignable sans elle
+- `Ajouter YQ` est bloqué si la concentration restante après la queue et le seuil de 500 ne couvre pas tout le lot; décocher la concentration resélectionne la qualité maximale atteignable sans elle
 - les entrées ajoutées via la frame qualité mémorisent `targetQuality`, les réactifs qualité sélectionnés et l'option concentration
 - une recette sans plan CraftSim repasse explicitement en allocation automatique Blizzard afin qu'un ancien plan manuel ne bloque pas le craft
 - la queue se decremente a chaque craft reussi de la recette correspondante
