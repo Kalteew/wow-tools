@@ -47,6 +47,9 @@ local state = {
         statusText = nil,
         vendorTitle = nil,
         vendorButtons = {},
+        qualityFrame = nil,
+        qualityTarget = nil,
+        qualityState = nil,
     },
     ah = {
         frame = nil,
@@ -100,6 +103,7 @@ local QueuePendingCraftEntry
 local PopPendingCraftEntry
 local GetCurrentProfessionID
 local EnsureDB
+local YQQuality = {}
 
 local function SafeCall(func, ...)
     if type(func) ~= "function" then
@@ -289,6 +293,14 @@ local function NormalizeApplyConcentration(value)
     return value == true
 end
 
+local function NormalizeTargetQuality(value)
+    value = tonumber(value)
+    if not value or value <= 0 then
+        return nil
+    end
+    return math.floor(value)
+end
+
 local function NormalizeDirectItemEntry(rawEntry)
     local itemID = tonumber(rawEntry and rawEntry.itemID) or tonumber(rawEntry and rawEntry.directItemID) or 0
     if itemID <= 0 then
@@ -338,6 +350,8 @@ local function NormalizeQueueEntries()
                     craftingReagents = NormalizeCraftingReagents(rawEntry.craftingReagents),
                     slotAllocations = NormalizeSlotAllocations(rawEntry.slotAllocations),
                     clearSlotIndices = NormalizeSlotIndices(rawEntry.clearSlotIndices),
+                    targetQuality = NormalizeTargetQuality(rawEntry.targetQuality),
+                    targetQualitySimplified = rawEntry.targetQualitySimplified == true,
                     orderID = tonumber(rawEntry.orderID) or nil,
                     professionID = tonumber(rawEntry.professionID) or nil,
                     queueKind = rawEntry.queueKind == "patron" and "patron" or nil,
@@ -847,9 +861,13 @@ local function CacheMerchantItems()
     end
 end
 
-local function GetQuantityInput(qtyBox)
+local function ReadQuantityInput(qtyBox)
     local text = qtyBox and qtyBox:GetText() or "1"
-    local quantity = ClampQuantity(text)
+    return ClampQuantity(text)
+end
+
+local function GetQuantityInput(qtyBox)
+    local quantity = ReadQuantityInput(qtyBox)
     if qtyBox then
         qtyBox:SetText(tostring(quantity))
     end
@@ -1017,6 +1035,15 @@ local function IsRequiredRecipeReagentSlot(slot)
         and #slot.reagents > 0
 end
 
+local function IsRequiredSelectableReagentSlot(slot)
+    if not IsRequiredRecipeReagentSlot(slot) then
+        return false
+    end
+    local firstReagent = slot.reagents[1]
+    return tonumber(slot.reagentType) == 0
+        or (tonumber(firstReagent and firstReagent.currencyID) or 0) > 0
+end
+
 local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, subtractAllocated)
     if not recipeID or type(schematic) ~= "table" then
         return nil
@@ -1166,6 +1193,8 @@ local function AddRecipeToQueue(context, quantity)
             and (entry.reagentSignature or "") == reagentSignature
             and (tonumber(entry.orderID) or 0) == (tonumber(context.orderID) or 0)
             and NormalizeApplyConcentration(entry.applyConcentration) == NormalizeApplyConcentration(context.applyConcentration)
+            and NormalizeTargetQuality(entry.targetQuality) == NormalizeTargetQuality(context.targetQuality)
+            and (entry.targetQualitySimplified == true) == (context.targetQualitySimplified == true)
         then
             if mode == "crafts" then
                 entry.craftQty = ClampQuantity((entry.craftQty or 0) + quantity)
@@ -1182,6 +1211,8 @@ local function AddRecipeToQueue(context, quantity)
             entry.craftingReagents = craftingReagents
             entry.slotAllocations = slotAllocations
             entry.clearSlotIndices = clearSlotIndices
+            entry.targetQuality = NormalizeTargetQuality(context.targetQuality)
+            entry.targetQualitySimplified = context.targetQualitySimplified == true
             entry.orderID = tonumber(context.orderID) or nil
             entry.professionID = tonumber(context.professionID) or nil
             entry.queueKind = context.queueKind == "patron" and "patron" or nil
@@ -1207,6 +1238,8 @@ local function AddRecipeToQueue(context, quantity)
         craftingReagents = craftingReagents,
         slotAllocations = slotAllocations,
         clearSlotIndices = clearSlotIndices,
+        targetQuality = NormalizeTargetQuality(context.targetQuality),
+        targetQualitySimplified = context.targetQualitySimplified == true,
         orderID = tonumber(context.orderID) or nil,
         professionID = tonumber(context.professionID) or nil,
         queueKind = context.queueKind == "patron" and "patron" or nil,
@@ -1423,6 +1456,8 @@ local function BuildQueueSummary()
                 name = entry.recipeName or ("Recette " .. tostring(entry.recipeID)),
                 remainingCount = remainingCount,
                 mode = mode,
+                targetQuality = entry.targetQuality,
+                targetQualitySimplified = entry.targetQualitySimplified == true,
             })
 
             for _, reagent in ipairs(entry.reagents or {}) do
@@ -1494,7 +1529,10 @@ local function BuildCraftLines(summary)
         table.insert(lines, "Marchand " .. task.missing .. "x " .. task.name)
     end
     for _, task in ipairs(summary.craftTasks) do
-        table.insert(lines, "Craft " .. task.remainingCount .. "x " .. task.name)
+        local qualityText = task.targetQuality and (
+            " " .. YQQuality.GetQualityIcon(task.targetQuality, 16, task.targetQualitySimplified)
+        ) or ""
+        table.insert(lines, "Craft " .. task.remainingCount .. "x " .. task.name .. qualityText)
     end
 
     if #lines == 0 then
@@ -2770,17 +2808,8 @@ local function QueueRecipeContext(context, qtyBox, quantityOverride)
 end
 
 local function BuildCompleteRecipeReagents(schematic, craftingReagents, recipeInfo)
-    local selectedBySlot = {}
-    for _, reagentInfo in ipairs(craftingReagents or {}) do
-        local dataSlotIndex = tonumber(reagentInfo and reagentInfo.dataSlotIndex)
-        if dataSlotIndex then
-            selectedBySlot[dataSlotIndex] = selectedBySlot[dataSlotIndex] or {}
-            selectedBySlot[dataSlotIndex][#selectedBySlot[dataSlotIndex] + 1] = reagentInfo
-        end
-    end
-
     local quantityByItemID = {}
-    local consumedSlots = {}
+    local consumedReagentInfos = {}
     local function AddItem(itemID, quantity)
         itemID = tonumber(itemID)
         quantity = math.max(0, tonumber(quantity) or 0)
@@ -2790,14 +2819,29 @@ local function BuildCompleteRecipeReagents(schematic, craftingReagents, recipeIn
     end
 
     for _, slot in ipairs(schematic and schematic.reagentSlotSchematics or {}) do
-        local dataSlotIndex = tonumber(slot.dataSlotIndex)
-        local selectedQuantity = 0
-        for _, reagentInfo in ipairs(dataSlotIndex and selectedBySlot[dataSlotIndex] or {}) do
-            selectedQuantity = selectedQuantity + math.max(0, tonumber(reagentInfo.quantity) or 0)
-            AddItem(reagentInfo.reagent and reagentInfo.reagent.itemID, reagentInfo.quantity)
+        local allowedItems = {}
+        local allowedCurrencies = {}
+        for _, candidate in ipairs(slot.reagents or {}) do
+            local itemID = tonumber(candidate.itemID)
+            local currencyID = tonumber(candidate.currencyID)
+            if itemID then
+                allowedItems[itemID] = true
+            elseif currencyID then
+                allowedCurrencies[currencyID] = true
+            end
         end
-        if dataSlotIndex then
-            consumedSlots[dataSlotIndex] = true
+
+        local selectedQuantity = 0
+        for _, reagentInfo in ipairs(craftingReagents or {}) do
+            local reagent = reagentInfo and reagentInfo.reagent
+            local itemID = tonumber(reagent and reagent.itemID)
+            local currencyID = tonumber(reagent and reagent.currencyID)
+            if not consumedReagentInfos[reagentInfo]
+                and ((itemID and allowedItems[itemID]) or (currencyID and allowedCurrencies[currencyID])) then
+                consumedReagentInfos[reagentInfo] = true
+                selectedQuantity = selectedQuantity + math.max(0, tonumber(reagentInfo.quantity) or 0)
+                AddItem(itemID, reagentInfo.quantity)
+            end
         end
 
         -- Some required selectable reagents (for example Mote of Primal Energy)
@@ -2810,11 +2854,9 @@ local function BuildCompleteRecipeReagents(schematic, craftingReagents, recipeIn
         end
     end
 
-    for dataSlotIndex, reagentInfos in pairs(selectedBySlot) do
-        if not consumedSlots[dataSlotIndex] then
-            for _, reagentInfo in ipairs(reagentInfos) do
-                AddItem(reagentInfo.reagent and reagentInfo.reagent.itemID, reagentInfo.quantity)
-            end
+    for _, reagentInfo in ipairs(craftingReagents or {}) do
+        if not consumedReagentInfos[reagentInfo] then
+            AddItem(reagentInfo.reagent and reagentInfo.reagent.itemID, reagentInfo.quantity)
         end
     end
 
@@ -2829,6 +2871,88 @@ local function BuildCompleteRecipeReagents(schematic, craftingReagents, recipeIn
         return left.itemID < right.itemID
     end)
     return AddEnchantingVellumReagent(reagents, recipeInfo)
+end
+
+local function AddVisibleRequiredReagents(schematicForm, schematic, craftingReagents)
+    local slotFrames = {}
+    local visitedFrames = {}
+    local function Visit(frame, depth)
+        if not frame or visitedFrames[frame] or depth > 4 then
+            return
+        end
+        visitedFrames[frame] = true
+
+        if type(frame.GetReagentSlotSchematic) == "function" and frame.Button
+            and type(frame.Button.GetItemID) == "function" then
+            local slot = SafeCall(frame.GetReagentSlotSchematic, frame)
+            local itemID = tonumber(SafeCall(frame.Button.GetItemID, frame.Button))
+            if slot and itemID and itemID > 0 then
+                slotFrames[#slotFrames + 1] = {
+                    itemID = itemID,
+                    slotIndex = tonumber(slot.slotIndex),
+                    dataSlotIndex = tonumber(slot.dataSlotIndex),
+                }
+            end
+        end
+
+        if type(frame.GetChildren) == "function" then
+            for _, child in ipairs({ frame:GetChildren() }) do
+                Visit(child, depth + 1)
+            end
+        end
+    end
+
+    Visit(schematicForm and schematicForm.Reagents, 0)
+    Visit(schematicForm and schematicForm.OptionalReagents, 0)
+    for _, frame in ipairs((schematicForm and schematicForm.extraSlotFrames) or {}) do
+        Visit(frame, 0)
+    end
+    Visit(schematicForm, 0)
+
+    for _, slot in ipairs(schematic and schematic.reagentSlotSchematics or {}) do
+        local dataSlotIndex = tonumber(slot.dataSlotIndex)
+        local requiredQuantity = math.max(0, tonumber(slot.quantityRequired) or 0)
+        local allowedItems = {}
+        local allocatedQuantity = 0
+        for _, candidate in ipairs(slot.reagents or {}) do
+            local itemID = tonumber(candidate.itemID)
+            if itemID then
+                allowedItems[itemID] = true
+            end
+        end
+        for _, reagentInfo in ipairs(craftingReagents or {}) do
+            local itemID = tonumber(reagentInfo and reagentInfo.reagent and reagentInfo.reagent.itemID)
+            if itemID and allowedItems[itemID] then
+                allocatedQuantity = allocatedQuantity + math.max(0, tonumber(reagentInfo.quantity) or 0)
+            end
+        end
+        local missingQuantity = dataSlotIndex and math.max(0, requiredQuantity - allocatedQuantity) or 0
+        -- Blizzard returns nil from GetCraftingOperationInfo when a normal
+        -- non-quality required reagent is included. Only required-selectable
+        -- slots need to be restored here, matching CraftSim's reagent model.
+        if IsRequiredSelectableReagentSlot(slot) and missingQuantity > 0 then
+            local selectedItemID
+            for _, slotFrame in ipairs(slotFrames) do
+                local indexMatches = slotFrame.dataSlotIndex == dataSlotIndex
+                    or slotFrame.slotIndex == tonumber(slot.slotIndex)
+                if allowedItems[slotFrame.itemID] and (indexMatches or selectedItemID == nil) then
+                    selectedItemID = slotFrame.itemID
+                    if indexMatches then
+                        break
+                    end
+                end
+            end
+
+            if selectedItemID then
+                craftingReagents[#craftingReagents + 1] = {
+                    dataSlotIndex = dataSlotIndex,
+                    reagent = { itemID = selectedItemID },
+                    quantity = missingQuantity,
+                }
+            end
+        end
+    end
+    return craftingReagents
 end
 
 local function GetConcentrationDumpState(schematicForm)
@@ -2849,6 +2973,7 @@ local function GetConcentrationDumpState(schematicForm)
     if type(craftingReagents) ~= "table" then
         craftingReagents = {}
     end
+    craftingReagents = AddVisibleRequiredReagents(schematicForm, schematic, craftingReagents)
 
     local allocationItemGUID = transaction and type(transaction.GetAllocationItemGUID) == "function"
         and SafeCall(transaction.GetAllocationItemGUID, transaction) or nil
@@ -3636,8 +3761,475 @@ local function UpdateAuctionFrame(summary)
     state.ah.statusText:SetText(state.ah.statusMessage ~= "" and state.ah.statusMessage or "Pret")
 end
 
-local function CreateQuantityControls(button)
+function YQQuality.GetQualityAtlas(quality, simplified)
+    local prefix = simplified and "Professions-Icon-Quality-12-Tier" or "Professions-Icon-Quality-Tier"
+    return prefix .. tostring(quality)
+end
+
+function YQQuality.GetQualityIcon(quality, size, simplified)
+    if type(CreateAtlasMarkup) == "function" then
+        return CreateAtlasMarkup(YQQuality.GetQualityAtlas(quality, simplified), size or 22, size or 22, 0, -2)
+    end
+    return "|TInterface\\Professions\\ProfessionsQualityIcons:" .. tostring(size or 22) .. "|t"
+end
+
+function YQQuality.GetTSMPrice(priceSource, item)
+    if type(TSM_API) == "table" and type(TSM_API.ToItemString) == "function"
+        and type(TSM_API.GetCustomPriceValue) == "function" then
+        local candidate
+        if type(item) == "string" and item ~= "" then
+            candidate = item
+        elseif type(item) == "number" and item > 0 then
+            candidate = select(2, GetItemInfo(item)) or ("i:" .. item)
+        end
+        local okString, itemString
+        if candidate then
+            okString, itemString = pcall(TSM_API.ToItemString, candidate)
+        end
+        if okString and itemString then
+            local okPrice, price = pcall(TSM_API.GetCustomPriceValue, priceSource, itemString)
+            if okPrice and type(price) == "number" and price > 0 then return price end
+        end
+    end
+    return nil
+end
+
+function YQQuality.GetItemPrice(itemID)
+    itemID = tonumber(itemID)
+    if not itemID or itemID <= 0 then return nil end
+    for _, priceSource in ipairs({ "vendorbuy", "dbminbuyout", "dbmarket" }) do
+        local price = YQQuality.GetTSMPrice(priceSource, itemID)
+        if price then return price end
+    end
+    local containerAPI = _G.YayaContainerValuesAPI
+    if containerAPI and type(containerAPI.GetAverageValue) == "function" then
+        local ok, price = pcall(containerAPI.GetAverageValue, itemID)
+        if ok and type(price) == "number" and price > 0 then return price end
+    end
+    return nil
+end
+
+function YQQuality.GetConcentrationCurrencyID(operation)
+    local currencyID = tonumber(operation and operation.concentrationCurrencyID)
+    if not currencyID and type(C_TradeSkillUI.GetConcentrationCurrencyID) == "function" then
+        local skillLineID = type(C_TradeSkillUI.GetProfessionChildSkillLineID) == "function"
+            and SafeCall(C_TradeSkillUI.GetProfessionChildSkillLineID) or nil
+        currencyID = skillLineID and tonumber(
+            SafeCall(C_TradeSkillUI.GetConcentrationCurrencyID, skillLineID)
+        ) or nil
+    end
+    return currencyID
+end
+
+function YQQuality.CopyReagents(reagents)
+    local copy = {}
+    for _, info in ipairs(reagents or {}) do
+        local dataSlotIndex = tonumber(info.dataSlotIndex)
+        local itemID = tonumber(info.reagent and info.reagent.itemID)
+        local currencyID = tonumber(info.reagent and info.reagent.currencyID)
+        local quantity = math.max(0, tonumber(info.quantity) or 0)
+        if dataSlotIndex and dataSlotIndex > 0 and quantity > 0
+            and ((itemID and itemID > 0) or (currencyID and currencyID > 0)) then
+            copy[#copy + 1] = {
+                dataSlotIndex = dataSlotIndex,
+                reagent = {
+                    itemID = itemID and itemID > 0 and itemID or nil,
+                    currencyID = currencyID and currencyID > 0 and currencyID or nil,
+                },
+                quantity = quantity,
+            }
+        end
+    end
+    return copy
+end
+
+function YQQuality.FilterOperationReagents(schematic, reagents)
+    local fixedRequiredSlots = {}
+    for _, slot in ipairs(schematic and schematic.reagentSlotSchematics or {}) do
+        local firstReagent = slot.reagents and slot.reagents[1] or nil
+        local reagentType = tonumber(slot.reagentType)
+        local isFixedRequiredItem = reagentType == 1
+            and #(slot.reagents or {}) == 1
+            and (tonumber(firstReagent and firstReagent.itemID) or 0) > 0
+            and (tonumber(firstReagent and firstReagent.currencyID) or 0) <= 0
+        local isAutomaticSlot = reagentType == 3
+        local dataSlotIndex = tonumber(slot.dataSlotIndex)
+        if (isFixedRequiredItem or isAutomaticSlot) and dataSlotIndex then
+            fixedRequiredSlots[dataSlotIndex] = true
+        end
+    end
+
+    local filtered = {}
+    for _, info in ipairs(YQQuality.CopyReagents(reagents)) do
+        if not fixedRequiredSlots[tonumber(info.dataSlotIndex)] then
+            filtered[#filtered + 1] = info
+        end
+    end
+    return filtered
+end
+
+function YQQuality.ReplaceReagent(reagents, slot, allocations)
+    local result = {}
+    for _, info in ipairs(reagents or {}) do
+        if tonumber(info.dataSlotIndex) ~= tonumber(slot.dataSlotIndex) then
+            result[#result + 1] = info
+        end
+    end
+    for _, allocation in ipairs(allocations or {}) do
+        local quantity = math.max(0, tonumber(allocation.quantity) or 0)
+        if allocation.itemID and quantity > 0 then
+            result[#result + 1] = {
+                dataSlotIndex = tonumber(slot.dataSlotIndex),
+                reagent = { itemID = tonumber(allocation.itemID) },
+                quantity = quantity,
+            }
+        end
+    end
+    return result
+end
+
+function YQQuality.BuildCompositions(slotData)
+    local options = slotData.options or {}
+    local required = math.max(1, math.floor((tonumber(slotData.slot.quantityRequired) or 1) + 0.5))
+    local compositions = {}
+    local function price(option)
+        return tonumber(option and option.price) or 1000000000000
+    end
+    local function addComposition(factor, counts)
+        local allocations = {}
+        local cost = 0
+        for index, count in ipairs(counts) do
+            if count > 0 and options[index] then
+                allocations[#allocations + 1] = {
+                    itemID = options[index].itemID,
+                    quantity = count,
+                    quality = options[index].quality,
+                }
+                cost = cost + price(options[index]) * count
+            end
+        end
+        compositions[#compositions + 1] = {
+            factor = factor,
+            allocations = allocations,
+            cost = cost,
+        }
+    end
+
+    if #options == 2 then
+        for highCount = 0, required do
+            addComposition(highCount / required, { required - highCount, highCount })
+        end
+    elseif #options == 3 then
+        local deltaMiddle = price(options[3]) - 2 * price(options[2]) + price(options[1])
+        for qualityFactor = 0, 2 * required do
+            local highLow = math.max(0, qualityFactor - required)
+            local highHigh = math.floor(qualityFactor / 2)
+            if highLow <= highHigh then
+                local highCount = deltaMiddle < 0 and highHigh or highLow
+                local middleCount = qualityFactor - 2 * highCount
+                local lowCount = required - middleCount - highCount
+                addComposition(qualityFactor / (2 * required), { lowCount, middleCount, highCount })
+            end
+        end
+    else
+        for index, _ in ipairs(options) do
+            addComposition(#options > 1 and ((index - 1) / (#options - 1)) or 0, {
+                index == 1 and required or 0,
+                index == 2 and required or 0,
+                index == 3 and required or 0,
+            })
+        end
+    end
+    return compositions
+end
+
+function YQQuality.BuildRecipeState(form, useConcentration)
+    local recipeInfo = form and type(form.GetRecipeInfo) == "function" and SafeCall(form.GetRecipeInfo, form) or nil
+    local transaction = form and ((type(form.GetTransaction) == "function" and SafeCall(form.GetTransaction, form)) or form.transaction) or nil
+    local recipeID = recipeInfo and tonumber(recipeInfo.recipeID)
+    if not recipeID or not transaction or type(C_TradeSkillUI) ~= "table"
+        or type(C_TradeSkillUI.GetCraftingOperationInfo) ~= "function" then return nil end
+
+    local level = type(form.GetCurrentRecipeLevel) == "function" and SafeCall(form.GetCurrentRecipeLevel, form) or nil
+    local schematic = SafeCall(C_TradeSkillUI.GetRecipeSchematic, recipeID, false, level)
+    local base = type(transaction.CreateCraftingReagentInfoTbl) == "function"
+        and SafeCall(transaction.CreateCraftingReagentInfoTbl, transaction) or {}
+    if type(schematic) ~= "table" or type(base) ~= "table" then return nil end
+    base = AddVisibleRequiredReagents(form, schematic, base)
+    base = YQQuality.FilterOperationReagents(schematic, base)
+
+    local slots = {}
+    for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
+        local options = {}
+        local seen = {}
+        for _, reagent in ipairs(slot.reagents or {}) do
+            local itemID = tonumber(reagent.itemID)
+            local quality = tonumber(reagent.reagentQuality or reagent.quality or reagent.qualityID) or 0
+            if quality <= 0 and itemID and C_TradeSkillUI.GetItemReagentQualityByItemInfo then
+                quality = tonumber(SafeCall(C_TradeSkillUI.GetItemReagentQualityByItemInfo, itemID)) or 0
+            end
+            if tonumber(slot.reagentType) == 1 and itemID and itemID > 0 and quality > 0 and not seen[itemID] then
+                seen[itemID] = true
+                options[#options + 1] = { itemID = itemID, quality = quality, price = YQQuality.GetItemPrice(itemID) }
+            end
+        end
+        DebugPrint(
+            "quality-slot index=" .. tostring(slot.dataSlotIndex)
+                .. " required=" .. tostring(slot.required)
+                .. " reagents=" .. tostring(#(slot.reagents or {}))
+                .. " quality-options=" .. tostring(#options)
+        )
+        table.sort(options, function(left, right) return left.quality < right.quality end)
+        if #options > 1 then
+            local slotData = { slot = slot, options = options }
+            slotData.compositions = YQQuality.BuildCompositions(slotData)
+            slots[#slots + 1] = slotData
+        end
+    end
+
+    local result = {
+        recipeID = recipeID,
+        recipeName = recipeInfo.name or ("Recette " .. recipeID),
+        slots = slots,
+        candidates = {},
+        minQuality = math.huge,
+        maxQuality = tonumber(recipeInfo.maxQuality) or 0,
+        reachableQuality = 0,
+        reagentQualityCount = 0,
+        recipeInfo = recipeInfo,
+        schematic = schematic,
+    }
+    local allocationGUID = type(transaction.GetAllocationItemGUID) == "function"
+        and SafeCall(transaction.GetAllocationItemGUID, transaction) or nil
+    result.allocationGUID = allocationGUID
+
+    local baseline = YQQuality.CopyReagents(base)
+    for _, slotData in ipairs(slots) do
+        result.reagentQualityCount = math.max(result.reagentQualityCount, #slotData.options)
+        baseline = YQQuality.ReplaceReagent(baseline, slotData.slot, slotData.compositions[1].allocations)
+    end
+    local baselineOperation = SafeCall(C_TradeSkillUI.GetCraftingOperationInfo, recipeID, baseline, allocationGUID, false)
+    if not baselineOperation then return nil end
+    local baselineSkill = (tonumber(baselineOperation and baselineOperation.baseSkill) or 0)
+        + (tonumber(baselineOperation and baselineOperation.bonusSkill) or 0)
+
+    for _, slotData in ipairs(slots) do
+        local maximum = slotData.compositions[#slotData.compositions]
+        local maximumReagents = YQQuality.ReplaceReagent(baseline, slotData.slot, maximum.allocations)
+        local maximumOperation = SafeCall(
+            C_TradeSkillUI.GetCraftingOperationInfo, recipeID, maximumReagents, allocationGUID, false
+        )
+        if not maximumOperation then return nil end
+        local maximumBaseSkill = tonumber(maximumOperation and maximumOperation.baseSkill)
+        local maximumSkill = maximumBaseSkill and (
+            maximumBaseSkill + (tonumber(maximumOperation and maximumOperation.bonusSkill) or 0)
+        ) or baselineSkill
+        slotData.maximumSkillBonus = math.max(0, maximumSkill - baselineSkill)
+    end
+
+    local states = {
+        ["0"] = { cost = 0, reagents = baseline, skillBonus = 0 },
+    }
+    for _, slotData in ipairs(slots) do
+        local nextStates = {}
+        for _, stateData in pairs(states) do
+            for _, composition in ipairs(slotData.compositions) do
+                local skillBonus = stateData.skillBonus + composition.factor * slotData.maximumSkillBonus
+                local stateKey = tostring(math.floor(skillBonus * 1000 + 0.5))
+                local cost = stateData.cost + composition.cost
+                if not nextStates[stateKey] or cost < nextStates[stateKey].cost then
+                    nextStates[stateKey] = {
+                        cost = cost,
+                        skillBonus = skillBonus,
+                        reagents = YQQuality.ReplaceReagent(
+                            stateData.reagents, slotData.slot, composition.allocations
+                        ),
+                    }
+                end
+            end
+        end
+        states = nextStates
+    end
+
+    local visited = 0
+    for _, stateData in pairs(states) do
+        visited = visited + 1
+        local operation = SafeCall(
+            C_TradeSkillUI.GetCraftingOperationInfo,
+            recipeID,
+            stateData.reagents,
+            allocationGUID,
+            useConcentration == true
+        )
+        local quality = tonumber(operation and operation.craftingQuality) or 0
+        if operation and quality > 0 then
+            result.candidates[#result.candidates + 1] = {
+                quality = quality,
+                cost = stateData.cost,
+                reagents = YQQuality.CopyReagents(stateData.reagents),
+                operation = operation,
+            }
+            result.minQuality = math.min(result.minQuality, quality)
+            result.reachableQuality = math.max(result.reachableQuality, quality)
+        end
+    end
+    if result.maxQuality <= 0 then result.maxQuality = result.reachableQuality end
+    result.simplifiedResult = result.maxQuality == 2
+    DebugPrint(
+        "quality-state recipe=" .. tostring(recipeID)
+            .. " max=" .. tostring(result.maxQuality)
+            .. " reachable=" .. tostring(result.reachableQuality)
+            .. " slots=" .. tostring(#result.slots)
+            .. " states=" .. tostring(visited)
+            .. " candidates=" .. tostring(#result.candidates)
+    )
+    table.sort(result.candidates, function(left, right)
+        if left.quality ~= right.quality then return left.quality < right.quality end
+        if left.cost ~= right.cost then return left.cost < right.cost end
+        return false
+    end)
+    return result
+end
+
+function YQQuality.FindCandidate(recipeState, targetQuality)
+    local selected
+    for _, candidate in ipairs(recipeState and recipeState.candidates or {}) do
+        if candidate.quality == targetQuality and (
+            not selected
+                or candidate.cost < selected.cost
+        ) then
+            selected = candidate
+        end
+    end
+    return selected
+end
+
+function YQQuality.GetOutputPriceReference(recipeState, candidate)
+    if not recipeState or not candidate then return nil end
+    local quality = tonumber(candidate.quality) or 0
+    local recipeID = tonumber(recipeState.recipeID)
+    if not recipeID or recipeID <= 0 or quality <= 0 then return nil end
+
+    if recipeState.maxQuality <= 3 and type(C_TradeSkillUI.GetRecipeQualityItemIDs) == "function" then
+        local itemIDs = SafeCall(C_TradeSkillUI.GetRecipeQualityItemIDs, recipeID)
+        local itemID = type(itemIDs) == "table" and tonumber(itemIDs[quality]) or nil
+        if itemID and itemID > 0 then
+            WarmItemData(itemID)
+            return itemID
+        end
+    end
+
+    if type(C_TradeSkillUI.GetRecipeOutputItemData) ~= "function" then return nil end
+    local recipeInfo = recipeState.recipeInfo
+    local qualityIDs = recipeInfo and recipeInfo.qualityIDs
+    local overrideQualityID = type(qualityIDs) == "table" and qualityIDs[quality] or nil
+    if not overrideQualityID and recipeState.maxQuality > 3 then
+        overrideQualityID = quality + 3
+    end
+    local output = SafeCall(
+        C_TradeSkillUI.GetRecipeOutputItemData,
+        recipeID,
+        candidate.reagents,
+        recipeState.allocationGUID,
+        overrideQualityID
+    )
+    if type(output) ~= "table" then return nil end
+    local itemID = tonumber(output.itemID)
+    if itemID then WarmItemData(itemID) end
+    if recipeState.maxQuality > 3 and itemID then
+        local baseItemLevel = tonumber(recipeInfo and recipeInfo.itemLevel)
+        local qualityBonuses = recipeInfo and recipeInfo.qualityIlvlBonuses
+        local qualityBonus = type(qualityBonuses) == "table" and tonumber(qualityBonuses[quality]) or nil
+        local expectedItemLevel = baseItemLevel and qualityBonus and (baseItemLevel + qualityBonus) or nil
+        local detailedItemLevel
+        if type(output.hyperlink) == "string" and output.hyperlink ~= "" then
+            if type(C_Item) == "table" and type(C_Item.GetDetailedItemLevelInfo) == "function" then
+                detailedItemLevel = tonumber(SafeCall(C_Item.GetDetailedItemLevelInfo, output.hyperlink))
+            elseif type(GetDetailedItemLevelInfo) == "function" then
+                detailedItemLevel = tonumber(SafeCall(GetDetailedItemLevelInfo, output.hyperlink))
+            end
+        end
+        local itemLevel = math.max(expectedItemLevel or 0, detailedItemLevel or 0)
+        if itemLevel > 0 then
+            return "i:" .. tostring(itemID) .. "::i" .. tostring(math.floor(itemLevel + 0.5))
+        end
+    end
+    if type(output.hyperlink) == "string" and output.hyperlink ~= "" then
+        return output.hyperlink
+    end
+    if recipeState.maxQuality <= 3 then
+        return itemID
+    end
+    return nil
+end
+
+function YQQuality.GetCandidatePricing(recipeState, candidate)
+    local pricing = {
+        minBuyout = nil,
+        materialCost = nil,
+        profit = nil,
+    }
+    if not recipeState or not candidate then return pricing end
+
+    local outputReference = YQQuality.GetOutputPriceReference(recipeState, candidate)
+    pricing.minBuyout = outputReference and YQQuality.GetTSMPrice("dbminbuyout", outputReference) or nil
+
+    local completeReagents = BuildCompleteRecipeReagents(
+        recipeState.schematic,
+        candidate.reagents,
+        recipeState.recipeInfo
+    )
+    local materialCost = 0
+    local materialCostKnown = true
+    for _, reagent in ipairs(completeReagents or {}) do
+        local itemID = tonumber(reagent.itemID)
+        local quantity = math.max(0, tonumber(reagent.quantity) or 0)
+        local price = itemID and YQQuality.GetItemPrice(itemID) or nil
+        if quantity > 0 and not price then
+            materialCostKnown = false
+            break
+        end
+        materialCost = materialCost + ((price or 0) * quantity)
+    end
+    pricing.materialCost = materialCostKnown and materialCost or nil
+
+    if pricing.minBuyout and pricing.materialCost then
+        local schematic = recipeState.schematic or {}
+        local quantityMin = math.max(1, tonumber(schematic.quantityMin) or 1)
+        local quantityMax = math.max(quantityMin, tonumber(schematic.quantityMax) or quantityMin)
+        local baseYield = (quantityMin + quantityMax) / 2
+        pricing.profit = (pricing.minBuyout * baseYield * 0.95) - pricing.materialCost
+    end
+    return pricing
+end
+
+function YQQuality.FormatSignedMoney(value)
+    if type(value) ~= "number" then return "?" end
+    local prefix = value > 0 and "+" or (value < 0 and "-" or "")
+    return prefix .. GetMoneyString(math.floor(math.abs(value)), true)
+end
+
+function YQQuality.HasEnoughConcentration(candidate, quantity)
+    if not candidate then return false end
+    local concentrationCost = math.max(0, tonumber(candidate.operation and candidate.operation.concentrationCost) or 0)
+    if concentrationCost <= 0 then return true end
+
+    local currencyID = YQQuality.GetConcentrationCurrencyID(candidate.operation)
+    local currencyInfo = currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
+        and SafeCall(C_CurrencyInfo.GetCurrencyInfo, currencyID) or nil
+    local available = math.max(0, tonumber(currencyInfo and currencyInfo.quantity) or 0)
+    local required = concentrationCost * ClampQuantity(quantity)
+    return currencyID ~= nil and available >= required
+end
+
+local function CreateQuantityControls(button, includeReset, onChanged)
     local parent = button
+    local function NotifyChanged()
+        if type(onChanged) == "function" then
+            onChanged()
+        end
+    end
+
     local plusButton = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     plusButton:SetSize(20, 22)
     plusButton:SetPoint("RIGHT", button, "LEFT", -4, 0)
@@ -3653,10 +4245,17 @@ local function CreateQuantityControls(button)
     qtyBox:SetScript("OnEscapePressed", function(self)
         self:ClearFocus()
         SetQuantityInput(self, GetQuantityInput(self))
+        NotifyChanged()
     end)
     qtyBox:SetScript("OnEnterPressed", function(self)
         self:ClearFocus()
         SetQuantityInput(self, GetQuantityInput(self))
+        NotifyChanged()
+    end)
+    qtyBox:SetScript("OnTextChanged", function(_, userInput)
+        if userInput then
+            NotifyChanged()
+        end
     end)
 
     local minusButton = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
@@ -3665,15 +4264,381 @@ local function CreateQuantityControls(button)
     minusButton:SetText("-")
     minusButton:SetScript("OnClick", function()
         SetQuantityInput(qtyBox, GetQuantityInput(qtyBox) - 1)
+        NotifyChanged()
     end)
     plusButton:SetScript("OnClick", function()
         SetQuantityInput(qtyBox, GetQuantityInput(qtyBox) + 1)
+        NotifyChanged()
     end)
+
+    local resetButton
+    if includeReset then
+        resetButton = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+        resetButton:SetSize(20, 22)
+        resetButton:SetPoint("RIGHT", minusButton, "LEFT", -2, 0)
+        resetButton:SetText("R")
+        resetButton:SetScript("OnClick", function()
+            SetQuantityInput(qtyBox, 1)
+            NotifyChanged()
+        end)
+    end
 
     button.qtyBox = qtyBox
     button.minusButton = minusButton
     button.plusButton = plusButton
+    button.resetButton = resetButton
     return minusButton
+end
+
+function YQQuality.EnsureReagentRows(frame, rowCount)
+    frame.reagentRows = frame.reagentRows or {}
+    for rowIndex = #frame.reagentRows + 1, rowCount do
+        local row = CreateFrame("Frame", nil, frame)
+        row:SetSize(320, 26)
+        row:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -165 - ((rowIndex - 1) * 28))
+        row:EnableMouse(true)
+        row.icon = row:CreateTexture(nil, "ARTWORK")
+        row.icon:SetSize(24, 24)
+        row.icon:SetPoint("LEFT", 2, 0)
+        row.counts = {}
+        for quality = 1, 3 do
+            local count = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+            count:SetWidth(32)
+            count:SetJustifyH("CENTER")
+            row.counts[quality] = count
+        end
+        row:SetScript("OnEnter", function(self)
+            if not self.itemID then return end
+            GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+            GameTooltip:SetItemByID(self.itemID)
+            GameTooltip:Show()
+        end)
+        row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        row:Hide()
+        frame.reagentRows[rowIndex] = row
+    end
+end
+
+function YQQuality.EnsureSelector(schematicForm)
+    local craftingPage = ProfessionsFrame and ProfessionsFrame.CraftingPage
+    if not craftingPage or not schematicForm then return nil end
+    local frame = state.craft.qualityFrame
+    if frame then
+        frame.schematicForm = schematicForm
+        if frame.addButton then frame.addButton.schematicForm = schematicForm end
+        return frame
+    end
+
+    frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    frame:SetSize(340, 296)
+    frame:SetPoint("CENTER", UIParent, "CENTER", 180, 0)
+    frame:SetFrameStrata("MEDIUM")
+    frame:SetMovable(true)
+    frame:SetClampedToScreen(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    frame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+    frame:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+    frame.schematicForm = schematicForm
+
+    frame.title = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    frame.title:SetPoint("TOPLEFT", 12, -10)
+    frame.title:SetText("YQ — Optimisation des réactifs")
+    frame.title:SetTextColor(1, 0.82, 0)
+    frame.closeButton = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+    frame.closeButton:SetPoint("TOPRIGHT", -2, -2)
+    frame.closeButton:SetScript("OnClick", function() frame.userClosed = true; frame:Hide() end)
+    frame.maxText = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    frame.maxText:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -36)
+    frame.status = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    frame.status:SetPoint("TOPLEFT", frame, "TOPLEFT", 165, -36)
+
+    frame.marketText = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    frame.marketText:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -58)
+    frame.marketText:SetWidth(316)
+    frame.marketText:SetJustifyH("LEFT")
+    frame.marketText:SetText("Minbuyout : ?   Profit est. : ?")
+
+    frame.qualityChoiceLabel = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    frame.qualityChoiceLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -86)
+    frame.qualityChoiceLabel:SetText("Choix de qualité")
+    frame.qualityChoiceLabel:SetTextColor(1, 0.82, 0)
+
+    frame.qualityButtons = {}
+    for quality = 1, 5 do
+        local button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        button:SetSize(28, 26)
+        button:SetPoint("TOPLEFT", frame, "TOPLEFT", 150 + (quality - 1) * 34, -78)
+        button:SetText("")
+        button.icon = button:CreateTexture(nil, "ARTWORK")
+        button.icon:SetSize(20, 20)
+        button.icon:SetPoint("CENTER")
+        button.icon:SetAtlas(YQQuality.GetQualityAtlas(quality, false))
+        button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square")
+        button:RegisterForClicks("AnyUp")
+        button.quality = quality
+        button:SetScript("OnClick", function(self)
+            if state.craft.qualityTarget then
+                state.craft.qualityTarget.quality = self.quality
+            end
+            YQQuality.UpdateSelector()
+        end)
+        frame.qualityButtons[quality] = button
+    end
+
+    frame.concentration = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    frame.concentration:SetSize(24, 24)
+    frame.concentration:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -114)
+    frame.concentration:SetChecked(false)
+    frame.concentration:SetHitRectInsets(0, -28, 0, 0)
+    frame.concentration.icon = frame:CreateTexture(nil, "ARTWORK")
+    frame.concentration.icon:SetSize(22, 22)
+    frame.concentration.icon:SetPoint("LEFT", frame.concentration, "RIGHT", 2, 0)
+    frame.concentration.icon:SetTexture(5747318)
+    frame.concentration:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Utiliser la concentration")
+        GameTooltip:Show()
+    end)
+    frame.concentration:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    frame.concentration:SetScript("OnClick", function(self)
+        if state.craft.qualityTarget then
+            local useConcentration = self:GetChecked() == true
+            state.craft.qualityTarget.useConcentration = useConcentration
+            if not useConcentration then
+                state.craft.qualityTarget.quality = nil
+            end
+        end
+        YQQuality.UpdateSelector()
+    end)
+
+    frame.reagentHeader = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    frame.reagentHeader:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -144)
+    frame.reagentHeader:SetText("Réactifs")
+    frame.reagentHeader:SetTextColor(1, 0.82, 0)
+    frame.reagentQualityHeaders = {}
+    for quality = 1, 3 do
+        local header = frame:CreateTexture(nil, "ARTWORK")
+        header:SetSize(20, 20)
+        frame.reagentQualityHeaders[quality] = header
+    end
+    frame.reagentRows = {}
+
+    frame.addButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    frame.addButton:SetSize(108, 22)
+    frame.addButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -8, 8)
+    frame.addButton:SetText("Ajouter YQ")
+    frame.addButton.schematicForm = schematicForm
+    frame.addButton:SetScript("OnClick", function(self)
+        local target = state.craft.qualityTarget
+        local recipeState = state.craft.qualityState
+        local candidate = recipeState and YQQuality.FindCandidate(recipeState, target and target.quality or 1)
+        local context = GetRecipeContextFromSchematicForm(self.schematicForm)
+        if not (context and candidate) then
+            Print("Qualite ou recette indisponible pour YQ.")
+            return
+        end
+        local recipeInfo = self.schematicForm:GetRecipeInfo()
+        local level = type(self.schematicForm.GetCurrentRecipeLevel) == "function"
+            and SafeCall(self.schematicForm.GetCurrentRecipeLevel, self.schematicForm) or nil
+        local schematic = SafeCall(C_TradeSkillUI.GetRecipeSchematic, context.recipeID, false, level)
+        context.craftingReagents = candidate.reagents
+        context.slotAllocations = {}
+        context.clearSlotIndices = {}
+        context.reagents = BuildCompleteRecipeReagents(schematic, candidate.reagents, recipeInfo)
+        context.applyConcentration = target.useConcentration == true
+        context.targetQuality = target.quality
+        context.targetQualitySimplified = recipeState.simplifiedResult == true
+        context.mode = "crafts"
+        local requestedQuantity = GetQuantityInput(self.qtyBox)
+        if target.useConcentration == true then
+            if not YQQuality.HasEnoughConcentration(candidate, requestedQuantity) then
+                Print("Concentration insuffisante pour ajouter ce lot.")
+                return
+            end
+        end
+        local quantity = QueueRecipeContext(context, self.qtyBox)
+        if quantity then
+            Print(
+                "Ajoute " .. quantity .. "x " .. context.recipeName .. " en "
+                    .. YQQuality.GetQualityIcon(target.quality, 16, recipeState.simplifiedResult)
+            )
+        end
+    end)
+    CreateQuantityControls(frame.addButton, true, function()
+        YQQuality.UpdateSelector()
+    end)
+    frame:Hide()
+    state.craft.qualityFrame = frame
+    return frame
+end
+
+function YQQuality.UpdateSelector()
+    local craftingPage = ProfessionsFrame and ProfessionsFrame.CraftingPage
+    if not ProfessionsFrame or not ProfessionsFrame:IsShown() or not craftingPage or not craftingPage:IsShown() then
+        if state.craft.qualityFrame then state.craft.qualityFrame:Hide() end
+        return
+    end
+    local schematicForm = craftingPage and craftingPage.SchematicForm
+    if not schematicForm then
+        if state.craft.qualityFrame then state.craft.qualityFrame:Hide() end
+        return
+    end
+    local frame = YQQuality.EnsureSelector(schematicForm)
+    if not frame then return end
+    local isVisible = schematicForm:IsShown()
+    frame:SetShown(isVisible and not frame.userClosed)
+    if not isVisible then return end
+
+    local target = state.craft.qualityTarget
+    local useConcentration = target and target.useConcentration == true or false
+    local recipeInfo = schematicForm.GetRecipeInfo and SafeCall(schematicForm.GetRecipeInfo, schematicForm) or nil
+    local recipeID = recipeInfo and tonumber(recipeInfo.recipeID)
+    if not recipeID or recipeID <= 0 then
+        frame:Hide()
+        state.craft.qualityTarget = nil
+        state.craft.qualityState = nil
+        return
+    end
+    if recipeInfo.isRecraft == true then
+        frame:Hide()
+        state.craft.qualityTarget = nil
+        state.craft.qualityState = nil
+        return
+    end
+    if not target or target.recipeID ~= recipeID then
+        target = { recipeID = recipeID, quality = nil, useConcentration = false }
+        state.craft.qualityTarget = target
+        frame.userClosed = false
+    end
+    useConcentration = target.useConcentration == true
+    state.craft.qualityState = YQQuality.BuildRecipeState(schematicForm, useConcentration)
+    local recipeState = state.craft.qualityState
+    if not recipeState or recipeState.reachableQuality <= 0 then
+        frame.status:SetText("Qualité indisponible")
+        frame.maxText:SetText("")
+        frame.marketText:SetText("Minbuyout : |cffaaaaaa?|r   Profit est. : |cffaaaaaa?|r")
+        frame.addButton:Disable()
+        for _, button in ipairs(frame.qualityButtons) do button:Hide() end
+        frame.concentration:Show()
+        frame.concentration:Enable()
+        frame.concentration:SetChecked(useConcentration)
+        frame.reagentHeader:Hide()
+        for _, header in ipairs(frame.reagentQualityHeaders or {}) do header:Hide() end
+        for _, row in ipairs(frame.reagentRows or {}) do row:Hide() end
+        return
+    end
+    frame.concentration:Show()
+    frame.reagentHeader:Show()
+    local minimumQuality = recipeState.minQuality == math.huge and 1 or recipeState.minQuality
+    target.quality = math.min(
+        recipeState.maxQuality,
+        math.max(minimumQuality, tonumber(target.quality) or recipeState.reachableQuality)
+    )
+    local selectedCandidate = YQQuality.FindCandidate(recipeState, target.quality)
+    frame.maxText:SetText(
+        "Qualité max : " .. YQQuality.GetQualityIcon(
+            recipeState.maxQuality, 18, recipeState.simplifiedResult
+        )
+    )
+    frame.status:SetText(
+        "Atteignable : " .. YQQuality.GetQualityIcon(
+            recipeState.reachableQuality, 18, recipeState.simplifiedResult
+        )
+    )
+    DebugPrint(
+        "quality-display recipe=" .. tostring(recipeState.recipeID)
+            .. " target=" .. tostring(target.quality)
+            .. " selected=" .. tostring(selectedCandidate and selectedCandidate.quality)
+    )
+    for quality, button in ipairs(frame.qualityButtons) do
+        button.icon:SetAtlas(YQQuality.GetQualityAtlas(quality, recipeState.simplifiedResult))
+        button:SetShown(quality >= minimumQuality and quality <= recipeState.maxQuality)
+        button:SetEnabled(quality >= minimumQuality and quality <= recipeState.reachableQuality and YQQuality.FindCandidate(recipeState, quality) ~= nil)
+        if quality == target.quality then
+            button:LockHighlight()
+        else
+            button:UnlockHighlight()
+        end
+    end
+    frame.concentration:SetChecked(useConcentration)
+    frame.concentration:SetEnabled(recipeState.maxQuality > 1)
+    local candidate = YQQuality.FindCandidate(recipeState, target.quality)
+    local concentrationEnough = not useConcentration
+        or YQQuality.HasEnoughConcentration(candidate, ReadQuantityInput(frame.addButton.qtyBox))
+    frame.addButton:SetEnabled(candidate ~= nil and concentrationEnough)
+    local pricing = YQQuality.GetCandidatePricing(recipeState, candidate)
+    local minBuyoutText = pricing.minBuyout and GetMoneyString(math.floor(pricing.minBuyout), true) or "|cffaaaaaa?|r"
+    local profitText = YQQuality.FormatSignedMoney(pricing.profit)
+    local profitColor = "|cffaaaaaa"
+    if type(pricing.profit) == "number" then
+        profitColor = pricing.profit > 0 and "|cff55dd77" or (pricing.profit < 0 and "|cffff5555" or "|cffffffff")
+    end
+    frame.marketText:SetText(
+        "Minbuyout : " .. minBuyoutText
+            .. "   Profit est. : " .. profitColor .. profitText .. "|r"
+    )
+    DebugPrint(
+        "quality-price recipe=" .. tostring(recipeState.recipeID)
+            .. " target=" .. tostring(target.quality)
+            .. " minbuyout=" .. tostring(pricing.minBuyout)
+            .. " materials=" .. tostring(pricing.materialCost)
+            .. " profit=" .. tostring(pricing.profit)
+    )
+
+    local reagentQualityCount = math.min(3, math.max(0, recipeState.reagentQualityCount or 0))
+    local columnCenter = reagentQualityCount == 2 and 250 or 220
+    local columnSpacing = reagentQualityCount == 2 and 46 or 42
+    for quality, header in ipairs(frame.reagentQualityHeaders or {}) do
+        header:ClearAllPoints()
+        header:SetPoint("TOPLEFT", frame, "TOPLEFT", columnCenter - 10 + ((quality - 1) * columnSpacing), -142)
+        header:SetAtlas(YQQuality.GetQualityAtlas(quality, reagentQualityCount == 2))
+        header:SetShown(quality <= reagentQualityCount)
+    end
+
+    YQQuality.EnsureReagentRows(frame, #(recipeState.slots or {}))
+    frame:SetHeight(math.max(260, 204 + (#(recipeState.slots or {}) * 28)))
+    for rowIndex, row in ipairs(frame.reagentRows or {}) do
+        local slotData = recipeState.slots and recipeState.slots[rowIndex]
+        local selectedCounts = {}
+        if candidate and slotData then
+            for _, info in ipairs(candidate.reagents or {}) do
+                if tonumber(info.dataSlotIndex) == tonumber(slotData.slot.dataSlotIndex) then
+                    local itemID = tonumber(info.reagent and info.reagent.itemID)
+                    for _, option in ipairs(slotData.options or {}) do
+                        if option.itemID == itemID then
+                            selectedCounts[option.quality] = (selectedCounts[option.quality] or 0)
+                                + (tonumber(info.quantity) or 0)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+        if slotData and slotData.options and slotData.options[1] then
+            local itemID = tonumber(slotData.options[1].itemID)
+            local itemIcon = GetItemIcon(itemID)
+            row.icon:SetTexture(itemIcon)
+            row.itemID = itemID
+            for quality = 1, 3 do
+                local count = row.counts[quality]
+                count:ClearAllPoints()
+                count:SetPoint("LEFT", row, "LEFT", columnCenter - 16 + ((quality - 1) * columnSpacing), 0)
+                count:SetText((selectedCounts[quality] or 0) > 0 and tostring(selectedCounts[quality]) or "-")
+                count:SetShown(quality <= reagentQualityCount)
+            end
+            row:Show()
+        else
+            row.itemID = nil
+            row:Hide()
+        end
+    end
 end
 
 local function AnchorQueueButton(button, target, fallbackParent)
@@ -3774,7 +4739,7 @@ local function EnsureCraftingQueueButton(schematicForm)
     dumpConcentrationButton.schematicForm = schematicForm
     dumpConcentrationButton:SetScript("OnClick", function(self)
         local dumpState = GetConcentrationDumpState(self.schematicForm)
-        if not (dumpState and dumpState.available > 500 and dumpState.context and dumpState.maxQuantity > 0) then
+        if not (dumpState and dumpState.context and dumpState.maxQuantity > 0) then
             Print("Concentration ou recette indisponible.")
             return
         end
@@ -3843,11 +4808,11 @@ local function UpdateCraftingQueueButton()
         button:SetEnabled(GetRecipeContextFromSchematicForm(schematicForm) ~= nil)
     end
     local dumpState = isVisible and GetConcentrationDumpState(schematicForm) or nil
-    local showDumpConcentration = dumpState and dumpState.available > 500 or false
+    local showDumpConcentration = isVisible
     if button.dumpConcentrationButton then
         button.dumpConcentrationButton:SetShown(showDumpConcentration)
         button.dumpConcentrationButton:SetEnabled(
-            showDumpConcentration and dumpState.context ~= nil and dumpState.maxQuantity > 0
+            showDumpConcentration and dumpState ~= nil and dumpState.context ~= nil and dumpState.maxQuantity > 0
         )
     end
     if button.firstCraftButton then
@@ -3863,6 +4828,7 @@ local function UpdateCraftingQueueButton()
             hasAddableFirstCraft and not state.firstCraftScanRunning
         )
     end
+    YQQuality.UpdateSelector()
 end
 
 local function UpdateOrderQueueButton()
@@ -4557,8 +5523,17 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
         return
     end
 
+    if event == "TRADE_SKILL_SHOW" then
+        if state.craft.qualityFrame then state.craft.qualityFrame.userClosed = false end
+        C_Timer.After(0, ScheduleRefresh)
+        return
+    end
+
     if event == "TRADE_SKILL_CLOSE" then
         state.firstCraftAvailability = {}
+        state.craft.qualityTarget = nil
+        state.craft.qualityState = nil
+        if state.craft.qualityFrame then state.craft.qualityFrame:Hide() end
         DebugPrint("event=TRADE_SKILL_CLOSE pendingEntries=" .. tostring(#state.pendingCraftEntries) .. " pendingBatches=" .. tostring(#state.pendingCraftBatches) .. " lock=" .. tostring(IsCraftClickLocked()))
         if not IsCraftClickLocked() and #state.pendingCraftEntries == 0 and #state.pendingCraftBatches == 0 then
             ClearPendingCraftBatches()
@@ -4570,6 +5545,23 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
             ClearNextActionLock("trade-skill-close")
         end
         ScheduleRefresh()
+        return
+    end
+
+    if event == "AUCTION_HOUSE_SHOW" then
+        C_Timer.After(0, function()
+            if not AuctionHouseFrame or not AuctionHouseFrame:IsShown() then
+                return
+            end
+
+            EnsureDB()
+            local summary = BuildQueueSummary()
+            EnsureAuctionUI()
+            UpdateAuctionFrame(summary)
+            if #summary.auctionTasks > 0 then
+                ShowAuctionFrame()
+            end
+        end)
         return
     end
 
