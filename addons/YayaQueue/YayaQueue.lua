@@ -6,7 +6,6 @@ local db
 local MAX_QUEUE_QTY = 9999
 local MAX_CRAFT_LINES = 8
 local MAX_AH_LINES = 10
-local MAX_VENDOR_BUTTONS = 1
 local CRAFT_PANEL_EXPANDED_HEIGHT = 340
 local CRAFT_PANEL_COLLAPSED_HEIGHT = 88
 local FIRST_CRAFT_COST_LIMIT = 1000 * 10000
@@ -5136,7 +5135,7 @@ local function CreateCraftPanel()
     vendorTitle:Hide()
 
     local vendorButtons = {}
-    for index = 1, MAX_VENDOR_BUTTONS do
+    for index = 1, 1 do
         local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
         button:SetSize(248, 20)
         if index == 1 then
