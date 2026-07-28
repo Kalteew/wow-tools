@@ -36,8 +36,11 @@ Resume `Midnight` :
 - `KP x a placer` en rouge = plus de `5` points de connaissance non depenses dans ce metier
 - `+10KP (zone)` = livre de connaissance Midnight encore non consomme ; les livres d'Abundance sont suivis en plus pour Enchantement, Herboristerie, Minage et Depeçage
 - `moxie x/y` et `abondance x/y` = recapitulatif du cout des livres manquants ; la valeur passe en rouge si la monnaie manque
-- les recettes manquantes suivies sont `Potion of Recklessness`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire
-- les rappels recurrents sont regroupes dans la section `Hebdo` uniquement s'il reste quelque chose a faire ; les tresors, livres KP et recettes sont dans `One time`, sans lignes `ok`
+- le rappel `moxie x` reste affiche meme si aucun tresor, livre ou recette ne reste dans `One time`
+- les recettes manquantes suivies sont `Potion of Recklessness`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; si l'API metier n'est pas encore prete, YWT reessaie toutes les 10 secondes avant de les afficher
+- `Lost Legends` est suivie comme weekly Warband des legendes Haranir
+- `Research Console: Exploring the Void` est suivie comme weekly quand la quete est active
+- les rappels recurrents sont affiches sous le titre `Hebdo` uniquement s'il reste quelque chose a faire ; les tresors, livres KP et recettes sont dans `One time`, sans lignes `ok`
 - la consommation d'une recette suivie force aussi un refresh apres le sort de consommation, sans devoir ouvrir le metier
 - le bloc couvre surtout la partie actionable des guides `Midnight` : tresors, repeatable loot, trainer, traite, Darkmoon
 - si `TomTom` est installe, l'addon ajoute automatiquement au login les waypoints des tresors `Midnight` encore non recuperes pour les metiers du personnage courant
@@ -71,7 +74,7 @@ La frame est ancree par son coin haut gauche et s'etend vers le bas droite. Sa p
 Dans `Echap > Options > AddOns > Yaya Weekly Tracker`, les options account-wide permettent de :
 
 - cacher integralement la frame en combat (desactive par defaut)
-- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des traites et des weeklies metiers (tous actives par defaut)
+- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des traites, des weeklies metiers, de chaque recette Midnight, de `Lost Legends` et de `Research Console: Exploring the Void` (tous actives par defaut)
 
 L'addon enregistre aussi en account-wide les personnages qui connaissent `Jard` dans `YayaWeeklyTrackerAccountDB.jardOwners`.
 
@@ -131,8 +134,10 @@ IDs utilises :
 - world bosses `Midnight` = `92560`, `92123`, `92034`, `92636`
 - `Fortify the Runestones` = `90573`, `90574`, `90575`, `90576`
 - `Hope in the Darkest Corners` = `95468`
+- `Lost Legends` = `89268` (niveau minimum `80`)
+- `Research Console: Exploring the Void` = `94790`
 - weekly `Neighborhood` = `95413`, `95416`, `95438`, `95440` (breadcrumbs `95439`, `95482`)
-- weekly de Liadrin = wrapper `93744`; objectifs `93766`, `93767`, `93769`, `93889`, `93890`, `93891`, `93892`, `93909`, `93910`, `93911`, `93912`, `93913`, `94457`, `95842`, `95843`
+- weekly de Liadrin = wrapper `93744`; objectifs `93766`, `93767`, `93769`, `93889`, `93890`, `93892`, `93909`, `93910`, `93911`, `93912`, `93913`, `94457`, `95842`, `95843`
 - `Worth Its Weight` = `41174`
 - `Fit for an Elven Queen` = `41175`
 - `Sifting Through the Rubble` = `41176`

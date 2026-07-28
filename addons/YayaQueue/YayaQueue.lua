@@ -14,6 +14,10 @@ local CONFIG = {
     MERCHANT_AUTO_BUY_INITIAL_DELAY = 0.02,
     MERCHANT_AUTO_BUY_RETRY_DELAY = 0.08,
     MERCHANT_AUTO_BUY_VERIFY_DELAY = 0.08,
+    CONCENTRATION_PHIAL_ITEM_IDS = {
+        [1] = 241313, -- Haranir Phial of Ingenuity R1
+        [2] = 241312, -- Haranir Phial of Ingenuity R2
+    },
     debugNextCraft = false,
     DEBUG_LOG_LIMIT = 400,
     COMMODITY_SORT = { sortOrder = 0, reverseSort = false },
@@ -53,6 +57,13 @@ local state = {
         qualityState = nil,
         qualityCache = nil,
         qualityPriceCache = {},
+        qualitySolve = nil,
+        qualitySolveGeneration = 0,
+        qualityPreviewStates = {},
+        qualityPreviewPending = {},
+        qualityPreviewSolve = nil,
+        qualityPreviewQueue = {},
+        qualityPreviewGeneration = 0,
     },
     ah = {
         frame = nil,
@@ -96,6 +107,11 @@ local state = {
     recentCompletedPatronOrderTTL = 30.0,
     firstCraftScanRunning = false,
     firstCraftAvailability = {},
+    pendingIngenuityPhial = nil,
+    concentrationPhialSessionQueued = false,
+    armedIngenuityPhial = nil,
+    optionsPanel = nil,
+    optionsCategory = nil,
 }
 
 local RefreshAll
@@ -316,6 +332,7 @@ local function NormalizeDirectItemEntry(rawEntry)
         itemID = itemID,
         itemName = itemName,
         directQuantity = quantity,
+        concentrationPhial = rawEntry.concentrationPhial == true,
         queueKind = rawEntry.queueKind == "direct_item" and "direct_item" or "direct_item",
     }
 end
@@ -356,6 +373,7 @@ local function NormalizeQueueEntries()
                     targetQuality = NormalizeTargetQuality(rawEntry.targetQuality),
                     targetQualitySimplified = rawEntry.targetQualitySimplified == true,
                     concentrationCost = tonumber(rawEntry.concentrationCost) or nil,
+                    concentrationPhialItemID = tonumber(rawEntry.concentrationPhialItemID) or nil,
                     orderID = tonumber(rawEntry.orderID) or nil,
                     professionID = tonumber(rawEntry.professionID) or nil,
                     queueKind = rawEntry.queueKind == "patron" and "patron" or nil,
@@ -401,6 +419,13 @@ EnsureDB = function()
     if YayaQueueDB.autoBuyVendor == nil then
         YayaQueueDB.autoBuyVendor = true
     end
+    if YayaQueueDB.concentrationPhialEnabled == nil then
+        YayaQueueDB.concentrationPhialEnabled = true
+    else
+        YayaQueueDB.concentrationPhialEnabled = YayaQueueDB.concentrationPhialEnabled == true
+    end
+    local phialRank = tonumber(YayaQueueDB.concentrationPhialRank)
+    YayaQueueDB.concentrationPhialRank = phialRank == 2 and 2 or 1
     db = YayaQueueDB
     for itemID in pairs(CONFIG.KNOWN_VENDOR_ITEMS) do
         db.vendorItems[itemID] = true
@@ -621,6 +646,265 @@ GetItemName = function(itemID)
 
     WarmItemData(itemID)
     return "Item " .. itemID
+end
+
+YQQuality.GetPreferredIngenuityPhial = function()
+    EnsureDB()
+    local rank = db.concentrationPhialRank == 2 and 2 or 1
+    return rank, CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[rank]
+end
+
+YQQuality.IsConcentrationPhialEnabled = function()
+    return not db or db.concentrationPhialEnabled ~= false
+end
+
+YQQuality.GetIngenuityPhialCount = function(itemID, getter)
+    itemID = tonumber(itemID) or 0
+    if type(getter) ~= "function" then
+        return 0
+    end
+
+    local count = getter(itemID)
+    if itemID ~= CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[1] and itemID ~= CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[2] then
+        return count
+    end
+    for rank = 1, 2 do
+        local otherItemID = CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[rank]
+        if otherItemID ~= itemID then
+            count = count + getter(otherItemID)
+        end
+    end
+    return count
+end
+
+YQQuality.IsIngenuityBuffActive = function()
+    local names = {}
+    for rank = 1, 2 do
+        local itemID = CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[rank]
+        local itemName = GetItemName(itemID)
+        if itemName and itemName ~= "" then
+            names[itemName] = true
+        end
+        local spellName = C_Item and SafeCall(C_Item.GetItemSpell, itemID) or nil
+        if type(spellName) == "string" and spellName ~= "" then
+            names[spellName] = true
+        end
+    end
+
+    if AuraUtil and type(AuraUtil.FindAuraByName) == "function" then
+        for name in pairs(names) do
+            if AuraUtil.FindAuraByName(name, "player", "HELPFUL") then
+                return true
+            end
+        end
+    end
+
+    if C_UnitAuras and type(C_UnitAuras.GetAuraDataByIndex) == "function" then
+        for index = 1, 40 do
+            local aura = C_UnitAuras.GetAuraDataByIndex("player", index, "HELPFUL")
+            if aura and names[aura.name] then
+                return true
+            end
+        end
+    elseif type(UnitAura) == "function" then
+        for index = 1, 40 do
+            local name = UnitAura("player", index, "HELPFUL")
+            if name and names[name] then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+YQQuality.RemoveConcentrationPhialDemand = function(itemID, quantity)
+    EnsureDB()
+    itemID = tonumber(itemID) or 0
+    quantity = math.max(0, math.floor(tonumber(quantity) or 0))
+    if itemID <= 0 or quantity <= 0 then
+        return
+    end
+
+    for index = #db.queue, 1, -1 do
+        local entry = db.queue[index]
+        if entry.queueKind == "direct_item" and tonumber(entry.itemID) == itemID then
+            local remaining = math.max(0, math.floor(tonumber(entry.directQuantity) or 0) - quantity)
+            if remaining > 0 then
+                entry.directQuantity = remaining
+            else
+                table.remove(db.queue, index)
+            end
+            return
+        end
+    end
+end
+
+YQQuality.QueueConcentrationPhial = function(quantity, preferredItemID)
+    EnsureDB()
+    if not YQQuality.IsConcentrationPhialEnabled() or state.concentrationPhialSessionQueued then
+        return
+    end
+    for _, queuedEntry in ipairs(db.queue) do
+        if queuedEntry.queueKind == "direct_item" and queuedEntry.concentrationPhial == true then
+            state.concentrationPhialSessionQueued = true
+            return
+        end
+    end
+    quantity = ClampQuantity(quantity)
+    local _, itemID = YQQuality.GetPreferredIngenuityPhial()
+    itemID = tonumber(preferredItemID) or itemID
+    itemID = tonumber(itemID) or 0
+    if itemID <= 0 then
+        return
+    end
+
+    WarmItemData(itemID)
+    for _, entry in ipairs(db.queue) do
+        if entry.queueKind == "direct_item" and tonumber(entry.itemID) == itemID then
+            entry.directQuantity = ClampQuantity((entry.directQuantity or 0) + quantity)
+            entry.itemName = GetItemName(itemID)
+            return
+        end
+    end
+
+    table.insert(db.queue, NormalizeDirectItemEntry({
+        itemID = itemID,
+        itemName = GetItemName(itemID),
+        directQuantity = quantity,
+        concentrationPhial = true,
+        queueKind = "direct_item",
+    }))
+    db.queue[#db.queue].concentrationPhial = true
+    state.concentrationPhialSessionQueued = true
+end
+
+YQQuality.FindIngenuityPhialBagSlot = function(itemID)
+    itemID = tonumber(itemID) or 0
+    if itemID <= 0 then
+        return nil
+    end
+
+    for bagID = 0, 4 do
+        local slotCount = C_Container and type(C_Container.GetContainerNumSlots) == "function"
+            and C_Container.GetContainerNumSlots(bagID)
+            or type(GetContainerNumSlots) == "function" and GetContainerNumSlots(bagID)
+            or 0
+        for slotIndex = 1, slotCount do
+            local info = C_Container and type(C_Container.GetContainerItemInfo) == "function"
+                and C_Container.GetContainerItemInfo(bagID, slotIndex)
+                or nil
+            local slotItemID = info and info.itemID
+            if not slotItemID and C_Container and type(C_Container.GetContainerItemID) == "function" then
+                slotItemID = C_Container.GetContainerItemID(bagID, slotIndex)
+            end
+            if not slotItemID and type(GetContainerItemLink) == "function" and type(GetItemInfoInstant) == "function" then
+                local link = GetContainerItemLink(bagID, slotIndex)
+                slotItemID = link and GetItemInfoInstant(link) or nil
+            end
+            if tonumber(slotItemID) == itemID then
+                return bagID, slotIndex
+            end
+        end
+    end
+end
+
+YQQuality.GetAvailableIngenuityPhial = function(preferredItemID)
+    local _, demandItemID = YQQuality.GetPreferredIngenuityPhial()
+    demandItemID = tonumber(preferredItemID) or demandItemID
+    local itemID = demandItemID
+    local bagID, slotIndex = YQQuality.FindIngenuityPhialBagSlot(itemID)
+    if not bagID then
+        for rank = 1, 2 do
+            local fallbackItemID = CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[rank]
+            if fallbackItemID ~= demandItemID then
+                bagID, slotIndex = YQQuality.FindIngenuityPhialBagSlot(fallbackItemID)
+                if bagID then
+                    itemID = fallbackItemID
+                    break
+                end
+            end
+        end
+    end
+    if not bagID then
+        return demandItemID, nil
+    end
+    return demandItemID, itemID, bagID, slotIndex
+end
+
+YQQuality.EnsureOptions = function()
+    if state.optionsPanel then
+        return
+    end
+
+    local panel = CreateFrame("Frame")
+    panel.name = "YayaQueue"
+
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText("YayaQueue")
+
+    local description = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+    description:SetText("Options pour les crafts avec concentration.")
+
+    local usePhialCheckbox = CreateFrame("CheckButton", addonName .. "ConcentrationPhialEnabled", panel, "UICheckButtonTemplate")
+    usePhialCheckbox:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -14)
+    local usePhialLabel = usePhialCheckbox.Text or usePhialCheckbox.text
+    if not usePhialLabel then
+        usePhialLabel = usePhialCheckbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        usePhialLabel:SetPoint("LEFT", usePhialCheckbox, "RIGHT", 2, 1)
+        usePhialCheckbox.Text = usePhialLabel
+    end
+    usePhialLabel:SetText("Utiliser automatiquement une phial avant les crafts concentration")
+    usePhialCheckbox:SetScript("OnClick", function(self)
+        EnsureDB()
+        db.concentrationPhialEnabled = self:GetChecked() == true
+        ScheduleRefresh()
+    end)
+
+    local checkbox = CreateFrame("CheckButton", addonName .. "ConcentrationPhialRank2", panel, "UICheckButtonTemplate")
+    checkbox:SetPoint("TOPLEFT", usePhialCheckbox, "BOTTOMLEFT", 0, -6)
+    local label = checkbox.Text or checkbox.text
+    if not label then
+        label = checkbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        label:SetPoint("LEFT", checkbox, "RIGHT", 2, 1)
+        checkbox.Text = label
+    end
+    label:SetText("Préférer acheter la phial d’ingéniosité rang 2")
+    checkbox:SetScript("OnClick", function(self)
+        EnsureDB()
+        db.concentrationPhialRank = self:GetChecked() and 2 or 1
+        state.ah.statusMessage = self:GetChecked() and "Phial R2 preferee" or "Phial R1 preferee"
+        ScheduleRefresh()
+    end)
+    panel:SetScript("OnShow", function()
+        EnsureDB()
+        usePhialCheckbox:SetChecked(db.concentrationPhialEnabled ~= false)
+        checkbox:SetChecked(db.concentrationPhialRank == 2)
+    end)
+
+    if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
+        state.optionsCategory = Settings.RegisterCanvasLayoutCategory(panel, panel.name, panel.name)
+        Settings.RegisterAddOnCategory(state.optionsCategory)
+    elseif InterfaceOptions_AddCategory then
+        InterfaceOptions_AddCategory(panel)
+    end
+    state.optionsPanel = panel
+end
+
+YQQuality.OpenOptions = function()
+    YQQuality.EnsureOptions()
+    if state.optionsCategory and type(Settings.OpenToCategory) == "function" then
+        local categoryID = type(state.optionsCategory.GetID) == "function" and state.optionsCategory:GetID()
+        if categoryID then
+            Settings.OpenToCategory(categoryID)
+            return
+        end
+    end
+    if type(InterfaceOptionsFrame_OpenToCategory) == "function" and state.optionsPanel then
+        InterfaceOptionsFrame_OpenToCategory(state.optionsPanel)
+    end
 end
 
 local function GetImmediateOwnedCount(itemID)
@@ -1171,6 +1455,8 @@ end
 local function ResetQueue()
     EnsureDB()
     wipe(db.queue)
+    state.concentrationPhialSessionQueued = false
+    state.armedIngenuityPhial = nil
     wipe(state.searchCache)
     state.ah.searchQueue = nil
     state.ah.activeSearch = nil
@@ -1190,6 +1476,11 @@ local function AddRecipeToQueue(context, quantity)
     local slotAllocations = NormalizeSlotAllocations(context and context.slotAllocations)
     local clearSlotIndices = NormalizeSlotIndices(context and context.clearSlotIndices)
     local reagentSignature = BuildReagentSignature(reagents)
+    local concentrationPhialItemID
+    if NormalizeApplyConcentration(context.applyConcentration) then
+        local _, preferredItemID = YQQuality.GetPreferredIngenuityPhial()
+        concentrationPhialItemID = preferredItemID
+    end
 
     for _, entry in ipairs(db.queue) do
         if entry.recipeID == context.recipeID
@@ -1199,6 +1490,7 @@ local function AddRecipeToQueue(context, quantity)
             and NormalizeApplyConcentration(entry.applyConcentration) == NormalizeApplyConcentration(context.applyConcentration)
             and NormalizeTargetQuality(entry.targetQuality) == NormalizeTargetQuality(context.targetQuality)
             and (entry.targetQualitySimplified == true) == (context.targetQualitySimplified == true)
+            and (tonumber(entry.concentrationPhialItemID) or 0) == (tonumber(concentrationPhialItemID) or 0)
         then
             if mode == "crafts" then
                 entry.craftQty = ClampQuantity((entry.craftQty or 0) + quantity)
@@ -1218,6 +1510,7 @@ local function AddRecipeToQueue(context, quantity)
             entry.targetQuality = NormalizeTargetQuality(context.targetQuality)
             entry.targetQualitySimplified = context.targetQualitySimplified == true
             entry.concentrationCost = tonumber(context.concentrationCost) or nil
+            entry.concentrationPhialItemID = concentrationPhialItemID
             entry.orderID = tonumber(context.orderID) or nil
             entry.professionID = tonumber(context.professionID) or nil
             entry.queueKind = context.queueKind == "patron" and "patron" or nil
@@ -1226,6 +1519,9 @@ local function AddRecipeToQueue(context, quantity)
             entry.pendingSubmit = context.pendingSubmit == true
             entry.profitValue = tonumber(context.profitValue) or nil
             entry.profitKnown = context.profitKnown == true
+            if NormalizeApplyConcentration(context.applyConcentration) then
+                YQQuality.QueueConcentrationPhial(1, concentrationPhialItemID)
+            end
             return entry
         end
     end
@@ -1246,6 +1542,7 @@ local function AddRecipeToQueue(context, quantity)
         targetQuality = NormalizeTargetQuality(context.targetQuality),
         targetQualitySimplified = context.targetQualitySimplified == true,
         concentrationCost = tonumber(context.concentrationCost) or nil,
+        concentrationPhialItemID = concentrationPhialItemID,
         orderID = tonumber(context.orderID) or nil,
         professionID = tonumber(context.professionID) or nil,
         queueKind = context.queueKind == "patron" and "patron" or nil,
@@ -1256,6 +1553,9 @@ local function AddRecipeToQueue(context, quantity)
         profitKnown = context.profitKnown == true,
     }
     table.insert(db.queue, entry)
+    if NormalizeApplyConcentration(context.applyConcentration) then
+        YQQuality.QueueConcentrationPhial(1, concentrationPhialItemID)
+    end
     return entry
 end
 
@@ -1473,7 +1773,9 @@ local function BuildQueueSummary()
     local neededByItemID = {}
 
     for _, entry in ipairs(db.queue) do
-        if entry.queueKind == "direct_item" then
+        if entry.queueKind == "direct_item"
+            and not (entry.concentrationPhial == true and not YQQuality.IsConcentrationPhialEnabled())
+        then
             local itemID = tonumber(entry.itemID) or 0
             local quantity = ClampQuantity(entry.directQuantity or 1)
             if itemID > 0 and quantity > 0 then
@@ -1523,8 +1825,8 @@ local function BuildQueueSummary()
 
     for itemID, task in pairs(neededByItemID) do
         task.name = GetItemName(itemID)
-        task.owned = GetOwnedCount(itemID)
-        task.mailbox = GetMailboxCount(itemID)
+        task.owned = YQQuality.GetIngenuityPhialCount(itemID, GetOwnedCount)
+        task.mailbox = YQQuality.GetIngenuityPhialCount(itemID, GetMailboxCount)
         DebugPrintReagentCount("queue-summary", itemID, task.needed, task.mailbox)
         task.missing = math.max(0, task.needed - task.owned)
         if task.missing > 0 then
@@ -2019,6 +2321,25 @@ local function GetPatronNextButtonState()
             }
         end
 
+        if entry.applyConcentration == true
+            and YQQuality.IsConcentrationPhialEnabled()
+            and not YQQuality.IsIngenuityBuffActive()
+        then
+            local demandItemID = tonumber(entry.concentrationPhialItemID)
+            local _, preferredItemID = YQQuality.GetPreferredIngenuityPhial()
+            demandItemID = demandItemID and demandItemID > 0 and demandItemID or preferredItemID
+            local ownedPhials = YQQuality.GetIngenuityPhialCount(demandItemID, GetOwnedCount)
+            local mailboxPhials = YQQuality.GetIngenuityPhialCount(demandItemID, GetMailboxCount)
+            if ownedPhials <= 0 then
+                return {
+                    entry = entry,
+                    text = mailboxPhials > 0 and "Next: Mailbox" or "Next: materiaux",
+                    enabled = mailboxPhials > 0,
+                    action = mailboxPhials > 0 and "mailbox" or nil,
+                }
+            end
+        end
+
         local currentProfessionID = GetCurrentProfessionID()
         local _, currentRecipeInfo = GetCurrentCraftingSchematicContext()
         local currentRecipeID = currentRecipeInfo and currentRecipeInfo.recipeID or nil
@@ -2367,6 +2688,20 @@ RunPatronNextAction = function()
         end
         local applyConcentration = NormalizeApplyConcentration(stateInfo.entry.applyConcentration)
         local craftAmount = math.max(1, math.floor(tonumber(stateInfo.craftAmount) or 1))
+        if applyConcentration and YQQuality.IsConcentrationPhialEnabled() then
+            local phialID = tonumber(stateInfo.entry.concentrationPhialItemID)
+            if not phialID or phialID <= 0 then
+                local _, preferredItemID = YQQuality.GetPreferredIngenuityPhial()
+                phialID = preferredItemID
+            end
+            if YQQuality.IsIngenuityBuffActive() then
+                YQQuality.RemoveConcentrationPhialDemand(phialID, 1)
+            else
+                state.ah.statusMessage = "Clique Next: Phial"
+                ScheduleRefresh()
+                return
+            end
+        end
         local vellumLocation
         if recipeInfo and recipeInfo.isEnchantingRecipe and type(C_TradeSkillUI.CraftEnchant) == "function" then
             vellumLocation = GetItemLocationFromItemID(38682)
@@ -2419,6 +2754,21 @@ RunPatronNextAction = function()
         local reagentInfo = transaction:CreateCraftingReagentInfoTbl()
         reagentInfo = FilterSuppliedOrderReagents(reagentInfo, currentOrder)
         local applyConcentration = type(transaction.IsApplyingConcentration) == "function" and transaction:IsApplyingConcentration() or false
+
+        if applyConcentration and YQQuality.IsConcentrationPhialEnabled() then
+            local phialID = tonumber(stateInfo.entry.concentrationPhialItemID)
+            if not phialID or phialID <= 0 then
+                local _, preferredItemID = YQQuality.GetPreferredIngenuityPhial()
+                phialID = preferredItemID
+            end
+            if YQQuality.IsIngenuityBuffActive() then
+                YQQuality.RemoveConcentrationPhialDemand(phialID, 1)
+            else
+                state.ah.statusMessage = "Clique Next: Phial"
+                ScheduleRefresh()
+                return
+            end
+        end
 
         BeginNextActionLock("craft", stateInfo.entry.orderID, 8.0)
         MarkPendingWorkOrderSubmit(stateInfo.entry.orderID)
@@ -3665,7 +4015,35 @@ local function UpdateCraftPanel(summary)
     if state.craft.nextButton then
         if nextState then
             state.craft.nextButton:SetShown(true)
-            state.craft.nextButton:SetText(nextState.text or "Next")
+            local phialArmed = false
+            local inCombat = InCombatLockdown and InCombatLockdown()
+            if not inCombat
+                and nextState.enabled
+                and (nextState.action == "craft_normal" or nextState.action == "craft")
+                and nextState.entry
+                and nextState.entry.applyConcentration == true
+                and YQQuality.IsConcentrationPhialEnabled()
+                and not YQQuality.IsIngenuityBuffActive()
+                and not (state.pendingIngenuityPhial and GetTime() < (state.pendingIngenuityPhial.expiresAt or 0))
+            then
+                local demandItemID = tonumber(nextState.entry.concentrationPhialItemID)
+                local _, actualItemID = YQQuality.GetAvailableIngenuityPhial(demandItemID)
+                if actualItemID then
+                    state.craft.nextButton:SetAttribute("type", "item")
+                    state.craft.nextButton:SetAttribute("item", "item:" .. tostring(actualItemID))
+                    state.armedIngenuityPhial = {
+                        demandItemID = demandItemID or actualItemID,
+                        itemID = actualItemID,
+                    }
+                    phialArmed = true
+                end
+            end
+            if not inCombat and not phialArmed then
+                state.craft.nextButton:SetAttribute("type", nil)
+                state.craft.nextButton:SetAttribute("item", nil)
+                state.armedIngenuityPhial = nil
+            end
+            state.craft.nextButton:SetText(phialArmed and "Next: Phial" or (nextState.text or "Next"))
             if nextState.enabled then
                 state.craft.nextButton:Enable()
             else
@@ -3679,6 +4057,11 @@ local function UpdateCraftPanel(summary)
         else
             state.craft.nextButton:SetButtonState("NORMAL", false)
             state.craft.nextButton:Hide()
+            if not (InCombatLockdown and InCombatLockdown()) then
+                state.craft.nextButton:SetAttribute("type", nil)
+                state.craft.nextButton:SetAttribute("item", nil)
+                state.armedIngenuityPhial = nil
+            end
         end
     end
 
@@ -4002,6 +4385,121 @@ function YQQuality.ReplaceReagent(reagents, slot, allocations)
     return result
 end
 
+function YQQuality.CopyOptionalSelections(selections)
+    local copy = {}
+    for slotIndex, itemID in pairs(selections or {}) do
+        slotIndex = tonumber(slotIndex)
+        itemID = tonumber(itemID)
+        if slotIndex and slotIndex > 0 and itemID and itemID > 0 then
+            copy[slotIndex] = itemID
+        end
+    end
+    return copy
+end
+
+function YQQuality.GetOptionalReagentPriority(itemName, isGathering)
+    local name = string.lower(tostring(itemName or ""))
+    local function Has(text)
+        return string.find(name, text, 1, true) ~= nil
+    end
+
+    if isGathering then
+        if Has("perception") then return 10 end
+        if Has("finesse") then return 20 end
+        return 90
+    end
+    if Has("multicraft") or Has("fabrication multiple") then return 10 end
+    if Has("resourcefulness") or Has("ressource") or Has("economie de ressources") or Has("économie de ressources") then return 20 end
+    if Has("ingenuity") or Has("ingeniosite") or Has("ingéniosité") then return 30 end
+    if Has("crafting speed") or Has("vitesse de fabrication") then return 40 end
+    if Has("missive") then return 50 end
+    return nil
+end
+
+function YQQuality.BuildOptionalSlots(recipeInfo, schematic)
+    local rawSlots = {}
+    local hasGatheringStat = recipeInfo and recipeInfo.isGatheringRecipe == true
+    for _, slot in ipairs(schematic and schematic.reagentSlotSchematics or {}) do
+        local slotIndex = tonumber(slot.dataSlotIndex)
+        if slotIndex and slotIndex > 0
+            and slot.required == false
+            and type(slot.reagents) == "table"
+            and #slot.reagents > 0
+        then
+            local options = {}
+            local seen = {}
+            for _, reagent in ipairs(slot.reagents or {}) do
+                local itemID = tonumber(reagent.itemID)
+                if itemID and itemID > 0 and not seen[itemID] then
+                    seen[itemID] = true
+                    WarmItemData(itemID)
+                    local itemName = GetItemName(itemID)
+                    local normalPriority = YQQuality.GetOptionalReagentPriority(itemName, false)
+                    local gatheringPriority = YQQuality.GetOptionalReagentPriority(itemName, true)
+                    if normalPriority or gatheringPriority < 90 then
+                        hasGatheringStat = hasGatheringStat or gatheringPriority < 90
+                        local quality = tonumber(reagent.reagentQuality or reagent.quality or reagent.qualityID) or 0
+                        if quality <= 0 and C_TradeSkillUI.GetItemReagentQualityByItemInfo then
+                            quality = tonumber(SafeCall(C_TradeSkillUI.GetItemReagentQualityByItemInfo, itemID)) or 0
+                        end
+                        options[#options + 1] = {
+                            itemID = itemID,
+                            itemName = itemName,
+                            quality = quality,
+                            normalPriority = normalPriority,
+                            gatheringPriority = gatheringPriority,
+                            isMissive = string.find(string.lower(tostring(itemName or "")), "missive", 1, true) ~= nil,
+                        }
+                    end
+                end
+            end
+            if #options > 0 then
+                rawSlots[#rawSlots + 1] = { slot = slot, options = options }
+            end
+        end
+    end
+
+    local slots = {}
+    for _, slotData in ipairs(rawSlots) do
+        local options = {}
+        for _, option in ipairs(slotData.options) do
+            option.priority = hasGatheringStat and option.gatheringPriority or option.normalPriority
+            if option.priority then
+                options[#options + 1] = option
+            end
+        end
+        if #options > 0 then
+            slots[#slots + 1] = { slot = slotData.slot, options = options }
+        end
+    end
+    table.sort(slots, function(left, right)
+        return tonumber(left.slot.dataSlotIndex) < tonumber(right.slot.dataSlotIndex)
+    end)
+    for _, slotData in ipairs(slots) do
+        table.sort(slotData.options, function(left, right)
+            if left.priority ~= right.priority then return left.priority < right.priority end
+            if left.quality ~= right.quality then return left.quality < right.quality end
+            return left.itemName < right.itemName
+        end)
+    end
+    return slots
+end
+
+function YQQuality.ApplyOptionalSelections(reagents, optionalSlots, selections)
+    local result = YQQuality.CopyReagents(reagents)
+    for _, slotData in ipairs(optionalSlots or {}) do
+        local slot = slotData.slot
+        local itemID = tonumber(selections and selections[tonumber(slot.dataSlotIndex)])
+        result = YQQuality.ReplaceReagent(result, slot, nil)
+        if itemID and itemID > 0 then
+            result = YQQuality.ReplaceReagent(result, slot, {
+                { itemID = itemID, quantity = math.max(1, tonumber(slot.quantityRequired) or 1) },
+            })
+        end
+    end
+    return result
+end
+
 function YQQuality.BuildCacheKey(recipeID, recipeLevel, useConcentration, allocationGUID, baseline, slots)
     local optimizedSlots = {}
     local parts = {
@@ -4062,6 +4560,14 @@ end
 
 function YQQuality.ClearRecipeCache(clearPrices)
     state.craft.qualityCache = nil
+    state.craft.qualityState = nil
+    state.craft.qualitySolveGeneration = (state.craft.qualitySolveGeneration or 0) + 1
+    state.craft.qualitySolve = nil
+    state.craft.qualityPreviewGeneration = (state.craft.qualityPreviewGeneration or 0) + 1
+    state.craft.qualityPreviewStates = {}
+    state.craft.qualityPreviewPending = {}
+    state.craft.qualityPreviewSolve = nil
+    state.craft.qualityPreviewQueue = {}
     if clearPrices then
         state.craft.qualityPriceCache = {}
     end
@@ -4122,7 +4628,16 @@ function YQQuality.BuildCompositions(slotData)
     return compositions
 end
 
-function YQQuality.BuildRecipeState(form, useConcentration)
+function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, yieldWork)
+    local workCount = 0
+    local function YieldIfNeeded()
+        if not yieldWork then return end
+        workCount = workCount + 1
+        if workCount >= 8 then
+            workCount = 0
+            yieldWork()
+        end
+    end
     local recipeInfo = form and type(form.GetRecipeInfo) == "function" and SafeCall(form.GetRecipeInfo, form) or nil
     local transaction = form and ((type(form.GetTransaction) == "function" and SafeCall(form.GetTransaction, form)) or form.transaction) or nil
     local recipeID = recipeInfo and tonumber(recipeInfo.recipeID)
@@ -4136,6 +4651,8 @@ function YQQuality.BuildRecipeState(form, useConcentration)
     if type(schematic) ~= "table" or type(base) ~= "table" then return nil end
     base = AddVisibleRequiredReagents(form, schematic, base, transaction)
     base = YQQuality.FilterOperationReagents(schematic, base)
+    local optionalSlots = YQQuality.BuildOptionalSlots(recipeInfo, schematic)
+    base = YQQuality.ApplyOptionalSelections(base, optionalSlots, optionalSelections)
 
     local slots = {}
     for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
@@ -4170,6 +4687,8 @@ function YQQuality.BuildRecipeState(form, useConcentration)
         recipeID = recipeID,
         recipeName = recipeInfo.name or ("Recette " .. recipeID),
         slots = slots,
+        optionalSlots = optionalSlots,
+        optionalSelections = YQQuality.CopyOptionalSelections(optionalSelections),
         candidates = {},
         minQuality = math.huge,
         maxQuality = tonumber(recipeInfo.maxQuality) or 0,
@@ -4235,6 +4754,7 @@ function YQQuality.BuildRecipeState(form, useConcentration)
                         ),
                     }
                 end
+                YieldIfNeeded()
             end
         end
         states = nextStates
@@ -4265,6 +4785,7 @@ function YQQuality.BuildRecipeState(form, useConcentration)
             result.minQuality = math.min(result.minQuality, quality)
             result.reachableQuality = math.max(result.reachableQuality, quality)
         end
+        YieldIfNeeded()
     end
     for _, candidate in pairs(bestByQuality) do
         result.candidates[#result.candidates + 1] = candidate
@@ -4286,6 +4807,157 @@ function YQQuality.BuildRecipeState(form, useConcentration)
     end)
     YQQuality.CacheRecipeState(qualityCache, cacheKey, result)
     return result
+end
+
+function YQQuality.GetSelectionKey(recipeID, useConcentration, selections)
+    local parts = { tostring(recipeID), useConcentration == true and "1" or "0" }
+    local slots = {}
+    for slotIndex, itemID in pairs(selections or {}) do
+        slotIndex = tonumber(slotIndex)
+        itemID = tonumber(itemID)
+        if slotIndex and itemID then
+            slots[#slots + 1] = tostring(slotIndex) .. ":" .. tostring(itemID)
+        end
+    end
+    table.sort(slots)
+    for _, slot in ipairs(slots) do parts[#parts + 1] = slot end
+    return table.concat(parts, "|")
+end
+
+function YQQuality.QueueRecipeStateSolve(form, recipeID, useConcentration, selections, selectionKey)
+    local active = state.craft.qualitySolve
+    if active and active.selectionKey == selectionKey then return end
+
+    state.craft.qualitySolveGeneration = (state.craft.qualitySolveGeneration or 0) + 1
+    local generation = state.craft.qualitySolveGeneration
+    state.craft.qualityPreviewGeneration = (state.craft.qualityPreviewGeneration or 0) + 1
+    state.craft.qualityPreviewStates = {}
+    state.craft.qualityPreviewPending = {}
+    state.craft.qualityPreviewSolve = nil
+    state.craft.qualityPreviewQueue = {}
+    local job = {
+        generation = generation,
+        selectionKey = selectionKey,
+        form = form,
+        useConcentration = useConcentration == true,
+        selections = YQQuality.CopyOptionalSelections(selections),
+    }
+    job.co = coroutine.create(function()
+        return YQQuality.BuildRecipeState(
+            job.form,
+            job.useConcentration,
+            job.selections,
+            function() coroutine.yield() end
+        )
+    end)
+    state.craft.qualitySolve = job
+
+    local function Continue()
+        if state.craft.qualitySolve ~= job or generation ~= state.craft.qualitySolveGeneration then return end
+        local frame = state.craft.qualityFrame
+        if not frame or frame.userClosed or not frame:IsShown() then
+            state.craft.qualitySolve = nil
+            return
+        end
+        local startedAt = debugprofilestop and debugprofilestop() or 0
+        while coroutine.status(job.co) ~= "dead" do
+            local ok, result = coroutine.resume(job.co)
+            if not ok then
+                DebugPrint("quality-solve error=" .. tostring(result))
+                state.craft.qualitySolve = nil
+                return
+            end
+            if coroutine.status(job.co) == "dead" then
+                state.craft.qualitySolve = nil
+                if type(result) == "table" and generation == state.craft.qualitySolveGeneration then
+                    result.selectionKey = selectionKey
+                    state.craft.qualityState = result
+                    YQQuality.UpdateSelector()
+                end
+                return
+            end
+            if not debugprofilestop or (debugprofilestop() - startedAt) >= 4 then break end
+        end
+        C_Timer.After(0, Continue)
+    end
+    C_Timer.After(0, Continue)
+end
+
+function YQQuality.RunNextPreviewSolve()
+    if state.craft.qualityPreviewSolve then return end
+    if state.craft.qualitySolve then
+        C_Timer.After(0.05, YQQuality.RunNextPreviewSolve)
+        return
+    end
+    local job = table.remove(state.craft.qualityPreviewQueue or {}, 1)
+    if not job then return end
+    if job.generation ~= state.craft.qualityPreviewGeneration then
+        state.craft.qualityPreviewPending[job.key] = nil
+        YQQuality.RunNextPreviewSolve()
+        return
+    end
+    state.craft.qualityPreviewSolve = job
+    job.co = coroutine.create(function()
+        return YQQuality.BuildRecipeState(
+            job.form,
+            job.useConcentration,
+            job.selections,
+            function() coroutine.yield() end
+        )
+    end)
+
+    local function Continue()
+        if state.craft.qualityPreviewSolve ~= job then return end
+        local frame = state.craft.qualityFrame
+        if not frame or frame.userClosed or not frame:IsShown() then
+            state.craft.qualityPreviewPending[job.key] = nil
+            state.craft.qualityPreviewSolve = nil
+            return
+        end
+        if job.generation ~= state.craft.qualityPreviewGeneration then
+            state.craft.qualityPreviewPending[job.key] = nil
+            state.craft.qualityPreviewSolve = nil
+            YQQuality.RunNextPreviewSolve()
+            return
+        end
+        local startedAt = debugprofilestop and debugprofilestop() or 0
+        while coroutine.status(job.co) ~= "dead" do
+            local ok, result = coroutine.resume(job.co)
+            if not ok then
+                DebugPrint("quality-preview error=" .. tostring(result))
+                state.craft.qualityPreviewPending[job.key] = nil
+                state.craft.qualityPreviewSolve = nil
+                YQQuality.RunNextPreviewSolve()
+                return
+            end
+            if coroutine.status(job.co) == "dead" then
+                state.craft.qualityPreviewPending[job.key] = nil
+                state.craft.qualityPreviewSolve = nil
+                if type(result) == "table" and job.generation == state.craft.qualityPreviewGeneration then
+                    state.craft.qualityPreviewStates[job.key] = result
+                    YQQuality.UpdateSelector()
+                end
+                YQQuality.RunNextPreviewSolve()
+                return
+            end
+            if not debugprofilestop or (debugprofilestop() - startedAt) >= 3 then break end
+        end
+        C_Timer.After(0, Continue)
+    end
+    C_Timer.After(0, Continue)
+end
+
+function YQQuality.QueuePreviewStateSolve(form, useConcentration, selections, key)
+    if state.craft.qualityPreviewStates[key] or state.craft.qualityPreviewPending[key] then return end
+    state.craft.qualityPreviewPending[key] = true
+    state.craft.qualityPreviewQueue[#state.craft.qualityPreviewQueue + 1] = {
+        generation = state.craft.qualityPreviewGeneration,
+        key = key,
+        form = form,
+        useConcentration = useConcentration == true,
+        selections = YQQuality.CopyOptionalSelections(selections),
+    }
+    YQQuality.RunNextPreviewSolve()
 end
 
 function YQQuality.FindCandidate(recipeState, targetQuality)
@@ -4518,6 +5190,38 @@ function YQQuality.EnsureReagentRows(frame, rowCount)
     end
 end
 
+function YQQuality.EnsureOptionalRows(frame, rowCount)
+    frame.optionalRows = frame.optionalRows or {}
+    for rowIndex = #frame.optionalRows + 1, rowCount do
+        local button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        button:SetSize(28, 28)
+        button:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -190 - ((rowIndex - 1) * 30))
+        button.icon = button:CreateTexture(nil, "ARTWORK")
+        button.icon:SetSize(24, 24)
+        button.icon:SetPoint("CENTER")
+        button:SetScript("OnEnter", function(self)
+            if not self.itemID then return end
+            GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+            GameTooltip:SetItemByID(self.itemID)
+            GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", GameTooltip_Hide)
+        button:SetScript("OnClick", function(self)
+            local target = state.craft.qualityTarget
+            if not target or not self.slotIndex then return end
+            target.optionalSelections = YQQuality.CopyOptionalSelections(target.optionalSelections)
+            if target.optionalSelections[self.slotIndex] == self.itemID then
+                target.optionalSelections[self.slotIndex] = nil
+            else
+                target.optionalSelections[self.slotIndex] = self.itemID
+            end
+            YQQuality.UpdateSelector()
+        end)
+        button:Hide()
+        frame.optionalRows[rowIndex] = button
+    end
+end
+
 function YQQuality.EnsureSelector(schematicForm)
     local craftingPage = ProfessionsFrame and ProfessionsFrame.CraftingPage
     if not craftingPage or not schematicForm then return nil end
@@ -4629,6 +5333,12 @@ function YQQuality.EnsureSelector(schematicForm)
     end
     frame.reagentRows = {}
 
+    frame.optionalHeader = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    frame.optionalHeader:SetText("Réactifs optionnels")
+    frame.optionalHeader:SetTextColor(1, 0.82, 0)
+    frame.optionalHeader:Hide()
+    frame.optionalRows = {}
+
     frame.addButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     frame.addButton:SetSize(108, 22)
     frame.addButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -8, 8)
@@ -4713,13 +5423,31 @@ function YQQuality.UpdateSelector()
         return
     end
     if not target or target.recipeID ~= recipeID then
-        target = { recipeID = recipeID, quality = nil, useConcentration = false }
+        target = { recipeID = recipeID, quality = nil, useConcentration = false, optionalSelections = {} }
         state.craft.qualityTarget = target
         frame.userClosed = false
     end
+    target.optionalSelections = YQQuality.CopyOptionalSelections(target.optionalSelections)
     useConcentration = target.useConcentration == true
-    state.craft.qualityState = YQQuality.BuildRecipeState(schematicForm, useConcentration)
+    local selectionKey = YQQuality.GetSelectionKey(recipeID, useConcentration, target.optionalSelections)
     local recipeState = state.craft.qualityState
+    if not recipeState or recipeState.selectionKey ~= selectionKey then
+        YQQuality.QueueRecipeStateSolve(
+            schematicForm, recipeID, useConcentration, target.optionalSelections, selectionKey
+        )
+        frame.status:SetText("Calcul en cours…")
+        frame.maxText:SetText("")
+        frame.marketText:SetText("Minbuyout : |cffaaaaaa?|r   Profit est. : |cffaaaaaa?|r")
+        frame.addButton:Disable()
+        for _, button in ipairs(frame.qualityButtons) do button:Hide() end
+        frame.concentration:Disable()
+        frame.reagentHeader:Hide()
+        for _, header in ipairs(frame.reagentQualityHeaders or {}) do header:Hide() end
+        for _, row in ipairs(frame.reagentRows or {}) do row:Hide() end
+        frame.optionalHeader:Hide()
+        for _, row in ipairs(frame.optionalRows or {}) do row:Hide() end
+        return
+    end
     if not recipeState or recipeState.reachableQuality <= 0 then
         frame.status:SetText("Qualité indisponible")
         frame.maxText:SetText("")
@@ -4732,6 +5460,8 @@ function YQQuality.UpdateSelector()
         frame.reagentHeader:Hide()
         for _, header in ipairs(frame.reagentQualityHeaders or {}) do header:Hide() end
         for _, row in ipairs(frame.reagentRows or {}) do row:Hide() end
+        frame.optionalHeader:Hide()
+        for _, row in ipairs(frame.optionalRows or {}) do row:Hide() end
         return
     end
     frame.concentration:Show()
@@ -4803,7 +5533,6 @@ function YQQuality.UpdateSelector()
     end
 
     YQQuality.EnsureReagentRows(frame, #(recipeState.slots or {}))
-    frame:SetHeight(math.max(260, 204 + (#(recipeState.slots or {}) * 28)))
     for rowIndex, row in ipairs(frame.reagentRows or {}) do
         local slotData = recipeState.slots and recipeState.slots[rowIndex]
         local selectedCounts = {}
@@ -4839,6 +5568,60 @@ function YQQuality.UpdateSelector()
             row:Hide()
         end
     end
+
+    local reagentRowCount = #(recipeState.slots or {})
+    local optionalOptions = {}
+    for _, slotData in ipairs(recipeState.optionalSlots or {}) do
+        for _, option in ipairs(slotData.options or {}) do
+            optionalOptions[#optionalOptions + 1] = { slot = slotData.slot, option = option }
+        end
+    end
+    table.sort(optionalOptions, function(left, right)
+        if left.option.priority ~= right.option.priority then return left.option.priority < right.option.priority end
+        if left.option.quality ~= right.option.quality then return left.option.quality < right.option.quality end
+        return left.option.itemName < right.option.itemName
+    end)
+    YQQuality.EnsureOptionalRows(frame, #optionalOptions)
+    local optionalTop = -165 - (reagentRowCount * 28)
+    frame.optionalHeader:Hide()
+    local optionalColumns = 10
+    local optionalRows = math.ceil(#optionalOptions / optionalColumns)
+    for rowIndex, row in ipairs(frame.optionalRows or {}) do
+        local rowData = optionalOptions[rowIndex]
+        if rowData then
+            local slotIndex = tonumber(rowData.slot.dataSlotIndex)
+            local option = rowData.option
+            local selections = YQQuality.CopyOptionalSelections(target.optionalSelections)
+            selections[slotIndex] = option.itemID
+            local selected = target.optionalSelections[slotIndex] == option.itemID
+            local canReachTarget = true
+            if option.isMissive and not selected then
+                local previewKey = selectionKey .. "|" .. tostring(slotIndex) .. ":" .. tostring(option.itemID)
+                local preview = state.craft.qualityPreviewStates[previewKey]
+                if preview then
+                    canReachTarget = YQQuality.FindCandidate(preview, target.quality) ~= nil
+                else
+                    canReachTarget = false
+                    YQQuality.QueuePreviewStateSolve(schematicForm, useConcentration, selections, previewKey)
+                end
+            end
+            local column = (rowIndex - 1) % optionalColumns
+            local line = math.floor((rowIndex - 1) / optionalColumns)
+            row:ClearAllPoints()
+            row:SetPoint("TOPLEFT", frame, "TOPLEFT", 14 + (column * 30), optionalTop - 4 - (line * 30))
+            row.itemID = option.itemID
+            row.slotIndex = slotIndex
+            row.icon:SetTexture(GetItemIcon(option.itemID))
+            row:SetEnabled(canReachTarget or selected)
+            if selected then row:LockHighlight() else row:UnlockHighlight() end
+            row:Show()
+        else
+            row.itemID = nil
+            row.slotIndex = nil
+            row:Hide()
+        end
+    end
+    frame:SetHeight(math.max(260, 204 + (reagentRowCount * 28) + (optionalRows * 30)))
 end
 
 local function AnchorQueueButton(button, target, fallbackParent)
@@ -5264,11 +6047,28 @@ local function CreateCraftPanel()
     statusText:SetJustifyH("LEFT")
     statusText:SetText("")
 
-    local nextButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    local nextButton = CreateFrame("Button", nil, panel, "SecureActionButtonTemplate,UIPanelButtonTemplate")
     nextButton:SetSize(120, 22)
     nextButton:SetPoint("BOTTOMRIGHT", -10, 8)
     nextButton:SetText("Next")
-    nextButton:SetScript("OnClick", RunPatronNextAction)
+    nextButton:RegisterForClicks("AnyUp", "AnyDown")
+    -- HookScript preserves SecureActionButtonTemplate's native item handler.
+    -- SetScript would replace it and leave the phial click inert.
+    nextButton:HookScript("OnClick", function()
+        local armed = state.armedIngenuityPhial
+        if armed then
+            state.pendingIngenuityPhial = {
+                demandItemID = armed.demandItemID,
+                itemID = armed.itemID,
+                expiresAt = GetTime() + 2.0,
+            }
+            state.armedIngenuityPhial = nil
+            state.ah.statusMessage = "Phial en cours de consommation"
+            C_Timer.After(0.15, ScheduleRefresh)
+            return
+        end
+        RunPatronNextAction()
+    end)
     nextButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:SetText("Next patron order")
@@ -5681,6 +6481,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
         end
 
         EnsureDB()
+        YQQuality.EnsureOptions()
         addon:RegisterEvent("PLAYER_ENTERING_WORLD")
         addon:RegisterEvent("TRADE_SKILL_SHOW")
         addon:RegisterEvent("TRADE_SKILL_CLOSE")
@@ -5701,6 +6502,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
         addon:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
         addon:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
         addon:RegisterEvent("PLAYER_REGEN_ENABLED")
+        addon:RegisterEvent("UNIT_AURA")
         HookCraftAPIs()
         addon:RegisterEvent("ITEM_SEARCH_RESULTS_UPDATED")
         addon:RegisterEvent("COMMODITY_SEARCH_RESULTS_UPDATED")
@@ -5800,6 +6602,16 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
         return
     end
 
+    if event == "UNIT_AURA" and arg1 == "player" then
+        if state.pendingIngenuityPhial and YQQuality.IsIngenuityBuffActive() then
+            YQQuality.RemoveConcentrationPhialDemand(state.pendingIngenuityPhial.demandItemID, 1)
+            state.pendingIngenuityPhial = nil
+            state.ah.statusMessage = "Phial consommee"
+        end
+        ScheduleRefresh()
+        return
+    end
+
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         local unit = arg1
         if unit ~= "player" then
@@ -5853,6 +6665,9 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
 
     if event == "AUCTION_HOUSE_CLOSED" then
         ClearAuctionTransientState("HV fermee")
+        -- Les resultats Blizzard ne survivent pas a la fermeture de l'HV.
+        -- Evite de reutiliser un auctionID ou une quantite devenue obsolete.
+        wipe(state.searchCache)
         HideAuctionFrame()
         ScheduleRefresh()
         return
@@ -6174,6 +6989,10 @@ SlashCmdList.YAYAQUEUE = function(message)
     if command == "debug" then
         CONFIG.debugNextCraft = not CONFIG.debugNextCraft
         Print("Debug " .. (CONFIG.debugNextCraft and "active" or "inactif"))
+        return
+    end
+    if command == "options" then
+        YQQuality.OpenOptions()
         return
     end
     if command == "vendor on" or command == "vendor off" then

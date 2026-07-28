@@ -27,17 +27,21 @@ Notes :
 - les recettes a cooldown ne sont ajoutees que si une charge est disponible; les pools partages soustraient les crafts deja en queue puis reservent une charge par nouvel ajout
 - les qualites de composants choisies par CraftSim sont memorisees puis transmises directement au craft; les composants simples restent geres automatiquement par Blizzard
 - le bouton de sélection de qualité fonctionne sans CraftSim en simulant les allocations mixtes via l'API native de métier et optimise la qualité de résultat exacte sélectionnée; les composants fixes et automatiques restent hors de l'appel de simulation Blizzard comme dans CraftSim, Midnight utilise 2 qualités de réactifs tandis que les équipements conservent jusqu'à 5 qualités de résultat
-- le solveur de réactifs met en cache le plan de la recette et ses prix pendant la session métier; changer la quantité ou la qualité d'output ne relance plus le calcul combinatoire, et fermer la fenêtre suspend ses calculs
+- le solveur de réactifs met en cache le plan de la recette et ses prix pendant la session métier; le calcul est réparti sur plusieurs frames (4 ms maximum) et fermer la fenêtre suspend ses calculs
 - la frame qualité affiche le `dbminbuyout` TSM du résultat exact et un profit estimé par qualité après commission HV de 5 % et coût complet des réactifs en or; un équipement est chiffré avec son niveau d'objet exact, les composants marchand utilisent `vendorbuy`, les monnaies de métier sont exclues comme dans CraftSim et une donnée d'objet inconnue reste affichée `?`
 - `dump conc.` et `Ajouter YQ` déduisent la concentration déjà réservée par la queue; la quantité ajoutable vaut `floor(disponible / coût)` et le bouton est grisé si elle vaut zéro
-- les entrées ajoutées via la frame qualité mémorisent `targetQuality`, les réactifs qualité sélectionnés et l'option concentration
+- les entrées ajoutées via la frame qualité mémorisent `targetQuality`, les réactifs qualité sélectionnés et l’option concentration
+- chaque ajout d’une entrée avec concentration ajoute une demande de phial Haranir d’ingéniosité (R1 par défaut, R2 configurable via `/yq options`); le même bouton sécurisé `Next: Phial` consomme la phial depuis les sacs avant le lot si le buff est absent, puis redevient `Next: Craft` après confirmation du buff
+- l’utilisation automatique des phials peut être désactivée dans `/yq options`; les demandes automatiques déjà présentes sont masquées pendant la désactivation
+- une session YQ ne crée qu’une seule demande automatique de phial, même si plusieurs entrées concentration sont ajoutées
 - une recette sans plan CraftSim repasse explicitement en allocation automatique Blizzard afin qu'un ancien plan manuel ne bloque pas le craft
 - la queue se decremente a chaque craft reussi de la recette correspondante
 - `Next` reste verrouille pendant tout un lot de crafts et ne se reactive qu'au dernier craft confirme
-- les reagents optionnels complexes ne sont pas encore memorises
+- la fenêtre qualité propose les réactifs optionnels de métier après les réactifs : leur difficulté, leur coût et leur allocation sont recalculés puis mémorisés dans la queue ; les missives impossibles pour la qualité choisie sont grisées
 - les items marchand sont detectes quand ils ont deja ete vus sur un marchand
 - l'achat automatique marchand lance une seule séquence par ouverture ; chaque item accepté n'est soumis qu'une fois, avec vérification des sacs et jusqu'à 10 relances pour les échecs
 - les items non-commodities a l'HV sont achetes une enchere a la fois
 - les resultats de recherche provenant d'autres addons AH ne remplacent pas le cache de recherche `YayaQueue`
+- la fermeture de l'HV invalide le cache de recherche afin que le retour dans l'onglet relance une recherche propre
 - un achat deja recu dans les sacs n'est pas recompte comme un faux envoi `Mailbox`
 - `RemoveItem` ne retire que la demande directe ajoutee par un addon externe; les besoins des recettes restent intacts

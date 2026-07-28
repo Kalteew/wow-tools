@@ -240,11 +240,38 @@ local MIDNIGHT_KNOWLEDGE_BOOKS_BY_SKILL_LINE_ID = {
 
 local MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID = {
     [2906] = {
-        { label = "Potion Recklessness", spellID = 1230859, itemID = 259459, moxieCost = 150, mapID = 2405, x = 52.6, y = 72.9 },
+        {
+            label = "Potion of Recklessness",
+            optionKey = "trackRecipePotionRecklessness",
+            spellID = 1230859,
+            itemID = 259459,
+            moxieCost = 150,
+            mapID = 2405,
+            x = 52.6,
+            y = 72.9,
+        },
     },
     [2909] = {
-        { label = "outil multicraft", spellID = 1236078, itemID = 256749, moxieCost = 150, mapID = 2413, x = 51.0, y = 50.8 },
-        { label = "forme Haranir", spellID = 1236464, itemID = 256743, moxieCost = 150, mapID = 2413, x = 51.0, y = 50.8 },
+        {
+            label = "Enchant Tool - Haranir Multicrafting",
+            optionKey = "trackRecipeHaranirMulticrafting",
+            spellID = 1236078,
+            itemID = 256749,
+            moxieCost = 150,
+            mapID = 2413,
+            x = 51.0,
+            y = 50.8,
+        },
+        {
+            label = "Gleeful Glamour - Haranir",
+            optionKey = "trackRecipeHaranirGlamour",
+            spellID = 1236464,
+            itemID = 256743,
+            moxieCost = 150,
+            mapID = 2413,
+            x = 51.0,
+            y = 50.8,
+        },
     },
 }
 
@@ -332,13 +359,14 @@ runtimeState.generalWeeklyQuests = {
         95482, -- Lost Animals breadcrumb
     },
     liadrinWrapperQuestID = 93744, -- Unity Against the Void
+    haranirLegendsQuestIDs = { 89268 }, -- Lost Legends
+    researchConsoleQuestID = 94790, -- Research Console: Exploring the Void
     liadrinWeeklyQuestIDs = {
         93766, -- Midnight: World Quests
         93767, -- Midnight: Arcantina
         93769, -- Midnight: Housing
         93889, -- Midnight: Saltheril's Soiree
         93890, -- Midnight: Abundance
-        93891, -- Midnight: Legends of the Haranir
         93892, -- Midnight: Stormarion Assault
         93909, -- Midnight: Delves
         93910, -- Midnight: Prey
@@ -709,6 +737,11 @@ local TRACKER_DEFAULTS = {
     trackLiadrin = true,
     trackTreatises = true,
     trackProfessionWeeklies = true,
+    trackRecipePotionRecklessness = true,
+    trackRecipeHaranirMulticrafting = true,
+    trackRecipeHaranirGlamour = true,
+    trackHaranirLegends = true,
+    trackResearchingVoidstorm = true,
     refreshDelaySeconds = 0.20,
     questStateCacheTTLSeconds = 5,
     questRewardCacheTTLSeconds = 30,
@@ -716,12 +749,17 @@ local TRACKER_DEFAULTS = {
     debugLogLimit = 400,
 }
 runtimeState.trackingOptions = {
-    { key = "trackAbundance", label = "Tracker Abondance" },
-    { key = "trackSoiree", label = "Tracker Soiree" },
-    { key = "trackNeighborhood", label = "Tracker Neighborhood" },
-    { key = "trackLiadrin", label = "Tracker Liadrin" },
-    { key = "trackTreatises", label = "Tracker les traites (inscription)" },
-    { key = "trackProfessionWeeklies", label = "Tracker les weeklies metiers" },
+    { category = "Quetes generales", key = "trackAbundance", label = "Abondance" },
+    { category = "Quetes generales", key = "trackSoiree", label = "Soiree" },
+    { category = "Quetes generales", key = "trackNeighborhood", label = "Neighborhood" },
+    { category = "Quetes generales", key = "trackLiadrin", label = "Liadrin" },
+    { category = "Metiers Midnight", key = "trackTreatises", label = "Traites (inscription)" },
+    { category = "Metiers Midnight", key = "trackProfessionWeeklies", label = "Weeklies metiers" },
+    { category = "Recettes Midnight", key = "trackRecipePotionRecklessness", label = "Potion of Recklessness" },
+    { category = "Recettes Midnight", key = "trackRecipeHaranirMulticrafting", label = "Enchant Tool - Haranir Multicrafting" },
+    { category = "Recettes Midnight", key = "trackRecipeHaranirGlamour", label = "Gleeful Glamour - Haranir" },
+    { category = "Quetes Midnight", key = "trackHaranirLegends", label = "Lost Legends" },
+    { category = "Quetes Midnight", key = "trackResearchingVoidstorm", label = "Research Console: Exploring the Void" },
 }
 local TRACKED_ASSAULT_CACHE_ITEM_IDS = {}
 local NZOTH_ASSAULT_DETAILS_BY_ITEM_ID = {}
@@ -730,6 +768,7 @@ local scanTooltip
 local activeCacheOpen
 runtimeState.activeCacheFinalizeToken = 0
 runtimeState.trackerRefreshToken = 0
+runtimeState.midnightRecipeStatePending = false
 runtimeState.trackerNeedsJardOwnerRefresh = false
 runtimeState.trackerRefreshDeferredByCombat = false
 runtimeState.tradeSkillBootstrapAttempted = false
@@ -799,6 +838,17 @@ local function GetAccountDB()
     YayaWeeklyTrackerAccountDB = YayaWeeklyTrackerAccountDB or {}
     if YayaWeeklyTrackerAccountDB.hideInCombat == nil then
         YayaWeeklyTrackerAccountDB.hideInCombat = TRACKER_DEFAULTS.hideInCombat
+    end
+    if YayaWeeklyTrackerAccountDB.trackMidnightRecipes == false then
+        for _, key in ipairs({
+            "trackRecipePotionRecklessness",
+            "trackRecipeHaranirMulticrafting",
+            "trackRecipeHaranirGlamour",
+        }) do
+            if YayaWeeklyTrackerAccountDB[key] == nil then
+                YayaWeeklyTrackerAccountDB[key] = false
+            end
+        end
     end
     for _, option in ipairs(runtimeState.trackingOptions) do
         if YayaWeeklyTrackerAccountDB[option.key] == nil then
@@ -2166,32 +2216,64 @@ trackerUI.ClearMidnightKnowledgeBookWaypoints = function()
 end
 
 local function IsMidnightRecipeKnown(recipe)
-    if not (recipe and C_TradeSkillUI) then
+    if not recipe then
         return true
     end
 
-    if recipe.spellID and type(C_TradeSkillUI.IsRecipeProfessionLearned) == "function" then
+    local tradeSkillKnown
+
+    if C_TradeSkillUI and recipe.spellID and type(C_TradeSkillUI.IsRecipeProfessionLearned) == "function" then
         local learned = SafeCall(C_TradeSkillUI.IsRecipeProfessionLearned, recipe.spellID)
         if type(learned) == "boolean" then
-            return learned
+            if learned then
+                return true
+            end
+            tradeSkillKnown = false
         end
     end
 
-    if recipe.spellID and type(C_TradeSkillUI.GetRecipeInfo) == "function" then
+    if C_TradeSkillUI and recipe.spellID and type(C_TradeSkillUI.GetRecipeInfo) == "function" then
         local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipe.spellID)
         if type(recipeInfo) == "table" and type(recipeInfo.learned) == "boolean" then
-            return recipeInfo.learned
+            if recipeInfo.learned then
+                return true
+            end
+            tradeSkillKnown = false
         end
-        return true
     end
 
-    if recipe.itemID and type(C_TradeSkillUI.GetRecipeInfoForItemID) == "function" then
-        local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfoForItemID, recipe.itemID)
-        if type(recipeInfo) == "table" and type(recipeInfo.learned) == "boolean" then
-            return recipeInfo.learned
+    if tradeSkillKnown == nil
+        and recipe.spellID
+        and C_SpellBook
+        and C_SpellBook.IsSpellInSpellBook
+        and Enum
+        and Enum.SpellBookSpellBank
+        and Enum.SpellBookSpellBank.Player then
+        local known = SafeCall(
+            C_SpellBook.IsSpellInSpellBook,
+            recipe.spellID,
+            Enum.SpellBookSpellBank.Player,
+            false
+        )
+        if known == true then
+            return true
+        elseif known == false and tradeSkillKnown == nil then
+            tradeSkillKnown = false
         end
     end
-    return true
+
+    if C_TradeSkillUI and recipe.itemID and type(C_TradeSkillUI.GetRecipeInfoForItemID) == "function" then
+        local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfoForItemID, recipe.itemID)
+        if type(recipeInfo) == "table" and type(recipeInfo.learned) == "boolean" then
+            if recipeInfo.learned then
+                return true
+            end
+            tradeSkillKnown = false
+        end
+    end
+
+    -- nil = API indisponible : ne rien afficher avant le prochain essai.
+    return tradeSkillKnown
 end
 
 trackerUI.GetMidnightRecipeStatus = function(row)
@@ -2202,9 +2284,14 @@ trackerUI.GetMidnightRecipeStatus = function(row)
     end
 
     for _, recipe in ipairs(recipes) do
-        if not IsMidnightRecipeKnown(recipe) then
-            result.missingRecipes[#result.missingRecipes + 1] = recipe
-            result.requiredMoxie = result.requiredMoxie + (recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST)
+        if GetAccountDB()[recipe.optionKey] ~= false then
+            local known = IsMidnightRecipeKnown(recipe)
+            if known == nil then
+                runtimeState.midnightRecipeStatePending = true
+            elseif not known then
+                result.missingRecipes[#result.missingRecipes + 1] = recipe
+                result.requiredMoxie = result.requiredMoxie + (recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST)
+            end
         end
     end
     if result.requiredMoxie > 0 then
@@ -2535,6 +2622,7 @@ trackerUI.AddMidnightProfessionEntries = function(entries, trackedRows, oneTimeE
     local oneTimeRows = {}
     for _, row in ipairs(trackedRows or GetTrackedMidnightProfessions()) do
         local tokens, oneTimeTokens = trackerUI.BuildMidnightProfessionTokens(row)
+        local warningText = trackerUI.GetMidnightProfessionWarningText(row)
         if #tokens > 0 then
             AddEntry(entries, row.config.label, "todo", {
                 displayText = ("%s: |cff7fff7f%s|r%s"):format(
@@ -2544,7 +2632,7 @@ trackerUI.AddMidnightProfessionEntries = function(entries, trackedRows, oneTimeE
                 ),
             })
         end
-        if #oneTimeTokens > 0 then
+        if #oneTimeTokens > 0 or warningText then
             oneTimeRows[#oneTimeRows + 1] = { row = row, tokens = oneTimeTokens }
         end
     end
@@ -2552,12 +2640,15 @@ trackerUI.AddMidnightProfessionEntries = function(entries, trackedRows, oneTimeE
     if #oneTimeRows > 0 then
         for _, state in ipairs(oneTimeRows) do
             local warningText = trackerUI.GetMidnightProfessionWarningText(state.row)
+            local displayText = table.concat(state.tokens, " ")
+            if displayText ~= "" then
+                displayText = "|cffd6b36a" .. displayText .. "|r"
+            end
+            if warningText then
+                displayText = displayText .. (displayText ~= "" and " " or "") .. warningText
+            end
             AddEntry(oneTimeEntries or entries, state.row.config.label, "todo", {
-                displayText = ("%s: |cffd6b36a%s|r%s"):format(
-                    state.row.config.label,
-                    table.concat(state.tokens, " "),
-                    warningText and (" " .. warningText) or ""
-                ),
+                displayText = ("%s: %s"):format(state.row.config.label, displayText),
             })
         end
     end
@@ -3470,6 +3561,7 @@ local function ScheduleFinalizeActiveCacheOpen(delaySeconds)
     end)
 end
 
+local ScheduleTrackerRefresh
 local function RefreshTrackerNow()
     if not trackerFrame then
         return
@@ -3481,6 +3573,7 @@ local function RefreshTrackerNow()
     end
 
     InvalidateQuestCaches()
+    runtimeState.midnightRecipeStatePending = false
 
     if runtimeState.trackerNeedsJardOwnerRefresh then
         runtimeState.trackerNeedsJardOwnerRefresh = false
@@ -3489,9 +3582,12 @@ local function RefreshTrackerNow()
 
     UpdateTracker()
     trackerUI.SyncMidnightTreasureWaypoints()
+    if runtimeState.midnightRecipeStatePending and C_Timer and C_Timer.After then
+        ScheduleTrackerRefresh(10, false)
+    end
 end
 
-local function ScheduleTrackerRefresh(delaySeconds, refreshJardOwners)
+ScheduleTrackerRefresh = function(delaySeconds, refreshJardOwners)
     if not trackerFrame then
         return
     end
@@ -3723,6 +3819,19 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
         AddEntry(entries, "Abondance", "todo")
     end
 
+    if accountDB.trackHaranirLegends ~= false
+        and level >= 80
+        and not trackerUI.IsAnyQuestDoneOnAccount(config.haranirLegendsQuestIDs) then
+        AddEntry(entries, "Lost Legends", "todo")
+    end
+
+    if accountDB.trackResearchingVoidstorm ~= false
+        and level >= 80
+        and IsQuestActiveOnMap(config.researchConsoleQuestID, activeByQuestID)
+        and not IsQuestDone(config.researchConsoleQuestID) then
+        AddEntry(entries, "Research Console: Exploring the Void", "todo")
+    end
+
     if level < 90 then
         return
     end
@@ -3841,11 +3950,6 @@ trackerUI.BuildEntries = function(trackedRows)
     trackerUI.AddMidnightProfessionEntries(weeklyEntries, trackedRows, oneTimeEntries)
 
     if #weeklyEntries > 0 then
-        AddEntry(entries, "Hebdo", "todo", {
-            prominent = true,
-            displayText = "|cff7fff7fHebdo|r",
-            satisfied = true,
-        })
         for _, entry in ipairs(weeklyEntries) do
             entries[#entries + 1] = entry
         end
@@ -3947,10 +4051,24 @@ trackerUI.RegisterOptions = function()
 
     local description = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
-    description:SetText("Options account-wide du tracker.")
+    description:SetText("Reglages partages par tout le compte.")
+
+    local function AddSection(titleText, anchor)
+        local section = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        section:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -14)
+        section:SetText("|cffffd100" .. titleText .. "|r")
+
+        local divider = panel:CreateTexture(nil, "ARTWORK")
+        divider:SetColorTexture(0.45, 0.34, 0.12, 0.65)
+        divider:SetPoint("LEFT", section, "RIGHT", 8, 0)
+        divider:SetPoint("RIGHT", panel, "RIGHT", -18, 0)
+        divider:SetHeight(1)
+        return section
+    end
 
     local checkbox = CreateFrame("CheckButton", addonName .. "HideInCombatCheckbox", panel, "UICheckButtonTemplate")
-    checkbox:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -16)
+    local displaySection = AddSection("Affichage", description)
+    checkbox:SetPoint("TOPLEFT", displaySection, "BOTTOMLEFT", 0, -8)
     local checkboxLabel = checkbox.Text or checkbox.text
     if not checkboxLabel then
         checkboxLabel = checkbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
@@ -3965,7 +4083,14 @@ trackerUI.RegisterOptions = function()
 
     panel.trackingCheckboxes = {}
     local previousCheckbox = checkbox
+    local previousCategory
     for index, option in ipairs(runtimeState.trackingOptions) do
+        if option.category ~= previousCategory then
+            previousCategory = option.category
+            local section = AddSection(option.category, previousCheckbox)
+            previousCheckbox = section
+        end
+
         local trackingCheckbox = CreateFrame(
             "CheckButton",
             addonName .. "TrackingCheckbox" .. index,
