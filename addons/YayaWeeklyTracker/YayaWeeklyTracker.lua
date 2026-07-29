@@ -359,7 +359,11 @@ runtimeState.generalWeeklyQuests = {
         95482, -- Lost Animals breadcrumb
     },
     liadrinWrapperQuestID = 93744, -- Unity Against the Void
-    haranirLegendsQuestIDs = { 89268 }, -- Lost Legends
+    haranirLegendsQuestIDs = {
+        89268, -- Lost Legends (selection)
+        88993, 88994, 88995, 88996, 88997, 88998, 88999, -- first relic stories
+        92716, 92719, 92720, 92721, 92722, 92723, 92724, 92725, -- The Story of...
+    },
     researchConsoleQuestID = 94790, -- Research Console: Exploring the Void
     liadrinWeeklyQuestIDs = {
         93766, -- Midnight: World Quests
@@ -3821,7 +3825,7 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
 
     if accountDB.trackHaranirLegends ~= false
         and level >= 80
-        and not trackerUI.IsAnyQuestDoneOnAccount(config.haranirLegendsQuestIDs) then
+        and not IsAnyQuestDone(config.haranirLegendsQuestIDs) then
         AddEntry(entries, "Lost Legends", "todo")
     end
 
