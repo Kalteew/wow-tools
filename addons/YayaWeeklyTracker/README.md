@@ -39,7 +39,7 @@ Resume `Midnight` :
 - le rappel `moxie x` reste affiche meme si aucun tresor, livre ou recette ne reste dans `One time`
 - les recettes manquantes suivies sont `Potion of Recklessness`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; si l'API metier n'est pas encore prete, YWT reessaie toutes les 10 secondes avant de les afficher
 - `Lost Legends` est suivie comme weekly par personnage des legendes Haranir
-- la completion de `Lost Legends` accepte la quete de selection (`89268`), les 7 premieres quetes de relique (`88993` a `88999`) et leurs variantes `The Story of...` (`92716`, `92719` a `92725`)
+- la completion weekly de `Lost Legends` accepte la quete de selection (`89268`) et les variantes repetables `The Story of...` (`92716`, `92719` a `92725`) ; les quetes initiales (`88993` a `88999`) ne sont pas utilisees car leur completion historique est permanente
 - `Research Console: Exploring the Void` est suivie comme weekly quand la quete est active
 - les rappels recurrents sont affiches sous le titre `Hebdo` uniquement s'il reste quelque chose a faire ; les tresors, livres KP et recettes sont dans `One time`, sans lignes `ok`
 - la consommation d'une recette suivie force aussi un refresh apres le sort de consommation, sans devoir ouvrir le metier
@@ -135,7 +135,7 @@ IDs utilises :
 - world bosses `Midnight` = `92560`, `92123`, `92034`, `92636`
 - `Fortify the Runestones` = `90573`, `90574`, `90575`, `90576`
 - `Hope in the Darkest Corners` = `95468`
-- `Lost Legends` = `89268`, `88993`-`88999`, `92716`, `92719`-`92725` (weekly par personnage, niveau minimum `80`)
+- `Lost Legends` = `89268`, `92716`, `92719`-`92725` (weekly par personnage, niveau minimum `80` ; `88993`-`88999` = quetes initiales historiques)
 - `Research Console: Exploring the Void` = `94790`
 - weekly `Neighborhood` = `95413`, `95416`, `95438`, `95440` (breadcrumbs `95439`, `95482`)
 - weekly de Liadrin = wrapper `93744`; objectifs `93766`, `93767`, `93769`, `93889`, `93890`, `93892`, `93909`, `93910`, `93911`, `93912`, `93913`, `94457`, `95842`, `95843`
