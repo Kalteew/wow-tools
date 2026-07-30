@@ -213,29 +213,29 @@ local MIDNIGHT_MOXIE_CURRENCY_IDS = {
 }
 
 local MIDNIGHT_KNOWLEDGE_BOOKS_BY_SKILL_LINE_ID = {
-    [2906] = { { label = "Voidstorm", questID = 93794, mapID = 2405, x = 52.6, y = 72.9 } },
-    [2907] = { { label = "Voidstorm", questID = 93795, mapID = 2405, x = 52.6, y = 72.9 } },
+    [2906] = { { label = "Voidstorm", questID = 93794, itemID = 262645, mapID = 2405, x = 52.6, y = 72.9 } },
+    [2907] = { { label = "Voidstorm", questID = 93795, itemID = 262644, mapID = 2405, x = 52.6, y = 72.9 } },
     [2909] = {
-        { label = "Silvermoon", questID = 92374, mapID = 2395, x = 43.4, y = 47.4 },
-        { label = "Abundance", questID = 92186, abundance = true, mapID = 2395, x = 56.78, y = 65.79 },
+        { label = "Silvermoon", questID = 92374, itemID = 257600, mapID = 2395, x = 43.4, y = 47.4 },
+        { label = "Abundance", questID = 92186, itemID = 250445, abundance = true, mapID = 2395, x = 56.78, y = 65.79 },
     },
-    [2910] = { { label = "Voidstorm", questID = 93796, mapID = 2405, x = 52.6, y = 72.9 } },
+    [2910] = { { label = "Voidstorm", questID = 93796, itemID = 262646, mapID = 2405, x = 52.6, y = 72.9 } },
     [2912] = {
-        { label = "Harandar", questID = 93411, mapID = 2413, x = 51.0, y = 50.8 },
-        { label = "Abundance", questID = 92174, abundance = true, mapID = 2413, x = 66.14, y = 61.69 },
+        { label = "Harandar", questID = 93411, itemID = 258410, mapID = 2413, x = 51.0, y = 50.8 },
+        { label = "Abundance", questID = 92174, itemID = 250443, abundance = true, mapID = 2413, x = 66.14, y = 61.69 },
     },
-    [2913] = { { label = "Harandar", questID = 93412, mapID = 2413, x = 51.0, y = 50.8 } },
-    [2914] = { { label = "Silvermoon", questID = 93222, mapID = 2395, x = 43.4, y = 47.4 } },
-    [2915] = { { label = "Zul'Aman", questID = 92371, mapID = 2437, x = 45.8, y = 65.8 } },
+    [2913] = { { label = "Harandar", questID = 93412, itemID = 258411, mapID = 2413, x = 51.0, y = 50.8 } },
+    [2914] = { { label = "Silvermoon", questID = 93222, itemID = 257599, mapID = 2395, x = 43.4, y = 47.4 } },
+    [2915] = { { label = "Zul'Aman", questID = 92371, itemID = 250922, mapID = 2437, x = 45.8, y = 65.8 } },
     [2916] = {
-        { label = "Zul'Aman", questID = 92372, mapID = 2437, x = 45.8, y = 65.8 },
-        { label = "Abundance", questID = 92187, abundance = true, mapID = 2405, x = 38.82, y = 53.31 },
+        { label = "Zul'Aman", questID = 92372, itemID = 250924, mapID = 2437, x = 45.8, y = 65.8 },
+        { label = "Abundance", questID = 92187, itemID = 250444, abundance = true, mapID = 2405, x = 38.82, y = 53.31 },
     },
     [2917] = {
-        { label = "Zul'Aman", questID = 92373, mapID = 2437, x = 45.8, y = 65.8 },
-        { label = "Abundance", questID = 92188, abundance = true, mapID = 2437, x = 31.62, y = 26.14 },
+        { label = "Zul'Aman", questID = 92373, itemID = 250923, mapID = 2437, x = 45.8, y = 65.8 },
+        { label = "Abundance", questID = 92188, itemID = 250360, abundance = true, mapID = 2437, x = 31.62, y = 26.14 },
     },
-    [2918] = { { label = "Silvermoon", questID = 93201, mapID = 2395, x = 43.4, y = 47.4 } },
+    [2918] = { { label = "Silvermoon", questID = 93201, itemID = 257601, mapID = 2395, x = 43.4, y = 47.4 } },
 }
 
 local MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID = {
@@ -322,6 +322,10 @@ runtimeState.surplusReagentContainers = {
     [260543] = { order = 9, label = "Mine" }, -- Master Miner's Surplus Reagents
     [260544] = { order = 10, label = "Skin" }, -- Master Skinner's Surplus Reagents
     [260545] = { order = 11, label = "Tail" }, -- Master Tailor's Surplus Reagents
+}
+runtimeState.questRewardContainerItemIDs = runtimeState.questRewardContainerItemIDs or {
+    [263934] = true, -- Chest of Gold
+    [263466] = true, -- Overflowing Abundant Satchel
 }
 runtimeState.midnightEnchantingWeeklyReagents = {
     [93697] = { itemID = 243599, itemName = "Eversinging Dust", quantity = 20 },
@@ -785,6 +789,8 @@ local midnightCaches = {
     trackedProfessionsDirty = true,
     knowledge = nil,
     knowledgeDirty = true,
+    recipeItems = nil,
+    recipeItemsDirty = true,
     payout = nil,
     payoutDirty = true,
     surplusReagents = nil,
@@ -796,6 +802,7 @@ local knowledgeBookWaypointUIDs = {}
 local knowledgeBookWaypointSignature
 local debugSignatures = {
     knowledge = nil,
+    recipeItems = nil,
     payout = nil,
     surplusReagents = nil,
     trackedProfessions = nil,
@@ -859,6 +866,11 @@ local function GetAccountDB()
         end
     end
     return YayaWeeklyTrackerAccountDB
+end
+
+local function GetCharacterDB()
+    YayaWeeklyTrackerDB = YayaWeeklyTrackerDB or {}
+    return YayaWeeklyTrackerDB
 end
 
 local function IsDebugEnabled()
@@ -983,6 +995,8 @@ local function InvalidateTrackedMidnightProfessions()
     midnightCaches.trackedProfessionsDirty = true
     midnightCaches.knowledge = nil
     midnightCaches.knowledgeDirty = true
+    midnightCaches.recipeItems = nil
+    midnightCaches.recipeItemsDirty = true
     midnightCaches.payout = nil
     midnightCaches.payoutDirty = true
     midnightCaches.surplusReagents = nil
@@ -992,6 +1006,11 @@ end
 local function InvalidateMidnightKnowledgeConsumableCache()
     midnightCaches.knowledge = nil
     midnightCaches.knowledgeDirty = true
+end
+
+trackerUI.InvalidateMidnightRecipeItemCache = function()
+    midnightCaches.recipeItems = nil
+    midnightCaches.recipeItemsDirty = true
 end
 
 local function InvalidateArtisanConsortiumPayoutCache()
@@ -1813,6 +1832,7 @@ local function FindMidnightKnowledgeConsumableInBags(trackedRows)
     local maxBagIndex = math.max(NUM_TOTAL_EQUIPPED_BAG_SLOTS or 0, NUM_BAG_SLOTS or 0, 5)
     local firstMatch
     local totalCount = 0
+    local countsByItemID = {}
 
     for bagID = 0, maxBagIndex do
         local slotCount = GetContainerNumSlotsCompat(bagID)
@@ -1823,6 +1843,7 @@ local function FindMidnightKnowledgeConsumableInBags(trackedRows)
                 local treatiseInfo = MIDNIGHT_TREATISES_BY_SKILL_LINE_ID[skillLineID]
                 local isCompletedTreatise = treatiseInfo and treatiseInfo.itemID == itemID and IsQuestDone(treatiseInfo.weeklyQuestID)
                 if not isCompletedTreatise then
+                    countsByItemID[itemID] = (countsByItemID[itemID] or 0) + math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
                     local itemLink = GetContainerItemLinkCompat(bagID, slotIndex)
                     local itemName = GetItemInfo and GetItemInfo(itemID) or nil
                     if IsItemCurrentlyUsable(itemLink, itemName, itemID) then
@@ -1844,6 +1865,7 @@ local function FindMidnightKnowledgeConsumableInBags(trackedRows)
 
     local result = {
         totalCount = totalCount,
+        countsByItemID = countsByItemID,
         bagID = firstMatch and firstMatch.bagID or nil,
         itemID = firstMatch and firstMatch.itemID or nil,
         itemLink = firstMatch and firstMatch.itemLink or nil,
@@ -1861,7 +1883,86 @@ local function FindMidnightKnowledgeConsumableInBags(trackedRows)
     return result
 end
 
+trackerUI.RefreshTrackedQuestRewardItemIDs = function()
+    local watchedQuestIDs = {}
+    local questRewardItemIDs = runtimeState.questRewardContainerItemIDs or {}
+    runtimeState.questRewardContainerItemIDs = questRewardItemIDs
+
+    local function AddWatchedQuest(questID)
+        if questID and questID > 0 then
+            watchedQuestIDs[questID] = true
+        end
+    end
+
+    if C_QuestLog and type(C_QuestLog.GetNumQuestWatches) == "function"
+        and type(C_QuestLog.GetQuestIDForQuestWatchIndex) == "function" then
+        for watchIndex = 1, (C_QuestLog.GetNumQuestWatches() or 0) do
+            AddWatchedQuest(C_QuestLog.GetQuestIDForQuestWatchIndex(watchIndex))
+        end
+        if type(C_QuestLog.GetNumWorldQuestWatches) == "function"
+            and type(C_QuestLog.GetQuestIDForWorldQuestWatchIndex) == "function" then
+            for watchIndex = 1, (C_QuestLog.GetNumWorldQuestWatches() or 0) do
+                AddWatchedQuest(C_QuestLog.GetQuestIDForWorldQuestWatchIndex(watchIndex))
+            end
+        end
+    elseif type(GetNumQuestWatches) == "function" and type(GetQuestIndexForWatch) == "function" then
+        for watchIndex = 1, (GetNumQuestWatches() or 0) do
+            local questLogIndex = GetQuestIndexForWatch(watchIndex)
+            if questLogIndex and type(GetQuestLogTitle) == "function" then
+                local _, _, _, isHeader, _, _, _, questID = GetQuestLogTitle(questLogIndex)
+                if not isHeader then
+                    AddWatchedQuest(questID)
+                end
+            end
+        end
+    end
+
+    for questID in pairs(watchedQuestIDs) do
+        local rewardCount = type(GetNumQuestLogRewards) == "function"
+            and (GetNumQuestLogRewards(questID) or 0) or 0
+        local choiceCount = type(GetNumQuestLogChoices) == "function"
+            and (GetNumQuestLogChoices(questID) or 0) or 0
+        if rewardCount == 0 and choiceCount == 0 then
+            RequestQuestRewardData(questID)
+        end
+
+        if type(GetQuestLogRewardInfo) == "function" then
+            for rewardIndex = 1, rewardCount do
+                local ok, _, _, _, _, _, itemID = pcall(GetQuestLogRewardInfo, rewardIndex, questID)
+                if ok and itemID then
+                    questRewardItemIDs[itemID] = true
+                end
+            end
+        end
+        if type(GetQuestLogChoiceInfo) == "function" then
+            for choiceIndex = 1, choiceCount do
+                local ok, _, _, _, _, _, itemID = pcall(GetQuestLogChoiceInfo, choiceIndex, questID)
+                if ok and itemID then
+                    questRewardItemIDs[itemID] = true
+                end
+            end
+        end
+    end
+
+    return questRewardItemIDs
+end
+
+trackerUI.GetContainerItemHasLoot = function(bagID, slotIndex)
+    if C_Container and type(C_Container.GetContainerItemInfo) == "function" then
+        local info = C_Container.GetContainerItemInfo(bagID, slotIndex)
+        return info and info.hasLoot == true
+    end
+
+    if type(GetContainerItemInfo) == "function" then
+        local _, _, _, _, _, hasLoot = GetContainerItemInfo(bagID, slotIndex)
+        return hasLoot == true
+    end
+
+    return false
+end
+
 local function FindArtisanConsortiumPayoutInBags()
+    local trackedQuestRewardItemIDs = trackerUI.RefreshTrackedQuestRewardItemIDs()
     if not midnightCaches.payoutDirty and midnightCaches.payout then
         return midnightCaches.payout
     end
@@ -1874,7 +1975,11 @@ local function FindArtisanConsortiumPayoutInBags()
         local slotCount = GetContainerNumSlotsCompat(bagID)
         for slotIndex = 1, slotCount do
             local itemID = GetContainerItemIDCompat(bagID, slotIndex)
-            if itemID and ARTISAN_CONSORTIUM_PAYOUT_ITEM_IDS[itemID] then
+            local isPayout = itemID and ARTISAN_CONSORTIUM_PAYOUT_ITEM_IDS[itemID]
+            local isTrackedQuestContainer = itemID
+                and trackedQuestRewardItemIDs[itemID]
+                and (itemID == 263934 or trackerUI.GetContainerItemHasLoot(bagID, slotIndex))
+            if isPayout or isTrackedQuestContainer then
                 totalCount = totalCount + math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
                 matches[#matches + 1] = {
                     bagID = bagID,
@@ -1883,6 +1988,7 @@ local function FindArtisanConsortiumPayoutInBags()
                     itemName = GetItemInfo and GetItemInfo(itemID) or nil,
                     slotIndex = slotIndex,
                     targetKey = tostring(bagID) .. ":" .. tostring(slotIndex),
+                    isQuestContainer = not isPayout,
                 }
             end
         end
@@ -1914,6 +2020,7 @@ local function FindArtisanConsortiumPayoutInBags()
         itemName = selectedMatch and selectedMatch.itemName or nil,
         slotIndex = selectedMatch and selectedMatch.slotIndex or nil,
         targetKey = selectedMatch and selectedMatch.targetKey or nil,
+        isQuestContainer = selectedMatch and selectedMatch.isQuestContainer or false,
     }
     local debugSignature = ("%d:%s:%s"):format(
         result.totalCount or 0,
@@ -2033,6 +2140,49 @@ trackerUI.UpdateMidnightKnowledgeButton = function(state)
     return false
 end
 
+trackerUI.UpdateMidnightRecipeButton = function(state)
+    local button = trackerFrame and trackerFrame.recipeButton or nil
+    if not button then
+        return false
+    end
+
+    if state and state.itemID then
+        button:SetText(("Utiliser recette x%d"):format(state.totalCount or 1))
+        button.bagID = state.bagID
+        button.slotIndex = state.slotIndex
+        button.itemID = state.itemID
+        button.itemLink = state.itemLink
+        button.itemName = state.itemName
+        if not (InCombatLockdown and InCombatLockdown()) then
+            button:SetAttribute("type", "item")
+            button:SetAttribute("item", "item:" .. tostring(state.itemID))
+        end
+        DebugLog(
+            "RecipeButton ready itemID=%s bag=%s slot=%s link=%s name=%s item=%s",
+            tostring(button.itemID or "none"),
+            tostring(button.bagID or "none"),
+            tostring(button.slotIndex or "none"),
+            tostring(button.itemLink or "none"),
+            tostring(button.itemName or "none"),
+            tostring(button:GetAttribute("item") or "none")
+        )
+        button:Show()
+        return true
+    end
+
+    button.bagID = nil
+    button.slotIndex = nil
+    button.itemID = nil
+    button.itemLink = nil
+    button.itemName = nil
+    if not (InCombatLockdown and InCombatLockdown()) then
+        button:SetAttribute("type", nil)
+        button:SetAttribute("item", nil)
+    end
+    button:Hide()
+    return false
+end
+
 trackerUI.UpdateArtisanConsortiumPayoutButton = function(state)
     local button = trackerFrame and trackerFrame.payoutButton or nil
     if not button then
@@ -2040,10 +2190,12 @@ trackerUI.UpdateArtisanConsortiumPayoutButton = function(state)
     end
 
     if state and state.itemID then
-        button:SetText(("Ouvrir payout x%d"):format(state.totalCount or 1))
+        local label = state.isQuestContainer and "Ouvrir coffre" or "Ouvrir payout"
+        button:SetText(("%s x%d"):format(label, state.totalCount or 1))
         button.bagID = state.bagID
         button.slotIndex = state.slotIndex
         button.payoutTargetKey = state.targetKey
+        button.isQuestContainer = state.isQuestContainer
         button.itemID = state.itemID
         button.itemLink = state.itemLink
         button.itemName = state.itemName
@@ -2060,6 +2212,7 @@ trackerUI.UpdateArtisanConsortiumPayoutButton = function(state)
     button.bagID = nil
     button.slotIndex = nil
     button.payoutTargetKey = nil
+    button.isQuestContainer = nil
     button.itemID = nil
     button.itemLink = nil
     button.itemName = nil
@@ -2152,44 +2305,42 @@ trackerUI.FindActiveMidnightEnchantingWeekly = function(trackedRows)
     end
 end
 
-trackerUI.UpdateEnchantingWeeklyQueueButton = function(trackedRows)
-    local button = trackerFrame and trackerFrame.enchantingWeeklyButton or nil
-    if not button then
-        return false
-    end
-
+trackerUI.EnsureEnchantingWeeklyQueueItem = function(trackedRows)
     if GetAccountDB().trackProfessionWeeklies == false
         or not (YayaQueueAPI and type(YayaQueueAPI.AddItem) == "function") then
-        button.questID = nil
-        button.itemID = nil
-        button.itemName = nil
-        button.questTitle = nil
-        button.needed = nil
-        button.missing = nil
-        button:Hide()
         return false
     end
 
     local weekly = trackerUI.FindActiveMidnightEnchantingWeekly(trackedRows)
-    if weekly and weekly.missing > 0 then
-        button.questID = weekly.questID
-        button.itemID = weekly.itemID
-        button.itemName = weekly.itemName
-        button.questTitle = weekly.questTitle
-        button.needed = weekly.needed
-        button.missing = weekly.missing
-        button:SetText(("YQ Ench +%dx %s"):format(weekly.needed, weekly.itemName))
-        button:Show()
-        return true
+    if not (weekly and weekly.missing > 0) then
+        return false
     end
 
-    button.questID = nil
-    button.itemID = nil
-    button.itemName = nil
-    button.questTitle = nil
-    button.needed = nil
-    button.missing = nil
-    button:Hide()
+    local characterDB = GetCharacterDB()
+    characterDB.autoQueuedEnchantingWeeklies = characterDB.autoQueuedEnchantingWeeklies or {}
+    local queuedByQuest = characterDB.autoQueuedEnchantingWeeklies
+    if queuedByQuest[weekly.questID] ~= nil then
+        return false
+    end
+
+    local existingQuantity
+    if type(YayaQueueAPI.GetDirectItemQuantity) == "function" then
+        existingQuantity = YayaQueueAPI.GetDirectItemQuantity(weekly.itemID)
+    end
+    if existingQuantity and existingQuantity >= weekly.needed then
+        queuedByQuest[weekly.questID] = 0
+        return false
+    end
+
+    local ok = YayaQueueAPI.AddItem(weekly.itemID, weekly.needed, weekly.itemName)
+    if ok then
+        queuedByQuest[weekly.questID] = weekly.needed
+        print(("YWT: Ajoute automatiquement +%dx %s a YayaQueue (%d manquants pour la weekly)"):format(
+            weekly.needed,
+            weekly.itemName or ("item:" .. tostring(weekly.itemID)),
+            weekly.missing
+        ))
+    end
     return false
 end
 
@@ -2218,35 +2369,68 @@ trackerUI.ClearMidnightKnowledgeBookWaypoints = function()
     knowledgeBookWaypointSignature = nil
 end
 
+trackerUI.GetRecipeKnownFromTooltip = function(itemID)
+    if not itemID or not C_TooltipInfo then
+        return nil
+    end
+
+    local tooltipData
+    if type(C_TooltipInfo.GetItemByID) == "function" then
+        tooltipData = SafeCall(C_TooltipInfo.GetItemByID, itemID)
+    elseif type(C_TooltipInfo.GetHyperlink) == "function" then
+        tooltipData = SafeCall(C_TooltipInfo.GetHyperlink, "item:" .. tostring(itemID))
+    end
+
+    if type(tooltipData) ~= "table" or type(tooltipData.lines) ~= "table" or #tooltipData.lines == 0 then
+        if C_Item and type(C_Item.RequestLoadItemDataByID) == "function" then
+            SafeCall(C_Item.RequestLoadItemDataByID, itemID)
+        end
+        return nil
+    end
+
+    local lineTypes = Enum and Enum.TooltipDataLineType
+    local requirementTypes = Enum and Enum.TooltipDataUsageRequirementType
+    local usageRequirement = lineTypes and lineTypes.UsageRequirement
+
+    for _, line in ipairs(tooltipData.lines) do
+        if type(line) == "table"
+            and usageRequirement
+            and requirementTypes
+            and line.type == usageRequirement
+            and line.usable ~= true
+            and line.requirementType == requirementTypes.NotAlreadyKnown then
+            return true
+        end
+
+        local text = type(line) == "table" and line.leftText or nil
+        if type(text) == "string"
+            and ITEM_SPELL_KNOWN
+            and text:find(ITEM_SPELL_KNOWN, 1, true) then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function IsMidnightRecipeKnown(recipe)
     if not recipe then
         return true
     end
 
-    local tradeSkillKnown
-
-    if C_TradeSkillUI and recipe.spellID and type(C_TradeSkillUI.IsRecipeProfessionLearned) == "function" then
-        local learned = SafeCall(C_TradeSkillUI.IsRecipeProfessionLearned, recipe.spellID)
-        if type(learned) == "boolean" then
-            if learned then
-                return true
-            end
-            tradeSkillKnown = false
-        end
+    local tooltipKnown = trackerUI.GetRecipeKnownFromTooltip(recipe.itemID)
+    if tooltipKnown ~= nil then
+        return tooltipKnown
     end
 
     if C_TradeSkillUI and recipe.spellID and type(C_TradeSkillUI.GetRecipeInfo) == "function" then
         local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipe.spellID)
-        if type(recipeInfo) == "table" and type(recipeInfo.learned) == "boolean" then
-            if recipeInfo.learned then
-                return true
-            end
-            tradeSkillKnown = false
+        if type(recipeInfo) == "table" and recipeInfo.learned == true then
+            return true
         end
     end
 
-    if tradeSkillKnown == nil
-        and recipe.spellID
+    if recipe.spellID
         and C_SpellBook
         and C_SpellBook.IsSpellInSpellBook
         and Enum
@@ -2260,23 +2444,84 @@ local function IsMidnightRecipeKnown(recipe)
         )
         if known == true then
             return true
-        elseif known == false and tradeSkillKnown == nil then
-            tradeSkillKnown = false
         end
     end
 
     if C_TradeSkillUI and recipe.itemID and type(C_TradeSkillUI.GetRecipeInfoForItemID) == "function" then
         local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfoForItemID, recipe.itemID)
-        if type(recipeInfo) == "table" and type(recipeInfo.learned) == "boolean" then
-            if recipeInfo.learned then
-                return true
-            end
-            tradeSkillKnown = false
+        if type(recipeInfo) == "table" and recipeInfo.learned == true then
+            return true
         end
     end
 
-    -- nil = API indisponible : ne rien afficher avant le prochain essai.
-    return tradeSkillKnown
+    -- Sans tooltip charge, les "false" des API metier sont ambigus.
+    return nil
+end
+
+trackerUI.FindMidnightRecipeInBags = function(trackedRows)
+    if not midnightCaches.recipeItemsDirty and midnightCaches.recipeItems then
+        return midnightCaches.recipeItems
+    end
+
+    trackedRows = trackedRows or GetTrackedMidnightProfessions()
+    local trackedRecipesByItemID = {}
+    for _, row in ipairs(trackedRows or EMPTY_TABLE) do
+        local recipes = MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID[row.skillLineID]
+        for _, recipe in ipairs(recipes or EMPTY_TABLE) do
+            if GetAccountDB()[recipe.optionKey] ~= false then
+                local known = IsMidnightRecipeKnown(recipe)
+                if known == nil then
+                    runtimeState.midnightRecipeStatePending = true
+                elseif not known then
+                    trackedRecipesByItemID[recipe.itemID] = recipe
+                end
+            end
+        end
+    end
+
+    local maxBagIndex = math.max(NUM_TOTAL_EQUIPPED_BAG_SLOTS or 0, NUM_BAG_SLOTS or 0, 5)
+    local firstMatch
+    local totalCount = 0
+    local countsByItemID = {}
+    for bagID = 0, maxBagIndex do
+        local slotCount = GetContainerNumSlotsCompat(bagID)
+        for slotIndex = 1, slotCount do
+            local itemID = GetContainerItemIDCompat(bagID, slotIndex)
+            if itemID and trackedRecipesByItemID[itemID] then
+                local count = math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
+                countsByItemID[itemID] = (countsByItemID[itemID] or 0) + count
+                totalCount = totalCount + count
+                if not firstMatch then
+                    firstMatch = {
+                        bagID = bagID,
+                        itemID = itemID,
+                        itemLink = GetContainerItemLinkCompat(bagID, slotIndex),
+                        itemName = GetItemInfo and GetItemInfo(itemID) or nil,
+                        slotIndex = slotIndex,
+                    }
+                end
+            end
+        end
+    end
+
+    local result = {
+        totalCount = totalCount,
+        countsByItemID = countsByItemID,
+        bagID = firstMatch and firstMatch.bagID or nil,
+        itemID = firstMatch and firstMatch.itemID or nil,
+        itemLink = firstMatch and firstMatch.itemLink or nil,
+        itemName = firstMatch and firstMatch.itemName or nil,
+        slotIndex = firstMatch and firstMatch.slotIndex or nil,
+    }
+    local debugSignature = ("%d:%s"):format(result.totalCount or 0, tostring(result.itemID or "none"))
+    if debugSignature ~= debugSignatures.recipeItems then
+        debugSignatures.recipeItems = debugSignature
+        DebugLog("Recipe items = count:%d first:%s", result.totalCount or 0, tostring(result.itemID or "none"))
+    end
+
+    midnightCaches.recipeItems = result
+    midnightCaches.recipeItemsDirty = false
+    return result
 end
 
 trackerUI.GetMidnightRecipeStatus = function(row)
@@ -2286,12 +2531,13 @@ trackerUI.GetMidnightRecipeStatus = function(row)
         return result
     end
 
+    local recipeItems = trackerUI.FindMidnightRecipeInBags()
     for _, recipe in ipairs(recipes) do
         if GetAccountDB()[recipe.optionKey] ~= false then
             local known = IsMidnightRecipeKnown(recipe)
             if known == nil then
                 runtimeState.midnightRecipeStatePending = true
-            elseif not known then
+            elseif not known and (recipeItems.countsByItemID[recipe.itemID] or 0) == 0 then
                 result.missingRecipes[#result.missingRecipes + 1] = recipe
                 result.requiredMoxie = result.requiredMoxie + (recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST)
             end
@@ -2559,8 +2805,13 @@ trackerUI.GetMidnightKnowledgeBookStatus = function(row)
         return result
     end
 
+    local knowledgeItems = FindMidnightKnowledgeConsumableInBags()
     for _, book in ipairs(books) do
-        if not IsQuestDone(book.questID) then
+        local itemCount = book.itemID
+            and knowledgeItems.countsByItemID
+            and knowledgeItems.countsByItemID[book.itemID]
+            or 0
+        if not IsQuestDone(book.questID) and itemCount == 0 then
             result.missingBooks[#result.missingBooks + 1] = book
             if book.abundance then
                 result.requiredAbundance = result.requiredAbundance + MIDNIGHT_KNOWLEDGE_BOOK_ABUNDANCE_COST
@@ -4197,17 +4448,19 @@ UpdateTracker = function()
         local trackedRows = GetTrackedMidnightProfessions()
         local entries = trackerUI.BuildEntries(trackedRows)
         local knowledgeItemState = DebugSafeCall("FindMidnightKnowledgeConsumableInBags", FindMidnightKnowledgeConsumableInBags, trackedRows)
+        local recipeItemState = DebugSafeCall("FindMidnightRecipeInBags", trackerUI.FindMidnightRecipeInBags, trackedRows)
         local payoutItemState = DebugSafeCall("FindArtisanConsortiumPayoutInBags", FindArtisanConsortiumPayoutInBags)
         local surplusReagentStates = DebugSafeCall("FindSurplusReagentContainersInBags", trackerUI.FindSurplusReagentContainersInBags)
         local hasKnowledgeButton = DebugSafeCall("UpdateMidnightKnowledgeButton", trackerUI.UpdateMidnightKnowledgeButton, knowledgeItemState) or false
+        local hasRecipeButton = DebugSafeCall("UpdateMidnightRecipeButton", trackerUI.UpdateMidnightRecipeButton, recipeItemState) or false
         local hasPayoutButton = DebugSafeCall("UpdateArtisanConsortiumPayoutButton", trackerUI.UpdateArtisanConsortiumPayoutButton, payoutItemState) or false
         local surplusButtonCount = DebugSafeCall("UpdateSurplusReagentButtons", trackerUI.UpdateSurplusReagentButtons, surplusReagentStates) or 0
-        local hasEnchantingWeeklyButton = DebugSafeCall("UpdateEnchantingWeeklyQueueButton", trackerUI.UpdateEnchantingWeeklyQueueButton, trackedRows) or false
+        DebugSafeCall("EnsureEnchantingWeeklyQueueItem", trackerUI.EnsureEnchantingWeeklyQueueItem, trackedRows)
         local hasTreasureButton = DebugSafeCall("UpdateMidnightTreasureButton", trackerUI.UpdateMidnightTreasureButton, trackedRows) or false
-        local trackerDebugSignature = ("%d|kp=%s|po=%s|sr=%d|eq=%s|tt=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasEnchantingWeeklyButton), tostring(hasTreasureButton))
+        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|po=%s|sr=%d|tt=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasTreasureButton))
         if trackerDebugSignature ~= debugSignatures.tracker then
             debugSignatures.tracker = trackerDebugSignature
-            DebugLog("UpdateTracker entries=%d kpButton=%s payoutButton=%s surplusButtons=%d enchWeeklyButton=%s treasureButton=%s", #entries, tostring(hasKnowledgeButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasEnchantingWeeklyButton), tostring(hasTreasureButton))
+            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s payoutButton=%s surplusButtons=%d treasureButton=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasTreasureButton))
         end
         local hasUsefulEntry = false
         for _, entry in ipairs(entries) do
@@ -4216,7 +4469,7 @@ UpdateTracker = function()
                 break
             end
         end
-        if not hasUsefulEntry and not hasKnowledgeButton and not hasPayoutButton and surplusButtonCount == 0 and not hasEnchantingWeeklyButton and not hasTreasureButton then
+        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasPayoutButton and surplusButtonCount == 0 and not hasTreasureButton then
             DebugLog("UpdateTracker hide frame: all professions complete and no other actions")
             trackerFrame:Hide()
             if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
@@ -4264,12 +4517,26 @@ UpdateTracker = function()
             offsetY = offsetY + 24
         end
 
+        if hasRecipeButton then
+            trackerFrame.recipeButton:ClearAllPoints()
+            if hasKnowledgeButton then
+                trackerFrame.recipeButton:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
+            elseif hasPayoutButton then
+                trackerFrame.recipeButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
+            else
+                trackerFrame.recipeButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
+            end
+            offsetY = offsetY + 24
+        end
+
         local lastSurplusButton
         for index = 1, surplusButtonCount do
             local button = trackerFrame.surplusReagentButtons[index]
             button:ClearAllPoints()
             if lastSurplusButton then
                 button:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
+            elseif hasRecipeButton then
+                button:SetPoint("TOPLEFT", trackerFrame.recipeButton, "BOTTOMLEFT", 0, -4)
             elseif hasKnowledgeButton then
                 button:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
             elseif hasPayoutButton then
@@ -4281,26 +4548,12 @@ UpdateTracker = function()
             offsetY = offsetY + 24
         end
 
-        if hasEnchantingWeeklyButton then
-            trackerFrame.enchantingWeeklyButton:ClearAllPoints()
-            if lastSurplusButton then
-                trackerFrame.enchantingWeeklyButton:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
-            elseif hasKnowledgeButton then
-                trackerFrame.enchantingWeeklyButton:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
-            elseif hasPayoutButton then
-                trackerFrame.enchantingWeeklyButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
-            else
-                trackerFrame.enchantingWeeklyButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
-            end
-            offsetY = offsetY + 24
-        end
-
         if hasTreasureButton then
             trackerFrame.treasureButton:ClearAllPoints()
-            if hasEnchantingWeeklyButton then
-                trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.enchantingWeeklyButton, "BOTTOMLEFT", 0, -4)
-            elseif lastSurplusButton then
+            if lastSurplusButton then
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
+            elseif hasRecipeButton then
+                trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.recipeButton, "BOTTOMLEFT", 0, -4)
             elseif hasKnowledgeButton then
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
             elseif hasPayoutButton then
@@ -4374,6 +4627,29 @@ trackerUI.CreateTrackerFrame = function()
     end)
     trackerFrame.knowledgeButton:SetScript("OnLeave", GameTooltip_Hide)
 
+    trackerFrame.recipeButton = CreateFrame("Button", addonName .. "RecipeButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+    trackerFrame.recipeButton:SetSize(178, 20)
+    trackerFrame.recipeButton:RegisterForClicks("AnyUp", "AnyDown")
+    trackerFrame.recipeButton:SetAttribute("useOnKeyDown", false)
+    trackerFrame.recipeButton:SetText("Utiliser recette")
+    trackerFrame.recipeButton:Hide()
+    trackerFrame.recipeButton:SetScript("PostClick", function(self, _, down)
+        if down then
+            return
+        end
+        trackerUI.InvalidateMidnightRecipeItemCache()
+        ScheduleTrackerRefresh(0.05, false)
+    end)
+    trackerFrame.recipeButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Consomme la prochaine recette Midnight suivie présente dans les sacs.")
+        if self.itemLink then
+            GameTooltip:AddLine(self.itemLink, 0.5, 0.8, 1, true)
+        end
+        GameTooltip:Show()
+    end)
+    trackerFrame.recipeButton:SetScript("OnLeave", GameTooltip_Hide)
+
     trackerFrame.payoutButton = CreateFrame("Button", addonName .. "PayoutButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
     trackerFrame.payoutButton:SetSize(178, 20)
     trackerFrame.payoutButton:RegisterForClicks("AnyUp", "AnyDown")
@@ -4401,7 +4677,7 @@ trackerUI.CreateTrackerFrame = function()
     end)
     trackerFrame.payoutButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Ouvre un Artisan's Consortium Payout different du clic precedent si possible.")
+        GameTooltip:SetText("Ouvre le prochain payout ou coffre de quete suivi disponible.")
         if self.itemLink then
             GameTooltip:AddLine(self.itemLink, 0.5, 0.8, 1, true)
         end
@@ -4429,43 +4705,6 @@ trackerUI.CreateTrackerFrame = function()
         button:SetScript("OnLeave", GameTooltip_Hide)
         trackerFrame.surplusReagentButtons[index] = button
     end
-
-    trackerFrame.enchantingWeeklyButton = CreateFrame("Button", addonName .. "EnchantingWeeklyButton", trackerFrame, "UIPanelButtonTemplate")
-    trackerFrame.enchantingWeeklyButton:SetSize(178, 20)
-    trackerFrame.enchantingWeeklyButton:RegisterForClicks("AnyUp")
-    trackerFrame.enchantingWeeklyButton:SetText("YQ Ench")
-    trackerFrame.enchantingWeeklyButton:Hide()
-    trackerFrame.enchantingWeeklyButton:SetScript("OnClick", function(self)
-        if not (self.itemID and self.needed and self.needed > 0 and self.missing and self.missing > 0
-            and YayaQueueAPI and type(YayaQueueAPI.AddItem) == "function") then
-            return
-        end
-
-        local ok = YayaQueueAPI.AddItem(self.itemID, self.needed, self.itemName)
-        if ok then
-            print(("YWT: Ajoute +%dx %s a la queue existante (%d manquants pour la weekly)"):format(
-                self.needed,
-                self.itemName or ("item:" .. tostring(self.itemID)),
-                self.missing
-            ))
-            if YayaQueueAPI.Refresh then
-                YayaQueueAPI.Refresh()
-            end
-            ScheduleTrackerRefresh(0.05, false)
-        end
-    end)
-    trackerFrame.enchantingWeeklyButton:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Ajoute 20 reagents supplementaires a la queue YayaQueue existante.")
-        if self.questTitle then
-            GameTooltip:AddLine(self.questTitle, 1, 1, 1, true)
-        end
-        if self.itemName and self.missing then
-            GameTooltip:AddLine(("Manque %dx %s"):format(self.missing, self.itemName), 0.5, 0.8, 1, true)
-        end
-        GameTooltip:Show()
-    end)
-    trackerFrame.enchantingWeeklyButton:SetScript("OnLeave", GameTooltip_Hide)
 
     trackerFrame.treasureButton = CreateFrame("Button", addonName .. "TreasureButton", trackerFrame, "UIPanelButtonTemplate")
     trackerFrame.treasureButton:SetSize(178, 20)
@@ -4512,6 +4751,7 @@ eventFrame:RegisterEvent("TRAIT_TREE_CURRENCY_INFO_UPDATED")
 eventFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 eventFrame:RegisterEvent("AREA_POIS_UPDATED")
 eventFrame:RegisterEvent("QUEST_DATA_LOAD_RESULT")
+eventFrame:RegisterEvent("ITEM_DATA_LOAD_RESULT")
 eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 eventFrame:RegisterEvent("COVENANT_SANCTUM_RENOWN_LEVEL_CHANGED")
 eventFrame:RegisterEvent("PLAYER_MONEY")
@@ -4557,6 +4797,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             elseif command == "debug now" then
                 InvalidateTrackedMidnightProfessions()
                 InvalidateMidnightKnowledgeConsumableCache()
+                trackerUI.InvalidateMidnightRecipeItemCache()
                 InvalidateArtisanConsortiumPayoutCache()
                 trackerUI.InvalidateSurplusReagentContainerCache()
                 debugSignatures.knowledge = nil
@@ -4593,7 +4834,15 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         local questID = ...
         local reagentInfo = runtimeState.midnightEnchantingWeeklyReagents[questID]
         if reagentInfo and YayaQueueAPI and type(YayaQueueAPI.RemoveItem) == "function" then
-            local ok, removedQuantity = YayaQueueAPI.RemoveItem(reagentInfo.itemID, reagentInfo.quantity)
+            local characterDB = GetCharacterDB()
+            characterDB.autoQueuedEnchantingWeeklies = characterDB.autoQueuedEnchantingWeeklies or {}
+            local queuedQuantity = characterDB.autoQueuedEnchantingWeeklies[questID]
+            local removeQuantity = queuedQuantity == nil and reagentInfo.quantity or queuedQuantity
+            local ok, removedQuantity = false, 0
+            if removeQuantity > 0 then
+                ok, removedQuantity = YayaQueueAPI.RemoveItem(reagentInfo.itemID, removeQuantity)
+            end
+            characterDB.autoQueuedEnchantingWeeklies[questID] = nil
             if ok and removedQuantity and removedQuantity > 0 then
                 print(("YWT: Retire %dx %s de YayaQueue (weekly rendue)"):format(
                     removedQuantity,
@@ -4607,6 +4856,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         runtimeState.attemptedPayoutTargetKeys = runtimeState.attemptedPayoutTargetKeys or {}
         wipe(runtimeState.attemptedPayoutTargetKeys)
         InvalidateMidnightKnowledgeConsumableCache()
+        trackerUI.InvalidateMidnightRecipeItemCache()
         InvalidateArtisanConsortiumPayoutCache()
         trackerUI.InvalidateSurplusReagentContainerCache()
         ScheduleTrackerRefresh(0.05, false)
@@ -4637,9 +4887,13 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         or event == "SPELL_UPDATE_COOLDOWN"
         or event == "AREA_POIS_UPDATED"
         or event == "QUEST_DATA_LOAD_RESULT"
+        or event == "ITEM_DATA_LOAD_RESULT"
         or event == "ZONE_CHANGED_NEW_AREA"
         or event == "COVENANT_SANCTUM_RENOWN_LEVEL_CHANGED"
         or event == "WEEKLY_REWARDS_UPDATE" then
+        if event == "ITEM_DATA_LOAD_RESULT" then
+            trackerUI.InvalidateMidnightRecipeItemCache()
+        end
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "PLAYER_REGEN_ENABLED" then
         if runtimeState.combatVisibilityUpdateDeferred then

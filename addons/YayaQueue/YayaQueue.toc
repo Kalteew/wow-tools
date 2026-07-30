@@ -6,4 +6,5 @@
 ## OptionalDeps: Auctionator, TradeSkillMaster, LibAHTab, CraftSim
 ## SavedVariables: YayaQueueDB
 
+QualityOptimizer.lua
 YayaQueue.lua

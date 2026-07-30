@@ -3,13 +3,13 @@
 Addon Retail simple pour :
 
 - ajouter une recette depuis l'UI Blizzard des metiers avec la quantite placee a cote du bouton `Ajouter YQ`
-- afficher sur la page de fabrication une frame de sélection de qualité YQ, avec icônes de qualité, qualité maximale atteignable, concentration optionnelle, quantité conservée entre les recettes avec reset `R` et choix automatique des réactifs les moins chers
+- afficher sur la page de fabrication une frame de sélection de qualité YQ, avec icônes de qualité, qualité maximale atteignable, concentration optionnelle, quantité conservée entre les recettes (réinitialisation configurable dans les options WoW, désactivée par défaut) avec reset `R` et choix automatique des réactifs les moins chers
 - afficher cette frame comme une fenêtre flottante déplaçable, avec une icône par réactif et les quantités réparties par qualité
 - afficher toujours `dump conc.` sur une recette visible, puis le griser si la concentration restante après la queue ne permet pas d'ajouter au moins un craft tout en conservant le seuil de 500
 - inclure le réactif actuellement sélectionné dans les slots requis sélectionnables (par exemple Mote of Primal Energy), même si l’API de transaction l’omet
 - ajouter en une fois les first crafts connus non realises dont le cout CraftSim est strictement inferieur a 1000 po
 - garder une frame flottante a l'ecran pour suivre la queue
-- accepter des ajouts externes via `YayaQueueAPI.AddRecipe(...)`, des besoins supplementaires via `YayaQueueAPI.AddItem(...)`, leur retrait via `YayaQueueAPI.RemoveItem(...)` et des cibles idempotentes via `YayaQueueAPI.SetItemTarget(...)`
+- accepter des ajouts externes via `YayaQueueAPI.AddRecipe(...)`, des besoins supplementaires via `YayaQueueAPI.AddItem(...)`, leur lecture via `YayaQueueAPI.GetDirectItemQuantity(...)`, leur retrait via `YayaQueueAPI.RemoveItem(...)` et des cibles idempotentes via `YayaQueueAPI.SetItemTarget(...)`
 - afficher ce qu'il reste a acheter a l'HV ou au marchand
 - afficher un bouton unique d'achat groupé chez les marchands compatibles
 - acheter automatiquement les composants manquants à l'ouverture d'un marchand compatible (désactivable avec `/yq vendor off`)
@@ -26,11 +26,15 @@ Notes :
 - le bouton `first craft` n'est affiche que si la profession ouverte contient au moins une recette reellement ajoutable (cout, prix, queue et cooldown valides)
 - les recettes a cooldown ne sont ajoutees que si une charge est disponible; les pools partages soustraient les crafts deja en queue puis reservent une charge par nouvel ajout
 - les qualites de composants choisies par CraftSim sont memorisees puis transmises directement au craft; les composants simples restent geres automatiquement par Blizzard
-- le bouton de sélection de qualité fonctionne sans CraftSim en simulant les allocations mixtes via l'API native de métier et optimise la qualité de résultat exacte sélectionnée; les composants fixes et automatiques restent hors de l'appel de simulation Blizzard comme dans CraftSim, Midnight utilise 2 qualités de réactifs tandis que les équipements conservent jusqu'à 5 qualités de résultat
-- le solveur de réactifs met en cache le plan de la recette et ses prix pendant la session métier; le calcul est réparti sur plusieurs frames (4 ms maximum) et fermer la fenêtre suspend ses calculs
-- la frame qualité affiche le `dbminbuyout` TSM du résultat exact et un profit estimé par qualité après commission HV de 5 % et coût complet des réactifs en or; un équipement est chiffré avec son niveau d'objet exact, les composants marchand utilisent `vendorbuy`, les monnaies de métier sont exclues comme dans CraftSim et une donnée d'objet inconnue reste affichée `?`
-- `dump conc.` et `Ajouter YQ` déduisent la concentration déjà réservée par la queue; la quantité ajoutable vaut `floor(disponible / coût)` et le bouton est grisé si elle vaut zéro
-- les entrées ajoutées via la frame qualité mémorisent `targetQuality`, les réactifs qualité sélectionnés et l’option concentration
+- le sélecteur utilise un solveur de coût exact par points de compétence : toutes les répartitions entières R1/R2/R3 restent possibles (`41/59` compris), puis l'API Blizzard valide le gagnant ; les lignes sont calibrées sur `0`, `1`, `N-1` et `N`, et un modèle non linéaire est refusé au lieu d'afficher un faux optimum
+- une recette à plusieurs lignes de réactifs qualité utilise les poids entiers exposés par CraftSim; si ces poids manquent, YQ signale l'optimum exact indisponible au lieu d'approximer
+- le solveur garde en cache les plans de plusieurs recettes pendant toute la session et répartit un calcul inédit sur plusieurs frames (2 ms maximum) ; un craft ou la fermeture du métier ne vide plus ce cache, et coût/profit restent masqués pendant le calcul
+- le coût prend le minimum entre `vendorbuy` et `dbminbuyout`; `dbmarket` sert de repli signalé comme estimé. Le résultat exact affiche son `dbminbuyout`, son coût complet et le profit après 5 % de commission HV
+- avec concentration, l'optimiseur exige exactement le rang précédent sans concentration puis vérifie le gain d'un rang avec l'API Blizzard ; il choisit uniquement le plan le moins cher en or, la concentration disponible servant seulement à autoriser le lot complet
+- les coches concentration, finishing et Gold Star ainsi que la qualité désirée persistent entre les recettes; la qualité atteignable la plus proche est choisie si nécessaire
+- finishing est coché par défaut, mais le plan sans finishing reste toujours en concurrence et gagne s'il est moins cher ou si le finishing est inutile
+- la ligne `Stock` scanne séparément `C` (sacs + banque du personnage) et `W` (banque de bataillon) pour la qualité exacte ; les exemplaires liés ou équipés sont exclus, et une banque jamais lisible dans la session affiche `?`
+- les entrées ajoutées via la frame qualité mémorisent `targetQuality`, les allocations exactes, les optionnels retenus et l’option concentration
 - chaque ajout d’une entrée avec concentration ajoute une demande de phial Haranir d’ingéniosité (R1 par défaut, R2 configurable via `/yq options`); le même bouton sécurisé `Next: Phial` consomme la phial depuis les sacs avant le lot si le buff est absent, puis redevient `Next: Craft` après confirmation du buff
 - l’utilisation automatique des phials peut être désactivée dans `/yq options`; les demandes automatiques déjà présentes sont masquées pendant la désactivation
 - une session YQ ne crée qu’une seule demande automatique de phial, même si plusieurs entrées concentration sont ajoutées
@@ -38,6 +42,7 @@ Notes :
 - la queue se decremente a chaque craft reussi de la recette correspondante
 - `Next` reste verrouille pendant tout un lot de crafts et ne se reactive qu'au dernier craft confirme
 - la fenêtre qualité propose les réactifs optionnels de métier après les réactifs : leur difficulté, leur coût et leur allocation sont recalculés puis mémorisés dans la queue ; les missives impossibles pour la qualité choisie sont grisées
+- `/yq opttest` exécute les tests internes du solveur, dont les répartitions `41/59`, les trois rangs et les rangs supérieurs moins chers
 - les items marchand sont detectes quand ils ont deja ete vus sur un marchand
 - l'achat automatique marchand lance une seule séquence par ouverture ; chaque item accepté n'est soumis qu'une fois, avec vérification des sacs et jusqu'à 10 relances pour les échecs
 - les items non-commodities a l'HV sont achetes une enchere a la fois

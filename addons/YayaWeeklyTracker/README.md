@@ -34,10 +34,11 @@ Resume `Midnight` :
 - `traite` = rappel traite hebdo si le metier est a `25+` et que l'option `Tracker les traites (inscription)` est active
 - `DMF` = Darkmoon Faire active et quete metier pas encore faite ce mois-ci
 - `KP x a placer` en rouge = plus de `5` points de connaissance non depenses dans ce metier
-- `+10KP (zone)` = livre de connaissance Midnight encore non consomme ; les livres d'Abundance sont suivis en plus pour Enchantement, Herboristerie, Minage et Depeçage
+- `+10KP (zone)` = livre de connaissance Midnight encore non consomme ; les livres d'Abundance sont suivis en plus pour Enchantement, Herboristerie, Minage et Depeçage ; si le livre est deja dans les sacs, le rappel est masque au profit du bouton `Utiliser KP`
 - `moxie x/y` et `abondance x/y` = recapitulatif du cout des livres manquants ; la valeur passe en rouge si la monnaie manque
 - le rappel `moxie x` reste affiche meme si aucun tresor, livre ou recette ne reste dans `One time`
-- les recettes manquantes suivies sont `Potion of Recklessness`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; si l'API metier n'est pas encore prete, YWT reessaie toutes les 10 secondes avant de les afficher
+- les recettes manquantes suivies sont `Potion of Recklessness`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; leur etat connu utilise le tooltip Blizzard du personnage courant, comme Yaya Vendor Filter, puis les API metier en secours
+- une recette suivie non apprise mais deja presente dans les sacs est retiree de `One time` ; un bouton `Utiliser recette` permet de la consommer directement
 - `Lost Legends` est suivie comme weekly par personnage des legendes Haranir
 - la completion weekly de `Lost Legends` accepte la quete de selection (`89268`) et les variantes repetables `The Story of...` (`92716`, `92719` a `92725`) ; les quetes initiales (`88993` a `88999`) ne sont pas utilisees car leur completion historique est permanente
 - `Research Console: Exploring the Void` est suivie comme weekly quand la quete est active
@@ -50,10 +51,11 @@ Resume `Midnight` :
 - si TomTom est installe, un waypoint temporaire est aussi pose vers le vendeur des recettes suivies manquantes
 - l'addon n'impose pas la `CrazyArrow` de TomTom; il pose seulement les markers carte/minimap
 - un bouton `Ouvrir payout` apparait si un `Artisan's Consortium Payout` est detecte dans les sacs; chaque clic cible un payout encore present et un clic excedentaire reste sans effet
+- le meme bouton ouvre aussi les coffres recompenses des quetes suivies (recompenses obligatoires ou choix), ainsi que `Chest of Gold` (`263934`) et `Overflowing Abundant Satchel` (`263466`), en alternant les slots disponibles
 - des boutons independants `Ouvrir surplus` apparaissent pour les conteneurs de composants en surplus des 11 metiers Midnight reconnus, afin de pouvoir alterner les clics pendant leur ouverture
 - si YayaContainerValues est charge, ces boutons lui signalent l'item avant l'ouverture afin d'attribuer correctement les outputs
-- un bouton `YQ Ench +...` apparait si la weekly `Midnight Enchanting` active demande un reagent manquant; chaque clic ajoute la quantite complete de la weekly a la queue existante, en plus des besoins des crafts deja presents
-- quand cette weekly est rendue, YWT retire sa quantite complete de la demande directe YayaQueue sans toucher aux besoins des recettes
+- si la weekly `Midnight Enchanting` active demande un reagent manquant, YWT ajoute automatiquement la quantite complete a la queue YayaQueue, sans bouton et sans doublon aux refreshs
+- quand cette weekly est rendue, YWT retire uniquement la quantite qu'il a automatiquement ajoutee, sans toucher aux besoins des recettes ni a une demande deja existante
 
 Etat des lignes :
 
