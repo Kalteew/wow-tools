@@ -81,6 +81,34 @@ local function IsRecipeItem(itemID)
     return classID == recipeClassID
 end
 
+local function GetItemBindType(itemID)
+    local getItemInfo = C_Item and C_Item.GetItemInfo or GetItemInfo
+    if type(getItemInfo) ~= "function" then
+        return nil
+    end
+
+    local ok, _, _, _, _, _, _, _, _, _, _, _, _, bindType = pcall(getItemInfo, itemID)
+    return ok and bindType or nil
+end
+
+local function IsTrackableOutputItem(itemID)
+    if not itemID or IsRecipeItem(itemID) then
+        return false
+    end
+
+    local itemType, classID = GetItemInfoInstantData(itemID)
+    local armorClassID = Enum and Enum.ItemClass and Enum.ItemClass.Armor or LE_ITEM_CLASS_ARMOR or 4
+    local weaponClassID = Enum and Enum.ItemClass and Enum.ItemClass.Weapon or LE_ITEM_CLASS_WEAPON or 2
+    local questClassID = Enum and Enum.ItemClass and Enum.ItemClass.Quest or LE_ITEM_CLASS_QUEST or 12
+    if itemType == "Armor" or itemType == "Weapon" or itemType == "Quest"
+        or classID == armorClassID or classID == weaponClassID or classID == questClassID then
+        return false
+    end
+
+    local bindType = GetItemBindType(itemID)
+    return bindType ~= 1 and bindType ~= 4
+end
+
 local function NormalizeItemID(item)
     if type(item) == "number" and item > 0 then
         return math.floor(item)
@@ -162,7 +190,7 @@ end
 local function AddOutput(target, itemID, quantity)
     itemID = NormalizeItemID(itemID)
     quantity = math.floor(tonumber(quantity) or 0)
-    if not itemID or quantity <= 0 or IsRecipeItem(itemID) then
+    if not itemID or quantity <= 0 or not IsTrackableOutputItem(itemID) then
         return false
     end
 
@@ -214,7 +242,7 @@ local function CleanupInvalidContainerEntries()
             db.containers[containerID] = nil
         elseif type(entry) == "table" and type(entry.outputs) == "table" then
             for outputID in pairs(entry.outputs) do
-                if IsRecipeItem(tonumber(outputID)) then
+                if not IsTrackableOutputItem(tonumber(outputID)) then
                     entry.outputs[outputID] = nil
                 end
             end
@@ -245,6 +273,10 @@ local function GetContainerEntry(containerID)
 end
 
 local function GetTSMUnitPrice(itemID)
+    if not IsTrackableOutputItem(itemID) then
+        return nil
+    end
+
     if type(TSM_API) ~= "table"
         or type(TSM_API.ToItemString) ~= "function"
         or type(TSM_API.GetCustomPriceValue) ~= "function" then
@@ -280,7 +312,7 @@ local function RecordOpening(pending)
     pending.finalized = true
 
     local outputs = pending.outputs
-    if not HasOutputs(outputs) then
+    if not HasOutputs(outputs) and pending.allowBagFallback then
         outputs = GetPositiveBagDiff(pending.before, BuildBagSnapshot())
     end
     if not HasOutputs(outputs) then
@@ -302,6 +334,13 @@ local function FinalizePending(pending)
     end
     table.remove(pendingOpens, index)
     RecordOpening(pending)
+end
+
+local function DiscardPending(pending)
+    local index = FindPending(pending)
+    if index then
+        table.remove(pendingOpens, index)
+    end
 end
 
 local function ScheduleFinalize(pending, delay)
@@ -326,8 +365,12 @@ local function CaptureLootWindow()
     if not pending or type(GetNumLootItems) ~= "function" or type(GetLootSlotInfo) ~= "function" then
         return
     end
+    if pending.lootSource == "chat" then
+        return
+    end
 
     pending.lootWindowSeen = true
+    pending.lootSource = "window"
     local count = GetNumLootItems() or 0
     for slotIndex = 1, count do
         local _, _, quantity = GetLootSlotInfo(slotIndex)
@@ -343,7 +386,7 @@ end
 
 local function CaptureLootMessage(message)
     local pending = GetFirstPending()
-    if not pending or pending.lootCaptured or type(message) ~= "string" then
+    if not pending or pending.lootSource == "window" or type(message) ~= "string" then
         return
     end
 
@@ -352,24 +395,25 @@ local function CaptureLootMessage(message)
         captured = AddOutput(pending.outputs, itemID, tonumber(message:match("[xX](%d+)")) or 1) or captured
     end
     if captured then
+        pending.lootSource = "chat"
+        pending.lootCaptured = true
         ScheduleFinalize(pending, LOOT_FINALIZE_DELAY)
     end
 end
 
-local function StartPendingOpening(itemID, before, openCount)
+local function StartPendingOpening(itemID, before, openCount, allowBagFallback)
     if not itemID or not IsContainerItem(itemID) then
         return false
     end
 
     openCount = math.max(1, math.floor(tonumber(openCount) or 1))
     local previous = GetFirstPending()
-    if previous and previous.containerID == itemID then
-        previous.openCount = (previous.openCount or 1) + openCount
-        previous.createdAt = Now()
-        ScheduleFinalize(previous, FINALIZE_DELAY)
-        return true
-    elseif previous then
-        FinalizePending(previous)
+    if previous then
+        if previous.lootCaptured then
+            FinalizePending(previous)
+        else
+            DiscardPending(previous)
+        end
     end
 
     local pending = {
@@ -378,6 +422,7 @@ local function StartPendingOpening(itemID, before, openCount)
         outputs = {},
         createdAt = Now(),
         openCount = openCount,
+        allowBagFallback = allowBagFallback == true,
     }
     pendingOpens[#pendingOpens + 1] = pending
     ScheduleFinalize(pending, FINALIZE_DELAY)
@@ -479,7 +524,7 @@ local function AddContainerValueToTooltip(tooltip, data)
         return
     end
 
-    local marker = ("%d:%d:%d"):format(itemID, opens, math.floor(value + 0.5))
+    local marker = table.concat({ tostring(itemID), tostring(opens), tostring(math.floor(value + 0.5)) }, ":")
     if tooltip.yayaContainerValueMarker == marker then
         return
     end
@@ -508,6 +553,9 @@ local function HookTooltipReset(tooltip)
     end
     tooltip.yayaContainerValueResetHooked = true
     tooltip:HookScript("OnHide", ResetTooltipMarker)
+    if type(hooksecurefunc) == "function" and type(tooltip.ClearLines) == "function" then
+        pcall(hooksecurefunc, tooltip, "ClearLines", ResetTooltipMarker)
+    end
 end
 
 local function InstallTooltipHooks()
@@ -615,7 +663,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
                 consumedID = itemID
                 consumedCount = count
             end
-            if consumedID and StartPendingOpening(consumedID, before, consumedCount) then
+            if consumedID and StartPendingOpening(consumedID, before, consumedCount, true) then
                 pending = GetFirstPending()
             end
         end

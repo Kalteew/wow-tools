@@ -121,6 +121,7 @@ ns.AddLocale("frFR", {
 	MSG_SHOPPING_LIST_EXPORT_FAILED_FORMAT = "Échec de l'export de la liste d'achats : %s",
 	MSG_ADDED_TO_YAYAQUEUE_FORMAT = "%d commandes de mécènes ajoutées à YayaQueue.",
 	MSG_YAYAQUEUE_FAILED_FORMAT = "Échec de l'ajout à YayaQueue : %s",
+	MSG_INSUFFICIENT_CONCENTRATION = "Concentration insuffisante pour cette commande.",
 	MSG_YAYAQUEUE_UNAVAILABLE = "YayaQueue n'est pas disponible.",
 
 	TOOLBAR_ADD_TO_YAYAQUEUE = "Ajouter a YayaQueue",

@@ -28,6 +28,27 @@ local function IsBetter(candidate, current)
     return candidate.signature < current.signature
 end
 
+local function GetOptionCost(option, quantity)
+    quantity = math.max(0, math.floor(tonumber(quantity) or 0))
+    if quantity <= 0 then
+        return 0, false
+    end
+
+    if type(option.costForQuantity) == "function" then
+        local ok, cost, estimated = pcall(option.costForQuantity, quantity)
+        if ok and IsFiniteNumber(cost) and cost >= 0 then
+            return cost, estimated == true
+        end
+        return nil, false
+    end
+
+    local price = tonumber(option.price)
+    if not IsFiniteNumber(price) or price < 0 then
+        return nil, false
+    end
+    return price * quantity, option.estimated == true
+end
+
 local function OptionSignature(option)
     return string.format(
         "%02d:%s",
@@ -64,6 +85,7 @@ local function ConsolidateOptions(slot, tierCount)
                 quality = quality,
                 price = price,
                 estimated = rawOption.estimated == true,
+                costForQuantity = rawOption.costForQuantity,
             }
             option.signature = OptionSignature(option)
             local current = byQuality[quality]
@@ -108,13 +130,19 @@ local function BuildChoice(counts, optionsByQuality, required, weightPerPoint, c
                 itemID = option.itemID,
                 quality = quality,
                 quantity = quantity,
-                price = option.price,
-                estimated = option.estimated,
+                price = nil,
+                estimated = false,
             }
-            cost = cost + option.price * quantity
+            local optionCost, optionEstimated = GetOptionCost(option, quantity)
+            if optionCost == nil then
+                return nil
+            end
+            allocations[#allocations].price = optionCost / quantity
+            allocations[#allocations].estimated = optionEstimated
+            cost = cost + optionCost
             qualityPoints = qualityPoints + (quality - 1) * quantity
             if quantity == required then uniformQuality = quality end
-            if option.estimated then estimated = true end
+            if optionEstimated then estimated = true end
         end
     end
 
@@ -137,6 +165,7 @@ local function BuildChoice(counts, optionsByQuality, required, weightPerPoint, c
 end
 
 local function AddBestChoice(bestByWeight, choice)
+    if not choice then return end
     local current = bestByWeight[choice.weight]
     if IsBetter(choice, current) then
         bestByWeight[choice.weight] = choice
@@ -159,13 +188,18 @@ local function AddThreeTierPoint(
     weightPerPoint,
     optionsByQuality,
     completionBonuses,
-    priceDelta
+    priceDelta,
+    hasNonlinearCost
 )
     local minimumThree = math.max(0, qualityPoints - required)
     local maximumThree = math.floor(qualityPoints / 2)
     local candidates = {}
 
-    if priceDelta > 0 then
+    if hasNonlinearCost then
+        for qualityThree = minimumThree, maximumThree do
+            candidates[#candidates + 1] = qualityThree
+        end
+    elseif priceDelta > 0 then
         candidates[1] = minimumThree
         candidates[2] = minimumThree + 1
     elseif priceDelta < 0 then
@@ -196,7 +230,7 @@ local function AddThreeTierPoint(
                     weightPerPoint,
                     completionBonuses
                 ))
-                if priceDelta ~= 0 then return end
+                if not hasNonlinearCost and priceDelta ~= 0 then return end
             end
         end
     end
@@ -229,6 +263,14 @@ function Optimizer.BuildSlotChoices(slot)
         end
     end
 
+    local hasNonlinearCost = false
+    for quality = 1, tierCount do
+        if type(optionsByQuality[quality].costForQuantity) == "function" then
+            hasNonlinearCost = true
+            break
+        end
+    end
+
     local bestByWeight = {}
     if tierCount == 2 then
         for qualityTwo = 0, required do
@@ -252,7 +294,8 @@ function Optimizer.BuildSlotChoices(slot)
                 weightPerPoint,
                 optionsByQuality,
                 slot.completionBonusByQuality,
-                priceDelta
+                priceDelta,
+                hasNonlinearCost
             )
         end
         for quality = 1, 3 do
@@ -655,6 +698,58 @@ function Optimizer.RunSelfTests()
                 Assert(low and high, "missing uniform choices")
                 Assert(high.cost == 20, "wrong all-rank-two cost")
                 Assert(high.cost < low.cost, "cheaper higher rank was not preserved")
+            end,
+        },
+        {
+            name = "quantity-aware option cost",
+            run = function()
+                local choices = assert(Optimizer.BuildSlotChoices({
+                    required = 5,
+                    tierCount = 2,
+                    weightPerPoint = 1,
+                    options = {
+                        {
+                            itemID = 511,
+                            quality = 1,
+                            price = 3,
+                            costForQuantity = function(quantity)
+                                return math.min(quantity, 2) * 3
+                                    + math.max(0, quantity - 2) * 10
+                            end,
+                        },
+                        { itemID = 512, quality = 2, price = 4 },
+                    },
+                }))
+                Assert(FindChoice(choices, 0).cost == 36, "smart quantity was not capped")
+                Assert(FindChoice(choices, 5).cost == 20, "fixed unit price was not preserved")
+
+                local threeTier = assert(Optimizer.BuildSlotChoices({
+                    required = 4,
+                    tierCount = 3,
+                    weightPerPoint = 1,
+                    options = {
+                        {
+                            itemID = 521,
+                            quality = 1,
+                            price = 1,
+                            costForQuantity = function(quantity) return quantity end,
+                        },
+                        { itemID = 522, quality = 2, price = 10 },
+                        {
+                            itemID = 523,
+                            quality = 3,
+                            price = 1,
+                            costForQuantity = function(quantity)
+                                return quantity == 1 and 1 or quantity > 1 and 100 or 0
+                            end,
+                        },
+                    },
+                }))
+                local interior = FindChoice(threeTier, 4)
+                Assert(interior and interior.cost == 22, "nonlinear three-tier split was not optimized")
+                Assert(AllocationQuantity(interior.allocations, 1) == 1, "nonlinear split lost rank one")
+                Assert(AllocationQuantity(interior.allocations, 2) == 2, "nonlinear split lost rank two")
+                Assert(AllocationQuantity(interior.allocations, 3) == 1, "nonlinear split lost rank three")
             end,
         },
         {

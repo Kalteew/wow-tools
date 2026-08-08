@@ -167,6 +167,26 @@ function Pricing:GetPriceInfo(item, count)
 	local provider = self:GetActiveProvider()
 	local providerKey = provider and provider.key or nil
 	local isMarketable = GetMarketableState(item)
+
+	if isMarketable == false then
+		return BuildPriceInfo(item, count, providerKey, "not_marketable", nil, false)
+	end
+
+	local central = _G.YayaCraftedPriceAPI
+	if central and type(central.GetPriceQuote) == "function" then
+		local quote = central.GetPriceQuote(item, count, {
+			useInventory = true,
+			auctionKind = "item",
+		})
+		if quote then
+			local priceInfo = BuildPriceInfo(item, count, quote.source, "priced", quote.amount, isMarketable)
+			priceInfo.estimated = quote.estimated == true
+			priceInfo.capturedAt = quote.capturedAt
+			priceInfo.pricingKey = quote.pricingKey
+			return priceInfo
+		end
+	end
+
 	local containerPrice, containerSamples = GetContainerAveragePrice(item)
 	if containerPrice == false then
 		local priceInfo = BuildPriceInfo(item, count, CONTAINER_PROVIDER_KEY, "container_average_missing", nil, true)
@@ -177,10 +197,6 @@ function Pricing:GetPriceInfo(item, count)
 		local priceInfo = BuildPriceInfo(item, count, CONTAINER_PROVIDER_KEY, "container_average", containerPrice, true)
 		priceInfo.sampleCount = containerSamples
 		return priceInfo
-	end
-
-	if isMarketable == false then
-		return BuildPriceInfo(item, count, providerKey, "not_marketable", nil, false)
 	end
 
 	if not provider then

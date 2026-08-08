@@ -118,6 +118,7 @@ ns.AddLocale("enUS", {
 	MSG_SHOPPING_LIST_EXPORT_FAILED_FORMAT = "Shopping list export failed: %s",
 	MSG_ADDED_TO_YAYAQUEUE_FORMAT = "Added %d patron orders to YayaQueue.",
 	MSG_YAYAQUEUE_FAILED_FORMAT = "Failed to add to YayaQueue: %s",
+	MSG_INSUFFICIENT_CONCENTRATION = "Not enough concentration for this order.",
 	MSG_YAYAQUEUE_UNAVAILABLE = "YayaQueue is not available.",
 
 	TOOLBAR_ADD_TO_YAYAQUEUE = "Add to YayaQueue",

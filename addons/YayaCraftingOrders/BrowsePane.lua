@@ -64,6 +64,8 @@ Pane.retryConfig = {
 	requestFailureLimit = 3,
 	orderTypeDelay = 0.15,
 	orderTypeLimit = 20,
+	autoScanDelay = 0.1,
+	autoScanDuration = 2,
 }
 local ITEM_DATA_REFRESH_DELAY = 0.75
 local INITIALIZE_RETRY_DELAY = 0.1
@@ -76,8 +78,14 @@ local RECIPE_FILTER_UNKNOWN = "unknown"
 local CONCENTRATION_FILTER_ALL = "all"
 local CONCENTRATION_FILTER_NEEDS = "needs"
 local CONCENTRATION_FILTER_NONE = "none"
-local MAX_GOLD_PER_KNOWLEDGE_POINT = 1000 * COPPER_PER_GOLD
-local MAX_GOLD_PER_30_ACUITY = 1000 * COPPER_PER_GOLD
+local PATRON_VALUE = {
+	knowledgePoint = 1000 * COPPER_PER_GOLD,
+	firstCraft = 1000 * COPPER_PER_GOLD,
+	skillUp = 200 * COPPER_PER_GOLD,
+	moxiePerPoint = (5000 * COPPER_PER_GOLD) / 600,
+	concentrationAlchemy = 3 * COPPER_PER_GOLD,
+	concentrationDefault = 1 * COPPER_PER_GOLD,
+}
 local BORDER_BY_ITEM_QUALITY = {
 	[0] = "Professions-Slot-Frame",
 	"Professions-Slot-Frame",
@@ -122,8 +130,7 @@ local REWARD_KNOWLEDGE_ITEMS = {
 	[246335] = 2,
 }
 
-local ACUITY_ITEM_ID = 210814
-local ACUITY_CURRENCY_IDS = {
+local MOXIE_CURRENCY_IDS = {
 	[3256] = true,
 	[3257] = true,
 	[3258] = true,
@@ -163,6 +170,8 @@ Pane.unresolvedItemIDs = {}
 Pane.needsRequest = false
 Pane.needsRebuild = false
 Pane.needsRender = false
+Pane.autoScanCompletedByProfession = {}
+Pane.autoScanFlow = nil
 Pane.pendingReason = nil
 Pane.pendingDueAt = nil
 Pane.visibleSessionId = 0
@@ -2022,12 +2031,12 @@ local function GetOutputPresentation(order, recipeInfo)
 	}
 end
 
-local function EvaluateRewardValue(order)
+local function EvaluateRewardValue(order, recipeInfo)
 	local rewardGold = math.max(0, (order.tipAmount or 0) - (order.consortiumCut or 0))
 	local rewardItemValue = 0
 	local rewardIcons = {}
 	local rewardKnowledge = 0
-	local rewardAcuity = 0
+	local rewardMoxie = 0
 	local pricedRewardCount = 0
 	local marketableRewardCount = 0
 	local excludedRewardCount = 0
@@ -2071,10 +2080,8 @@ local function EvaluateRewardValue(order)
 			borderAtlas = GetBorderAtlas(instantID)
 
 			if instantID then
-				local acuityCount = instantID == ACUITY_ITEM_ID and count or 0
 				knowledgeContribution = (REWARD_KNOWLEDGE_ITEMS[instantID] or 0) * count
 				rewardKnowledge = rewardKnowledge + knowledgeContribution
-				rewardAcuity = rewardAcuity + acuityCount
 				if knowledgeContribution > 0 then
 					extraLines = {
 						LF("KNOWLEDGE_REWARD_FORMAT", knowledgeContribution),
@@ -2086,8 +2093,8 @@ local function EvaluateRewardValue(order)
 			iconTexture = basic and basic.icon
 			borderAtlas = GetBorderAtlas(nil, basic and basic.quality)
 			priceState = "not_marketable"
-			if ACUITY_CURRENCY_IDS[currencyID] then
-				rewardAcuity = rewardAcuity + count
+			if MOXIE_CURRENCY_IDS[currencyID] then
+				rewardMoxie = rewardMoxie + count
 			end
 		end
 
@@ -2108,19 +2115,35 @@ local function EvaluateRewardValue(order)
 		}
 	end
 
+	local firstCraftCount = recipeInfo and recipeInfo.firstCraft and 1 or 0
+	local skillUpCount = recipeInfo and recipeInfo.canSkillUp
+		and math.max(0, tonumber(recipeInfo.numSkillUps) or 0)
+		or 0
+	local knowledgeValue = rewardKnowledge * PATRON_VALUE.knowledgePoint
+	local firstCraftValue = firstCraftCount * PATRON_VALUE.firstCraft
+	local skillUpValue = skillUpCount * PATRON_VALUE.skillUp
+	local moxieValue = rewardMoxie * PATRON_VALUE.moxiePerPoint
+	local deterministicValue = knowledgeValue + firstCraftValue + skillUpValue + moxieValue
+
 	return {
 		gold = rewardGold,
 		itemValue = rewardItemValue,
-		totalValue = rewardGold + rewardItemValue,
-		hasPriceData = rewardItemValue > 0,
+		totalValue = rewardGold + rewardItemValue + deterministicValue,
+		hasPriceData = rewardItemValue > 0 or deterministicValue > 0,
 		isPriceComplete = marketableRewardCount > 0 and pricedRewardCount == marketableRewardCount,
-		totalValueKnown = rewardGold > 0 or marketableRewardCount == 0 or pricedRewardCount > 0,
+		totalValueKnown = rewardGold > 0 or marketableRewardCount == 0 or pricedRewardCount == marketableRewardCount,
 		totalValueComplete = marketableRewardCount == 0 or pricedRewardCount == marketableRewardCount,
 		marketableItemCount = marketableRewardCount,
 		excludedItemCount = excludedRewardCount,
 		icons = rewardIcons,
 		knowledge = rewardKnowledge,
-		acuity = rewardAcuity,
+		knowledgeValue = knowledgeValue,
+		firstCraft = firstCraftCount > 0,
+		firstCraftValue = firstCraftValue,
+		skillUps = skillUpCount,
+		skillUpValue = skillUpValue,
+		moxie = rewardMoxie,
+		moxieValue = moxieValue,
 	}
 end
 
@@ -2148,12 +2171,55 @@ local function GetRewardTooltipLabel(rewardIcon)
 	return rewardIcon.itemID and LF("ITEM_FALLBACK_FORMAT", rewardIcon.itemID) or UNKNOWN
 end
 
+local function IsAlchemyProfession(professionID)
+	professionID = tonumber(professionID)
+	if not professionID then
+		return false
+	end
+
+	if professionID == 3 or professionID == 171 or professionID == 2906 then
+		return true
+	end
+
+	local info = type(C_TradeSkillUI) == "table"
+		and type(C_TradeSkillUI.GetProfessionInfoBySkillLineID) == "function"
+		and C_TradeSkillUI.GetProfessionInfoBySkillLineID(professionID)
+	if type(info) ~= "table" then
+		return false
+	end
+
+	local professionName = tostring(info.professionName or ""):lower()
+	local parentProfessionName = tostring(info.parentProfessionName or ""):lower()
+	return professionName:find("alchemy", 1, true) ~= nil
+		or professionName:find("alchim", 1, true) ~= nil
+		or parentProfessionName:find("alchemy", 1, true) ~= nil
+		or parentProfessionName:find("alchim", 1, true) ~= nil
+end
+
+local function GetConcentrationGoldCost(orderData)
+	local points = tonumber(orderData and orderData.concentration and orderData.concentration.currentCost) or 0
+	if points <= 0 then
+		return 0
+	end
+
+	local goldPerPoint = IsAlchemyProfession(orderData.professionID)
+		and PATRON_VALUE.concentrationAlchemy
+		or PATRON_VALUE.concentrationDefault
+	return points * goldPerPoint
+end
+
 local function EvaluateProfit(orderData)
 	local reward = orderData and orderData.reward or {}
-	local cost = orderData and orderData.materialCost or 0
+	local materialCost = orderData and orderData.materialCost or 0
+	local concentrationCost = GetConcentrationGoldCost(orderData)
+	local cost = materialCost + concentrationCost
 	local materialEntryCount = #GetMaterialPlanEntries(orderData)
 	local hasCostData = orderData and (materialEntryCount == 0 or orderData.materialCostKnown)
 	local hasRewardData = reward.totalValueKnown
+	if orderData then
+		orderData.concentrationGoldCost = concentrationCost
+		orderData.totalCost = cost
+	end
 
 	if not (hasCostData and hasRewardData) then
 		return nil, false, false
@@ -2161,7 +2227,11 @@ local function EvaluateProfit(orderData)
 
 	local costComplete = materialEntryCount == 0 or orderData.materialCostComplete
 	local rewardComplete = reward.totalValueComplete
-	return (reward.totalValue or 0) - cost, true, costComplete and rewardComplete
+	local central = _G.YayaCraftedPriceAPI
+	local netValue = central and type(central.CalculateNetValue) == "function"
+		and central.CalculateNetValue(reward.totalValue, 1, cost, 0)
+		or (reward.totalValue or 0) - cost
+	return netValue, netValue ~= nil, costComplete and rewardComplete
 end
 
 local function GetLockedStatus(slot, recipeInfo)
@@ -2363,7 +2433,7 @@ local function BuildRequiredReagents(orderData, reagentSlotSchematics, suppliedR
 
 			if not entry.marketValueExcluded and entry.totalPrice and entry.totalPrice > 0 then
 				materialCost = materialCost + entry.totalPrice
-				pricedSlotCount = pricedSlotCount + 1
+						pricedSlotCount = pricedSlotCount + 1
 			end
 		end
 	end
@@ -2371,7 +2441,7 @@ local function BuildRequiredReagents(orderData, reagentSlotSchematics, suppliedR
 	orderData.materialCost = materialCost
 	orderData.marketableMaterialEntryCount = marketableSlotCount
 	orderData.excludedMaterialEntryCount = excludedSlotCount
-	orderData.materialCostKnown = marketableSlotCount == 0 or pricedSlotCount > 0
+	orderData.materialCostKnown = marketableSlotCount == 0 or pricedSlotCount == marketableSlotCount
 	orderData.materialCostComplete = marketableSlotCount == 0 or pricedSlotCount == marketableSlotCount
 
 	local activeOperation = materialPlan.operationInfo or orderData.baseOperation
@@ -2509,7 +2579,7 @@ local function PrepareOrder(rawOrder)
 	end
 
 	local output = GetOutputPresentation(rawOrder, recipeInfo)
-	local rewardData = EvaluateRewardValue(rawOrder)
+	local rewardData = EvaluateRewardValue(rawOrder, recipeInfo)
 	local isKnown = IsRecipeKnown(recipeInfo)
 	local suppliedReagents = rawOrder.reagents
 	local reagentSlotSchematics = recipeSchematic.reagentSlotSchematics
@@ -2526,6 +2596,7 @@ local function PrepareOrder(rawOrder)
 		canSkillUp = recipeInfo.canSkillUp,
 		relativeDifficulty = recipeInfo.relativeDifficulty,
 		skillUps = recipeInfo.numSkillUps or 0,
+		professionID = Pane.visibleProfession or Pane:GetCurrentProfessionID(),
 		unknownRecipeTooltip = isKnown and nil or BuildUnknownRecipeTooltip(recipeInfo),
 		reward = rewardData,
 	}
@@ -3048,8 +3119,8 @@ local function CompareRewards(left, right)
 	if left.reward.knowledge ~= right.reward.knowledge then
 		return left.reward.knowledge > right.reward.knowledge
 	end
-	if left.reward.acuity ~= right.reward.acuity then
-		return left.reward.acuity > right.reward.acuity
+	if left.reward.moxie ~= right.reward.moxie then
+		return left.reward.moxie > right.reward.moxie
 	end
 	if left.reward.totalValue ~= right.reward.totalValue then
 		return left.reward.totalValue > right.reward.totalValue
@@ -3185,7 +3256,7 @@ function Pane:ShowProfitTooltip(row)
 	GameTooltip:AddDoubleLine(L.TOOLTIP_REWARD_TOTAL, FormatSignedMoney(math.max(0, row.order.reward.totalValue or 0)), 1, 1, 1, 1, 1, 1)
 	GameTooltip:AddDoubleLine(
 		L.TOOLTIP_SUPPLY_COST,
-		FormatSignedMoney(-math.max(0, row.order.materialCost or 0)),
+		FormatSignedMoney(-math.max(0, row.order.totalCost or row.order.materialCost or 0)),
 		1,
 		1,
 		1,
@@ -3814,6 +3885,7 @@ function Pane:BuildYayaQueueContext(orderData, skipDontBuyItems)
 	end
 
 	local recipeInfo = orderData.recipeInfo
+	local applyConcentration = DoesOrderNeedConcentration(orderData)
 	return {
 		recipeID = recipeInfo.recipeID,
 		recipeName = (orderData.product and orderData.product.plainLabel) or recipeInfo.name or ("Recipe " .. recipeInfo.recipeID),
@@ -3824,6 +3896,9 @@ function Pane:BuildYayaQueueContext(orderData, skipDontBuyItems)
 		orderID = orderData.orderID,
 		professionID = self.visibleProfession or self:GetCurrentProfessionID(),
 		queueKind = "patron",
+		applyConcentration = applyConcentration,
+		concentrationCost = applyConcentration and tonumber(orderData.concentration.currentCost) or nil,
+		concentrationCurrencyID = applyConcentration and tonumber(orderData.concentration.currencyID) or nil,
 		isRecraft = orderData.isRecraft == true,
 		profitValue = tonumber(orderData.profitValue) or nil,
 		profitKnown = orderData.profitKnown == true,
@@ -3836,6 +3911,10 @@ function Pane:AddOrderToYayaQueue(orderData, skipDontBuyItems)
 		return false, "queue unavailable"
 	end
 
+	if not self:HasEnoughConcentrationForOrder(orderData, queueApi) then
+		return false, L.MSG_INSUFFICIENT_CONCENTRATION
+	end
+
 	local context, errorMessage = self:BuildYayaQueueContext(orderData, skipDontBuyItems)
 	if not context then
 		return false, errorMessage
@@ -3844,35 +3923,38 @@ function Pane:AddOrderToYayaQueue(orderData, skipDontBuyItems)
 	return queueApi.AddRecipe(context, 1)
 end
 
-local function GetEffectiveKnowledgeReward(orderData)
-	local knowledge = orderData and orderData.reward and tonumber(orderData.reward.knowledge) or 0
-	if orderData and orderData.firstCraft then
-		knowledge = knowledge + 1
+function Pane:HasEnoughConcentrationForOrder(orderData, queueApi)
+	local concentration = orderData and orderData.concentration
+	local required = tonumber(concentration and concentration.currentCost) or 0
+	if required <= 0 then
+		return true
 	end
-	return knowledge
+
+	local currencyID = tonumber(concentration and concentration.currencyID)
+	if not currencyID then
+		return false
+	end
+
+	local available = GetCurrencyQuantity(currencyID)
+	local professionID = tonumber(orderData.professionID) or self.visibleProfession or self:GetCurrentProfessionID()
+	local reserved = 0
+	if queueApi and type(queueApi.GetQueuedConcentrationReservation) == "function" then
+		reserved = math.max(0, tonumber(queueApi.GetQueuedConcentrationReservation(professionID, currencyID)) or 0)
+	end
+
+	return available - reserved >= required
 end
 
-function Pane:ShouldAutoQueuePatronOrder(orderData)
-	local materialCost = orderData and tonumber(orderData.materialCost) or 0
-	local hasKnownCost = orderData and orderData.materialCostKnown
-	local knowledge = GetEffectiveKnowledgeReward(orderData)
-	local acuity = orderData and orderData.reward and tonumber(orderData.reward.acuity) or 0
-	local profitable = orderData and orderData.profitKnown and (orderData.profitValue or 0) > 0
-	local knowledgeIsEfficient = knowledge > 0
-		and hasKnownCost
-		and (materialCost / knowledge) <= MAX_GOLD_PER_KNOWLEDGE_POINT
-	local acuityIsEfficient = acuity > 0
-		and hasKnownCost
-		and ((materialCost * 30) / acuity) <= MAX_GOLD_PER_30_ACUITY
-
+function Pane:ShouldAutoQueuePatronOrder(orderData, queueApi)
 	return orderData
 		and orderData.orderID
 		and not orderData.isRecraft
 		and orderData.isKnown
-		and not DoesOrderNeedConcentration(orderData)
-		and (profitable or knowledgeIsEfficient or acuityIsEfficient)
+		and orderData.profitKnown
+		and (orderData.profitValue or 0) > 0
 		and orderData.recipeInfo
 		and orderData.recipeInfo.recipeID
+		and self:HasEnoughConcentrationForOrder(orderData, queueApi or self:GetYayaQueueAPI())
 end
 
 function Pane:GetAutoQueueSessionBucket()
@@ -3905,13 +3987,263 @@ function Pane:MaybeAutoQueuePatronOrders()
 
 	for _, order in ipairs(self.allOrders or EMPTY_LIST) do
 		local alreadyQueued = type(queueApi.HasPatronOrder) == "function" and queueApi.HasPatronOrder(order.orderID)
-		if self:ShouldAutoQueuePatronOrder(order) and not bucket[order.orderID] and not alreadyQueued then
+		if self:ShouldAutoQueuePatronOrder(order, queueApi) and not bucket[order.orderID] and not alreadyQueued then
 			local ok = self:AddOrderToYayaQueue(order, true)
 			if ok then
 				bucket[order.orderID] = true
 			end
 		end
 	end
+end
+
+function Pane:IsProfessionPageVisible(page)
+	if not page then
+		return false
+	end
+
+	if type(page.IsVisible) == "function" then
+		local ok, visible = Util.SafeCall(page.IsVisible, page)
+		if ok and visible ~= nil then
+			return visible == true
+		end
+	end
+
+	return type(page.IsShown) == "function" and page:IsShown()
+end
+
+function Pane:SelectProfessionTab(tabID, page)
+	if self:IsProfessionPageVisible(page) then
+		return true
+	end
+
+	if tabID == ((ProfessionsFrame and ProfessionsFrame.craftingOrdersTabID) or 3) then
+		local canOpen = self:CanOpenPatronOrders()
+		if not canOpen or (ProfessionsFrame and ProfessionsFrame.isCraftingOrdersTabEnabled == false) then
+			return false
+		end
+	end
+
+	if not (ProfessionsFrame and type(ProfessionsFrame.GetTabButton) == "function") then
+		return false
+	end
+
+	-- Blizzard's SetTab expects this private filter snapshot to exist when
+	-- switching between the recipes and crafting-orders pages. During the
+	-- initial profession load it can still be nil; wait for the next retry
+	-- instead of entering Blizzard_ProfessionsFrame:SetTab too early.
+	if ProfessionsFrame.changingTabs or type(ProfessionsFrame.recipesFilters) ~= "table" then
+		ns.Debug("ui", "profession tab not ready tab=%s recipesFilters=%s changingTabs=%s", tostring(tabID), tostring(type(ProfessionsFrame.recipesFilters)), tostring(ProfessionsFrame.changingTabs))
+		return false
+	end
+
+	local ok, tabButton = Util.SafeCall(ProfessionsFrame.GetTabButton, ProfessionsFrame, tabID)
+	if ok and tabButton and type(tabButton.Click) == "function" then
+		local clicked = Util.SafeCall(tabButton.Click, tabButton)
+		return clicked == true
+	end
+
+	return false
+end
+
+function Pane:SelectPatronOrderType(ordersPage)
+	if not ordersPage then
+		return false
+	end
+	if not self:CanOpenPatronOrders() then
+		return false
+	end
+
+	if type(ordersPage.SetCraftingOrderType) == "function" then
+		Util.SafeCall(ordersPage.SetCraftingOrderType, ordersPage, ns.ORDER_TYPE_NPC)
+		return true
+	end
+
+	for _, buttonName in ipairs({ "NpcOrdersButton", "PatronOrdersButton" }) do
+		local button = ordersPage[buttonName]
+		if button and type(button.Click) == "function" then
+			Util.SafeCall(button.Click, button)
+			return true
+		end
+	end
+
+	return false
+end
+
+function Pane:IsNearProfessionFocus(profession)
+	if not (C_TradeSkillUI and type(C_TradeSkillUI.IsNearProfessionSpellFocus) == "function") then
+		return true
+	end
+
+	local ok, nearFocus = Util.SafeCall(C_TradeSkillUI.IsNearProfessionSpellFocus, profession)
+	return ok and nearFocus == true
+end
+
+function Pane:GetFirstRecipeForRestore()
+	if not (C_TradeSkillUI and type(C_TradeSkillUI.GetAllRecipeIDs) == "function") then
+		return nil, false
+	end
+
+	local ok, recipeIDs = Util.SafeCall(C_TradeSkillUI.GetAllRecipeIDs)
+	if not ok or type(recipeIDs) ~= "table" then
+		return nil, false
+	end
+
+	local firstRecipeID
+	local hasRecipeData = false
+	for _, recipeID in ipairs(recipeIDs) do
+		local info
+		if type(C_TradeSkillUI.GetRecipeInfo) == "function" then
+			local infoOK
+			infoOK, info = Util.SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID)
+			if not infoOK then
+				info = nil
+			end
+		end
+
+		if type(info) == "table" and info.learned ~= false then
+			hasRecipeData = true
+			firstRecipeID = firstRecipeID or recipeID
+			if type(C_TradeSkillUI.IsRecipeFavorite) == "function" then
+				local favoriteOK, isFavorite = Util.SafeCall(C_TradeSkillUI.IsRecipeFavorite, recipeID)
+				if favoriteOK and isFavorite == true then
+					return recipeID, true
+				end
+			end
+		elseif type(info) == "table" then
+			hasRecipeData = true
+		end
+	end
+
+	return firstRecipeID, #recipeIDs == 0 or hasRecipeData
+end
+
+function Pane:SchedulePatronAutoScanStep(flow, delay)
+	if self.autoScanFlow ~= flow or flow.timerQueued then
+		return
+	end
+
+	flow.timerQueued = true
+	C_Timer.After(delay or 0, function()
+		flow.timerQueued = nil
+		if Pane.autoScanFlow == flow then
+			Pane:RunPatronAutoScanStep(flow)
+		end
+	end)
+end
+
+function Pane:RestoreAfterPatronAutoScan(flow)
+	local craftingPage = ProfessionsFrame and ProfessionsFrame.CraftingPage
+	if not self:IsProfessionPageVisible(craftingPage) then
+		self:SelectProfessionTab((ProfessionsFrame and ProfessionsFrame.recipesTabID) or 1, craftingPage)
+		self:SchedulePatronAutoScanStep(flow, self.retryConfig.autoScanDelay)
+		return
+	end
+
+	local recipeID, recipeDataReady = self:GetFirstRecipeForRestore()
+	if not recipeDataReady then
+		self:SchedulePatronAutoScanStep(flow, self.retryConfig.autoScanDelay)
+		return
+	end
+
+	if recipeID and type(C_TradeSkillUI.OpenRecipe) == "function" then
+		Util.SafeCall(C_TradeSkillUI.OpenRecipe, recipeID)
+		ns.Debug("auto-scan", "restored profession=%s recipe=%s", tostring(flow.profession), tostring(recipeID))
+	else
+		ns.Debug("auto-scan", "restored profession=%s without recipe", tostring(flow.profession))
+	end
+
+	local queueApi = self:GetYayaQueueAPI()
+	if queueApi and type(queueApi.QueueFavoriteConcentration) == "function" then
+		queueApi.QueueFavoriteConcentration(flow.profession)
+	end
+
+	self.autoScanFlow = nil
+end
+
+function Pane:RunPatronAutoScanStep(flow)
+	if self:GetCurrentProfessionID() ~= flow.profession then
+		self.autoScanFlow = nil
+		return
+	end
+
+	if flow.stage == "restore" then
+		self:RestoreAfterPatronAutoScan(flow)
+		return
+	end
+
+	if not self:IsNearProfessionFocus(flow.profession) then
+		ns.Debug("auto-scan", "focus unavailable profession=%s", tostring(flow.profession))
+		self.autoScanFlow = nil
+		return
+	end
+
+	if flow.restoreAt and GetTime() >= flow.restoreAt then
+		flow.stage = "restore"
+		ns.Debug("auto-scan", "restore after %ss profession=%s", tostring(self.retryConfig.autoScanDuration), tostring(flow.profession))
+		self:SchedulePatronAutoScanStep(flow, 0)
+		return
+	end
+
+	local ordersPage = ProfessionsFrame and ProfessionsFrame.OrdersPage
+	if not self:IsProfessionPageVisible(ordersPage) then
+		self:SelectProfessionTab((ProfessionsFrame and ProfessionsFrame.craftingOrdersTabID) or 3, ordersPage)
+		self:SchedulePatronAutoScanStep(flow, self.retryConfig.autoScanDelay)
+		return
+	end
+
+	if self:GetCurrentOrderType() ~= ns.ORDER_TYPE_NPC then
+		self:SelectPatronOrderType(ordersPage)
+		self:SchedulePatronAutoScanStep(flow, self.retryConfig.autoScanDelay)
+		return
+	end
+
+	self:SetCustomPaneShown(true)
+	flow.sessionInitialized = true
+	flow.stage = "wait-orders"
+	if not flow.restoreAt then
+		flow.restoreAt = GetTime() + self.retryConfig.autoScanDuration
+		self.autoScanCompletedByProfession[flow.profession] = true
+		ns.Debug("auto-scan", "opened profession=%s; restoring in %ss", tostring(flow.profession), tostring(self.retryConfig.autoScanDuration))
+	end
+	self:SchedulePatronAutoScanStep(flow, self.retryConfig.autoScanDelay)
+end
+
+function Pane:MaybeStartPatronAutoScan(reason)
+	local profession = self:GetCurrentProfessionID()
+	if not profession or self.autoScanCompletedByProfession[profession] then
+		return
+	end
+
+	local canOpen, definitive = self:CanOpenPatronOrders()
+	if not canOpen then
+		if definitive then
+			self.autoScanCompletedByProfession[profession] = true
+		end
+		ns.Debug("auto-scan", "skip profession=%s: patron tab unavailable", tostring(profession))
+		return
+	end
+
+	if self.autoScanFlow then
+		if self.autoScanFlow.profession == profession then
+			return
+		end
+		self.autoScanFlow = nil
+	end
+
+	if not self:IsNearProfessionFocus(profession) then
+		ns.Debug("auto-scan", "skip profession=%s: focus unavailable", tostring(profession))
+		return
+	end
+
+	local rootShown = self.root and self.root:IsShown() == true
+	local flow = {
+		profession = profession,
+		stage = "open-orders",
+		sessionInitialized = rootShown,
+	}
+	self.autoScanFlow = flow
+	ns.Debug("auto-scan", "start profession=%s reason=%s", tostring(profession), tostring(reason))
+	self:SchedulePatronAutoScanStep(flow, 0)
 end
 
 function Pane:DoesOrderMatchSelectionMode(orderData, mode)
@@ -4327,6 +4659,18 @@ function Pane:GetVisibleRawOrders()
 	return rawOrders
 end
 
+function Pane:CanOpenPatronOrders()
+	if type(C_CraftingOrders) == "table"
+		and type(C_CraftingOrders.ShouldShowCraftingOrderTab) == "function" then
+		local ok, shouldShow = pcall(C_CraftingOrders.ShouldShowCraftingOrderTab)
+		if ok and shouldShow == false then
+			return false, true
+		end
+	end
+
+	return true, false
+end
+
 function Pane:GetCurrentProfessionID()
 	local ordersPage = ProfessionsFrame and ProfessionsFrame.OrdersPage
 	local professionInfo = ordersPage and ordersPage.professionInfo
@@ -4354,6 +4698,7 @@ end
 function Pane:DebugState(reason)
 	local ordersPage = ProfessionsFrame and ProfessionsFrame.OrdersPage
 	local profession = self:GetCurrentProfessionID()
+	local canOpenPatronOrders = self:CanOpenPatronOrders()
 	local nearFocus = false
 	if profession
 		and type(C_TradeSkillUI) == "table"
@@ -4372,7 +4717,7 @@ function Pane:DebugState(reason)
 
 	ns.Debug(
 		"state",
-		"reason=%s init=%s ready=%s pageShown=%s rootShown=%s rootVisible=%s type=%s profession=%s focus=%s session=%s request=%s id=%s requestProfession=%s requestSession=%s needs=%s/%s/%s retry=%s/%s pending=%s raw=%s prepared=%s visible=%s",
+		"reason=%s init=%s ready=%s pageShown=%s rootShown=%s rootVisible=%s type=%s patrons=%s profession=%s focus=%s session=%s request=%s id=%s requestProfession=%s requestSession=%s needs=%s/%s/%s retry=%s/%s pending=%s raw=%s prepared=%s visible=%s",
 		tostring(reason),
 		tostring(self.initialized == true),
 		tostring(ns.IsProfessionsReady()),
@@ -4380,6 +4725,7 @@ function Pane:DebugState(reason)
 		tostring(self.root and self.root:IsShown() or false),
 		tostring(self.root and self.root:IsVisible() or false),
 		tostring(self:GetCurrentOrderType()),
+		tostring(canOpenPatronOrders == true),
 		tostring(profession),
 		tostring(nearFocus),
 		tostring(self.visibleSessionId),
@@ -5098,6 +5444,17 @@ function Pane:SetVisibleProfession(profession)
 end
 
 function Pane:BeginVisibleSession()
+	if self.autoScanFlow and self.autoScanFlow.sessionInitialized then
+		ns.Debug("state", "skip duplicate visible-session during auto-scan profession=%s", tostring(self.autoScanFlow.profession))
+		return
+	end
+
+	local currentProfession = self:GetCurrentProfessionID()
+	if self.requesting and self.activeRequestProfession == currentProfession then
+		ns.Debug("state", "skip duplicate visible-session during request profession=%s", tostring(currentProfession))
+		return
+	end
+
 	self:LoadSavedFilters()
 	self:LoadSavedSort()
 	self.visibleSessionId = (self.visibleSessionId or 0) + 1
@@ -5352,8 +5709,9 @@ function Pane:RequestOrders(reason, profession)
 				self:ClearRequestState(requestID)
 			end
 
-			if result == 0
-				and orderType == ns.ORDER_TYPE_NPC
+			local requestSucceeded = result == 0
+				and (orderType == nil or orderType == ns.ORDER_TYPE_NPC)
+			if requestSucceeded
 				and profession == currentProfession
 				and self.root
 				and self.root:IsShown() then
@@ -5370,7 +5728,7 @@ function Pane:RequestOrders(reason, profession)
 
 				self.requestSettleUntil = GetTime() + REQUEST_SETTLE_DELAY
 				self:MarkDirty("request-success")
-			elseif result ~= 0
+			elseif not requestSucceeded
 				and isActiveRequest
 				and isCurrentSession
 				and profession == currentProfession
@@ -5402,6 +5760,12 @@ function Pane:MaybeRequestOrders(reason)
 	end
 
 	local profession = self:GetCurrentProfessionID()
+	if not self:CanOpenPatronOrders() then
+		self.needsRequest = false
+		self:ClearRequestState()
+		ns.Debug("request", "skip profession=%s: patron tab unavailable", tostring(profession))
+		return false
+	end
 	if self.requesting then
 		if self.activeRequestProfession == profession then
 			ns.Debug("request", "skip active request profession=%s", tostring(profession))
@@ -5756,6 +6120,35 @@ function Pane:InitializeHooks()
 		end)
 	end
 
+	local craftingOrdersTab = ProfessionsFrame
+		and ProfessionsFrame.TabSystem
+		and ProfessionsFrame.TabSystem.tabs
+		and ProfessionsFrame.TabSystem.tabs[(ProfessionsFrame.craftingOrdersTabID or 3)]
+	if craftingOrdersTab and not self.craftingOrdersTabHooked then
+		self.craftingOrdersTabHooked = true
+		craftingOrdersTab:HookScript("OnClick", function()
+			ns.Debug("ui", "crafting orders tab clicked")
+			C_Timer.After(0, function()
+				if Pane then
+					Pane:SyncCurrentOrderType("orders-tab-click")
+				end
+			end)
+		end)
+	end
+
+	local craftingPage = ProfessionsFrame and ProfessionsFrame.CraftingPage
+	if craftingPage and not self.craftingPageShowHooked then
+		self.craftingPageShowHooked = true
+		craftingPage:HookScript("OnShow", function()
+			C_Timer.After(0, function()
+				if not Pane or Pane.autoScanFlow then
+					return
+				end
+				Pane:MaybeStartPatronAutoScan("crafting-page-show")
+			end)
+		end)
+	end
+
 	local orderView = ordersPage.OrderView
 	if orderView and type(orderView.SetOrder) == "function" and not self.orderViewSetOrderHooked then
 		self.orderViewSetOrderHooked = true
@@ -5831,6 +6224,38 @@ function Pane:InitializeEvents()
 		ns.Debug("event", "TRADE_SKILL_DATA_SOURCE_CHANGED profession=%s", tostring(Pane:GetCurrentProfessionID()))
 		Pane:MarkDirty("trade-skill-source")
 		Pane:MarkDetailWarningDirty()
+		C_Timer.After(0, function()
+			if Pane then
+				Pane:MaybeStartPatronAutoScan("trade-skill-source")
+			end
+		end)
+	end)
+
+	ns.RegisterEvent("TRADE_SKILL_SHOW", function()
+		C_Timer.After(0, function()
+			if Pane then
+				Pane:MaybeStartPatronAutoScan("trade-skill-show")
+				local canOpenPatronOrders = Pane:CanOpenPatronOrders()
+				if canOpenPatronOrders and not Pane.autoScanFlow then
+					local queueApi = Pane:GetYayaQueueAPI()
+					if queueApi and type(queueApi.QueueFavoriteConcentration) == "function" then
+						queueApi.QueueFavoriteConcentration(Pane:GetCurrentProfessionID())
+					end
+				end
+			end
+		end)
+	end)
+
+	ns.RegisterEvent("TRADE_SKILL_CLOSE", function()
+		C_Timer.After(0, function()
+			local flow = Pane and Pane.autoScanFlow
+			local currentProfession = Pane and Pane:GetCurrentProfessionID()
+			local professionFrameShown = ProfessionsFrame and ProfessionsFrame:IsShown()
+			if flow and (not professionFrameShown or (currentProfession and currentProfession ~= flow.profession)) then
+				ns.Debug("auto-scan", "cancelled on profession close")
+				Pane.autoScanFlow = nil
+			end
+		end)
 	end)
 end
 
@@ -5882,17 +6307,38 @@ end
 
 YayaCraftingOrdersAPI = YayaCraftingOrdersAPI or {}
 
+function YayaCraftingOrdersAPI.CanOpenPatronOrders()
+	return Pane:CanOpenPatronOrders()
+end
+
 function YayaCraftingOrdersAPI.ViewOrderByID(orderID)
 	orderID = tonumber(orderID) or 0
 	if orderID <= 0 then
 		return false, "orderID invalide"
 	end
 
-	for _, order in ipairs(Pane.allOrders or Pane.orders or EMPTY_LIST) do
+	local ordersPage = ProfessionsFrame and ProfessionsFrame.OrdersPage
+	if not Pane:IsProfessionPageVisible(ordersPage) then
+		return false, "onglet commandes indisponible"
+	end
+	local currentOrderType = Pane:GetCurrentOrderType()
+	if currentOrderType and currentOrderType ~= ns.ORDER_TYPE_NPC then
+		Pane:SelectPatronOrderType(ordersPage)
+		return false, "onglet patrons en cours d'ouverture"
+	end
+
+	for _, order in ipairs(Pane.allOrders or EMPTY_LIST) do
 		if order and order.orderID == orderID then
 			Pane:ViewOrder(order)
 			return true
 		end
+	end
+
+	local liveOrder = Pane:FindLiveOrderInfo(orderID)
+	if liveOrder then
+		ns.Debug("open", "resolve live order=%s outside filtered list", tostring(orderID))
+		Pane:ViewOrder(liveOrder)
+		return true
 	end
 
 	return false, "order introuvable"

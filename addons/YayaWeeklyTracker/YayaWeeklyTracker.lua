@@ -323,9 +323,11 @@ runtimeState.surplusReagentContainers = {
     [260544] = { order = 10, label = "Skin" }, -- Master Skinner's Surplus Reagents
     [260545] = { order = 11, label = "Tail" }, -- Master Tailor's Surplus Reagents
 }
-runtimeState.questRewardContainerItemIDs = runtimeState.questRewardContainerItemIDs or {
+runtimeState.containerWhitelist = {
     [263934] = true, -- Chest of Gold
     [263466] = true, -- Overflowing Abundant Satchel
+    [263467] = true, -- Chest
+    [254677] = true, -- Chest
 }
 runtimeState.midnightEnchantingWeeklyReagents = {
     [93697] = { itemID = 243599, itemName = "Eversinging Dust", quantity = 20 },
@@ -341,6 +343,7 @@ runtimeState.generalWeeklyQuests = {
         92636, -- Predaxas
     },
     worldBossMaxUsefulItemLevel = 250,
+    liadrinWorldBossQuestID = 93913, -- Midnight: World Boss
     runestoneQuestIDs = {
         90573, -- Fortify the Runestones: Magisters
         90574, -- Fortify the Runestones: Blood Knights
@@ -742,8 +745,13 @@ local TRACKER_DEFAULTS = {
     trackSoiree = true,
     trackNeighborhood = true,
     trackLiadrin = true,
+    trackWorldBossGold = true,
+    trackWorldBossItemLevel = true,
     trackTreatises = true,
     trackProfessionWeeklies = true,
+    trackProfessionDarkmoon = true,
+    trackProfessionLoots = true,
+    trackProfessionDisenchants = true,
     trackRecipePotionRecklessness = true,
     trackRecipeHaranirMulticrafting = true,
     trackRecipeHaranirGlamour = true,
@@ -760,8 +768,13 @@ runtimeState.trackingOptions = {
     { category = "Quetes generales", key = "trackSoiree", label = "Soiree" },
     { category = "Quetes generales", key = "trackNeighborhood", label = "Neighborhood" },
     { category = "Quetes generales", key = "trackLiadrin", label = "Liadrin" },
+    { category = "Quetes generales", key = "trackWorldBossGold", label = "World boss si gold" },
+    { category = "Quetes generales", key = "trackWorldBossItemLevel", label = "World boss si ilvl" },
     { category = "Metiers Midnight", key = "trackTreatises", label = "Traites (inscription)" },
-    { category = "Metiers Midnight", key = "trackProfessionWeeklies", label = "Weeklies metiers" },
+    { category = "Metiers Midnight", key = "trackProfessionWeeklies", label = "Weeklies metiers (trainer)" },
+    { category = "Metiers Midnight", key = "trackProfessionDarkmoon", label = "DMF metiers" },
+    { category = "Metiers Midnight", key = "trackProfessionLoots", label = "Loots metiers" },
+    { category = "Metiers Midnight", key = "trackProfessionDisenchants", label = "Dez Enchantement" },
     { category = "Recettes Midnight", key = "trackRecipePotionRecklessness", label = "Potion of Recklessness" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirMulticrafting", label = "Enchant Tool - Haranir Multicrafting" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirGlamour", label = "Gleeful Glamour - Haranir" },
@@ -848,6 +861,27 @@ local function GetAccountDB()
     YayaWeeklyTrackerAccountDB = YayaWeeklyTrackerAccountDB or {}
     if YayaWeeklyTrackerAccountDB.hideInCombat == nil then
         YayaWeeklyTrackerAccountDB.hideInCombat = TRACKER_DEFAULTS.hideInCombat
+    end
+    if YayaWeeklyTrackerAccountDB.trackProfessionLoots == nil then
+        if YayaWeeklyTrackerAccountDB.trackProfessionWeeklies == false then
+            YayaWeeklyTrackerAccountDB.trackProfessionLoots = false
+        else
+            YayaWeeklyTrackerAccountDB.trackProfessionLoots = TRACKER_DEFAULTS.trackProfessionLoots
+        end
+    end
+    if YayaWeeklyTrackerAccountDB.trackProfessionDisenchants == nil then
+        if YayaWeeklyTrackerAccountDB.trackProfessionWeeklies == false then
+            YayaWeeklyTrackerAccountDB.trackProfessionDisenchants = false
+        else
+            YayaWeeklyTrackerAccountDB.trackProfessionDisenchants = TRACKER_DEFAULTS.trackProfessionDisenchants
+        end
+    end
+    if YayaWeeklyTrackerAccountDB.trackProfessionDarkmoon == nil then
+        if YayaWeeklyTrackerAccountDB.trackProfessionWeeklies == false then
+            YayaWeeklyTrackerAccountDB.trackProfessionDarkmoon = false
+        else
+            YayaWeeklyTrackerAccountDB.trackProfessionDarkmoon = TRACKER_DEFAULTS.trackProfessionDarkmoon
+        end
     end
     if YayaWeeklyTrackerAccountDB.trackMidnightRecipes == false then
         for _, key in ipairs({
@@ -1883,86 +1917,7 @@ local function FindMidnightKnowledgeConsumableInBags(trackedRows)
     return result
 end
 
-trackerUI.RefreshTrackedQuestRewardItemIDs = function()
-    local watchedQuestIDs = {}
-    local questRewardItemIDs = runtimeState.questRewardContainerItemIDs or {}
-    runtimeState.questRewardContainerItemIDs = questRewardItemIDs
-
-    local function AddWatchedQuest(questID)
-        if questID and questID > 0 then
-            watchedQuestIDs[questID] = true
-        end
-    end
-
-    if C_QuestLog and type(C_QuestLog.GetNumQuestWatches) == "function"
-        and type(C_QuestLog.GetQuestIDForQuestWatchIndex) == "function" then
-        for watchIndex = 1, (C_QuestLog.GetNumQuestWatches() or 0) do
-            AddWatchedQuest(C_QuestLog.GetQuestIDForQuestWatchIndex(watchIndex))
-        end
-        if type(C_QuestLog.GetNumWorldQuestWatches) == "function"
-            and type(C_QuestLog.GetQuestIDForWorldQuestWatchIndex) == "function" then
-            for watchIndex = 1, (C_QuestLog.GetNumWorldQuestWatches() or 0) do
-                AddWatchedQuest(C_QuestLog.GetQuestIDForWorldQuestWatchIndex(watchIndex))
-            end
-        end
-    elseif type(GetNumQuestWatches) == "function" and type(GetQuestIndexForWatch) == "function" then
-        for watchIndex = 1, (GetNumQuestWatches() or 0) do
-            local questLogIndex = GetQuestIndexForWatch(watchIndex)
-            if questLogIndex and type(GetQuestLogTitle) == "function" then
-                local _, _, _, isHeader, _, _, _, questID = GetQuestLogTitle(questLogIndex)
-                if not isHeader then
-                    AddWatchedQuest(questID)
-                end
-            end
-        end
-    end
-
-    for questID in pairs(watchedQuestIDs) do
-        local rewardCount = type(GetNumQuestLogRewards) == "function"
-            and (GetNumQuestLogRewards(questID) or 0) or 0
-        local choiceCount = type(GetNumQuestLogChoices) == "function"
-            and (GetNumQuestLogChoices(questID) or 0) or 0
-        if rewardCount == 0 and choiceCount == 0 then
-            RequestQuestRewardData(questID)
-        end
-
-        if type(GetQuestLogRewardInfo) == "function" then
-            for rewardIndex = 1, rewardCount do
-                local ok, _, _, _, _, _, itemID = pcall(GetQuestLogRewardInfo, rewardIndex, questID)
-                if ok and itemID then
-                    questRewardItemIDs[itemID] = true
-                end
-            end
-        end
-        if type(GetQuestLogChoiceInfo) == "function" then
-            for choiceIndex = 1, choiceCount do
-                local ok, _, _, _, _, _, itemID = pcall(GetQuestLogChoiceInfo, choiceIndex, questID)
-                if ok and itemID then
-                    questRewardItemIDs[itemID] = true
-                end
-            end
-        end
-    end
-
-    return questRewardItemIDs
-end
-
-trackerUI.GetContainerItemHasLoot = function(bagID, slotIndex)
-    if C_Container and type(C_Container.GetContainerItemInfo) == "function" then
-        local info = C_Container.GetContainerItemInfo(bagID, slotIndex)
-        return info and info.hasLoot == true
-    end
-
-    if type(GetContainerItemInfo) == "function" then
-        local _, _, _, _, _, hasLoot = GetContainerItemInfo(bagID, slotIndex)
-        return hasLoot == true
-    end
-
-    return false
-end
-
 local function FindArtisanConsortiumPayoutInBags()
-    local trackedQuestRewardItemIDs = trackerUI.RefreshTrackedQuestRewardItemIDs()
     if not midnightCaches.payoutDirty and midnightCaches.payout then
         return midnightCaches.payout
     end
@@ -1976,10 +1931,8 @@ local function FindArtisanConsortiumPayoutInBags()
         for slotIndex = 1, slotCount do
             local itemID = GetContainerItemIDCompat(bagID, slotIndex)
             local isPayout = itemID and ARTISAN_CONSORTIUM_PAYOUT_ITEM_IDS[itemID]
-            local isTrackedQuestContainer = itemID
-                and trackedQuestRewardItemIDs[itemID]
-                and (itemID == 263934 or trackerUI.GetContainerItemHasLoot(bagID, slotIndex))
-            if isPayout or isTrackedQuestContainer then
+            local isWhitelistedContainer = itemID and runtimeState.containerWhitelist[itemID]
+            if isPayout or isWhitelistedContainer then
                 totalCount = totalCount + math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
                 matches[#matches + 1] = {
                     bagID = bagID,
@@ -1988,7 +1941,7 @@ local function FindArtisanConsortiumPayoutInBags()
                     itemName = GetItemInfo and GetItemInfo(itemID) or nil,
                     slotIndex = slotIndex,
                     targetKey = tostring(bagID) .. ":" .. tostring(slotIndex),
-                    isQuestContainer = not isPayout,
+                    isPayout = isPayout == true,
                 }
             end
         end
@@ -2020,7 +1973,7 @@ local function FindArtisanConsortiumPayoutInBags()
         itemName = selectedMatch and selectedMatch.itemName or nil,
         slotIndex = selectedMatch and selectedMatch.slotIndex or nil,
         targetKey = selectedMatch and selectedMatch.targetKey or nil,
-        isQuestContainer = selectedMatch and selectedMatch.isQuestContainer or false,
+        isPayout = selectedMatch and selectedMatch.isPayout or false,
     }
     local debugSignature = ("%d:%s:%s"):format(
         result.totalCount or 0,
@@ -2190,12 +2143,12 @@ trackerUI.UpdateArtisanConsortiumPayoutButton = function(state)
     end
 
     if state and state.itemID then
-        local label = state.isQuestContainer and "Ouvrir coffre" or "Ouvrir payout"
+        local label = state.isPayout and "Ouvrir payout" or "Ouvrir coffre"
         button:SetText(("%s x%d"):format(label, state.totalCount or 1))
         button.bagID = state.bagID
         button.slotIndex = state.slotIndex
         button.payoutTargetKey = state.targetKey
-        button.isQuestContainer = state.isQuestContainer
+        button.isPayout = state.isPayout
         button.itemID = state.itemID
         button.itemLink = state.itemLink
         button.itemName = state.itemName
@@ -2212,7 +2165,7 @@ trackerUI.UpdateArtisanConsortiumPayoutButton = function(state)
     button.bagID = nil
     button.slotIndex = nil
     button.payoutTargetKey = nil
-    button.isQuestContainer = nil
+    button.isPayout = nil
     button.itemID = nil
     button.itemLink = nil
     button.itemName = nil
@@ -2729,20 +2682,22 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     local oneTimeTokens = {}
     local accountDB = GetAccountDB()
     local trackProfessionWeeklies = accountDB.trackProfessionWeeklies ~= false
+    local trackProfessionLoots = accountDB.trackProfessionLoots ~= false
+    local trackProfessionDisenchants = accountDB.trackProfessionDisenchants ~= false
     local remainingTreasures, totalTreasures = CountRemainingTrackedQuests(config.treasureQuestIDs)
     if remainingTreasures > 0 then
         oneTimeTokens[#oneTimeTokens + 1] = ("T%d/%d"):format(remainingTreasures, totalTreasures)
     end
 
     local remainingWeeklyLoots, totalWeeklyLoots = CountRemainingTrackedQuests(config.weeklyLootQuestIDs)
-    if trackProfessionWeeklies and remainingWeeklyLoots > 0 then
+    if trackProfessionLoots and remainingWeeklyLoots > 0 then
         tokens[#tokens + 1] = ("loot %d/%d"):format(remainingWeeklyLoots, totalWeeklyLoots)
-    elseif trackProfessionWeeklies and totalWeeklyLoots <= 0 and (config.weeklyKnowledgeCap or 0) > 0 then
+    elseif trackProfessionLoots and totalWeeklyLoots <= 0 and (config.weeklyKnowledgeCap or 0) > 0 then
         tokens[#tokens + 1] = ("loot %d/%d"):format(config.weeklyKnowledgeCap, config.weeklyKnowledgeCap)
     end
 
     local remainingDisenchants, totalDisenchants = CountRemainingTrackedQuests(config.weeklyDisenchantQuestIDs)
-    if trackProfessionWeeklies and remainingDisenchants > 0 then
+    if trackProfessionDisenchants and remainingDisenchants > 0 then
         tokens[#tokens + 1] = ("dez %d/%d"):format(remainingDisenchants, totalDisenchants)
     end
 
@@ -2762,7 +2717,7 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         tokens[#tokens + 1] = "traite"
     end
 
-    if trackProfessionWeeklies
+    if accountDB.trackProfessionDarkmoon ~= false
         and IsDarkmoonFaireActive()
         and config.darkmoonQuestID
         and not IsQuestDone(config.darkmoonQuestID) then
@@ -4090,6 +4045,7 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
         return
     end
 
+    local activeLiadrinQuestID = FindActiveQuest(config.liadrinWeeklyQuestIDs, activeByQuestID)
     local worldBossQuestID = FindActiveQuest(config.midnightWorldBossQuestIDs, activeByQuestID)
     if worldBossQuestID and not IsQuestDone(worldBossQuestID) then
         local rewardMoney = GetQuestRewardMoney(worldBossQuestID)
@@ -4103,11 +4059,20 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
             RequestQuestRewardData(worldBossQuestID)
         end
 
-        if rewardMoney > 0 then
-            local gold = math.floor((rewardMoney / 10000) + 0.5)
-            AddEntry(entries, (GetQuestTitle(worldBossQuestID) or "World boss Midnight") .. " " .. gold .. "g", "todo")
-        elseif equippedItemLevel > 0 and equippedItemLevel < config.worldBossMaxUsefulItemLevel then
-            AddEntry(entries, GetQuestTitle(worldBossQuestID) or "World boss Midnight", "todo")
+        local isLiadrinWorldBossTracked = accountDB.trackLiadrin ~= false
+            and activeLiadrinQuestID == config.liadrinWorldBossQuestID
+        local shouldTrackForGold = accountDB.trackWorldBossGold ~= false and rewardMoney > 0
+        local shouldTrackForItemLevel = accountDB.trackWorldBossItemLevel ~= false
+            and equippedItemLevel > 0
+            and equippedItemLevel < config.worldBossMaxUsefulItemLevel
+
+        if isLiadrinWorldBossTracked or shouldTrackForGold or shouldTrackForItemLevel then
+            if rewardMoney > 0 then
+                local gold = math.floor((rewardMoney / 10000) + 0.5)
+                AddEntry(entries, (GetQuestTitle(worldBossQuestID) or "World boss Midnight") .. " " .. gold .. "g", "todo")
+            else
+                AddEntry(entries, GetQuestTitle(worldBossQuestID) or "World boss Midnight", "todo")
+            end
         end
     end
 
@@ -4131,7 +4096,6 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
         AddEntry(entries, label, "todo")
     end
 
-    local activeLiadrinQuestID = FindActiveQuest(config.liadrinWeeklyQuestIDs, activeByQuestID)
     local isLiadrinWeeklyActive = activeLiadrinQuestID
         or IsQuestActiveOnMap(config.liadrinWrapperQuestID, activeByQuestID)
     if accountDB.trackLiadrin ~= false
@@ -4299,28 +4263,42 @@ trackerUI.RegisterOptions = function()
     local panel = CreateFrame("Frame")
     panel.name = "Yaya Weekly Tracker"
 
-    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    local scrollFrame = CreateFrame(
+        "ScrollFrame",
+        addonName .. "OptionsScrollFrame",
+        panel,
+        "UIPanelScrollFrameTemplate"
+    )
+    scrollFrame:SetPoint("TOPLEFT", 0, 0)
+    scrollFrame:SetPoint("BOTTOMRIGHT", -24, 0)
+    local scrollChild = CreateFrame("Frame", addonName .. "OptionsScrollChild", scrollFrame)
+    scrollChild:SetSize(1, 1)
+    scrollFrame:SetScrollChild(scrollChild)
+    panel.optionsScrollFrame = scrollFrame
+    panel.optionsScrollChild = scrollChild
+
+    local title = scrollChild:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
     title:SetText(panel.name)
 
-    local description = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    local description = scrollChild:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
     description:SetText("Reglages partages par tout le compte.")
 
     local function AddSection(titleText, anchor)
-        local section = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        local section = scrollChild:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         section:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -14)
         section:SetText("|cffffd100" .. titleText .. "|r")
 
-        local divider = panel:CreateTexture(nil, "ARTWORK")
+        local divider = scrollChild:CreateTexture(nil, "ARTWORK")
         divider:SetColorTexture(0.45, 0.34, 0.12, 0.65)
         divider:SetPoint("LEFT", section, "RIGHT", 8, 0)
-        divider:SetPoint("RIGHT", panel, "RIGHT", -18, 0)
+        divider:SetPoint("RIGHT", scrollChild, "RIGHT", -18, 0)
         divider:SetHeight(1)
         return section
     end
 
-    local checkbox = CreateFrame("CheckButton", addonName .. "HideInCombatCheckbox", panel, "UICheckButtonTemplate")
+    local checkbox = CreateFrame("CheckButton", addonName .. "HideInCombatCheckbox", scrollChild, "UICheckButtonTemplate")
     local displaySection = AddSection("Affichage", description)
     checkbox:SetPoint("TOPLEFT", displaySection, "BOTTOMLEFT", 0, -8)
     local checkboxLabel = checkbox.Text or checkbox.text
@@ -4348,7 +4326,7 @@ trackerUI.RegisterOptions = function()
         local trackingCheckbox = CreateFrame(
             "CheckButton",
             addonName .. "TrackingCheckbox" .. index,
-            panel,
+            scrollChild,
             "UICheckButtonTemplate"
         )
         trackingCheckbox:SetPoint("TOPLEFT", previousCheckbox, "BOTTOMLEFT", 0, -6)
@@ -4368,7 +4346,24 @@ trackerUI.RegisterOptions = function()
         previousCheckbox = trackingCheckbox
     end
 
+    local function UpdateScrollChildSize()
+        local width = scrollFrame:GetWidth() or 0
+        if width > 0 then
+            scrollChild:SetWidth(width)
+        end
+
+        local contentTop = scrollChild:GetTop()
+        local lastBottom = previousCheckbox:GetBottom()
+        if contentTop and lastBottom then
+            scrollChild:SetHeight(math.max(1, contentTop - lastBottom + 18))
+        else
+            scrollChild:SetHeight(600)
+        end
+    end
+    scrollFrame:SetScript("OnSizeChanged", UpdateScrollChildSize)
+
     panel:SetScript("OnShow", function()
+        UpdateScrollChildSize()
         local accountDB = GetAccountDB()
         checkbox:SetChecked(accountDB.hideInCombat)
         for _, trackingCheckbox in ipairs(panel.trackingCheckboxes) do
@@ -4656,7 +4651,6 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.payoutButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.payoutButton:SetText("Ouvrir payout")
     trackerFrame.payoutButton:Hide()
-    trackerFrame.payoutButton:HookScript("PreClick", trackerUI.NotifyContainerOpening)
     trackerFrame.payoutButton:HookScript("PostClick", function(self, _, down)
         if down then
             return
@@ -4677,7 +4671,7 @@ trackerUI.CreateTrackerFrame = function()
     end)
     trackerFrame.payoutButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Ouvre le prochain payout ou coffre de quete suivi disponible.")
+        GameTooltip:SetText("Ouvre le prochain payout ou coffre de la whitelist disponible.")
         if self.itemLink then
             GameTooltip:AddLine(self.itemLink, 0.5, 0.8, 1, true)
         end
@@ -4693,7 +4687,6 @@ trackerUI.CreateTrackerFrame = function()
         button:SetAttribute("useOnKeyDown", false)
         button:SetText("Ouvrir surplus")
         button:Hide()
-        button:HookScript("PreClick", trackerUI.NotifyContainerOpening)
         button:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
             GameTooltip:SetText("Ouvre ce type de conteneur de composants en surplus.")

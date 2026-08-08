@@ -11,7 +11,7 @@ Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suiv
 - `Containing the Helsworn` si la recompense est du gold brut
 - `Great Vault: a ouvrir` quand une recompense est disponible
 - `Abondance` a partir du niveau 80
-- le world boss `Midnight` actif s'il donne de l'or, ou si l'ilvl equipe moyen du personnage est inferieur a `250`, au niveau 90
+- le world boss `Midnight` actif selon les options `World boss si gold` et `World boss si ilvl`, au niveau 90 ; il reste toujours tracke si l'objectif Liadrin actif est `Midnight: World Boss`
 - `Defense des runestones` de la Soiree de Saltheril, au niveau 90
 - la weekly de Halduron uniquement quand `Hope in the Darkest Corners` est active
 - la weekly `Neighborhood` au niveau 90, avec son nom quand elle est dans le journal et une completion partagee par tout le Warband
@@ -51,9 +51,9 @@ Resume `Midnight` :
 - si TomTom est installe, un waypoint temporaire est aussi pose vers le vendeur des recettes suivies manquantes
 - l'addon n'impose pas la `CrazyArrow` de TomTom; il pose seulement les markers carte/minimap
 - un bouton `Ouvrir payout` apparait si un `Artisan's Consortium Payout` est detecte dans les sacs; chaque clic cible un payout encore present et un clic excedentaire reste sans effet
-- le meme bouton ouvre aussi les coffres recompenses des quetes suivies (recompenses obligatoires ou choix), ainsi que `Chest of Gold` (`263934`) et `Overflowing Abundant Satchel` (`263466`), en alternant les slots disponibles
+- le meme bouton ouvre aussi les coffres de la whitelist (`263934`, `263466`, `263467` et `254677`) presents dans les sacs, en alternant les slots disponibles
 - des boutons independants `Ouvrir surplus` apparaissent pour les conteneurs de composants en surplus des 11 metiers Midnight reconnus, afin de pouvoir alterner les clics pendant leur ouverture
-- si YayaContainerValues est charge, ces boutons lui signalent l'item avant l'ouverture afin d'attribuer correctement les outputs
+- si YayaContainerValues est charge, ses hooks suivent l'utilisation réelle de l'item afin d'éviter les doubles signalements lors des clics rapides
 - si la weekly `Midnight Enchanting` active demande un reagent manquant, YWT ajoute automatiquement la quantite complete a la queue YayaQueue, sans bouton et sans doublon aux refreshs
 - quand cette weekly est rendue, YWT retire uniquement la quantite qu'il a automatiquement ajoutee, sans toucher aux besoins des recettes ni a une demande deja existante
 
@@ -77,7 +77,7 @@ La frame est ancree par son coin haut gauche et s'etend vers le bas droite. Sa p
 Dans `Echap > Options > AddOns > Yaya Weekly Tracker`, les options account-wide permettent de :
 
 - cacher integralement la frame en combat (desactive par defaut)
-- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des traites, des weeklies metiers, de chaque recette Midnight, de `Lost Legends` et de `Research Console: Exploring the Void` (tous actives par defaut)
+- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, du world boss selon gold ou ilvl, des traites, des weeklies metiers trainer, du DMF metiers, des loots metiers, du dez Enchantement, de chaque recette Midnight, de `Lost Legends` et de `Research Console: Exploring the Void` (tous actives par defaut)
 
 L'addon enregistre aussi en account-wide les personnages qui connaissent `Jard` dans `YayaWeeklyTrackerAccountDB.jardOwners`.
 

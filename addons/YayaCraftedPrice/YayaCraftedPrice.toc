@@ -1,0 +1,10 @@
+## Interface: 120005
+## Title: YayaCraftedPrice
+## Author: Yaya
+## Version: 0.2.0
+## Notes: Persists craft-cost snapshots and exposes smartAvgCrafted to TSM.
+## Category: Professions
+## OptionalDeps: TradeSkillMaster, YayaContainerValues
+## SavedVariables: YayaCraftedPriceDB
+
+YayaCraftedPrice.lua

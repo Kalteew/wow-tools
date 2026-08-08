@@ -11,6 +11,10 @@ Suit generiquement les items ouverts depuis les sacs et agrège les IDs/quantit�
 - si le hook d'utilisation ne fournit pas l'item, une consommation non ambiguë est détectée par différence d'inventaire
 - le scan couvre aussi le sac de composants
 - toutes les lignes de loot sont agrégées avant de finaliser une ouverture
+- une seule ouverture est corrélée à la fois; une ouverture concurrente ambiguë est abandonnée plutôt que mélangée
+- les événements `LOOT_OPENED` et `CHAT_MSG_LOOT` sont dédupliqués
+- les outputs liés, équipement, armes, recettes et objets de quête sont exclus de la valeur Auction House
+- la ligne de valeur est réappliquée après les rafraîchissements différés des tooltips
 - `/ycv price <itemID>` affiche la valeur moyenne actuelle
 - `/ycv` liste les containers connus
 - affiche la valeur moyenne dans le tooltip du container

@@ -2,6 +2,7 @@
 ## Title: Yaya Warband Bank Default
 ## Notes: Opens the bank on the warband bank tab by default.
 ## Author: Codex
-## Version: 0.2.0
+## Version: 0.8.0-debug
+## OptionalDeps: ElvUI
 
 YayaWarbandBankDefault.lua
