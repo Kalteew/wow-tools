@@ -774,15 +774,35 @@ end
 
 YQQuality.IsIngenuityBuffActive = function()
     local names = {}
+    local spellIDs = {}
     for rank = 1, 2 do
         local itemID = CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[rank]
         local itemName = GetItemName(itemID)
         if itemName and itemName ~= "" then
             names[itemName] = true
         end
-        local spellName = C_Item and SafeCall(C_Item.GetItemSpell, itemID) or nil
+        local spellName, spellID
+        if C_Item and type(C_Item.GetItemSpell) == "function" then
+            local ok
+            ok, spellName, spellID = pcall(C_Item.GetItemSpell, itemID)
+            if not ok then
+                spellName, spellID = nil, nil
+            end
+        end
         if type(spellName) == "string" and spellName ~= "" then
             names[spellName] = true
+        end
+        spellID = tonumber(spellID)
+        if spellID and spellID > 0 then
+            spellIDs[spellID] = true
+        end
+    end
+
+    if AuraUtil and type(AuraUtil.FindAuraBySpellID) == "function" then
+        for spellID in pairs(spellIDs) do
+            if AuraUtil.FindAuraBySpellID(spellID, "player", "HELPFUL") then
+                return true
+            end
         end
     end
 
@@ -797,14 +817,14 @@ YQQuality.IsIngenuityBuffActive = function()
     if C_UnitAuras and type(C_UnitAuras.GetAuraDataByIndex) == "function" then
         for index = 1, 40 do
             local aura = C_UnitAuras.GetAuraDataByIndex("player", index, "HELPFUL")
-            if aura and names[aura.name] then
+            if aura and (spellIDs[tonumber(aura.spellId)] or names[aura.name]) then
                 return true
             end
         end
     elseif type(UnitAura) == "function" then
         for index = 1, 40 do
-            local name = UnitAura("player", index, "HELPFUL")
-            if name and names[name] then
+            local name, _, _, _, _, _, _, _, _, auraSpellID = UnitAura("player", index, "HELPFUL")
+            if spellIDs[tonumber(auraSpellID)] or (name and names[name]) then
                 return true
             end
         end
