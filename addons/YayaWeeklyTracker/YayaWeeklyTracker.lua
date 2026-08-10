@@ -342,6 +342,16 @@ runtimeState.generalWeeklyQuests = {
         92034, -- Thorm'belan
         92636, -- Predaxas
     },
+    midnightShowdownWorldBosses = {
+        {
+            name = "Imperator Pertinax",
+            questIDs = { 96473, 96295 }, -- normal / Heroic, Val
+        },
+        {
+            name = "Nexus-Captain Leth'ir",
+            questIDs = { 96472, 96709 }, -- normal / Heroic, Naigtal
+        },
+    },
     worldBossMaxUsefulItemLevel = 250,
     liadrinWorldBossQuestID = 93913, -- Midnight: World Boss
     runestoneQuestIDs = {
@@ -747,6 +757,7 @@ local TRACKER_DEFAULTS = {
     trackLiadrin = true,
     trackWorldBossGold = true,
     trackWorldBossItemLevel = true,
+    trackMidnightShowdownWorldBoss = true,
     trackTreatises = true,
     trackProfessionWeeklies = true,
     trackProfessionDarkmoon = true,
@@ -770,6 +781,7 @@ runtimeState.trackingOptions = {
     { category = "Quetes generales", key = "trackLiadrin", label = "Liadrin" },
     { category = "Quetes generales", key = "trackWorldBossGold", label = "World boss si gold" },
     { category = "Quetes generales", key = "trackWorldBossItemLevel", label = "World boss si ilvl" },
+    { category = "Quetes generales", key = "trackMidnightShowdownWorldBoss", label = "World boss Val/Naigtal" },
     { category = "Metiers Midnight", key = "trackTreatises", label = "Traites (inscription)" },
     { category = "Metiers Midnight", key = "trackProfessionWeeklies", label = "Weeklies metiers (trainer)" },
     { category = "Metiers Midnight", key = "trackProfessionDarkmoon", label = "DMF metiers" },
@@ -4019,6 +4031,26 @@ AddEntry = function(entries, label, state, options)
     entries[#entries + 1] = entry
 end
 
+trackerUI.FindActiveMidnightShowdownWorldBoss = function(activeByQuestID)
+    local bosses = runtimeState.generalWeeklyQuests.midnightShowdownWorldBosses
+    local completedQuestID
+    local completedBossName
+
+    for _, boss in ipairs(bosses or EMPTY_TABLE) do
+        for _, questID in ipairs(boss.questIDs or EMPTY_TABLE) do
+            if IsQuestActiveOnMap(questID, activeByQuestID) then
+                if not IsQuestDone(questID) then
+                    return questID, boss.name
+                end
+                completedQuestID = completedQuestID or questID
+                completedBossName = completedBossName or boss.name
+            end
+        end
+    end
+
+    return completedQuestID, completedBossName
+end
+
 trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
     local level = UnitLevel and UnitLevel("player") or 0
     local config = runtimeState.generalWeeklyQuests
@@ -4043,6 +4075,13 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
 
     if level < 90 then
         return
+    end
+
+    if accountDB.trackMidnightShowdownWorldBoss ~= false then
+        local showdownQuestID, showdownBossName = trackerUI.FindActiveMidnightShowdownWorldBoss(activeByQuestID)
+        if showdownQuestID and not IsQuestDone(showdownQuestID) then
+            AddEntry(entries, showdownBossName or GetQuestTitle(showdownQuestID) or "World boss Val/Naigtal", "todo")
+        end
     end
 
     local activeLiadrinQuestID = FindActiveQuest(config.liadrinWeeklyQuestIDs, activeByQuestID)
