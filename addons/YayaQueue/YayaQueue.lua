@@ -10200,6 +10200,50 @@ function YayaQueueAPI.AddRecipe(context, quantity)
     return true
 end
 
+function YayaQueueAPI.SyncPatronOrders(orderIDs, professionID)
+    state.EnsureDB()
+
+    local availableOrderIDs = {}
+    for key, value in pairs(type(orderIDs) == "table" and orderIDs or {}) do
+        local orderID = value
+        if value == true then
+            orderID = key
+        elseif type(value) == "table" then
+            orderID = value.orderID
+        end
+        orderID = tonumber(orderID) or 0
+        if orderID > 0 then
+            availableOrderIDs[orderID] = true
+        end
+    end
+
+    professionID = tonumber(professionID)
+    local removed = 0
+    local removedOrderIDs = {}
+    for index = #db.queue, 1, -1 do
+        local entry = db.queue[index]
+        local sameProfession = not professionID or tonumber(entry.professionID) == professionID
+        local orderID = tonumber(entry.orderID) or 0
+        if entry.queueKind == "patron" and sameProfession and not availableOrderIDs[orderID] then
+            removedOrderIDs[orderID] = true
+            table.remove(db.queue, index)
+            removed = removed + 1
+        end
+    end
+
+    if removed > 0 then
+        state.InvalidateQualityPricing()
+        local nextActionLock = GetNextActionLock()
+        if nextActionLock and removedOrderIDs[nextActionLock.orderID] then
+            ClearNextActionLock("patron-order-unavailable")
+        end
+        DebugPrint("sync-patron-orders profession=" .. tostring(professionID) .. " removed=" .. tostring(removed))
+        ScheduleRefresh()
+    end
+
+    return removed
+end
+
 function YayaQueueAPI.AddItem(itemID, quantity, itemName)
     state.EnsureDB()
     itemID = tonumber(itemID) or 0

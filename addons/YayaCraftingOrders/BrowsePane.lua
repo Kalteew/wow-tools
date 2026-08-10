@@ -65,7 +65,7 @@ Pane.retryConfig = {
 	orderTypeDelay = 0.15,
 	orderTypeLimit = 20,
 	autoScanDelay = 0.1,
-	autoScanDuration = 2,
+	autoScanDuration = 2.5,
 }
 local ITEM_DATA_REFRESH_DELAY = 0.75
 local INITIALIZE_RETRY_DELAY = 0.1
@@ -3850,10 +3850,14 @@ function Pane:UpdateToolbar()
 	self.createListButton.tooltipTitle = queueApi and L.TOOLBAR_ADD_TO_YAYAQUEUE or L.TOOLBAR_YAYAQUEUE_UNAVAILABLE
 	self.createListButton.tooltipText = queueApi and L.TOOLBAR_ADD_TO_YAYAQUEUE_TOOLTIP or L.TOOLBAR_INSTALL_YAYAQUEUE_TOOLTIP
 
-	if selectedCount == 0 then
-		self.createListButton.tooltipText = queueApi and L.TOOLBAR_SELECT_ORDERS_TOOLTIP or L.TOOLBAR_INSTALL_AND_SELECT_TOOLTIP
+	local autoQueueableCount = 0
+	if selectedCount == 0 and queueApi then
+		autoQueueableCount = self:GetAutoQueueablePatronOrderCount(queueApi)
 	end
-	self.createListButton:SetEnabled(selectedCount > 0 and queueApi ~= nil)
+	if selectedCount == 0 then
+		self.createListButton.tooltipText = queueApi and L.TOOLBAR_ADD_TO_YAYAQUEUE_TOOLTIP or L.TOOLBAR_INSTALL_AND_SELECT_TOOLTIP
+	end
+	self.createListButton:SetEnabled(queueApi ~= nil and (selectedCount > 0 or autoQueueableCount > 0))
 
 	if self.selectAllButton then
 		self.selectAllButton:SetText(L.TOOLBAR_SELECT_ALL_BUTTON)
@@ -3957,6 +3961,18 @@ function Pane:ShouldAutoQueuePatronOrder(orderData, queueApi)
 		and self:HasEnoughConcentrationForOrder(orderData, queueApi or self:GetYayaQueueAPI())
 end
 
+function Pane:IsAutoQueueablePatronOrder(orderData, queueApi, bucket)
+	if not self:ShouldAutoQueuePatronOrder(orderData, queueApi) then
+		return false
+	end
+
+	if bucket and bucket[orderData.orderID] then
+		return false
+	end
+
+	return type(queueApi.HasPatronOrder) ~= "function" or not queueApi.HasPatronOrder(orderData.orderID)
+end
+
 function Pane:GetAutoQueueSessionBucket()
 	local professionID = self.visibleProfession or self:GetCurrentProfessionID()
 	if not professionID then
@@ -3986,14 +4002,64 @@ function Pane:MaybeAutoQueuePatronOrders()
 	end
 
 	for _, order in ipairs(self.allOrders or EMPTY_LIST) do
-		local alreadyQueued = type(queueApi.HasPatronOrder) == "function" and queueApi.HasPatronOrder(order.orderID)
-		if self:ShouldAutoQueuePatronOrder(order, queueApi) and not bucket[order.orderID] and not alreadyQueued then
+		if self:IsAutoQueueablePatronOrder(order, queueApi, bucket) then
 			local ok = self:AddOrderToYayaQueue(order, true)
 			if ok then
 				bucket[order.orderID] = true
 			end
 		end
 	end
+end
+
+function Pane:GetAutoQueueablePatronOrderCount(queueApi)
+	queueApi = queueApi or self:GetYayaQueueAPI()
+	if not queueApi then
+		return 0
+	end
+
+	local bucket = self:GetAutoQueueSessionBucket()
+	if not bucket then
+		return 0
+	end
+
+	local count = 0
+	for _, order in ipairs(self.allOrders or EMPTY_LIST) do
+		if self:IsAutoQueueablePatronOrder(order, queueApi, bucket) then
+			count = count + 1
+		end
+	end
+
+	return count
+end
+
+function Pane:QueueAutoQueueablePatronOrders(queueApi)
+	queueApi = queueApi or self:GetYayaQueueAPI()
+	if not queueApi then
+		return 0, 0, "queue unavailable"
+	end
+
+	local bucket = self:GetAutoQueueSessionBucket()
+	if not bucket then
+		return 0, 0, "profession unavailable"
+	end
+
+	local candidateCount = 0
+	local addedCount = 0
+	local firstError
+	for _, order in ipairs(self.allOrders or EMPTY_LIST) do
+		if self:IsAutoQueueablePatronOrder(order, queueApi, bucket) then
+			candidateCount = candidateCount + 1
+			local ok, message = self:AddOrderToYayaQueue(order, true)
+			if ok then
+				bucket[order.orderID] = true
+				addedCount = addedCount + 1
+			elseif not firstError then
+				firstError = message or "missing recipe info"
+			end
+		end
+	end
+
+	return candidateCount, addedCount, firstError
 end
 
 function Pane:IsProfessionPageVisible(page)
@@ -4305,7 +4371,15 @@ function Pane:AddSelectedOrdersToYayaQueue()
 	end
 
 	if selectedCount == 0 then
-		ns.Print(L.MSG_SELECT_ORDERS_FIRST)
+		local candidateCount, autoAddedCount, autoError = self:QueueAutoQueueablePatronOrders(queueApi)
+		if autoAddedCount > 0 then
+			if type(queueApi.Refresh) == "function" then
+				queueApi.Refresh()
+			end
+			ns.Print(LF("MSG_ADDED_TO_YAYAQUEUE_FORMAT", autoAddedCount))
+		elseif candidateCount > 0 then
+			ns.Print(LF("MSG_YAYAQUEUE_FAILED_FORMAT", autoError or UNKNOWN))
+		end
 		return
 	end
 
@@ -4657,6 +4731,27 @@ function Pane:GetVisibleRawOrders()
 	end
 
 	return rawOrders
+end
+
+function Pane:SyncYayaQueuePatronOrders(rawOrders, professionID)
+	local queueApi = self:GetYayaQueueAPI()
+	if not professionID or not queueApi or type(queueApi.SyncPatronOrders) ~= "function" then
+		return 0
+	end
+
+	local availableOrderIDs = {}
+	for _, rawOrder in ipairs(rawOrders or EMPTY_LIST) do
+		local orderID = tonumber(rawOrder.orderID) or 0
+		if orderID > 0 then
+			availableOrderIDs[orderID] = true
+		end
+	end
+
+	local removed = queueApi.SyncPatronOrders(availableOrderIDs, professionID)
+	if removed > 0 then
+		ns.Debug("queue", "removed unavailable patron orders profession=%s count=%s", tostring(professionID), tostring(removed))
+	end
+	return removed
 end
 
 function Pane:CanOpenPatronOrders()
@@ -5832,6 +5927,10 @@ function Pane:RebuildPreparedOrders()
 		self.unresolvedItemIDs = unresolvedItemIDs
 		self.ordersProfession = currentProfession
 		return false
+	end
+
+	if not self:IsLoadingOrders() then
+		self:SyncYayaQueuePatronOrders(rawOrders, currentProfession)
 	end
 
 	local preparedOrders = {}
