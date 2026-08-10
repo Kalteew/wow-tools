@@ -12,6 +12,7 @@ What it does:
 - Produces a rarity-aware farmability report with estimated `units/hr` and `gold/hr`
 - Seeds a local legacy recipe graph and computes recursive `buy vs craft` profitability
 - Builds a compact local account digest from SavedVariables and TSM AppHelper
+- Compares current Blizzard Auction House prices by EU connected realm, including item-level variants
 
 Current scope:
 
@@ -46,6 +47,10 @@ python -m wow_tools local-summary
 python -m wow_tools local-items --name hearthstone
 python -m wow_tools local-items --all --json
 python -m wow_tools local-prices --item-id 124119
+python -m wow_tools sync-auction-catalog --region eu
+python -m wow_tools sync-auction-realms --region eu
+python -m wow_tools sync-auction-data --region eu
+python -m wow_tools search-auctions --name "Sin'dorei Jeweler's Loupes"
 python scripts\flipping\build-flipping-groups.py --region eu
 python scripts\flipping\build-flip-lists.py
 python scripts\flipping\apply-tsm-flip-groups.py
@@ -75,6 +80,8 @@ Key files:
 - [wow_tools/seeds.py](wow_tools/seeds.py)
 - [wow_tools/sources/wowhead.py](wow_tools/sources/wowhead.py)
 - [wow_tools/sources/tsm.py](wow_tools/sources/tsm.py)
+- [wow_tools/auction.py](wow_tools/auction.py)
+- [wow_tools/sources/blizzard.py](wow_tools/sources/blizzard.py)
 - [wow_tools/local_account.py](wow_tools/local_account.py)
 
 Bundled addons:
@@ -117,6 +124,11 @@ Notes:
 - `local-items` aggregates observed items across character bags, equipment, auctions, bank, reagent bank, and warband bank if those sections were scanned in-game.
 - `local-items --all --json` dumps the full observed account inventory snapshot across all scanned characters and warband storage.
 - `local-prices` reads the local TSM AppHelper datasets directly from `Interface\AddOns\TradeSkillMaster_AppHelper\AppData.lua`.
+- The AH comparator uses Blizzard's Retail API for prices and connected-realm data. Set `BLIZZARD_CLIENT_ID` and `BLIZZARD_CLIENT_SECRET` first.
+- PowerShell example: `$env:BLIZZARD_CLIENT_ID = "..."; $env:BLIZZARD_CLIENT_SECRET = "..."`.
+- `sync-auction-catalog` downloads only item names from the public TSM region catalog; it does not provide AH prices or item ranks.
+- `sync-auction-data` stores local snapshots under `data/wow.sqlite3`, decodes item bonus lists with the public [Shatari item-key algorithm](https://github.com/erorus/shatari/blob/master/src/itemKey.js), and keeps commodities at EU scope.
+- `search-auctions` shows one line per connected realm group. Missing listings are shown as `-`; old snapshots remain available locally for history.
 - `scripts/flipping/build-flipping-groups.py` builds the three flip TSM lists: housing, other fast (`saleRate > 0.2`), and an other slow shortlist (`saleRate >= 0.02`, `soldPerDay >= 0.02`, `1000g <= price <= 1M`, top 1000 by slot value).
 - `scripts/flipping/build-flip-lists.py` builds housing decor flip lists from local TSM AppHelper data and excludes commodities/watch items.
 - `scripts/flipping/apply-tsm-flip-groups.py` backs up and patches TSM flip groups/operations only when WoW is closed.

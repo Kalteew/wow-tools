@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from wow_tools.account_pipeline import build_account_pipeline, render_account_digest, save_account_pipeline
+from wow_tools.auction import (
+    build_auction_report,
+    render_auction_report,
+    sync_auction_catalog,
+    sync_auction_data,
+    sync_auction_realms,
+)
 from wow_tools.cache import HttpCache
 from wow_tools.config import CACHE_DIR, DB_PATH, DEFAULT_REGION
 from wow_tools.currency_value import build_currency_value_report, render_currency_value_report
@@ -52,7 +60,7 @@ from wow_tools.reports import (
 )
 from wow_tools.sources.tsm import sync_prices
 from wow_tools.sources.wowhead import sync_catalog
-import json
+from wow_tools.sources.blizzard import BlizzardApiError, BlizzardClient
 
 
 def _professions_arg(value: list[str] | None) -> list[str]:
@@ -95,6 +103,65 @@ def cmd_sync_prices(args: argparse.Namespace) -> int:
     if summary["failed"]:
         for failure in summary["failed"][:10]:
             print(f"  - item {failure['item_id']}: {failure['error']}")
+    return 0
+
+
+def cmd_sync_auction_catalog(args: argparse.Namespace) -> int:
+    cache = HttpCache(CACHE_DIR)
+    conn = connect(DB_PATH)
+    summary = sync_auction_catalog(conn, cache, args.region, force=args.force)
+    print("Auction catalog sync complete")
+    print(f"- items: {summary['items']}")
+    print(f"- source: {summary['source']}")
+    return 0
+
+
+def cmd_sync_auction_realms(args: argparse.Namespace) -> int:
+    conn = connect(DB_PATH)
+    try:
+        summary = sync_auction_realms(conn, BlizzardClient(), args.region)
+    except BlizzardApiError as exc:
+        print(f"Blizzard: {exc}")
+        return 2
+    print("Blizzard realm sync complete")
+    print(f"- connected realm groups: {summary['realms']}")
+    return 0
+
+
+def cmd_sync_auction_data(args: argparse.Namespace) -> int:
+    cache = HttpCache(CACHE_DIR)
+    conn = connect(DB_PATH)
+    try:
+        summary = sync_auction_data(
+            conn,
+            cache,
+            args.region,
+            force=args.force,
+            realm_slugs=args.realm_slug,
+            limit_realms=args.limit_realms,
+            include_commodities=not args.no_commodities,
+            workers=args.workers,
+        )
+    except BlizzardApiError as exc:
+        print(f"Blizzard: {exc}")
+        return 2
+    print("Blizzard auction sync complete")
+    print(f"- realms selected: {summary['realms']}")
+    print(f"- realms synced: {summary['synced']}")
+    print(f"- commodities: {summary['commodities']}")
+    print(f"- failures: {len(summary['failed'])}")
+    for failure in summary["failed"][:10]:
+        print(f"  - {failure['name']}: {failure['error']}")
+    return 0
+
+
+def cmd_search_auctions(args: argparse.Namespace) -> int:
+    conn = connect(DB_PATH)
+    report = build_auction_report(conn, args.name, args.region, limit=args.limit)
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        print(render_auction_report(report, max_rows=args.max_rows))
     return 0
 
 
@@ -391,6 +458,44 @@ def build_parser() -> argparse.ArgumentParser:
     sync_prices_parser.add_argument("--profession", action="append", choices=["herbalism", "mining", "skinning"])
     sync_prices_parser.add_argument("--item-id", action="append", type=int)
     sync_prices_parser.set_defaults(func=cmd_sync_prices)
+
+    sync_auction_catalog_parser = subparsers.add_parser(
+        "sync-auction-catalog",
+        help="Sync item names used by the Blizzard Auction House search",
+    )
+    sync_auction_catalog_parser.add_argument("--region", default=DEFAULT_REGION)
+    sync_auction_catalog_parser.add_argument("--force", action="store_true")
+    sync_auction_catalog_parser.set_defaults(func=cmd_sync_auction_catalog)
+
+    sync_auction_realms_parser = subparsers.add_parser(
+        "sync-auction-realms",
+        help="Sync Blizzard connected realm groups",
+    )
+    sync_auction_realms_parser.add_argument("--region", default=DEFAULT_REGION)
+    sync_auction_realms_parser.set_defaults(func=cmd_sync_auction_realms)
+
+    sync_auction_data_parser = subparsers.add_parser(
+        "sync-auction-data",
+        help="Sync current Blizzard Auction House data for connected realms",
+    )
+    sync_auction_data_parser.add_argument("--region", default=DEFAULT_REGION)
+    sync_auction_data_parser.add_argument("--realm-slug", action="append")
+    sync_auction_data_parser.add_argument("--limit-realms", type=int)
+    sync_auction_data_parser.add_argument("--workers", type=int, default=4)
+    sync_auction_data_parser.add_argument("--no-commodities", action="store_true")
+    sync_auction_data_parser.add_argument("--force", action="store_true")
+    sync_auction_data_parser.set_defaults(func=cmd_sync_auction_data)
+
+    search_auctions_parser = subparsers.add_parser(
+        "search-auctions",
+        help="Search an item name and compare its EU connected realm prices",
+    )
+    search_auctions_parser.add_argument("--name", required=True)
+    search_auctions_parser.add_argument("--region", default=DEFAULT_REGION)
+    search_auctions_parser.add_argument("--limit", type=int, default=50)
+    search_auctions_parser.add_argument("--max-rows", type=int, default=100)
+    search_auctions_parser.add_argument("--json", action="store_true")
+    search_auctions_parser.set_defaults(func=cmd_search_auctions)
 
     compare_parser = subparsers.add_parser("compare-expansions", help="Compare expansions")
     compare_parser.add_argument("--region", default=DEFAULT_REGION)

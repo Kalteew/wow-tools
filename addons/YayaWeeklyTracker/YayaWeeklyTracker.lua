@@ -293,6 +293,8 @@ runtimeState = runtimeState or {}
 runtimeState.minimumMidnightProfessionLevel = 80
 runtimeState.unspentKnowledgeWarningThreshold = 5
 runtimeState.currencyQuantities = {}
+runtimeState.midnightShardOfDundunCurrencyID = 3376
+runtimeState.midnightShardOfDundunCap = 8
 runtimeState.baseProfessionToMidnightSkillLineID = {
     [171] = 2906, -- Alchemy
     [164] = 2907, -- Blacksmithing
@@ -4026,6 +4028,16 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
 
     if accountDB.trackAbundance ~= false and level >= 80 and not IsAnyQuestDone(config.abundanceQuestIDs) then
         AddEntry(entries, "Abondance", "todo")
+    end
+
+    local shardQuantity = GetCurrencyQuantity(runtimeState.midnightShardOfDundunCurrencyID)
+    if shardQuantity >= runtimeState.midnightShardOfDundunCap then
+        AddEntry(entries, "Shard of Dundun", "todo", {
+            displayText = ("Shard of Dundun: |cffff6666%d/%d a depenser|r"):format(
+                shardQuantity,
+                runtimeState.midnightShardOfDundunCap
+            ),
+        })
     end
 
     if accountDB.trackHaranirLegends ~= false

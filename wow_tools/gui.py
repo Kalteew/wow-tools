@@ -3,13 +3,33 @@ from __future__ import annotations
 import threading
 import traceback
 from dataclasses import dataclass
+from datetime import datetime, timezone
+import hashlib
+import io
 import re
 import socket
+import statistics
+import urllib.error
+import urllib.request
+from pathlib import Path
 from typing import Any
 
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+try:
+    from PIL import Image, ImageTk
+except ImportError:  # pragma: no cover - Pillow is bundled on the desktop app
+    Image = None
+    ImageTk = None
+
+from wow_tools.auction import (
+    build_auction_report,
+    sync_auction_catalog,
+    sync_auction_data,
+    sync_auction_realms,
+    suggest_auction_items,
+)
 from wow_tools.cache import HttpCache
 from wow_tools.config import CACHE_DIR, DB_PATH, DEFAULT_REGION
 from wow_tools.db import connect
@@ -21,6 +41,7 @@ from wow_tools.recipe_favorites import ensure_favorite_spell_ids, set_favorite_s
 from wow_tools.recipe_profit import build_recipe_profit_report, seed_recipe_items, sync_recipe_prices
 from wow_tools.local_account import load_character_profession_scans, load_yaya_profession_specializations
 from wow_tools.reports import format_copper, format_number
+from wow_tools.sources.blizzard import BlizzardClient
 
 _GUI_SINGLE_INSTANCE_HOST = "127.0.0.1"
 _GUI_SINGLE_INSTANCE_PORT = 46321
@@ -89,6 +110,64 @@ class _LumberTabState:
     details_text: tk.Text
     row_lookup: dict[str, dict[str, Any]]
     current_report: dict[str, Any] | None
+
+
+@dataclass
+class _AuctionTabState:
+    summary_var: tk.StringVar
+    region_var: tk.StringVar
+    query_var: tk.StringVar
+    available_only_var: tk.BooleanVar
+    search_entry: ttk.Entry
+    suggestions: tk.Listbox
+    suggestion_rows: list[dict[str, Any]]
+    autocomplete_after: str | None
+    selected_variant_key: str | None
+    sort_column: str
+    sort_reverse: bool
+    tree: ttk.Treeview
+    details_text: tk.Text
+    search_button: ttk.Button
+    realms_button: ttk.Button
+    sync_button: ttk.Button
+    row_lookup: dict[str, dict[str, Any]]
+    icon_images: dict[str, Any]
+    current_report: dict[str, Any] | None
+
+
+@dataclass
+class _ExchangeTabState:
+    region_var: tk.StringVar
+    query_var: tk.StringVar
+    summary_var: tk.StringVar
+    title_var: tk.StringVar
+    subtitle_var: tk.StringVar
+    search_entry: ttk.Entry
+    suggestions: tk.Listbox
+    suggestion_rows: list[dict[str, Any]]
+    autocomplete_after: str | None
+    selected_variant_key: str | None
+    search_button: ttk.Button
+    sync_button: ttk.Button
+    open_button: ttk.Button
+    back_button: ttk.Button
+    overview_frame: ttk.Frame
+    detail_frame: ttk.Frame
+    overview_tree: ttk.Treeview
+    detail_tree: ttk.Treeview
+    detail_icon_label: ttk.Label
+    chart: tk.Canvas
+    overview_lookup: dict[str, dict[str, Any]]
+    detail_lookup: dict[str, dict[str, Any]]
+    icon_images: dict[str, Any]
+    current_report: dict[str, Any] | None
+    current_variant: dict[str, Any] | None
+    overview_updating: bool
+    open_first_after_search: bool
+    overview_sort_column: str
+    overview_sort_reverse: bool
+    detail_sort_column: str
+    detail_sort_reverse: bool
 
 
 _PRIMARY_PROFESSIONS = {
@@ -369,20 +448,59 @@ def _is_specialization_tab_profession(profession: dict[str, Any]) -> bool:
     return profession_name == "cooking" and "midnight cooking" in str(profession.get("current_level_name") or "").casefold()
 
 
+def _format_exchange_age(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "-"
+    try:
+        fetched_at = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        age = max(0, int((datetime.now(timezone.utc) - fetched_at).total_seconds()))
+    except (TypeError, ValueError):
+        return raw
+    if age < 60:
+        return "à l’instant"
+    if age < 3600:
+        return f"il y a {age // 60} min"
+    if age < 86400:
+        return f"il y a {age // 3600} h"
+    return f"il y a {age // 86400} j"
+
+
+def _format_exchange_price(value: Any) -> str:
+    if value is None:
+        return "-"
+    copper = int(value)
+    gold, remainder = divmod(copper, 10_000)
+    silver, copper = divmod(remainder, 100)
+    if gold:
+        parts = [f"{gold:,}g"]
+        if silver:
+            parts.append(f"{silver:02d}s")
+        if copper:
+            parts.append(f"{copper:02d}c")
+        return " ".join(parts)
+    if silver:
+        return f"{silver}s {copper:02d}c"
+    return f"{copper}c"
+
+
 class ProfitabilityGui:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("WoW Tools - Recipe Profitability")
-        self.root.geometry("1400x900")
+        self.root.title("WoW Tools - Marché EU")
+        self.root.overrideredirect(True)
+        self.root.configure(background="#0b0908")
+        self.root.geometry("1400x900+60+40")
         self.root.minsize(1100, 760)
         self._setup_style()
+        self._build_window_chrome()
         self._tabs: list[_TabState] = []
 
         conn = connect(DB_PATH)
         ensure_favorite_spell_ids(conn, default_favorite_spell_ids())
         conn.close()
 
-        container = ttk.Frame(root, padding=12)
+        container = ttk.Frame(self.content_host, padding=12, style="Exchange.TFrame")
         container.pack(fill="both", expand=True)
 
         notebook = ttk.Notebook(container)
@@ -397,10 +515,75 @@ class ProfitabilityGui:
         self._refresh_specialization_tab(self.specialization_tab)
         self.lumber_tab = self._build_lumber_tab(notebook)
         self._refresh_lumber_tab(self.lumber_tab)
+        self.auction_tab = self._build_auction_tab(notebook)
+        self.exchange_tab = self._build_exchange_tab(notebook)
+        notebook.select(notebook.tabs()[-1])
+        self.root.after(500, lambda: self._start_exchange_search(self.exchange_tab))
+
+    def _build_window_chrome(self) -> None:
+        shell = tk.Frame(
+            self.root,
+            background="#7d6428",
+            highlightbackground="#b1923a",
+            highlightcolor="#b1923a",
+            highlightthickness=1,
+        )
+        shell.pack(fill="both", expand=True, padx=4, pady=4)
+        self.window_shell = shell
+
+        titlebar = tk.Frame(shell, background="#241b19", height=30)
+        titlebar.pack(fill="x", padx=2, pady=(2, 0))
+        titlebar.pack_propagate(False)
+        self.titlebar = titlebar
+
+        title = tk.Label(
+            titlebar,
+            text="WoW Tools  ·  Marché EU",
+            background="#241b19",
+            foreground="#f1c62f",
+            font=("Segoe UI", 10, "bold"),
+            anchor="w",
+            padx=10,
+        )
+        title.pack(side="left", fill="both", expand=True)
+
+        close_button = tk.Button(
+            titlebar,
+            text="×",
+            command=self.root.destroy,
+            background="#760000",
+            foreground="#ffe36a",
+            activebackground="#a51a10",
+            activeforeground="#fff1c2",
+            relief="flat",
+            borderwidth=0,
+            font=("Segoe UI Symbol", 13, "bold"),
+            width=3,
+            cursor="hand2",
+        )
+        close_button.pack(side="right", fill="y", padx=(0, 2), pady=2)
+
+        self.content_host = tk.Frame(shell, background="#111010")
+        self.content_host.pack(fill="both", expand=True, padx=2, pady=(0, 2))
+
+        titlebar.bind("<ButtonPress-1>", self._start_window_drag)
+        titlebar.bind("<B1-Motion>", self._drag_window)
+        title.bind("<ButtonPress-1>", self._start_window_drag)
+        title.bind("<B1-Motion>", self._drag_window)
+
+    def _start_window_drag(self, event: tk.Event) -> None:
+        self._window_drag_offset = (
+            event.x_root - self.root.winfo_x(),
+            event.y_root - self.root.winfo_y(),
+        )
+
+    def _drag_window(self, event: tk.Event) -> None:
+        offset_x, offset_y = getattr(self, "_window_drag_offset", (0, 0))
+        self.root.geometry(f"+{event.x_root - offset_x}+{event.y_root - offset_y}")
 
     def _setup_style(self) -> None:
         style = ttk.Style(self.root)
-        for theme in ("vista", "clam", "default"):
+        for theme in ("clam", "vista", "default"):
             if theme in style.theme_names():
                 style.theme_use(theme)
                 break
@@ -410,6 +593,42 @@ class ProfitabilityGui:
         style.configure("SpecSubhero.TLabel", font=("Segoe UI", 10))
         style.configure("SpecKey.TLabel", font=("Segoe UI", 9, "bold"))
         style.configure("SpecValue.TLabel", font=("Segoe UI", 10))
+        style.configure("AuctionTitle.TLabel", font=("Segoe UI", 17, "bold"), foreground="#173b63")
+        style.configure("AuctionSubtitle.TLabel", font=("Segoe UI", 9), foreground="#687483")
+        style.configure("AuctionKey.TLabel", font=("Segoe UI", 9, "bold"))
+        style.configure("AuctionAccent.TButton", font=("Segoe UI", 9, "bold"))
+        style.configure("Auction.Treeview", rowheight=34, font=("Segoe UI", 10))
+        style.configure("Auction.Treeview.Heading", font=("Segoe UI", 9, "bold"))
+        style.configure("Category.TLabel", anchor="w", font=("Segoe UI", 9), padding=(8, 5))
+
+        exchange_bg = "#111010"
+        exchange_panel = "#1c1818"
+        exchange_bar = "#2d2524"
+        exchange_gold = "#f1c62f"
+        exchange_text = "#eee9e2"
+        exchange_muted = "#b8aaa0"
+        exchange_red = "#760000"
+        style.configure("Exchange.TFrame", background=exchange_bg)
+        style.configure("Exchange.TPanedwindow", background=exchange_bg)
+        style.configure("Exchange.TLabel", background=exchange_bg, foreground=exchange_text)
+        style.configure("Exchange.Title.TLabel", background=exchange_bg, foreground=exchange_gold, font=("Segoe UI", 17, "bold"))
+        style.configure("Exchange.Muted.TLabel", background=exchange_bg, foreground=exchange_muted, font=("Segoe UI", 9))
+        style.configure("Exchange.Key.TLabel", background=exchange_panel, foreground=exchange_gold, font=("Segoe UI", 9, "bold"))
+        style.configure("Exchange.TLabelframe", background=exchange_bg, foreground=exchange_gold, bordercolor="#51453d", relief="solid")
+        style.configure("Exchange.TLabelframe.Label", background=exchange_bg, foreground=exchange_gold, font=("Segoe UI", 9, "bold"))
+        style.configure("Exchange.Category.TLabel", background=exchange_bar, foreground=exchange_gold, anchor="w", padding=(9, 5), font=("Segoe UI", 9, "bold"))
+        style.configure("Exchange.TButton", background=exchange_red, foreground=exchange_gold, bordercolor="#b69a32", lightcolor="#a91b12", darkcolor="#3b0000", padding=(12, 5), font=("Segoe UI", 9, "bold"))
+        style.map("Exchange.TButton", background=[("active", "#a51a10"), ("pressed", "#4b0000")], foreground=[("disabled", "#77706b"), ("!disabled", exchange_gold)])
+        style.configure("Exchange.TEntry", fieldbackground=exchange_panel, foreground=exchange_text, insertcolor=exchange_gold, bordercolor="#66544a")
+        style.configure("Exchange.TCombobox", fieldbackground=exchange_panel, background=exchange_panel, foreground=exchange_text, arrowcolor=exchange_gold, bordercolor="#66544a")
+        style.map("Exchange.TCombobox", fieldbackground=[("readonly", exchange_panel)], foreground=[("readonly", exchange_text)])
+        style.configure("Exchange.Treeview", background=exchange_bg, fieldbackground=exchange_bg, foreground=exchange_text, rowheight=32, font=("Segoe UI", 10), bordercolor="#51453d")
+        style.configure("Exchange.Treeview.Heading", background=exchange_bar, foreground=exchange_gold, relief="flat", font=("Segoe UI", 9, "bold"))
+        style.map("Exchange.Treeview", background=[("selected", "#75170f")], foreground=[("selected", "#fff1c2")])
+        style.configure("Exchange.TScrollbar", background=exchange_bar, troughcolor=exchange_bg, bordercolor=exchange_bg, arrowcolor=exchange_gold)
+        style.configure("TNotebook", background=exchange_bg, borderwidth=0)
+        style.configure("TNotebook.Tab", background=exchange_bar, foreground=exchange_gold, padding=(12, 5), font=("Segoe UI", 9, "bold"))
+        style.map("TNotebook.Tab", background=[("selected", exchange_red)], foreground=[("selected", "#fff1c2")])
 
     def _build_tab(self, notebook: ttk.Notebook, title: str, *, kind: str) -> _TabState:
         frame = ttk.Frame(notebook, padding=10)
@@ -828,6 +1047,777 @@ class ProfitabilityGui:
         tree.bind("<<TreeviewSelect>>", lambda event, current=state: self._show_selected_lumber(current, event.widget))
         return state
 
+    def _build_auction_tab(self, notebook: ttk.Notebook) -> _AuctionTabState:
+        frame = ttk.Frame(notebook, padding=10)
+        notebook.add(frame, text="Comparateur AH")
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(3, weight=3)
+        frame.rowconfigure(4, weight=2)
+
+        header = ttk.Frame(frame)
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        header.columnconfigure(0, weight=1)
+        ttk.Label(header, text="Marché européen", style="AuctionTitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            header,
+            text="Prix actuels par groupe de royaumes connectés · rangs décodés · icônes WoW",
+            style="AuctionSubtitle.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(2, 0))
+
+        controls = ttk.LabelFrame(frame, text="Rechercher un objet", padding=10)
+        controls.grid(row=1, column=0, sticky="ew")
+        controls.columnconfigure(3, weight=1)
+        region_var = tk.StringVar(value=DEFAULT_REGION.upper())
+        query_var = tk.StringVar()
+        available_only_var = tk.BooleanVar(value=False)
+        ttk.Label(controls, text="Région", style="AuctionKey.TLabel").grid(row=0, column=0, padx=(0, 8), pady=4)
+        ttk.Combobox(controls, textvariable=region_var, values=["EU"], state="readonly", width=8).grid(
+            row=0, column=1, sticky="w", pady=4
+        )
+        ttk.Label(controls, text="Objet", style="AuctionKey.TLabel").grid(row=0, column=2, padx=(16, 8), pady=4)
+        search_entry = ttk.Entry(controls, textvariable=query_var, font=("Segoe UI", 11))
+        search_entry.grid(row=0, column=3, sticky="ew", pady=4)
+        autocomplete_box = ttk.Frame(controls)
+        autocomplete_box.grid(row=1, column=3, sticky="ew", pady=(0, 2))
+        autocomplete_box.columnconfigure(0, weight=1)
+        suggestions = tk.Listbox(
+            autocomplete_box,
+            height=6,
+            activestyle="none",
+            selectmode="browse",
+            font=("Segoe UI", 10),
+            background="#ffffff",
+            foreground="#202020",
+            selectbackground="#2f6fae",
+            selectforeground="#ffffff",
+            relief="solid",
+            borderwidth=1,
+            highlightthickness=0,
+        )
+        suggestions.grid(row=0, column=0, sticky="ew")
+        suggestions.grid_remove()
+        search_button = ttk.Button(controls, text="Rechercher", style="AuctionAccent.TButton")
+        search_button.grid(row=0, column=4, padx=(8, 0), pady=4)
+        realms_button = ttk.Button(controls, text="Royaumes")
+        realms_button.grid(row=0, column=5, padx=(8, 0), pady=4)
+        sync_button = ttk.Button(controls, text="Actualiser les prix")
+        sync_button.grid(row=0, column=6, padx=(8, 0), pady=4)
+        ttk.Checkbutton(
+            controls,
+            text="Masquer les groupes vides",
+            variable=available_only_var,
+        ).grid(row=2, column=3, sticky="w", pady=(4, 0))
+
+        summary_var = tk.StringVar(value="Synchronise l’AH Blizzard une fois, puis recherche n’importe quel objet.")
+        ttk.Label(frame, textvariable=summary_var, style="Summary.TLabel").grid(
+            row=2, column=0, sticky="ew", pady=(10, 8)
+        )
+
+        tree_frame = ttk.Frame(frame)
+        tree_frame.grid(row=3, column=0, sticky="nsew")
+        tree_frame.columnconfigure(0, weight=1)
+        tree_frame.rowconfigure(0, weight=1)
+        columns = ("variant", "realm", "price", "quantity", "listings", "updated")
+        tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=18, style="Auction.Treeview")
+        tree.grid(row=0, column=0, sticky="nsew")
+        headings = {
+            "variant": ("Objet / rang", 310),
+            "realm": ("Groupe EU", 220),
+            "price": ("Prix minimum", 140),
+            "quantity": ("Quantité", 90),
+            "listings": ("Annonces", 90),
+            "updated": ("Actualisé", 180),
+        }
+        for column, (label, width) in headings.items():
+            tree.heading(column, text=label)
+            tree.column(column, width=width, anchor="w")
+        tree.tag_configure("best", background="#fff4cf", foreground="#2f2610")
+        tree.tag_configure("empty", foreground="#8c8c8c")
+        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        tree.configure(yscrollcommand=scrollbar.set)
+
+        details_box = ttk.LabelFrame(frame, text="Sélection", padding=10)
+        details_box.grid(row=4, column=0, sticky="nsew", pady=(10, 0))
+        details_box.columnconfigure(0, weight=1)
+        details_box.rowconfigure(0, weight=1)
+        details_text = tk.Text(
+            details_box,
+            wrap="word",
+            height=8,
+            font=("Segoe UI", 10),
+            background="#f7f7f7",
+            foreground="#202020",
+            relief="flat",
+            padx=8,
+            pady=8,
+        )
+        details_text.grid(row=0, column=0, sticky="nsew")
+        details_text.configure(state="disabled")
+
+        state = _AuctionTabState(
+            summary_var=summary_var,
+            region_var=region_var,
+            query_var=query_var,
+            available_only_var=available_only_var,
+            search_entry=search_entry,
+            suggestions=suggestions,
+            suggestion_rows=[],
+            autocomplete_after=None,
+            selected_variant_key=None,
+            sort_column="price",
+            sort_reverse=False,
+            tree=tree,
+            details_text=details_text,
+            search_button=search_button,
+            realms_button=realms_button,
+            sync_button=sync_button,
+            row_lookup={},
+            icon_images={},
+            current_report=None,
+        )
+        search_button.configure(command=lambda current=state: self._start_auction_search(current))
+        realms_button.configure(command=lambda current=state: self._start_auction_realms(current))
+        sync_button.configure(command=lambda current=state: self._start_auction_sync(current))
+        search_entry.bind("<KeyRelease>", lambda event, current=state: self._schedule_auction_autocomplete(current, event))
+        search_entry.bind("<Down>", lambda _event, current=state: self._focus_auction_suggestions(current))
+        search_entry.bind("<Escape>", lambda _event, current=state: self._hide_auction_suggestions(current))
+        search_entry.bind("<Return>", lambda _event, current=state: self._handle_auction_return(current))
+        suggestions.bind("<<ListboxSelect>>", lambda _event, current=state: self._select_auction_suggestion(current))
+        suggestions.bind("<Return>", lambda _event, current=state: self._select_auction_suggestion(current))
+        for column in columns:
+            tree.heading(column, command=lambda current=state, selected_column=column: self._sort_auction_tree(current, selected_column))
+        available_only_var.trace_add("write", lambda *_args, current=state: self._refresh_auction_filter(current))
+        tree.bind("<<TreeviewSelect>>", lambda event, current=state: self._show_selected_auction(current, event.widget))
+        return state
+
+    def _build_exchange_tab(self, notebook: ttk.Notebook) -> _ExchangeTabState:
+        frame = ttk.Frame(notebook, padding=10, style="Exchange.TFrame")
+        notebook.add(frame, text="Undermine AH")
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(1, weight=1)
+
+        header = ttk.Frame(frame, style="Exchange.TFrame")
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        header.columnconfigure(0, weight=1)
+        ttk.Label(header, text="Undermine Exchange · EU", style="Exchange.Title.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
+        ttk.Label(
+            header,
+            text="Recherche par objet, rang et groupe de royaumes · données Blizzard locales",
+            style="Exchange.Muted.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(2, 0))
+
+        body = ttk.Panedwindow(frame, orient="horizontal", style="Exchange.TPanedwindow")
+        body.grid(row=1, column=0, sticky="nsew")
+
+        categories = ttk.LabelFrame(body, text="Catégories", padding=8, style="Exchange.TLabelframe")
+        body.add(categories, weight=0)
+        for category in (
+            "Weapons",
+            "Armor",
+            "Containers",
+            "Gems",
+            "Item Enhancements",
+            "Consumables",
+            "Reagents",
+            "Recipes",
+            "Profession Equipment",
+            "Housing",
+            "Battle Pets",
+            "Miscellaneous",
+        ):
+            ttk.Label(categories, text=category, width=22, style="Exchange.Category.TLabel").pack(
+                fill="x", pady=2
+            )
+
+        right = ttk.Frame(body, padding=(10, 0, 0, 0), style="Exchange.TFrame")
+        right.columnconfigure(0, weight=1)
+        right.rowconfigure(2, weight=1)
+        body.add(right, weight=1)
+
+        controls = ttk.LabelFrame(right, text="Recherche", padding=8, style="Exchange.TLabelframe")
+        controls.grid(row=0, column=0, sticky="ew")
+        controls.columnconfigure(3, weight=1)
+        region_var = tk.StringVar(value="EU")
+        query_var = tk.StringVar(value="Sin'dorei Alchemist's Hat")
+        ttk.Label(controls, text="Région", style="Exchange.Key.TLabel").grid(row=0, column=0, padx=(0, 8))
+        ttk.Combobox(controls, textvariable=region_var, values=["EU"], state="readonly", width=8, style="Exchange.TCombobox").grid(
+            row=0, column=1, sticky="w"
+        )
+        ttk.Label(controls, text="Objet", style="Exchange.Key.TLabel").grid(row=0, column=2, padx=(16, 8))
+        search_entry = ttk.Entry(controls, textvariable=query_var, font=("Segoe UI", 11), style="Exchange.TEntry")
+        search_entry.grid(row=0, column=3, sticky="ew")
+        suggestions = tk.Listbox(
+            controls,
+            height=8,
+            activestyle="none",
+            selectmode="browse",
+            font=("Segoe UI", 10),
+            background="#1c1818",
+            foreground="#eee9e2",
+            selectbackground="#75170f",
+            selectforeground="#fff1c2",
+            relief="solid",
+            borderwidth=1,
+            highlightthickness=0,
+        )
+        suggestions.grid(row=1, column=3, sticky="ew", pady=(4, 0))
+        suggestions.grid_remove()
+        search_button = ttk.Button(controls, text="Search", style="Exchange.TButton")
+        search_button.grid(row=0, column=4, padx=(8, 0))
+        sync_button = ttk.Button(controls, text="Refresh AH", style="Exchange.TButton")
+        sync_button.grid(row=0, column=5, padx=(8, 0))
+
+        summary_var = tk.StringVar(value="Recherche en cours…")
+        ttk.Label(right, textvariable=summary_var, style="Exchange.Muted.TLabel").grid(
+            row=1, column=0, sticky="ew", pady=(8, 8)
+        )
+
+        content = ttk.Frame(right, style="Exchange.TFrame")
+        content.grid(row=2, column=0, sticky="nsew")
+        content.columnconfigure(0, weight=1)
+        content.rowconfigure(0, weight=1)
+
+        overview_frame = ttk.Frame(content, style="Exchange.TFrame")
+        overview_frame.grid(row=0, column=0, sticky="nsew")
+        overview_frame.columnconfigure(0, weight=1)
+        overview_frame.rowconfigure(1, weight=1)
+        overview_header = ttk.Frame(overview_frame, style="Exchange.TFrame")
+        overview_header.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        overview_header.columnconfigure(0, weight=1)
+        ttk.Label(
+            overview_header,
+            text="Clique sur une variante pour voir les prix par royaume · ★ = meilleur prix",
+            style="Exchange.Muted.TLabel",
+        ).grid(row=0, column=0, sticky="w")
+        open_button = ttk.Button(overview_header, text="Ouvrir le détail", style="Exchange.TButton", state="disabled")
+        open_button.grid(row=0, column=1, sticky="e")
+        open_button.grid_remove()
+        overview_tree = ttk.Treeview(
+            overview_frame,
+            columns=("price", "name", "available", "realms"),
+            show="tree headings",
+            style="Exchange.Treeview",
+        )
+        overview_tree.grid(row=1, column=0, sticky="nsew")
+        overview_tree.heading("#0", text="")
+        overview_tree.column("#0", width=42, minwidth=42, stretch=False, anchor="center")
+        overview_headings = {
+            "price": ("Price", 150),
+            "name": ("Name", 390),
+            "available": ("Available", 120),
+            "realms": ("Realms", 100),
+        }
+        for column, (label, width) in overview_headings.items():
+            overview_tree.heading(column, text=label)
+            overview_tree.column(column, width=width, anchor="w")
+        overview_tree.tag_configure("best", background="#fff4cf", foreground="#2f2610")
+        overview_scroll = ttk.Scrollbar(overview_frame, orient="vertical", command=overview_tree.yview)
+        overview_scroll.grid(row=1, column=1, sticky="ns")
+        overview_tree.configure(yscrollcommand=overview_scroll.set)
+
+        detail_frame = ttk.Frame(content, style="Exchange.TFrame")
+        detail_frame.grid(row=0, column=0, sticky="nsew")
+        detail_frame.columnconfigure(0, weight=1)
+        detail_frame.rowconfigure(2, weight=1)
+        detail_frame.grid_remove()
+        detail_header = ttk.Frame(detail_frame, style="Exchange.TFrame")
+        detail_header.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        detail_header.columnconfigure(2, weight=1)
+        back_button = ttk.Button(detail_header, text="← Back", style="Exchange.TButton")
+        back_button.grid(row=0, column=0, rowspan=2, padx=(0, 10))
+        detail_icon_label = ttk.Label(detail_header, style="Exchange.TLabel")
+        detail_icon_label.grid(row=0, column=1, rowspan=2, padx=(0, 8))
+        title_var = tk.StringVar(value="Objet")
+        subtitle_var = tk.StringVar(value="")
+        ttk.Label(detail_header, textvariable=title_var, style="Exchange.Title.TLabel").grid(row=0, column=2, sticky="w")
+        ttk.Label(detail_header, textvariable=subtitle_var, style="Exchange.Muted.TLabel").grid(row=1, column=2, sticky="w")
+
+        chart = tk.Canvas(detail_frame, height=210, background="#201c1c", highlightthickness=0)
+        chart.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        detail_tree = ttk.Treeview(
+            detail_frame,
+            columns=("realm", "price", "quantity", "listings", "updated"),
+            show="headings",
+            style="Exchange.Treeview",
+        )
+        detail_tree.grid(row=2, column=0, sticky="nsew")
+        detail_headings = {
+            "realm": ("Realm", 260),
+            "price": ("Price", 150),
+            "quantity": ("Quantity", 110),
+            "listings": ("Listings", 100),
+            "updated": ("Updated", 190),
+        }
+        for column, (label, width) in detail_headings.items():
+            detail_tree.heading(column, text=label)
+            detail_tree.column(column, width=width, anchor="w")
+        detail_scroll = ttk.Scrollbar(detail_frame, orient="vertical", command=detail_tree.yview)
+        detail_scroll.grid(row=2, column=1, sticky="ns")
+        detail_tree.configure(yscrollcommand=detail_scroll.set)
+
+        state = _ExchangeTabState(
+            region_var=region_var,
+            query_var=query_var,
+            summary_var=summary_var,
+            title_var=title_var,
+            subtitle_var=subtitle_var,
+            search_entry=search_entry,
+            suggestions=suggestions,
+            suggestion_rows=[],
+            autocomplete_after=None,
+            selected_variant_key=None,
+            search_button=search_button,
+            sync_button=sync_button,
+            open_button=open_button,
+            back_button=back_button,
+            overview_frame=overview_frame,
+            detail_frame=detail_frame,
+            overview_tree=overview_tree,
+            detail_tree=detail_tree,
+            detail_icon_label=detail_icon_label,
+            chart=chart,
+            overview_lookup={},
+            detail_lookup={},
+            icon_images={},
+            current_report=None,
+            current_variant=None,
+            overview_updating=False,
+            open_first_after_search=False,
+            overview_sort_column="name",
+            overview_sort_reverse=False,
+            detail_sort_column="price",
+            detail_sort_reverse=False,
+        )
+        search_button.configure(command=lambda current=state: self._start_exchange_search(current))
+        sync_button.configure(command=lambda current=state: self._start_exchange_sync(current))
+        open_button.configure(command=lambda current=state: self._open_exchange_detail(current))
+        back_button.configure(command=lambda current=state: self._close_exchange_detail(current))
+        search_entry.bind("<KeyRelease>", lambda event, current=state: self._schedule_exchange_autocomplete(current, event))
+        search_entry.bind("<Down>", lambda _event, current=state: self._focus_exchange_suggestions(current))
+        search_entry.bind("<Escape>", lambda _event, current=state: self._hide_exchange_suggestions(current))
+        search_entry.bind("<Return>", lambda _event, current=state: self._handle_exchange_return(current))
+        suggestions.bind("<<ListboxSelect>>", lambda _event, current=state: self._select_exchange_suggestion(current))
+        suggestions.bind("<Return>", lambda _event, current=state: self._select_exchange_suggestion(current))
+        overview_tree.bind("<<TreeviewSelect>>", lambda _event, current=state: self._exchange_selection_changed(current))
+        detail_tree.bind("<<TreeviewSelect>>", lambda _event, current=state: self._exchange_detail_selection_changed(current))
+        for column in overview_headings:
+            overview_tree.heading(column, command=lambda current=state, selected_column=column: self._sort_exchange_overview(current, selected_column))
+        for column in detail_headings:
+            detail_tree.heading(column, command=lambda current=state, selected_column=column: self._sort_exchange_detail(current, selected_column))
+        return state
+
+    def _schedule_exchange_autocomplete(self, state: _ExchangeTabState, event: tk.Event) -> None:
+        if event.keysym in {"Up", "Down", "Return", "Escape"}:
+            return
+        state.selected_variant_key = None
+        state.open_first_after_search = False
+        if state.autocomplete_after is not None:
+            try:
+                self.root.after_cancel(state.autocomplete_after)
+            except tk.TclError:
+                pass
+            state.autocomplete_after = None
+        query = state.query_var.get().strip()
+        if len(query) < 2:
+            self._hide_exchange_suggestions(state)
+            return
+        state.autocomplete_after = self.root.after(
+            180,
+            lambda current=state, current_query=query: self._start_exchange_autocomplete(current, current_query),
+        )
+
+    def _start_exchange_autocomplete(self, state: _ExchangeTabState, query: str) -> None:
+        state.autocomplete_after = None
+        threading.Thread(
+            target=self._run_exchange_autocomplete,
+            args=(state, query),
+            daemon=True,
+        ).start()
+
+    def _run_exchange_autocomplete(self, state: _ExchangeTabState, query: str) -> None:
+        try:
+            conn = connect(DB_PATH)
+            rows = suggest_auction_items(conn, query, limit=8)
+            conn.close()
+        except Exception:
+            return
+        self.root.after(
+            0,
+            lambda current=state, current_query=query, current_rows=rows: self._apply_exchange_suggestions(
+                current, current_query, current_rows
+            ),
+        )
+
+    def _apply_exchange_suggestions(
+        self,
+        state: _ExchangeTabState,
+        query: str,
+        rows: list[dict[str, Any]],
+    ) -> None:
+        if state.query_var.get().strip() != query:
+            return
+        state.suggestions.delete(0, tk.END)
+        state.suggestion_rows = rows
+        for row in rows:
+            state.suggestions.insert(tk.END, row.get("display_name") or row.get("item_name") or "-")
+        if rows:
+            state.suggestions.grid()
+            state.suggestions.activate(0)
+        else:
+            self._hide_exchange_suggestions(state)
+
+    def _focus_exchange_suggestions(self, state: _ExchangeTabState) -> str:
+        if state.suggestions.winfo_ismapped() and state.suggestion_rows:
+            state.suggestions.focus_set()
+            state.suggestions.selection_set(0)
+            state.suggestions.activate(0)
+        return "break"
+
+    def _select_exchange_suggestion(self, state: _ExchangeTabState) -> str:
+        selection = state.suggestions.curselection()
+        if not selection and state.suggestion_rows:
+            selection = (0,)
+        if not selection or selection[0] >= len(state.suggestion_rows):
+            return "break"
+        row = state.suggestion_rows[selection[0]]
+        state.query_var.set(str(row.get("search_name") or row.get("item_name") or ""))
+        state.selected_variant_key = row.get("variant_key")
+        state.open_first_after_search = False
+        self._hide_exchange_suggestions(state)
+        state.search_entry.focus_set()
+        self._start_exchange_search(state)
+        return "break"
+
+    def _handle_exchange_return(self, state: _ExchangeTabState) -> str:
+        if state.suggestions.winfo_ismapped() and state.suggestion_rows:
+            return self._select_exchange_suggestion(state)
+        self._start_exchange_search(state)
+        return "break"
+
+    def _hide_exchange_suggestions(self, state: _ExchangeTabState) -> None:
+        state.suggestions.grid_remove()
+        state.suggestions.selection_clear(0, tk.END)
+        state.suggestion_rows = []
+
+    def _start_exchange_search(self, state: _ExchangeTabState) -> None:
+        self._hide_exchange_suggestions(state)
+        state.search_button.configure(state="disabled")
+        state.summary_var.set("Recherche des variantes et des prix…")
+        threading.Thread(target=self._run_exchange_search, args=(state,), daemon=True).start()
+
+    def _run_exchange_search(self, state: _ExchangeTabState) -> None:
+        try:
+            conn = connect(DB_PATH)
+            region = state.region_var.get().strip().lower() or DEFAULT_REGION
+            report = build_auction_report(
+                conn,
+                state.query_var.get().strip(),
+                region,
+                variant_key=state.selected_variant_key,
+            )
+            conn.close()
+            report["icon_bytes"] = self._fetch_auction_icon_bytes(report)
+        except Exception as exc:  # pragma: no cover - GUI error path
+            details = traceback.format_exc()
+            self.root.after(0, lambda: self._handle_exchange_error(state, exc, details, "Recherche"))
+            return
+        self.root.after(0, lambda: self._apply_exchange_report(state, report))
+
+    def _apply_exchange_report(self, state: _ExchangeTabState, report: dict[str, Any]) -> None:
+        state.overview_updating = True
+        self._hide_exchange_suggestions(state)
+        state.current_report = report
+        state.current_variant = None
+        state.detail_frame.grid_remove()
+        state.overview_frame.grid()
+        state.overview_lookup.clear()
+        state.detail_lookup.clear()
+        state.icon_images.clear()
+        for item in state.overview_tree.get_children():
+            state.overview_tree.delete(item)
+        for item in state.detail_tree.get_children():
+            state.detail_tree.delete(item)
+
+        icon_bytes = report.get("icon_bytes") or {}
+        if Image is not None and ImageTk is not None:
+            for icon_url, payload in icon_bytes.items():
+                try:
+                    image = Image.open(io.BytesIO(payload)).convert("RGBA")
+                    image.thumbnail((30, 30), Image.Resampling.LANCZOS)
+                    state.icon_images[icon_url] = ImageTk.PhotoImage(image, master=self.root)
+                except Exception:
+                    continue
+
+        all_prices = [
+            int(row["price_copper"])
+            for variant in report.get("variants") or []
+            for row in variant.get("realm_rows") or []
+            if row.get("has_listing") and row.get("price_copper") is not None
+        ]
+        global_best = min(all_prices) if all_prices else None
+        for index, variant in enumerate(report.get("variants") or []):
+            available_rows = [row for row in variant.get("realm_rows") or [] if row.get("has_listing")]
+            prices = [row.get("price_copper") for row in available_rows if row.get("price_copper") is not None]
+            is_best = bool(prices and min(prices) == global_best)
+            row_id = f"exchange-{index}"
+            state.overview_lookup[row_id] = variant
+            state.overview_tree.insert(
+                "",
+                "end",
+                iid=row_id,
+                values=(
+                    f"★ {_format_exchange_price(min(prices) if prices else None)}" if is_best else _format_exchange_price(min(prices) if prices else None),
+                    variant.get("label") or "-",
+                    sum(int(row.get("available_quantity") or 0) for row in available_rows),
+                    len(available_rows),
+                ),
+                image=state.icon_images.get(variant.get("icon_url")),
+                tags=(),
+            )
+
+        if report.get("matches"):
+            state.summary_var.set(
+                f"{len(report.get('variants') or [])} rang(s) trouvé(s) · "
+                f"{report.get('realm_count', 0)} groupes EU · double-clique pour le détail"
+            )
+        else:
+            state.summary_var.set("Aucun objet trouvé dans le catalogue local.")
+        state.open_button.configure(state="disabled")
+        state.search_button.configure(state="normal")
+        self._sort_exchange_overview(state, state.overview_sort_column, toggle=False)
+        state.overview_updating = False
+
+        children = state.overview_tree.get_children()
+        if children:
+            if state.open_first_after_search:
+                state.open_first_after_search = False
+                self.root.after(120, lambda: self._open_exchange_detail(state))
+
+    def _exchange_selection_changed(self, state: _ExchangeTabState) -> None:
+        if state.overview_updating:
+            return
+        if state.overview_tree.selection():
+            self._open_exchange_detail(state)
+
+    def _open_exchange_detail(self, state: _ExchangeTabState) -> None:
+        selection = state.overview_tree.selection()
+        if not selection:
+            children = state.overview_tree.get_children()
+            if not children:
+                return
+            selection = (children[0],)
+            state.overview_tree.selection_set(selection[0])
+        variant = state.overview_lookup.get(selection[0])
+        if variant is None:
+            return
+        state.current_variant = variant
+        state.overview_frame.grid_remove()
+        state.detail_frame.grid()
+        state.title_var.set(variant.get("label") or "Objet")
+        state.detail_icon_label.configure(image=state.icon_images.get(variant.get("icon_url"), ""))
+        listed = [row for row in variant.get("realm_rows") or [] if row.get("has_listing")]
+        prices = [row.get("price_copper") for row in listed if row.get("price_copper") is not None]
+        state.subtitle_var.set(
+            f"{len(listed)} groupes avec une annonce · minimum {_format_exchange_price(min(prices) if prices else None)} · "
+            "utilise Back pour revenir aux variantes"
+        )
+        state.summary_var.set(
+            f"{variant.get('label') or 'Objet'} · {len(listed)} groupes avec une annonce · "
+            f"minimum {_format_exchange_price(min(prices) if prices else None)}"
+        )
+        state.detail_lookup.clear()
+        for item in state.detail_tree.get_children():
+            state.detail_tree.delete(item)
+        best_price = min(prices) if prices else None
+        for index, realm in enumerate(variant.get("realm_rows") or []):
+            row_id = f"exchange-realm-{index}"
+            state.detail_lookup[row_id] = realm
+            tags = []
+            if not realm.get("has_listing"):
+                tags.append("empty")
+            elif realm.get("price_copper") == best_price:
+                tags.append("best")
+            state.detail_tree.insert(
+                "",
+                "end",
+                iid=row_id,
+                values=(
+                    realm.get("name") or "-",
+                    _format_exchange_price(realm.get("price_copper")),
+                    realm.get("available_quantity") or 0,
+                    realm.get("listing_count") or 0,
+                    _format_exchange_age(realm.get("fetched_at")),
+                ),
+                tags=tags,
+            )
+        state.detail_tree.tag_configure("best", background="#fff4cf", foreground="#2f2610")
+        state.detail_tree.tag_configure("empty", foreground="#8c8c8c")
+        self._draw_exchange_chart(state, variant)
+        self._sort_exchange_detail(state, state.detail_sort_column, toggle=False)
+
+    def _close_exchange_detail(self, state: _ExchangeTabState) -> None:
+        state.detail_frame.grid_remove()
+        state.overview_frame.grid()
+        state.current_variant = None
+        selection = state.overview_tree.selection()
+        if selection:
+            state.overview_tree.selection_remove(*selection)
+        state.overview_tree.focus("")
+        state.summary_var.set(
+            f"{len(state.current_report.get('variants') or []) if state.current_report else 0} rang(s) · "
+            "sélectionne une ligne pour ouvrir le détail"
+        )
+
+    def _draw_exchange_chart(self, state: _ExchangeTabState, variant: dict[str, Any]) -> None:
+        canvas = state.chart
+        canvas.delete("all")
+        canvas.update_idletasks()
+        width = max(650, canvas.winfo_width())
+        height = max(180, canvas.winfo_height())
+        rows = [row for row in variant.get("realm_rows") or [] if row.get("price_copper") is not None]
+        rows.sort(key=lambda row: int(row.get("price_copper") or 0))
+        if not rows:
+            canvas.create_text(width / 2, height / 2, text="Aucune annonce pour cette variante", fill="#eeeeee")
+            return
+        if len(rows) > 90:
+            step = max(1, len(rows) // 90)
+            rows = rows[::step]
+        left, right, top, bottom = 28, 16, 20, 28
+        plot_width = width - left - right
+        plot_height = height - top - bottom
+        max_price = max(int(row.get("price_copper") or 0) for row in rows) or 1
+        max_quantity = max(int(row.get("available_quantity") or 0) for row in rows) or 1
+        bar_width = max(3, plot_width / max(1, len(rows)) - 2)
+        for index, row in enumerate(rows):
+            x0 = left + index * (plot_width / len(rows)) + 1
+            x1 = x0 + bar_width
+            price_height = plot_height * (int(row.get("price_copper") or 0) / max_price)
+            quantity_height = plot_height * 0.3 * (int(row.get("available_quantity") or 0) / max_quantity)
+            canvas.create_rectangle(x0, top + plot_height - price_height, x1, top + plot_height, fill="#7572f2", outline="#aaa7ff")
+            canvas.create_rectangle(x0, top + plot_height - quantity_height, x1, top + plot_height, fill="#e36d78", outline="")
+        median_price = statistics.median(int(row.get("price_copper") or 0) for row in rows)
+        median_x = left + plot_width * (median_price / max_price)
+        canvas.create_line(median_x, top, median_x, top + plot_height, fill="#eeeeee", dash=(3, 3))
+        canvas.create_text(left, 10, anchor="w", text="Prix", fill="#bdbaff", font=("Segoe UI", 9, "bold"))
+        canvas.create_text(width - right, 10, anchor="e", text=f"Médiane {_format_exchange_price(int(median_price))}", fill="#eeeeee", font=("Segoe UI", 9))
+        canvas.create_text(left, height - 10, anchor="w", text="violet = prix · rouge = quantité", fill="#dddddd", font=("Segoe UI", 8))
+
+    def _exchange_detail_selection_changed(self, state: _ExchangeTabState) -> None:
+        selection = state.detail_tree.selection()
+        if not selection:
+            return
+        row = state.detail_lookup.get(selection[0])
+        if row:
+            state.summary_var.set(
+                f"{row.get('name') or '-'} · {_format_exchange_price(row.get('price_copper'))} · "
+                f"{row.get('available_quantity') or 0} disponible(s)"
+            )
+
+    def _sort_exchange_overview(self, state: _ExchangeTabState, column: str, *, toggle: bool = True) -> None:
+        if toggle:
+            if state.overview_sort_column == column:
+                state.overview_sort_reverse = not state.overview_sort_reverse
+            else:
+                state.overview_sort_column = column
+                state.overview_sort_reverse = False
+        ids = list(state.overview_tree.get_children())
+
+        def key(item_id: str) -> Any:
+            variant = state.overview_lookup[item_id]
+            rows = [row for row in variant.get("realm_rows") or [] if row.get("price_copper") is not None]
+            prices = [int(row["price_copper"]) for row in rows]
+            values = {
+                "price": min(prices) if prices else 0,
+                "name": str(variant.get("label") or "").casefold(),
+                "available": sum(int(row.get("available_quantity") or 0) for row in rows),
+                "realms": len(rows),
+            }
+            return values.get(state.overview_sort_column, "")
+
+        ids.sort(key=key, reverse=state.overview_sort_reverse)
+        for index, item_id in enumerate(ids):
+            state.overview_tree.move(item_id, "", index)
+        labels = {"price": "Price", "name": "Name", "available": "Available", "realms": "Realms"}
+        for heading, label in labels.items():
+            arrow = " ↓" if heading == state.overview_sort_column and state.overview_sort_reverse else " ↑" if heading == state.overview_sort_column else ""
+            state.overview_tree.heading(heading, text=label + arrow)
+
+    def _sort_exchange_detail(self, state: _ExchangeTabState, column: str, *, toggle: bool = True) -> None:
+        if toggle:
+            if state.detail_sort_column == column:
+                state.detail_sort_reverse = not state.detail_sort_reverse
+            else:
+                state.detail_sort_column = column
+                state.detail_sort_reverse = False
+        ids = list(state.detail_tree.get_children())
+
+        def key(item_id: str) -> Any:
+            row = state.detail_lookup[item_id]
+            values = {
+                "realm": str(row.get("name") or "").casefold(),
+                "price": row.get("price_copper") or 0,
+                "quantity": int(row.get("available_quantity") or 0),
+                "listings": int(row.get("listing_count") or 0),
+                "updated": str(row.get("fetched_at") or ""),
+            }
+            return values.get(state.detail_sort_column, "")
+
+        listed_ids = [item_id for item_id in ids if state.detail_lookup[item_id].get("has_listing")]
+        empty_ids = [item_id for item_id in ids if not state.detail_lookup[item_id].get("has_listing")]
+        listed_ids.sort(key=key, reverse=state.detail_sort_reverse)
+        for index, item_id in enumerate(listed_ids + empty_ids):
+            state.detail_tree.move(item_id, "", index)
+        labels = {"realm": "Realm", "price": "Price", "quantity": "Quantity", "listings": "Listings", "updated": "Updated"}
+        for heading, label in labels.items():
+            arrow = " ↓" if heading == state.detail_sort_column and state.detail_sort_reverse else " ↑" if heading == state.detail_sort_column else ""
+            state.detail_tree.heading(heading, text=label + arrow)
+
+    def _start_exchange_sync(self, state: _ExchangeTabState) -> None:
+        state.sync_button.configure(state="disabled")
+        state.search_button.configure(state="disabled")
+        state.summary_var.set("Synchronisation AH EU en cours…")
+        threading.Thread(target=self._run_exchange_sync, args=(state,), daemon=True).start()
+
+    def _run_exchange_sync(self, state: _ExchangeTabState) -> None:
+        try:
+            conn = connect(DB_PATH)
+            cache = HttpCache(CACHE_DIR)
+            region = state.region_var.get().strip().lower() or DEFAULT_REGION
+            sync_auction_catalog(conn, cache, region)
+            summary = sync_auction_data(conn, cache, region)
+            report = build_auction_report(
+                conn,
+                state.query_var.get().strip(),
+                region,
+                variant_key=state.selected_variant_key,
+            )
+            conn.close()
+            report["icon_bytes"] = self._fetch_auction_icon_bytes(report)
+        except Exception as exc:  # pragma: no cover - GUI error path
+            details = traceback.format_exc()
+            self.root.after(0, lambda: self._handle_exchange_error(state, exc, details, "Synchronisation AH"))
+            return
+        self.root.after(0, lambda: self._apply_exchange_sync(state, summary, report))
+
+    def _apply_exchange_sync(self, state: _ExchangeTabState, summary: dict[str, Any], report: dict[str, Any]) -> None:
+        state.sync_button.configure(state="normal")
+        state.search_button.configure(state="normal")
+        state.open_first_after_search = False
+        self._apply_exchange_report(state, report)
+        state.summary_var.set(
+            f"AH synchronisée : {summary['synced']}/{summary['realms']} groupes · "
+            f"commodités EU : {summary['commodities']} · échecs : {len(summary['failed'])}"
+        )
+
+    def _handle_exchange_error(self, state: _ExchangeTabState, error: Exception, details: str, operation: str) -> None:
+        state.sync_button.configure(state="normal")
+        state.search_button.configure(state="normal")
+        state.summary_var.set("Erreur")
+        messagebox.showerror(operation, str(error), parent=self.root)
+
     def _refresh_character_tab(self, state: _CharactersTabState) -> None:
         state.refresh_button.configure(state="disabled")
         try:
@@ -890,6 +1880,7 @@ class ProfitabilityGui:
             summary += " | aucun métier"
         state.summary_var.set(summary)
         if first_row_id is not None:
+            first_row_id = state.tree.get_children()[0] if state.tree.get_children() else first_row_id
             state.tree.selection_set(first_row_id)
             state.tree.focus(first_row_id)
             self._set_character_details(state, self._render_character_details(visible_characters[0]))
@@ -1045,6 +2036,381 @@ class ProfitabilityGui:
         if not row.get("top_products"):
             lines.append("- aucun produit pricé localement")
         return "\n".join(lines)
+
+    def _schedule_auction_autocomplete(self, state: _AuctionTabState, event: tk.Event) -> None:
+        if event.keysym in {"Up", "Down", "Return", "Escape"}:
+            return
+        state.selected_variant_key = None
+        if state.autocomplete_after is not None:
+            try:
+                self.root.after_cancel(state.autocomplete_after)
+            except tk.TclError:
+                pass
+            state.autocomplete_after = None
+        query = state.query_var.get().strip()
+        if len(query) < 2:
+            self._hide_auction_suggestions(state)
+            return
+        state.autocomplete_after = self.root.after(
+            180,
+            lambda current=state, current_query=query: self._start_auction_autocomplete(current, current_query),
+        )
+
+    def _start_auction_autocomplete(self, state: _AuctionTabState, query: str) -> None:
+        state.autocomplete_after = None
+        worker = threading.Thread(target=self._run_auction_autocomplete, args=(state, query), daemon=True)
+        worker.start()
+
+    def _run_auction_autocomplete(self, state: _AuctionTabState, query: str) -> None:
+        try:
+            conn = connect(DB_PATH)
+            rows = suggest_auction_items(conn, query, limit=8)
+            conn.close()
+        except Exception:
+            return
+        self.root.after(
+            0,
+            lambda current=state, current_query=query, current_rows=rows: self._apply_auction_suggestions(
+                current, current_query, current_rows
+            ),
+        )
+
+    def _apply_auction_suggestions(
+        self,
+        state: _AuctionTabState,
+        query: str,
+        rows: list[dict[str, Any]],
+    ) -> None:
+        if state.query_var.get().strip() != query:
+            return
+        state.suggestions.delete(0, tk.END)
+        state.suggestion_rows = rows
+        for row in rows:
+            state.suggestions.insert(tk.END, row.get("display_name") or row.get("item_name") or "-")
+        if rows:
+            state.suggestions.grid()
+            state.suggestions.activate(0)
+        else:
+            self._hide_auction_suggestions(state)
+
+    def _focus_auction_suggestions(self, state: _AuctionTabState) -> str:
+        if state.suggestions.winfo_ismapped() and state.suggestion_rows:
+            state.suggestions.focus_set()
+            state.suggestions.selection_set(0)
+            state.suggestions.activate(0)
+        return "break"
+
+    def _select_auction_suggestion(self, state: _AuctionTabState) -> str:
+        selection = state.suggestions.curselection()
+        if not selection and state.suggestion_rows:
+            selection = (0,)
+        if not selection or selection[0] >= len(state.suggestion_rows):
+            return "break"
+        row = state.suggestion_rows[selection[0]]
+        state.query_var.set(str(row.get("search_name") or row.get("item_name") or ""))
+        state.selected_variant_key = row.get("variant_key")
+        self._hide_auction_suggestions(state)
+        state.search_entry.focus_set()
+        self._start_auction_search(state)
+        return "break"
+
+    def _handle_auction_return(self, state: _AuctionTabState) -> str:
+        if state.suggestions.winfo_ismapped() and state.suggestion_rows:
+            return self._select_auction_suggestion(state)
+        self._start_auction_search(state)
+        return "break"
+
+    def _hide_auction_suggestions(self, state: _AuctionTabState) -> None:
+        state.suggestions.grid_remove()
+        state.suggestions.selection_clear(0, tk.END)
+        state.suggestion_rows = []
+
+    def _start_auction_search(self, state: _AuctionTabState) -> None:
+        query = state.query_var.get().strip()
+        if not query:
+            state.summary_var.set("Tape un nom d’objet.")
+            return
+        self._hide_auction_suggestions(state)
+        state.search_button.configure(state="disabled")
+        state.summary_var.set("Recherche locale en cours...")
+        worker = threading.Thread(target=self._run_auction_search, args=(state,), daemon=True)
+        worker.start()
+
+    def _run_auction_search(self, state: _AuctionTabState) -> None:
+        try:
+            conn = connect(DB_PATH)
+            report = build_auction_report(
+                conn,
+                state.query_var.get().strip(),
+                state.region_var.get().strip().lower() or DEFAULT_REGION,
+                variant_key=state.selected_variant_key,
+            )
+            conn.close()
+            report["icon_bytes"] = self._fetch_auction_icon_bytes(report)
+        except Exception as exc:  # pragma: no cover - GUI error path
+            details = traceback.format_exc()
+            self.root.after(0, lambda: self._handle_auction_error(state, exc, details, "Recherche"))
+            return
+        self.root.after(0, lambda: self._apply_auction_report(state, report))
+
+    def _start_auction_realms(self, state: _AuctionTabState) -> None:
+        state.realms_button.configure(state="disabled")
+        state.summary_var.set("Récupération des groupes de royaumes Blizzard...")
+        worker = threading.Thread(target=self._run_auction_realms, args=(state,), daemon=True)
+        worker.start()
+
+    def _run_auction_realms(self, state: _AuctionTabState) -> None:
+        try:
+            conn = connect(DB_PATH)
+            summary = sync_auction_realms(
+                conn,
+                BlizzardClient(),
+                state.region_var.get().strip().lower() or DEFAULT_REGION,
+            )
+            conn.close()
+        except Exception as exc:  # pragma: no cover - GUI error path
+            details = traceback.format_exc()
+            self.root.after(0, lambda: self._handle_auction_error(state, exc, details, "Royaumes"))
+            return
+        self.root.after(0, lambda: self._auction_operation_done(state, f"{summary['realms']} groupes de royaumes enregistrés."))
+
+    def _start_auction_sync(self, state: _AuctionTabState) -> None:
+        state.sync_button.configure(state="disabled")
+        state.realms_button.configure(state="disabled")
+        state.search_button.configure(state="disabled")
+        state.summary_var.set("Synchronisation AH Blizzard en cours : plusieurs minutes possibles...")
+        worker = threading.Thread(target=self._run_auction_sync, args=(state,), daemon=True)
+        worker.start()
+
+    def _run_auction_sync(self, state: _AuctionTabState) -> None:
+        try:
+            conn = connect(DB_PATH)
+            cache = HttpCache(CACHE_DIR)
+            region = state.region_var.get().strip().lower() or DEFAULT_REGION
+            sync_auction_catalog(conn, cache, region)
+            summary = sync_auction_data(conn, cache, region)
+            report = (
+                build_auction_report(
+                    conn,
+                    state.query_var.get().strip(),
+                    region,
+                    variant_key=state.selected_variant_key,
+                )
+                if state.query_var.get().strip()
+                else None
+            )
+            conn.close()
+            if report is not None:
+                report["icon_bytes"] = self._fetch_auction_icon_bytes(report)
+        except Exception as exc:  # pragma: no cover - GUI error path
+            details = traceback.format_exc()
+            self.root.after(0, lambda: self._handle_auction_error(state, exc, details, "Synchronisation AH"))
+            return
+        self.root.after(0, lambda: self._apply_auction_sync(state, summary, report))
+
+    def _auction_operation_done(self, state: _AuctionTabState, message: str) -> None:
+        state.realms_button.configure(state="normal")
+        state.sync_button.configure(state="normal")
+        state.search_button.configure(state="normal")
+
+    def _sort_auction_tree(self, state: _AuctionTabState, column: str, *, toggle: bool = True) -> None:
+        if toggle:
+            if state.sort_column == column:
+                state.sort_reverse = not state.sort_reverse
+            else:
+                state.sort_column = column
+                state.sort_reverse = False
+
+        item_ids = list(state.tree.get_children())
+        rows_with_price = [
+            item_id for item_id in item_ids if state.row_lookup[item_id]["realm"].get("price_copper") is not None
+        ]
+        rows_without_price = [
+            item_id for item_id in item_ids if state.row_lookup[item_id]["realm"].get("price_copper") is None
+        ]
+
+        def key(item_id: str) -> Any:
+            row = state.row_lookup[item_id]
+            variant = row["variant"]
+            realm = row["realm"]
+            values = {
+                "variant": str(variant.get("label") or "").casefold(),
+                "realm": str(realm.get("name") or "").casefold(),
+                "price": realm.get("price_copper") or 0,
+                "quantity": int(realm.get("available_quantity") or 0),
+                "listings": int(realm.get("listing_count") or 0),
+                "updated": str(realm.get("fetched_at") or ""),
+            }
+            return values.get(state.sort_column, "")
+
+        rows_with_price.sort(key=key, reverse=state.sort_reverse)
+        ordered = rows_with_price + rows_without_price
+        for index, item_id in enumerate(ordered):
+            state.tree.move(item_id, "", index)
+
+        labels = {
+            "variant": "Objet / rang",
+            "realm": "Groupe EU",
+            "price": "Prix minimum",
+            "quantity": "Quantité",
+            "listings": "Annonces",
+            "updated": "Actualisé",
+        }
+        for heading, label in labels.items():
+            arrow = " ↓" if heading == state.sort_column and state.sort_reverse else " ↑" if heading == state.sort_column else ""
+            state.tree.heading(heading, text=label + arrow)
+        state.summary_var.set(message)
+
+    def _apply_auction_sync(self, state: _AuctionTabState, summary: dict[str, Any], report: dict[str, Any] | None) -> None:
+        self._auction_operation_done(
+            state,
+            f"AH synchronisée : {summary['synced']}/{summary['realms']} groupes | "
+            f"commodités EU: {summary['commodities']} | échecs: {len(summary['failed'])}",
+        )
+        if report is not None:
+            self._apply_auction_report(state, report)
+
+    def _apply_auction_report(self, state: _AuctionTabState, report: dict[str, Any]) -> None:
+        self._hide_auction_suggestions(state)
+        state.current_report = report
+        state.row_lookup.clear()
+        state.icon_images.clear()
+        for item in state.tree.get_children():
+            state.tree.delete(item)
+
+        icon_bytes = report.get("icon_bytes") or {}
+        if Image is not None and ImageTk is not None:
+            for icon_url, payload in icon_bytes.items():
+                try:
+                    image = Image.open(io.BytesIO(payload)).convert("RGBA")
+                    image.thumbnail((30, 30), Image.Resampling.LANCZOS)
+                    state.icon_images[icon_url] = ImageTk.PhotoImage(image, master=self.root)
+                except Exception:
+                    continue
+
+        first_row_id: str | None = None
+        row_index = 0
+        for variant in report.get("variants") or []:
+            available_rows = [
+                realm for realm in variant.get("realm_rows") or [] if realm.get("has_listing")
+            ]
+            best_price = min(
+                (realm.get("price_copper") for realm in available_rows if realm.get("price_copper") is not None),
+                default=None,
+            )
+            for realm in variant.get("realm_rows") or []:
+                if state.available_only_var.get() and not realm.get("has_listing"):
+                    continue
+                row_id = f"auction-{row_index}"
+                row_index += 1
+                if first_row_id is None:
+                    first_row_id = row_id
+                row = {"variant": variant, "realm": realm}
+                state.row_lookup[row_id] = row
+                tags: list[str] = []
+                if not realm.get("has_listing"):
+                    tags.append("empty")
+                elif best_price is not None and realm.get("price_copper") == best_price:
+                    tags.append("best")
+                state.tree.insert(
+                    "",
+                    "end",
+                    iid=row_id,
+                    values=(
+                        variant.get("label") or "-",
+                        realm.get("name") or "-",
+                        format_copper(realm.get("price_copper")),
+                        realm.get("available_quantity") or 0,
+                        realm.get("listing_count") or 0,
+                        realm.get("fetched_at") or "-",
+                    ),
+                    image=state.icon_images.get(variant.get("icon_url")),
+                    tags=tags,
+                )
+        if report.get("matches"):
+            state.summary_var.set(
+                f"{len(report.get('variants') or [])} variantes | "
+                f"{report.get('realm_count', 0)} groupes EU | "
+                f"snapshot: {report.get('latest_snapshot') or 'aucun'}"
+            )
+        else:
+            state.summary_var.set("Aucun item trouvé. Lance « Synchroniser AH » si le catalogue est vide.")
+        if first_row_id is not None:
+            state.tree.selection_set(first_row_id)
+            state.tree.focus(first_row_id)
+            self._set_auction_details(state, self._render_auction_row(state.row_lookup[first_row_id]))
+        else:
+            self._set_auction_details(state, "Aucune donnée de prix. Synchronise l’AH Blizzard.")
+        state.search_button.configure(state="normal")
+
+    def _refresh_auction_filter(self, state: _AuctionTabState) -> None:
+        if state.current_report is not None:
+            self._apply_auction_report(state, state.current_report)
+
+    def _fetch_auction_icon_bytes(self, report: dict[str, Any]) -> dict[str, bytes]:
+        """Download only the few icons needed by the current search and cache them."""
+        urls = {
+            variant.get("icon_url")
+            for variant in report.get("variants") or []
+            if variant.get("icon_url")
+        }
+        icon_cache_dir = Path(CACHE_DIR) / "wow-icons"
+        icon_cache_dir.mkdir(parents=True, exist_ok=True)
+        result: dict[str, bytes] = {}
+        for url in list(urls)[:32]:
+            cache_path = icon_cache_dir / f"{hashlib.sha256(url.encode('utf-8')).hexdigest()}.jpg"
+            try:
+                payload = cache_path.read_bytes() if cache_path.exists() else None
+                if payload is None:
+                    request = urllib.request.Request(
+                        url,
+                        headers={"User-Agent": "wow-tools/0.1", "Accept": "image/jpeg,image/*"},
+                    )
+                    with urllib.request.urlopen(request, timeout=10) as response:
+                        payload = response.read()
+                    cache_path.write_bytes(payload)
+                if payload:
+                    result[url] = payload
+            except (OSError, urllib.error.URLError):
+                continue
+        return result
+
+    def _show_selected_auction(self, state: _AuctionTabState, tree: ttk.Treeview) -> None:
+        selection = tree.selection()
+        if not selection:
+            return
+        row = state.row_lookup.get(selection[0])
+        if row is not None:
+            self._set_auction_details(state, self._render_auction_row(row))
+
+    def _set_auction_details(self, state: _AuctionTabState, text: str) -> None:
+        state.details_text.configure(state="normal")
+        state.details_text.delete("1.0", "end")
+        state.details_text.insert("1.0", text)
+        state.details_text.configure(state="disabled")
+
+    def _render_auction_row(self, row: dict[str, Any]) -> str:
+        variant = row["variant"]
+        realm = row["realm"]
+        return "\n".join(
+            [
+                f"Objet: {variant.get('label') or '-'}",
+                f"Item ID: {variant.get('item_id') or '-'}",
+                f"Niveau/rang décodé: {variant.get('item_level') or '-'}",
+                f"Groupe: {realm.get('name') or '-'}",
+                f"Prix unitaire minimum: {format_copper(realm.get('price_copper'))}",
+                f"Quantité disponible: {realm.get('available_quantity') or 0}",
+                f"Annonces: {realm.get('listing_count') or 0}",
+                f"Snapshot: {realm.get('fetched_at') or '-'}",
+                "",
+                "Les prix d’objets non-commodités sont par groupe de royaumes connectés. Les commodités sont affichées au niveau EU.",
+            ]
+        )
+
+    def _handle_auction_error(self, state: _AuctionTabState, error: Exception, details: str, operation: str) -> None:
+        self._auction_operation_done(state, "Erreur")
+        self._set_auction_details(state, details)
+        messagebox.showerror(operation, str(error), parent=self.root)
 
     def _build_specialization_rows(self, report: dict[str, Any]) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
