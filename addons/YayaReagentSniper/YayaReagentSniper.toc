@@ -1,0 +1,9 @@
+## Interface: 120007
+## Title: Yaya Reagent Sniper
+## Notes: Sniper de réactifs basé sur les groupes TradeSkillMaster.
+## Author: Yaya
+## Version: 0.3.1
+## OptionalDeps: TradeSkillMaster, Auctionator, LibAHTab
+## SavedVariables: YayaReagentSniperDB
+
+YayaReagentSniper.lua

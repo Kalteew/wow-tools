@@ -100,6 +100,245 @@ function Replace-ExactBlock {
     return $true
 }
 
+function Update-TSMShoppingOperationFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-Content -LiteralPath $FilePath -Raw
+    $changed = $false
+
+    $original = @'
+ShoppingOperation.ERROR = EnumType.New("SHOPPING_OPERATION_ERROR", {
+	MAX_PRICE_INVALID = EnumType.NewValue(),
+	RESTOCK_INVALID = EnumType.NewValue(),
+	RESTOCK_INVALID_RANGE = EnumType.NewValue(),
+})
+'@
+    $patched = @'
+ShoppingOperation.ERROR = EnumType.New("SHOPPING_OPERATION_ERROR", {
+	MAX_PRICE_INVALID = EnumType.NewValue(),
+	RESTOCK_INVALID = EnumType.NewValue(),
+	RESTOCK_INVALID_RANGE = EnumType.NewValue(),
+	MIN_RESTOCK_INVALID = EnumType.NewValue(),
+	MIN_RESTOCK_INVALID_RANGE = EnumType.NewValue(),
+	RESTOCK_QUANTITIES_CONFLICT = EnumType.NewValue(),
+})
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "LibTSMSystem\\Source\\Operation\\ShoppingOperation.lua errors") -or $changed
+
+    $original = @'
+		:AddCustomStringSetting("restockQuantity", "0")
+'@
+    $patched = @'
+		:AddCustomStringSetting("minRestock", "1")
+		:AddCustomStringSetting("restockQuantity", "0")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "LibTSMSystem\\Source\\Operation\\ShoppingOperation.lua settings") -or $changed
+
+    $original = @'
+---Validates and gets the restock quantity for an item.
+---@param itemString string The item string
+---@return boolean isValid
+---@return number|EnumValue|nil maxQuantityOrErrType
+---@return any errArg
+function ShoppingOperation.ValidateAndGetRestockQuantity(itemString)
+	local operationSettings = Util.GetFirstOperationByItem(OPERATION_TYPE, itemString)
+	if not operationSettings then
+		return false, nil
+	end
+	if not CustomString.Validate(operationSettings.maxPrice) then
+		return false, ShoppingOperation.ERROR.MAX_PRICE_INVALID, operationSettings.maxPrice
+	end
+	local restockQuantity = CustomString.GetValue(operationSettings.restockQuantity, itemString, true)
+	if not restockQuantity then
+		return false, ShoppingOperation.ERROR.RESTOCK_INVALID, operationSettings.restockQuantity
+	elseif restockQuantity < MIN_RESTOCK_VALUE or restockQuantity > MAX_RESTOCK_VALUE then
+		return false, ShoppingOperation.ERROR.RESTOCK_INVALID_RANGE, operationSettings.restockQuantity
+	end
+	local maxQuantity = nil
+	if restockQuantity > 0 then
+		local numHave = private.inventoryNumFunc(itemString, operationSettings.restockSources.bank, operationSettings.restockSources.auctions, operationSettings.restockSources.alts, operationSettings.restockSources.guild)
+		if numHave >= restockQuantity then
+			return false, nil
+		end
+		maxQuantity = restockQuantity - numHave
+	end
+	if not operationSettings.showAboveMaxPrice and not CustomString.GetValue(operationSettings.maxPrice, itemString) then
+		-- We're not showing auctions above the max price and the max price isn't valid for this item, so skip it
+		return false, nil
+	end
+	return true, maxQuantity
+end
+'@
+    $patched = @'
+---Validates and gets the restock quantity for an item.
+---@param itemString string The item string
+---@return boolean isValid
+---@return number|EnumValue|nil maxQuantityOrErrType
+---@return any errArg
+---@return any errArg2
+---@return any errArg3
+function ShoppingOperation.ValidateAndGetRestockQuantity(itemString)
+	local operationSettings, operationName = Util.GetFirstOperationByItem(OPERATION_TYPE, itemString)
+	if not operationSettings then
+		return false, nil
+	end
+	if not CustomString.Validate(operationSettings.maxPrice) then
+		return false, ShoppingOperation.ERROR.MAX_PRICE_INVALID, operationSettings.maxPrice
+	end
+	local minRestock = CustomString.GetValue(operationSettings.minRestock, itemString, true)
+	if not minRestock then
+		return false, ShoppingOperation.ERROR.MIN_RESTOCK_INVALID, operationSettings.minRestock
+	elseif minRestock < MIN_RESTOCK_VALUE or minRestock > MAX_RESTOCK_VALUE then
+		return false, ShoppingOperation.ERROR.MIN_RESTOCK_INVALID_RANGE, operationSettings.minRestock
+	end
+	local restockQuantity = CustomString.GetValue(operationSettings.restockQuantity, itemString, true)
+	if not restockQuantity then
+		return false, ShoppingOperation.ERROR.RESTOCK_INVALID, operationSettings.restockQuantity
+	elseif restockQuantity < MIN_RESTOCK_VALUE or restockQuantity > MAX_RESTOCK_VALUE then
+		return false, ShoppingOperation.ERROR.RESTOCK_INVALID_RANGE, operationSettings.restockQuantity
+	end
+	if restockQuantity > 0 and minRestock > restockQuantity then
+		return false, ShoppingOperation.ERROR.RESTOCK_QUANTITIES_CONFLICT, operationName, minRestock, restockQuantity
+	end
+	local maxQuantity = nil
+	if restockQuantity > 0 then
+		local numHave = private.inventoryNumFunc(itemString, operationSettings.restockSources.bank, operationSettings.restockSources.auctions, operationSettings.restockSources.alts, operationSettings.restockSources.guild)
+		if numHave >= restockQuantity then
+			return false, nil
+		end
+		maxQuantity = restockQuantity - numHave
+		if maxQuantity < minRestock then
+			return false, nil
+		end
+	end
+	if not operationSettings.showAboveMaxPrice and not CustomString.GetValue(operationSettings.maxPrice, itemString) then
+		-- We're not showing auctions above the max price and the max price isn't valid for this item, so skip it
+		return false, nil
+	end
+	return true, maxQuantity
+end
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "LibTSMSystem\\Source\\Operation\\ShoppingOperation.lua validation") -or $changed
+
+    if ($changed) {
+        Set-Content -LiteralPath $FilePath -Value $content -NoNewline
+    }
+    return $changed
+}
+
+function Update-TSMShoppingUIFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-Content -LiteralPath $FilePath -Raw
+    $changed = $false
+
+    $original = @'
+local SETTING_TOOLTIPS = {
+	maxPrice = L["The max price to show in the shopping results."],
+	showAboveMaxPrice = L["If enabled, auctions above the defined max price will be shown in shopping results."],
+	restockQuantity = L["The maximum number of items to have in your inventory."],
+	restockSources = L["Select the inventory sources you would like to include when calculating how many of an item a character already has for restocking."],
+}
+'@
+    $patched = @'
+local SETTING_TOOLTIPS = {
+	maxPrice = L["The max price to show in the shopping results."],
+	showAboveMaxPrice = L["If enabled, auctions above the defined max price will be shown in shopping results."],
+	minRestock = L["Minimum restock quantity"],
+	restockQuantity = L["The maximum number of items to have in your inventory."],
+	restockSources = L["Select the inventory sources you would like to include when calculating how many of an item a character already has for restocking."],
+}
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\MainUI\\Operations\\Shopping.lua tooltips") -or $changed
+
+    $original = @'
+			:AddChild(TSM.MainUI.Operations.CreateLinkedPriceInput("restockQuantity", L["Maximum restock quantity"], MAX_QUANTITY_VALIDATE_CONTEXT, nil, nil, SETTING_TOOLTIPS.restockQuantity)
+				:SetMargin(0, 0, 0, 12)
+			)
+'@
+    $patched = @'
+			:AddChild(TSM.MainUI.Operations.CreateLinkedPriceInput("minRestock", L["Minimum restock quantity"], MAX_QUANTITY_VALIDATE_CONTEXT, nil, nil, SETTING_TOOLTIPS.minRestock)
+				:SetMargin(0, 0, 0, 12)
+			)
+			:AddChild(TSM.MainUI.Operations.CreateLinkedPriceInput("restockQuantity", L["Maximum restock quantity"], MAX_QUANTITY_VALIDATE_CONTEXT, nil, nil, SETTING_TOOLTIPS.restockQuantity)
+				:SetMargin(0, 0, 0, 12)
+			)
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\MainUI\\Operations\\Shopping.lua minimum restock input") -or $changed
+
+    if ($changed) {
+        Set-Content -LiteralPath $FilePath -Value $content -NoNewline
+    }
+    return $changed
+}
+
+function Update-TSMShoppingGroupSearchFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-Content -LiteralPath $FilePath -Raw
+    $original = @'
+function private.GetRestockQuantity(itemString)
+	local isValid, maxQuantityOrErrType, errArg = ShoppingOperation.ValidateAndGetRestockQuantity(itemString)
+	if isValid then
+		return true, maxQuantityOrErrType
+	end
+	if maxQuantityOrErrType == ShoppingOperation.ERROR.MAX_PRICE_INVALID then
+		local _, errStr = CustomPrice.GetValue(errArg, itemString, true)
+		ChatMessage.PrintfUser(L["Your max price (%s) is invalid for %s."].." "..errStr, errArg, ItemInfo.GetLink(itemString))
+	elseif maxQuantityOrErrType == ShoppingOperation.ERROR.RESTOCK_INVALID then
+		local _, errStr = CustomPrice.GetValue(errArg, itemString, true)
+		ChatMessage.PrintfUser(L["Your min restock (%s) is invalid for %s."].." "..errStr, errArg, ItemInfo.GetLink(itemString))
+	elseif maxQuantityOrErrType == ShoppingOperation.ERROR.RESTOCK_INVALID_RANGE then
+		ChatMessage.PrintfUser(L["Your restock quantity (%s) is invalid for %s."].." "..L["Must be between %d and %d."], errArg, ItemInfo.GetLink(itemString), ShoppingOperation.GetRestockRange())
+	elseif maxQuantityOrErrType ~= nil then
+		error("Invalid error type: "..tostring(maxQuantityOrErrType))
+	end
+	return false, nil
+end
+'@
+    $patched = @'
+function private.GetRestockQuantity(itemString)
+	local isValid, maxQuantityOrErrType, errArg, errArg2, errArg3 = ShoppingOperation.ValidateAndGetRestockQuantity(itemString)
+	if isValid then
+		return true, maxQuantityOrErrType
+	end
+	if maxQuantityOrErrType == ShoppingOperation.ERROR.MAX_PRICE_INVALID then
+		local _, errStr = CustomPrice.GetValue(errArg, itemString, true)
+		ChatMessage.PrintfUser(L["Your max price (%s) is invalid for %s."].." "..errStr, errArg, ItemInfo.GetLink(itemString))
+	elseif maxQuantityOrErrType == ShoppingOperation.ERROR.RESTOCK_INVALID then
+		local _, errStr = CustomPrice.GetValue(errArg, itemString, true)
+		ChatMessage.PrintfUser(L["Your max restock (%s) is invalid for %s."].." "..errStr, errArg, ItemInfo.GetLink(itemString))
+	elseif maxQuantityOrErrType == ShoppingOperation.ERROR.RESTOCK_INVALID_RANGE then
+		ChatMessage.PrintfUser(L["Your max restock (%s) is invalid for %s."].." "..L["Must be between %d and %d."], errArg, ItemInfo.GetLink(itemString), ShoppingOperation.GetRestockRange())
+	elseif maxQuantityOrErrType == ShoppingOperation.ERROR.MIN_RESTOCK_INVALID then
+		local _, errStr = CustomPrice.GetValue(errArg, itemString, true)
+		ChatMessage.PrintfUser(L["Your min restock (%s) is invalid for %s."].." "..errStr, errArg, ItemInfo.GetLink(itemString))
+	elseif maxQuantityOrErrType == ShoppingOperation.ERROR.MIN_RESTOCK_INVALID_RANGE then
+		ChatMessage.PrintfUser(L["Your min restock (%s) is invalid for %s."].." "..L["Must be between %d and %d."], errArg, ItemInfo.GetLink(itemString), ShoppingOperation.GetRestockRange())
+	elseif maxQuantityOrErrType == ShoppingOperation.ERROR.RESTOCK_QUANTITIES_CONFLICT then
+		ChatMessage.PrintfUser(L["'%s' is an invalid operation. Min restock of %d is higher than max restock of %d for %s."], errArg, errArg2, errArg3, ItemInfo.GetLink(itemString))
+	elseif maxQuantityOrErrType ~= nil then
+		error("Invalid error type: "..tostring(maxQuantityOrErrType))
+	end
+	return false, nil
+end
+'@
+    $changed = Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\Service\\Shopping\\GroupSearch.lua restock validation"
+    if ($changed) {
+        Set-Content -LiteralPath $FilePath -Value $content -NoNewline
+    }
+    return $changed
+}
+
 function Update-TSMApiFile {
     param(
         [Parameter(Mandatory = $true)]
@@ -593,6 +832,244 @@ end
     return $changed
 }
 
+function Update-TSMMailingSendFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-Content -LiteralPath $FilePath -Raw
+    $original = 'if Threading.WaitForEvent("MAIL_SUCCESS", "MAIL_FAILED") == "MAIL_SUCCESS" then'
+    $patched = 'if Threading.WaitForEvent("MAIL_SEND_SUCCESS", "MAIL_SUCCESS", "MAIL_FAILED") ~= "MAIL_FAILED" then'
+    $changed = Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Service\\Mailing\\Send.lua success event"
+    if ($changed) {
+        Set-Content -LiteralPath $FilePath -Value $content -NoNewline
+    }
+    return $changed
+}
+
+function Update-TSMCraftedPriceFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-Content -LiteralPath $FilePath -Raw
+    $original = @'
+	-- YayaCraftedPrice integration
+	if YayaCraftedPriceAPI and type(YayaCraftedPriceAPI.InitializeTSM) == "function" then
+		YayaCraftedPriceAPI.InitializeTSM(TSM, CustomString)
+	end
+	if YayaCraftedPriceAPI and type(YayaCraftedPriceAPI.GetSmartAvgCrafted) == "function"
+		and not CustomString.IsSourceRegistered("smartavgcrafted") then
+		CustomString.RegisterSource(
+			"YayaCraftedPrice",
+			"smartAvgCrafted",
+			"Smart Avg Crafted",
+			YayaCraftedPriceAPI.GetSmartAvgCrafted,
+			CustomString.SOURCE_TYPE.NORMAL
+		)
+		Inventory.RegisterDependentCustomSource("smartAvgCrafted")
+	end
+
+	-- Force a garbage collection
+'@
+    $patched = @'
+	-- YayaCraftedPrice integration
+	local function RegisterYayaCraftedPrice(api)
+		if type(api) ~= "table" then
+			return
+		end
+		if type(api.InitializeTSM) == "function" then
+			api.InitializeTSM(TSM, CustomString)
+		end
+		if type(api.GetSmartAvgCrafted) == "function"
+			and not CustomString.IsSourceRegistered("smartavgcrafted") then
+			CustomString.RegisterSource(
+				"YayaCraftedPrice",
+				"smartAvgCrafted",
+				"Smart Avg Crafted",
+				api.GetSmartAvgCrafted,
+				CustomString.SOURCE_TYPE.NORMAL
+			)
+			Inventory.RegisterDependentCustomSource("smartAvgCrafted")
+		end
+	end
+	YayaCraftedPriceTSMRegister = RegisterYayaCraftedPrice
+	RegisterYayaCraftedPrice(YayaCraftedPriceAPI)
+
+	-- Force a garbage collection
+'@
+    $changed = Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "TradeSkillMaster.lua crafted price integration"
+    if ($changed) {
+        Set-Content -LiteralPath $FilePath -Value $content -NoNewline
+    }
+    return $changed
+}
+
+function Update-TSMAuctionScrollTableFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-Content -LiteralPath $FilePath -Raw
+    $original = @'
+function AuctionScrollTable.__private:_SetSelectedRow(selection, silent)
+	local dataIndex = selection and Table.KeyByValue(self._rawData, selection) or nil
+	local prevDataIndex = self._selection and Table.KeyByValue(self._rawData, self._selection) or nil
+	if private.RowsEqual(selection, self._selection) and (not selection or dataIndex) then
+		if dataIndex then
+			self:_ScrollToRow(dataIndex)
+		end
+		return self
+	end
+	local prevRow = prevDataIndex and self:_GetRow(prevDataIndex) or nil
+	if prevRow then
+		prevRow:SetSelected(false)
+	end
+	if dataIndex then
+		local newRow = self:_GetRow(dataIndex)
+		if newRow then
+			newRow:SetSelected(true)
+		end
+		self._selection = selection
+		local baseItemString = selection:GetBaseItemString()
+		self._selectionBaseItemString = baseItemString
+		local settings = self:_GetSettingsValue()
+		self._selectionBaseSortValue = self:_GetSortValue(selection, settings.sortCol, settings.sortAscending)
+		local firstIndex = nil
+		self._selectionSubRowIndex = nil
+		for i, data in ipairs(self._rawData) do
+			if not firstIndex and data:GetBaseItemString() == baseItemString then
+				firstIndex = i
+			end
+			if data == selection then
+				self._selectionSubRowIndex = i - firstIndex + 1
+				break
+			end
+		end
+		assert(self._selectionSubRowIndex)
+		self:_ScrollToRow(dataIndex)
+	else
+		self._selection = nil
+		self._selectionBaseItemString = nil
+		self._selectionBaseSortValue = nil
+		self._selectionSubRowIndex = nil
+	end
+	if not silent then
+		self:_SendActionScript("OnSelectionChanged")
+	end
+end
+'@
+    $patched = @'
+function AuctionScrollTable.__private:_SetSelectedRow(selection, silent)
+	local dataIndex = selection and Table.KeyByValue(self._rawData, selection) or nil
+	local prevDataIndex = self._selection and Table.KeyByValue(self._rawData, self._selection) or nil
+	-- Auction results can be invalidated between rendering a row and clicking it.
+	-- Do not compare or select a sub row after its raw data was released.
+	if selection and selection:IsSubRow() and not selection:HasRawData() then
+		selection = nil
+		dataIndex = nil
+	end
+	if self._selection and self._selection:IsSubRow() and not self._selection:HasRawData() then
+		self._selection = nil
+	end
+	if private.RowsEqual(selection, self._selection) and (not selection or dataIndex) then
+		if dataIndex then
+			self:_ScrollToRow(dataIndex)
+		end
+		return self
+	end
+	local prevRow = prevDataIndex and self:_GetRow(prevDataIndex) or nil
+	if prevRow then
+		prevRow:SetSelected(false)
+	end
+	if dataIndex then
+		local newRow = self:_GetRow(dataIndex)
+		if newRow then
+			newRow:SetSelected(true)
+		end
+		self._selection = selection
+		local baseItemString = selection:GetBaseItemString()
+		self._selectionBaseItemString = baseItemString
+		local settings = self:_GetSettingsValue()
+		self._selectionBaseSortValue = self:_GetSortValue(selection, settings.sortCol, settings.sortAscending)
+		local firstIndex = nil
+		self._selectionSubRowIndex = nil
+		for i, data in ipairs(self._rawData) do
+			if not firstIndex and data:GetBaseItemString() == baseItemString then
+				firstIndex = i
+			end
+			if data == selection then
+				self._selectionSubRowIndex = i - firstIndex + 1
+				break
+			end
+		end
+		assert(self._selectionSubRowIndex)
+		self:_ScrollToRow(dataIndex)
+	else
+		self._selection = nil
+		self._selectionBaseItemString = nil
+		self._selectionBaseSortValue = nil
+		self._selectionSubRowIndex = nil
+	end
+	if not silent then
+		self:_SendActionScript("OnSelectionChanged")
+	end
+end
+'@
+    $changed = Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "AuctionScrollTable stale selection guard"
+    if ($changed) {
+        Set-Content -LiteralPath $FilePath -Value $content -NoNewline
+    }
+    return $changed
+}
+
+function Update-TSMBagTrackingFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-Content -LiteralPath $FilePath -Raw
+    $original = @'
+function BagTracking.ItemWillGoInBag(itemString, bag)
+	if bag == Container.GetBackpackContainer() or bag == Container.GetBankContainer() or Container.IsWarbankBag(bag) then
+		return true
+	end
+	local itemFamily = Item.GetFamily(ItemInfo.GetLink(itemString), ItemInfo.GetClassId(itemString))
+	local _, bagFamily = Container.GetNumFreeSlots(bag)
+	if not bagFamily then
+		return false
+	end
+	return bagFamily == 0 or bit.band(itemFamily, bagFamily) > 0
+end
+'@
+    $patched = @'
+function BagTracking.ItemWillGoInBag(itemString, bag)
+	if bag == Container.GetBackpackContainer() or bag == Container.GetBankContainer() or Container.IsWarbankBag(bag) then
+		return true
+	end
+	local reagentBag = Enum and Enum.BagIndex and Enum.BagIndex.ReagentBag
+	if reagentBag and bag == reagentBag then
+		return ItemInfo.IsCraftingReagent(itemString) == true
+	end
+	local itemFamily = Item.GetFamily(ItemInfo.GetLink(itemString), ItemInfo.GetClassId(itemString))
+	local _, bagFamily = Container.GetNumFreeSlots(bag)
+	if not bagFamily then
+		return false
+	end
+	return bagFamily == 0 or bit.band(itemFamily, bagFamily) > 0
+end
+'@
+    $changed = Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Inventory\\BagTracking reagent bag guard"
+    if ($changed) {
+        Set-Content -LiteralPath $FilePath -Value $content -NoNewline
+    }
+    return $changed
+}
+
 function Invoke-TSMMailingPatch {
     param(
         [string]$AddonPath,
@@ -603,15 +1080,29 @@ function Invoke-TSMMailingPatch {
     $version = Get-TSMAddonVersion -AddonPath $resolvedAddonPath
 
     $apiPath = Join-Path $resolvedAddonPath "Core\API.lua"
+    $craftedPricePath = Join-Path $resolvedAddonPath "TradeSkillMaster.lua"
     $mailingCorePath = Join-Path $resolvedAddonPath "Core\UI\MailingUI\Core.lua"
     $mailingGroupsPath = Join-Path $resolvedAddonPath "Core\UI\MailingUI\Groups.lua"
     $mailingOtherPath = Join-Path $resolvedAddonPath "Core\UI\MailingUI\Other.lua"
+    $mailingSendPath = Join-Path $resolvedAddonPath "Core\Service\Mailing\Send.lua"
+    $auctionScrollTablePath = Join-Path $resolvedAddonPath "LibTSMUI\Source\AuctionHouse\AuctionScrollTable.lua"
+    $bagTrackingPath = Join-Path $resolvedAddonPath "LibTSMService\Source\Inventory\BagTracking.lua"
+    $shoppingOperationPath = Join-Path $resolvedAddonPath "LibTSMSystem\Source\Operation\ShoppingOperation.lua"
+    $shoppingUiPath = Join-Path $resolvedAddonPath "Core\UI\MainUI\Operations\Shopping.lua"
+    $shoppingGroupSearchPath = Join-Path $resolvedAddonPath "Core\Service\Shopping\GroupSearch.lua"
 
     $changed = $false
     $changed = (Update-TSMApiFile -FilePath $apiPath) -or $changed
+    $changed = (Update-TSMCraftedPriceFile -FilePath $craftedPricePath) -or $changed
     $changed = (Update-TSMMailingCoreFile -FilePath $mailingCorePath) -or $changed
     $changed = (Update-TSMMailingGroupsFile -FilePath $mailingGroupsPath) -or $changed
     $changed = (Update-TSMMailingOtherFile -FilePath $mailingOtherPath) -or $changed
+    $changed = (Update-TSMMailingSendFile -FilePath $mailingSendPath) -or $changed
+    $changed = (Update-TSMAuctionScrollTableFile -FilePath $auctionScrollTablePath) -or $changed
+    $changed = (Update-TSMBagTrackingFile -FilePath $bagTrackingPath) -or $changed
+    $changed = (Update-TSMShoppingOperationFile -FilePath $shoppingOperationPath) -or $changed
+    $changed = (Update-TSMShoppingUIFile -FilePath $shoppingUiPath) -or $changed
+    $changed = (Update-TSMShoppingGroupSearchFile -FilePath $shoppingGroupSearchPath) -or $changed
 
     $status = if ($changed) { "patched" } else { "already patched" }
     Write-TSMAutoPatchLog -Message ("{0} ({1}) at {2}" -f $status, $version, $resolvedAddonPath) -Quiet:$Quiet

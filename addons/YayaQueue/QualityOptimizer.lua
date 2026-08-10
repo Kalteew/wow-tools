@@ -34,6 +34,23 @@ local function GetOptionCost(option, quantity)
         return 0, false
     end
 
+    if type(option.costCurve) == "table" and type(option.costCurve.tiers) == "table" then
+        local total = 0
+        local estimated = false
+        local covered = 0
+        for _, tier in ipairs(option.costCurve.tiers) do
+            local upTo = math.max(covered, math.floor(tonumber(tier.upTo) or covered))
+            local unitPrice = tonumber(tier.unitPrice)
+            if not IsFiniteNumber(unitPrice) or unitPrice < 0 then return nil, false end
+            local used = math.max(0, math.min(quantity, upTo) - covered)
+            total = total + used * unitPrice
+            estimated = estimated or (used > 0 and tier.estimated == true)
+            covered = upTo
+            if covered >= quantity then return total, estimated end
+        end
+        return nil, false
+    end
+
     if type(option.costForQuantity) == "function" then
         local ok, cost, estimated = pcall(option.costForQuantity, quantity)
         if ok and IsFiniteNumber(cost) and cost >= 0 then
@@ -85,6 +102,7 @@ local function ConsolidateOptions(slot, tierCount)
                 quality = quality,
                 price = price,
                 estimated = rawOption.estimated == true,
+                costCurve = rawOption.costCurve,
                 costForQuantity = rawOption.costForQuantity,
             }
             option.signature = OptionSignature(option)
@@ -189,7 +207,9 @@ local function AddThreeTierPoint(
     optionsByQuality,
     completionBonuses,
     priceDelta,
-    hasNonlinearCost
+    hasNonlinearCost,
+    yieldWork,
+    workState
 )
     local minimumThree = math.max(0, qualityPoints - required)
     local maximumThree = math.floor(qualityPoints / 2)
@@ -214,6 +234,8 @@ local function AddThreeTierPoint(
 
     local seen = {}
     for _, qualityThree in ipairs(candidates) do
+        workState.count = workState.count + 1
+        if yieldWork and workState.count % 128 == 0 then yieldWork() end
         if qualityThree >= minimumThree and qualityThree <= maximumThree and not seen[qualityThree] then
             seen[qualityThree] = true
             local qualityTwo = qualityPoints - 2 * qualityThree
@@ -236,9 +258,12 @@ local function AddThreeTierPoint(
     end
 end
 
-function Optimizer.BuildSlotChoices(slot)
+function Optimizer.BuildSlotChoices(slot, yieldWork)
     if type(slot) ~= "table" then
         return nil, "slot must be a table"
+    end
+    if yieldWork ~= nil and type(yieldWork) ~= "function" then
+        return nil, "yieldWork must be a function"
     end
 
     local required = tonumber(slot.required)
@@ -265,13 +290,16 @@ function Optimizer.BuildSlotChoices(slot)
 
     local hasNonlinearCost = false
     for quality = 1, tierCount do
-        if type(optionsByQuality[quality].costForQuantity) == "function" then
+        local option = optionsByQuality[quality]
+        if type(option.costForQuantity) == "function"
+            or (type(option.costCurve) == "table" and #(option.costCurve.tiers or {}) > 1) then
             hasNonlinearCost = true
             break
         end
     end
 
     local bestByWeight = {}
+    local workState = { count = 0 }
     if tierCount == 2 then
         for qualityTwo = 0, required do
             AddBestChoice(bestByWeight, BuildChoice(
@@ -281,6 +309,8 @@ function Optimizer.BuildSlotChoices(slot)
                 weightPerPoint,
                 slot.completionBonusByQuality
             ))
+            workState.count = workState.count + 1
+            if yieldWork and workState.count % 64 == 0 then yieldWork() end
         end
     else
         local priceDelta = optionsByQuality[1].price
@@ -295,7 +325,9 @@ function Optimizer.BuildSlotChoices(slot)
                 optionsByQuality,
                 slot.completionBonusByQuality,
                 priceDelta,
-                hasNonlinearCost
+                hasNonlinearCost,
+                yieldWork,
+                workState
             )
         end
         for quality = 1, 3 do
@@ -463,6 +495,106 @@ function Optimizer.GetStatesInRange(result, minWeight, maxWeight)
     return states
 end
 
+function Optimizer.FindSteppedClassMinima(states, classify, requestedStep)
+    -- Exact only when the caller has certified that class is nondecreasing with
+    -- state weight. YayaQueue does this through its linear reagent-skill model;
+    -- concentration is validated after grouping by the base (monotone) quality.
+    if type(states) ~= "table" or type(classify) ~= "function" then
+        return nil, "states and classify are required"
+    end
+    local count = #states
+    if count == 0 then
+        return {}, { classificationCount = 0, step = 0 }
+    end
+
+    local step = math.max(1, math.floor(tonumber(requestedStep) or count))
+    local classByIndex = {}
+    local classified = {}
+    local classificationCount = 0
+    local function ReadClass(index)
+        if classified[index] then return classByIndex[index] end
+        local class = classify(states[index], index)
+        if not IsFiniteNumber(class) then return nil end
+        classByIndex[index] = class
+        classified[index] = true
+        classificationCount = classificationCount + 1
+        return class
+    end
+
+    local sampled = { 1 }
+    local sampleIndex = 1 + step
+    while sampleIndex < count do
+        sampled[#sampled + 1] = sampleIndex
+        sampleIndex = sampleIndex + step
+    end
+    if sampled[#sampled] ~= count then sampled[#sampled + 1] = count end
+
+    local firstClass = ReadClass(1)
+    if firstClass == nil then return nil, "classifier unavailable" end
+    local boundaries = { { index = 1, class = firstClass } }
+    for sampledIndex = 2, #sampled do
+        local leftIndex = sampled[sampledIndex - 1]
+        local rightIndex = sampled[sampledIndex]
+        local leftClass = ReadClass(leftIndex)
+        local rightClass = ReadClass(rightIndex)
+        if leftClass == nil or rightClass == nil then return nil, "classifier unavailable" end
+        if rightClass < leftClass then return nil, "classifier is not monotone" end
+
+        local cursor = leftIndex
+        local cursorClass = leftClass
+        while cursorClass < rightClass do
+            local low = cursor + 1
+            local high = rightIndex
+            while low < high do
+                local middle = math.floor((low + high) / 2)
+                local middleClass = ReadClass(middle)
+                if middleClass == nil then return nil, "classifier unavailable" end
+                if middleClass < cursorClass or middleClass > rightClass then
+                    return nil, "classifier is not monotone"
+                end
+                if middleClass == cursorClass then
+                    low = middle + 1
+                else
+                    high = middle
+                end
+            end
+            local nextClass = ReadClass(low)
+            if nextClass == nil then return nil, "classifier unavailable" end
+            if nextClass <= cursorClass or nextClass > rightClass then
+                return nil, "classifier is not monotone"
+            end
+            boundaries[#boundaries + 1] = { index = low, class = nextClass }
+            cursor = low
+            cursorClass = nextClass
+        end
+    end
+
+    local minima = {}
+    for boundaryIndex, boundary in ipairs(boundaries) do
+        local lastIndex = boundaries[boundaryIndex + 1]
+            and (boundaries[boundaryIndex + 1].index - 1) or count
+        local bestIndex = boundary.index
+        for index = boundary.index + 1, lastIndex do
+            if IsBetter(states[index], states[bestIndex]) then bestIndex = index end
+        end
+        local bestClass = ReadClass(bestIndex)
+        if bestClass ~= boundary.class then
+            return nil, "classifier changed inside a coarse plateau"
+        end
+        minima[#minima + 1] = {
+            class = boundary.class,
+            state = states[bestIndex],
+            firstIndex = boundary.index,
+            lastIndex = lastIndex,
+        }
+    end
+    return minima, {
+        classificationCount = classificationCount,
+        step = step,
+        boundaryCount = #boundaries,
+    }
+end
+
 function Optimizer.BuildAllocations(state)
     local path = {}
     local cursor = state
@@ -624,6 +756,114 @@ function Optimizer.RunSelfTests()
                 local allocations = Optimizer.BuildAllocations(states[1])
                 Assert(AllocationQuantity(allocations, 1) == 41, "expected 41 rank-one reagents")
                 Assert(AllocationQuantity(allocations, 2) == 59, "expected 59 rank-two reagents")
+            end,
+        },
+        {
+            name = "tiered quantity cost",
+            run = function()
+                local choices = assert(Optimizer.BuildSlotChoices({
+                    required = 202,
+                    tierCount = 2,
+                    weightPerPoint = 1,
+                    options = {
+                        {
+                            itemID = 321,
+                            quality = 1,
+                            price = 2,
+                            costCurve = {
+                                tiers = {
+                                    { upTo = 50, unitPrice = 2 },
+                                    { upTo = 202, unitPrice = 10 },
+                                },
+                            },
+                        },
+                        {
+                            itemID = 322,
+                            quality = 2,
+                            price = 3,
+                            costCurve = {
+                                tiers = {
+                                    { upTo = 20, unitPrice = 3 },
+                                    { upTo = 202, unitPrice = 6, estimated = true },
+                                },
+                            },
+                        },
+                    },
+                }))
+                local middle = FindChoice(choices, 100)
+                Assert(middle and middle.cost == 1160, "wrong tiered cost at the interior split")
+                Assert(middle.estimated == true, "fallback tier did not mark the choice estimated")
+                Assert(#choices == 203, "tiered curve lost integer mixtures")
+            end,
+        },
+        {
+            name = "stepped quality plateaus",
+            run = function()
+                local states = {}
+                local expected = {}
+                for index = 1, 201 do
+                    local class = index <= 100 and 1 or 2
+                    local state = {
+                        weight = index - 1,
+                        cost = math.abs(index - (class == 1 and 73 or 164)),
+                        estimated = false,
+                        signature = string.format("%03d", index),
+                    }
+                    states[index] = state
+                    if IsBetter(state, expected[class]) then expected[class] = state end
+                end
+                local calls = 0
+                local minima, stats = assert(Optimizer.FindSteppedClassMinima(states, function(_, index)
+                    calls = calls + 1
+                    return index <= 100 and 1 or 2
+                end))
+                Assert(#minima == 2, "quality plateau count is wrong")
+                Assert(minima[1].state == expected[1], "wrong minimum in the first plateau")
+                Assert(minima[2].state == expected[2], "wrong minimum in the second plateau")
+                Assert(calls == stats.classificationCount, "classification cache was bypassed")
+                Assert(calls <= 12, "two-quality refinement exceeded its classification budget")
+
+                local fiveQualityCalls = 0
+                local fiveQualityStates = {}
+                local fiveQualityExpected = {}
+                for index = 1, 201 do
+                    local class = math.min(5, math.floor((index - 1) / 40) + 1)
+                    local state = {
+                        weight = index,
+                        cost = (index * 37) % 101,
+                        estimated = false,
+                        signature = string.format("%03d", index),
+                    }
+                    fiveQualityStates[index] = state
+                    if IsBetter(state, fiveQualityExpected[class]) then
+                        fiveQualityExpected[class] = state
+                    end
+                end
+                local fiveMinima = assert(Optimizer.FindSteppedClassMinima(fiveQualityStates, function(_, index)
+                    fiveQualityCalls = fiveQualityCalls + 1
+                    return math.min(5, math.floor((index - 1) / 40) + 1)
+                end))
+                Assert(#fiveMinima == 5, "five-quality plateau count is wrong")
+                for class, minimum in ipairs(fiveMinima) do
+                    Assert(minimum.state == fiveQualityExpected[class], "wrong five-quality minimum")
+                end
+                Assert(fiveQualityCalls <= 40, "five-quality refinement exceeded its classification budget")
+
+                local nonMonotone, nonMonotoneError = Optimizer.FindSteppedClassMinima(
+                    states,
+                    function(_, index) return index == #states and 1 or 2 end
+                )
+                Assert(not nonMonotone and nonMonotoneError == "classifier is not monotone",
+                    "non-monotone quality classifier was accepted")
+                local unavailable, unavailableError = Optimizer.FindSteppedClassMinima(
+                    states,
+                    function(_, index)
+                        if index == #states then return nil end
+                        return 1
+                    end
+                )
+                Assert(not unavailable and unavailableError == "classifier unavailable",
+                    "unavailable quality classifier was accepted")
             end,
         },
         {

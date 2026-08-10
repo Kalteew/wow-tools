@@ -119,8 +119,81 @@ def init_db(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             seeded INTEGER NOT NULL DEFAULT 0
         );
+
+        CREATE TABLE IF NOT EXISTS auction_catalog (
+            item_id INTEGER PRIMARY KEY,
+            item_name TEXT NOT NULL,
+            source TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_auction_catalog_name
+            ON auction_catalog (item_name COLLATE NOCASE);
+
+        CREATE TABLE IF NOT EXISTS auction_realms (
+            connected_realm_id INTEGER PRIMARY KEY,
+            region TEXT NOT NULL,
+            name TEXT NOT NULL,
+            slug TEXT NOT NULL,
+            realm_names_json TEXT NOT NULL,
+            population TEXT,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_auction_realms_region
+            ON auction_realms (region, name);
+
+        CREATE TABLE IF NOT EXISTS auction_items (
+            variant_key TEXT PRIMARY KEY,
+            item_id INTEGER NOT NULL,
+            item_level INTEGER NOT NULL DEFAULT 0,
+            item_suffix INTEGER NOT NULL DEFAULT 0,
+            item_name TEXT NOT NULL,
+            icon_url TEXT,
+            is_commodity INTEGER NOT NULL DEFAULT 0,
+            last_seen_at TEXT NOT NULL,
+            UNIQUE (item_id, item_level, item_suffix, is_commodity)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_auction_items_item
+            ON auction_items (item_id, item_level, item_suffix);
+
+        CREATE INDEX IF NOT EXISTS idx_auction_items_name
+            ON auction_items (item_name COLLATE NOCASE);
+
+        CREATE TABLE IF NOT EXISTS auction_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            region TEXT NOT NULL,
+            connected_realm_id INTEGER NOT NULL DEFAULT 0,
+            fetched_at TEXT NOT NULL,
+            api_last_modified TEXT,
+            source TEXT NOT NULL,
+            auction_count INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'ok',
+            error TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_auction_snapshots_latest
+            ON auction_snapshots (region, connected_realm_id, fetched_at DESC);
+
+        CREATE TABLE IF NOT EXISTS auction_prices (
+            snapshot_id INTEGER NOT NULL REFERENCES auction_snapshots(id) ON DELETE CASCADE,
+            variant_key TEXT NOT NULL REFERENCES auction_items(variant_key),
+            min_unit_price_copper INTEGER,
+            available_quantity INTEGER NOT NULL DEFAULT 0,
+            listing_count INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (snapshot_id, variant_key)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_auction_prices_variant
+            ON auction_prices (variant_key, snapshot_id);
         """
     )
+    auction_item_columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(auction_items)").fetchall()
+    }
+    if "icon_url" not in auction_item_columns:
+        conn.execute("ALTER TABLE auction_items ADD COLUMN icon_url TEXT")
     conn.commit()
 
 

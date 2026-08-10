@@ -21,7 +21,8 @@ Addon Retail simple pour :
 - à la première ouverture de chaque métier, ajouter le lot maximal de la recette favorite en concentration ; après le craft, réinjecter un craft si un remboursement d'Ingéniosité laisse assez de concentration
 - reutiliser le bind scroll de `TSMMacro` quand cette macro existe : ses actions `Shopping Buyout` / `Craft Next` sont remplacees au login par des relais YQ, qui retombent sur TSM hors contexte YQ
 - recalculer automatiquement les besoins selon l'inventaire courant
-- choisir récursivement entre achat direct et fusion des rangs Gold Star, puis exécuter les fusions nécessaires via `Next` avant le craft final
+- choisir récursivement entre achat direct et fusion des rangs Gold Star, avec les Gold Stars déjà détenues par le personnage valorisées à 0 (jamais la banque de bataillon), puis exécuter les fusions nécessaires via `Next` avant le craft final
+- lors du `dump conc.` et de l’auto-dump de concentration du favori, vider uniquement les réactifs de finition liés dans les sacs du personnage, y compris le sac de réactifs, par sous-lots Multicraft puis Resourcefulness puis Ingéniosité ; une réinjection après proc d’Ingéniosité applique les mêmes règles et ne se fait qu’après les réservations de concentration déjà présentes dans la queue
 
 Notes :
 
@@ -31,13 +32,14 @@ Notes :
 - le bouton `first craft` n'est affiche que si la profession ouverte contient au moins une recette reellement ajoutable (cout, prix, queue et cooldown valides)
 - les recettes a cooldown ne sont ajoutees que si une charge est disponible; les pools partages soustraient les crafts deja en queue puis reservent une charge par nouvel ajout
 - les qualites de composants choisies par CraftSim sont memorisees puis transmises directement au craft; les composants simples restent geres automatiquement par Blizzard
-- le sélecteur utilise un solveur de coût exact par points de compétence : toutes les répartitions entières R1/R2/R3 restent possibles (`41/59` compris), puis l'API Blizzard valide le gagnant ; les lignes sont calibrées sur `0`, `1`, `N-1` et `N`, et un modèle non linéaire est refusé au lieu d'afficher un faux optimum
+- le sélecteur utilise un solveur de coût exact par points de compétence : toutes les répartitions entières R1/R2/R3 restent possibles (`41/59` compris), mais les devis sont pré-calculés par paliers `SmartAvgBuy`/marché et les seuils Blizzard sont affinés par dichotomie ; les lignes sont calibrées sur `0`, `1`, `N-1` et `N`, et un modèle non linéaire est refusé au lieu d'afficher un faux optimum
 - une recette à plusieurs lignes de réactifs qualité utilise les poids entiers exposés par CraftSim; si ces poids manquent, YQ signale l'optimum exact indisponible au lieu d'approximer
 - le solveur garde en cache les plans de plusieurs recettes pendant toute la session et répartit un calcul inédit sur plusieurs frames (2 ms maximum) ; un craft ou la fermeture du métier ne vide plus ce cache, et coût/profit restent masqués pendant le calcul
 - le coût des réactifs passe par `YayaCraftedPriceAPI` quand il est chargé : `SmartAvgBuy` jusqu'à la quantité couverte par `NumInventory`, puis snapshot AH, `vendorbuy`, `dbminbuyout`, `dbmarket` estimé et moyenne container; les outputs craftés conservent leur itemString exact et le profit après 5 % de commission HV
 - les snapshots AH n'ont pas de TTL; TSM reste le repli quand aucun snapshot n'est disponible, sans comparaison de date car l'API TSM publique ne l'expose pas
 - avec concentration, l'optimiseur exige exactement le rang précédent sans concentration puis vérifie le gain d'un rang avec l'API Blizzard ; il choisit uniquement le plan le moins cher en or, la concentration disponible servant seulement à autoriser le lot complet
 - les coches concentration, finishing et Gold Star ainsi que la qualité désirée persistent entre les recettes; la qualité atteignable la plus proche est choisie si nécessaire
+- la coche Gold Star est aussi mémorisée entre les sessions du personnage
 - finishing est coché par défaut, mais le plan sans finishing reste toujours en concurrence et gagne s'il est moins cher ou si le finishing est inutile
 - la ligne `Stock` affiche `C` (personnage courant, sacs/banque/courrier/AHV) et `W` (alts suivis, banque de bataillon et AH) via l’API TSM, en interrogeant le `levelItemString` exact des équipements ; les autres royaumes couverts par TSM sont inclus. Le repli natif ne filtre que les objets soulbound et affiche `?` si une banque n’a jamais été lisible
 - les entrées ajoutées via la frame qualité mémorisent `targetQuality`, les allocations exactes, les optionnels retenus et l’option concentration
@@ -50,7 +52,7 @@ Notes :
 - la queue se decremente a chaque craft reussi de la recette correspondante
 - `Next` reste verrouille pendant tout un lot de crafts et ne se reactive qu'au dernier craft confirme
 - la fenêtre qualité propose les réactifs optionnels de métier après les réactifs : leur difficulté, leur coût et leur allocation sont recalculés puis mémorisés dans la queue ; les missives impossibles pour la qualité choisie sont grisées
-- `/yq opttest` exécute les tests internes du solveur, dont les répartitions `41/59`, les trois rangs et les rangs supérieurs moins chers
+- `/yq opttest` exécute les tests internes du solveur, dont les répartitions `41/59`, les coûts à paliers, l’affinage des seuils, les trois rangs et les rangs supérieurs moins chers
 - les items marchand sont detectes quand ils ont deja ete vus sur un marchand
 - l'achat automatique marchand lance une seule séquence par ouverture ; chaque item accepté n'est soumis qu'une fois, avec vérification des sacs et jusqu'à 10 relances pour les échecs
 - les items non-commodities a l'HV sont achetes une enchere a la fois

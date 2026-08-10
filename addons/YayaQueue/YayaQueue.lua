@@ -516,9 +516,15 @@ state.EnsureDB = function()
     else
         YayaQueueDB.resetQuantityOnRecipeChange = YayaQueueDB.resetQuantityOnRecipeChange == true
     end
+    if YayaQueueDB.qualityUseGoldStar == nil then
+        YayaQueueDB.qualityUseGoldStar = false
+    else
+        YayaQueueDB.qualityUseGoldStar = YayaQueueDB.qualityUseGoldStar == true
+    end
     local phialRank = tonumber(YayaQueueDB.concentrationPhialRank)
     YayaQueueDB.concentrationPhialRank = phialRank == 2 and 2 or 1
     db = YayaQueueDB
+    state.craft.qualityPreferences.useGoldStar = db.qualityUseGoldStar
     for itemID in pairs(CONFIG.KNOWN_VENDOR_ITEMS) do
         db.vendorItems[itemID] = true
     end
@@ -4360,6 +4366,263 @@ state.InvalidateQualityPricing = function()
     end
 end
 
+local function GetBoundBagItemCount(itemID)
+    local total = 0
+    local reagentBagID = Enum and Enum.BagIndex and Enum.BagIndex.ReagentBag or 5
+    DebugPrint(
+        "finishing-bag-scan item=" .. tostring(GetItemName(itemID))
+            .. " itemID=" .. tostring(itemID)
+            .. " range=0.." .. tostring(reagentBagID)
+    )
+    for bagID = 0, reagentBagID do
+        local slotCount = C_Container and type(C_Container.GetContainerNumSlots) == "function"
+            and SafeCall(C_Container.GetContainerNumSlots, bagID) or 0
+        for slotIndex = 1, math.max(0, tonumber(slotCount) or 0) do
+            local info = C_Container and type(C_Container.GetContainerItemInfo) == "function"
+                and SafeCall(C_Container.GetContainerItemInfo, bagID, slotIndex) or nil
+            if info and tonumber(info.itemID) == itemID then
+                local isBound = info.isBound == true
+                local location = ItemLocation and type(ItemLocation.CreateFromBagAndSlot) == "function"
+                    and ItemLocation:CreateFromBagAndSlot(bagID, slotIndex) or nil
+                if location and C_Item and type(C_Item.IsBound) == "function" then
+                    local apiBound = SafeCall(C_Item.IsBound, location)
+                    if apiBound ~= nil then isBound = apiBound == true end
+                end
+                if isBound then
+                    total = total + math.max(0, tonumber(info.stackCount) or 0)
+                    DebugPrint(
+                        "finishing-bag-match item=" .. tostring(GetItemName(itemID))
+                            .. " itemID=" .. tostring(itemID)
+                            .. " bag=" .. tostring(bagID)
+                            .. " slot=" .. tostring(slotIndex)
+                            .. " stack=" .. tostring(info.stackCount or 0)
+                            .. " bound=true"
+                    )
+                else
+                    DebugPrint(
+                        "finishing-bag-match item=" .. tostring(GetItemName(itemID))
+                            .. " itemID=" .. tostring(itemID)
+                            .. " bag=" .. tostring(bagID)
+                            .. " slot=" .. tostring(slotIndex)
+                            .. " stack=" .. tostring(info.stackCount or 0)
+                            .. " bound=false"
+                    )
+                end
+            end
+        end
+    end
+    DebugPrint(
+        "finishing-bag-count item=" .. tostring(GetItemName(itemID))
+            .. " itemID=" .. tostring(itemID)
+            .. " count=" .. tostring(total)
+    )
+    return total
+end
+
+local function GetBoundFinishingRole(itemID)
+    local text = string.lower(tostring(GetItemName(itemID) or ""))
+    if C_TooltipInfo and type(C_TooltipInfo.GetItemByID) == "function" then
+        local tooltip = SafeCall(C_TooltipInfo.GetItemByID, itemID)
+        for _, line in ipairs(tooltip and tooltip.lines or {}) do
+            text = text .. " " .. string.lower(tostring(line.leftText or "") .. " " .. tostring(line.rightText or ""))
+        end
+    end
+    if text:find("multicraft", 1, true) or text:find("fabrication multiple", 1, true) then
+        DebugPrint("finishing-role item=" .. tostring(GetItemName(itemID)) .. " itemID=" .. tostring(itemID) .. " role=multicraft")
+        return "multicraft"
+    end
+    if text:find("resourcefulness", 1, true) or text:find("débrouillardise", 1, true) then
+        DebugPrint("finishing-role item=" .. tostring(GetItemName(itemID)) .. " itemID=" .. tostring(itemID) .. " role=resourcefulness")
+        return "resourcefulness"
+    end
+    if text:find("ingenuity", 1, true) or text:find("ingéniosité", 1, true) then
+        DebugPrint("finishing-role item=" .. tostring(GetItemName(itemID)) .. " itemID=" .. tostring(itemID) .. " role=ingenuity")
+        return "ingenuity"
+    end
+    DebugPrint("finishing-role item=" .. tostring(GetItemName(itemID)) .. " itemID=" .. tostring(itemID) .. " role=none")
+    return nil
+end
+
+local function CopyAutoFavoriteContext(context, craftingReagents, reagents)
+    local copy = {}
+    for key, value in pairs(context or {}) do copy[key] = value end
+    copy.craftingReagents = NormalizeCraftingReagents(craftingReagents)
+    copy.reagents = reagents
+    return copy
+end
+
+local function GetFinishingBatches(schematicForm, dumpState)
+    local context = dumpState and dumpState.context
+    if not context or dumpState.maxQuantity <= 0 then
+        DebugPrint("finishing-batches unavailable context-or-quantity")
+        return nil
+    end
+    DebugPrint(
+        "finishing-batches start recipe=" .. tostring(context.recipeID)
+            .. " quantity=" .. tostring(dumpState.maxQuantity)
+    )
+
+    local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, context.recipeID)
+    local recipeLevel = schematicForm and type(schematicForm.GetCurrentRecipeLevel) == "function"
+        and SafeCall(schematicForm.GetCurrentRecipeLevel, schematicForm) or nil
+    local schematic = SafeCall(C_TradeSkillUI.GetRecipeSchematic, context.recipeID, false, recipeLevel)
+    if type(recipeInfo) ~= "table" or type(schematic) ~= "table" then
+        DebugPrint(
+            "finishing-batches unavailable recipe-data recipe=" .. tostring(context.recipeID)
+                .. " recipeInfo=" .. tostring(type(recipeInfo))
+                .. " schematic=" .. tostring(type(schematic))
+        )
+        return nil
+    end
+
+    local optionalSlots = YQQuality.BuildOptionalSlots(recipeInfo, schematic)
+    local base = YQQuality.CopyReagents(context.craftingReagents)
+    local finishingSlots = {}
+    for _, slotData in ipairs(optionalSlots) do
+        if slotData.options[1] and slotData.options[1].isFinishing then
+            finishingSlots[#finishingSlots + 1] = slotData
+            base = YQQuality.ReplaceReagent(base, slotData.slot, {})
+        end
+    end
+    DebugPrint(
+        "finishing-slots recipe=" .. tostring(context.recipeID)
+            .. " optional=" .. tostring(#optionalSlots)
+            .. " finishing=" .. tostring(#finishingSlots)
+    )
+    if #finishingSlots == 0 then return nil end
+
+    local recipeRole = state.craftGear.GetRecipeRole({
+        recipeID = context.recipeID,
+        craftingReagents = base,
+        applyConcentration = true,
+    })
+    DebugPrint(
+        "finishing-recipe-role recipe=" .. tostring(context.recipeID)
+            .. " role=" .. tostring(recipeRole)
+    )
+    local candidates = { multicraft = {}, resourcefulness = {}, ingenuity = {} }
+    for _, slotData in ipairs(finishingSlots) do
+        local required = math.max(1, tonumber(slotData.slot.quantityRequired) or 1)
+        for _, option in ipairs(slotData.options) do
+            local role = GetBoundFinishingRole(option.itemID)
+            local supportsRole = role == "ingenuity"
+                or (role == "multicraft" and recipeRole == "multicraft")
+                or (role == "resourcefulness" and recipeRole == "resourcefulness")
+            local available = supportsRole and math.floor(GetBoundBagItemCount(option.itemID) / required) or 0
+            DebugPrint(
+                "finishing-candidate item=" .. tostring(option.itemName)
+                    .. " itemID=" .. tostring(option.itemID)
+                    .. " role=" .. tostring(role)
+                    .. " supports=" .. tostring(supportsRole)
+                    .. " required=" .. tostring(required)
+                    .. " available=" .. tostring(available)
+            )
+            if available > 0 then
+                candidates[role][#candidates[role] + 1] = {
+                    itemID = option.itemID,
+                    slot = slotData.slot,
+                    available = available,
+                    required = required,
+                }
+            end
+        end
+    end
+
+    local batches, remaining = {}, dumpState.maxQuantity
+    for _, role in ipairs({ "multicraft", "resourcefulness", "ingenuity" }) do
+        table.sort(candidates[role], function(left, right) return left.itemID < right.itemID end)
+        for _, candidate in ipairs(candidates[role]) do
+            if remaining <= 0 then break end
+            local quantity = math.min(remaining, candidate.available)
+            if quantity > 0 then
+                local selected = YQQuality.ReplaceReagent(base, candidate.slot, {
+                    { itemID = candidate.itemID, quantity = candidate.required },
+                })
+                batches[#batches + 1] = {
+                    quantity = quantity,
+                    context = CopyAutoFavoriteContext(
+                        context,
+                        selected,
+                        BuildCompleteRecipeReagents(schematic, selected, recipeInfo)
+                    ),
+                }
+                DebugPrint(
+                    "finishing-batch recipe=" .. tostring(context.recipeID)
+                        .. " role=" .. tostring(role)
+                        .. " itemID=" .. tostring(candidate.itemID)
+                        .. " quantity=" .. tostring(quantity)
+                )
+                remaining = remaining - quantity
+            end
+        end
+    end
+    if remaining > 0 then
+        batches[#batches + 1] = {
+            quantity = remaining,
+            context = CopyAutoFavoriteContext(
+                context,
+                base,
+                BuildCompleteRecipeReagents(schematic, base, recipeInfo)
+            ),
+        }
+        DebugPrint(
+            "finishing-batch recipe=" .. tostring(context.recipeID)
+                .. " role=none itemID=none quantity=" .. tostring(remaining)
+        )
+    end
+    DebugPrint(
+        "finishing-batches done recipe=" .. tostring(context.recipeID)
+            .. " batches=" .. tostring(#batches)
+    )
+    return batches
+end
+
+local function QueueConcentrationDump(schematicForm, dumpState, source)
+    local batches = GetFinishingBatches(schematicForm, dumpState)
+    DebugPrint(
+        "concentration-dump source=" .. tostring(source or "?")
+            .. " recipe=" .. tostring(dumpState and dumpState.context and dumpState.context.recipeID)
+            .. " batches=" .. tostring(batches and #batches or 0)
+    )
+    local queuedQuantity = 0
+    if batches then
+        for _, batch in ipairs(batches) do
+            queuedQuantity = queuedQuantity + (QueueRecipeContext(batch.context, nil, batch.quantity) or 0)
+        end
+    else
+        queuedQuantity = dumpState and dumpState.context and dumpState.maxQuantity > 0
+            and QueueRecipeContext(dumpState.context, nil, dumpState.maxQuantity)
+            or 0
+    end
+    DebugPrint(
+        "concentration-dump queued source=" .. tostring(source or "?")
+            .. " quantity=" .. tostring(queuedQuantity)
+            .. " batches=" .. tostring(batches and #batches or 0)
+            .. " fallback=" .. tostring(batches == nil)
+    )
+    if (source == "button" or source == "auto-favorite") and queuedQuantity > 0 then
+        local context = dumpState and dumpState.context
+        state.autoFavoriteConcentration.tracker = {
+            professionID = context and tonumber(context.professionID) or state.GetCurrentProfessionID(),
+            recipeID = context and tonumber(context.recipeID),
+            concentrationCost = dumpState and tonumber(dumpState.cost) or nil,
+            concentrationCurrencyID = context and tonumber(context.concentrationCurrencyID),
+            context = context,
+            schematicForm = schematicForm,
+            source = source,
+            awaitingCraft = false,
+            craftConfirmed = false,
+            requeued = false,
+        }
+        DebugPrint(
+            "concentration-refund armed source=" .. tostring(source)
+                .. " recipe=" .. tostring(context and context.recipeID)
+                .. " cost=" .. tostring(dumpState and dumpState.cost)
+        )
+    end
+    return batches, queuedQuantity
+end
+
 YQQuality.TryAutoQueueFavoriteConcentration = function()
     local autoQueue = state.autoFavoriteConcentration
     local request = autoQueue.pending
@@ -4437,17 +4700,8 @@ YQQuality.TryAutoQueueFavoriteConcentration = function()
     end
 
     if not alreadyQueued and dumpState.maxQuantity > 0 then
-        QueueRecipeContext(dumpState.context, nil, dumpState.maxQuantity)
-        autoQueue.tracker = {
-            professionID = professionID,
-            recipeID = favoriteRecipeID,
-            concentrationCost = dumpState.cost,
-            context = dumpState.context,
-            awaitingCraft = false,
-            craftConfirmed = false,
-            requeued = false,
-        }
-        DebugPrint("auto-favorite queued profession=" .. tostring(professionID) .. " recipe=" .. tostring(favoriteRecipeID) .. " quantity=" .. tostring(dumpState.maxQuantity) .. " reserved=" .. tostring(dumpState.queuedReservation))
+        local batches, queuedQuantity = QueueConcentrationDump(schematicForm, dumpState, "auto-favorite")
+        DebugPrint("auto-favorite queued profession=" .. tostring(professionID) .. " recipe=" .. tostring(favoriteRecipeID) .. " quantity=" .. tostring(queuedQuantity) .. " batches=" .. tostring(batches and #batches or 0) .. " reserved=" .. tostring(dumpState.queuedReservation))
     else
         DebugPrint("auto-favorite skip profession=" .. tostring(professionID) .. " recipe=" .. tostring(favoriteRecipeID) .. " queued=" .. tostring(alreadyQueued) .. " max=" .. tostring(dumpState.maxQuantity) .. " reserved=" .. tostring(dumpState.queuedReservation))
     end
@@ -4478,10 +4732,48 @@ function YQQuality.TryQueueFavoriteConcentrationRefund()
     end
 
     local spent = before - cost
-    if after > spent and after >= cost then
-        QueueRecipeContext(tracker.context, nil, 1)
+    local professionID = tonumber(tracker.professionID) or state.GetCurrentProfessionID()
+    local currencyID = tonumber(tracker.concentrationCurrencyID)
+    local reserved = GetQueuedConcentrationReservation(professionID, currencyID)
+    local pendingEntry = state.pendingCraftEntries[1]
+    if pendingEntry
+        and pendingEntry.recipeID == tracker.recipeID
+        and pendingEntry.applyConcentration == true
+    then
+        reserved = math.max(0, reserved - cost)
+    end
+    local availableAfterQueue = math.max(0, after - reserved)
+    DebugPrint(
+        "concentration-refund check source=" .. tostring(tracker.source or "?")
+            .. " recipe=" .. tostring(tracker.recipeID)
+            .. " before=" .. tostring(before)
+            .. " after=" .. tostring(after)
+            .. " cost=" .. tostring(cost)
+            .. " reserved=" .. tostring(reserved)
+            .. " available=" .. tostring(availableAfterQueue)
+    )
+    if after <= spent or availableAfterQueue < cost then
+        DebugPrint(
+            "concentration-refund skip recipe=" .. tostring(tracker.recipeID)
+                .. " reason=insufficient-after-queue"
+        )
+        return
+    end
+
+    local schematicForm = tracker.schematicForm or GetCraftingSchematicForm()
+    local refundState = {
+        context = tracker.context,
+        cost = cost,
+        maxQuantity = 1,
+    }
+    local batches, queuedQuantity = QueueConcentrationDump(schematicForm, refundState, "ingenuity-refund")
+    if queuedQuantity > 0 then
         tracker.requeued = true
-        DebugPrint("auto-favorite ingenuity-refund recipe=" .. tostring(tracker.recipeID) .. " before=" .. tostring(before) .. " after=" .. tostring(after))
+        DebugPrint(
+            "concentration-refund queued recipe=" .. tostring(tracker.recipeID)
+                .. " quantity=" .. tostring(queuedQuantity)
+                .. " batches=" .. tostring(batches and #batches or 0)
+        )
     end
 end
 
@@ -5697,6 +5989,50 @@ function YQQuality.GetItemPriceQuote(itemID, quantity, priceContext)
     end
 
     if merge then
+        if itemID == CONFIG.GOLD_STAR_ITEM_ID then
+            local available = YQQuality.GetAvailableCharacterGoldStars(context)
+            local missing = math.max(0, quantity - available)
+            if missing == 0 then
+                return {
+                    amount = 0,
+                    total = 0,
+                    estimated = false,
+                    source = "characterGoldStar",
+                    pricingKey = "characterGoldStar:" .. tostring(available),
+                    mergePlan = { steps = {} },
+                }
+            end
+
+            local previous = YQQuality.GetItemPriceQuote(
+                merge.inputItemID,
+                missing * merge.inputQuantity,
+                context
+            )
+            if not previous then return nil end
+
+            local steps = {}
+            for _, step in ipairs(previous.mergePlan and previous.mergePlan.steps or {}) do
+                steps[#steps + 1] = step
+            end
+            steps[#steps + 1] = {
+                inputItemID = merge.inputItemID,
+                outputItemID = merge.outputItemID,
+                inputQuantity = merge.inputQuantity,
+                quantity = missing,
+                recipeID = merge.recipeID,
+                name = merge.name,
+            }
+            return {
+                amount = previous.total / quantity,
+                total = previous.total,
+                estimated = previous.estimated == true,
+                source = "merge:" .. tostring(itemID),
+                capturedAt = previous.capturedAt,
+                pricingKey = "merge:" .. tostring(itemID) .. ":characterGoldStar:" .. tostring(available) .. ":" .. tostring(previous.pricingKey),
+                mergePlan = { steps = steps },
+            }
+        end
+
         local direct = itemID ~= CONFIG.GOLD_STAR_ITEM_ID
             and YQQuality.GetDirectItemPriceQuote(itemID, quantity, context)
             or nil
@@ -5741,6 +6077,60 @@ end
 function YQQuality.GetItemPrice(itemID)
     local quote = YQQuality.GetItemPriceQuote(itemID)
     return quote and quote.amount or nil
+end
+
+function YQQuality.BuildItemCostCurve(itemID, maxQuantity, priceContext)
+    maxQuantity = math.max(1, math.floor(tonumber(maxQuantity) or 1))
+    local firstQuote = YQQuality.GetItemPriceQuote(itemID, 1, priceContext)
+    if not firstQuote then return nil, nil end
+    local fullQuote = maxQuantity == 1
+        and firstQuote or YQQuality.GetItemPriceQuote(itemID, maxQuantity, priceContext)
+    local fullTotal = tonumber(fullQuote and fullQuote.total)
+    local smartQuantity = tonumber(fullQuote and fullQuote.smartQuantity)
+    local fallbackQuantity = tonumber(fullQuote and fullQuote.fallbackQuantity)
+    if not fullTotal or fullTotal < 0 or not smartQuantity or not fallbackQuantity then
+        return nil, firstQuote
+    end
+    smartQuantity = math.max(0, math.floor(smartQuantity))
+    fallbackQuantity = math.max(0, math.floor(fallbackQuantity))
+    if smartQuantity + fallbackQuantity ~= maxQuantity then return nil, firstQuote end
+
+    local tiers = {}
+    local smartUnitPrice
+    if smartQuantity > 0 then
+        if tonumber(firstQuote.smartQuantity) ~= 1 then return nil, firstQuote end
+        smartUnitPrice = tonumber(firstQuote.total)
+        if not smartUnitPrice or smartUnitPrice < 0 then return nil, firstQuote end
+        tiers[#tiers + 1] = {
+            upTo = smartQuantity,
+            unitPrice = smartUnitPrice,
+            estimated = false,
+        }
+    end
+    if fallbackQuantity > 0 then
+        local fallbackTotal = fullTotal - smartQuantity * (smartUnitPrice or 0)
+        local fallbackUnitPrice = fallbackTotal / fallbackQuantity
+        if fallbackUnitPrice < 0 then return nil, firstQuote end
+        tiers[#tiers + 1] = {
+            upTo = maxQuantity,
+            unitPrice = fallbackUnitPrice,
+            estimated = fullQuote.estimated == true,
+        }
+    end
+    if #tiers == 0 then return nil, firstQuote end
+
+    return {
+        tiers = tiers,
+        maxQuantity = maxQuantity,
+        signature = table.concat({
+            tostring(firstQuote.pricingKey or ""),
+            tostring(fullQuote.pricingKey or ""),
+            tostring(smartQuantity),
+            tostring(fallbackQuantity),
+            tostring(smartUnitPrice or ""),
+            tostring(tiers[#tiers].unitPrice or ""),
+        }, ":"),
+    }, firstQuote
 end
 
 function YQQuality.GetConcentrationCurrencyID(operation)
@@ -6003,6 +6393,14 @@ function YQQuality.OwnsGoldStar()
         count = SafeCall(GetItemCount, 246450, true)
     end
     return math.max(0, tonumber(count) or 0)
+end
+
+function YQQuality.GetAvailableCharacterGoldStars(priceContext)
+    local reservations = priceContext and priceContext.reservations or {}
+    local reserved = math.max(0, tonumber(reservations[CONFIG.GOLD_STAR_ITEM_ID]) or 0)
+    -- GetItemCount only covers the current character (bags and personal bank),
+    -- never the Warband bank. Gold Stars must be available to this character.
+    return math.max(0, YQQuality.OwnsGoldStar() - reserved)
 end
 
 function YQQuality.IsSkillFinishingOption(form, recipeInfo, schematic, optionalSlots, selections, slot, itemID)
@@ -6407,13 +6805,14 @@ function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, 
         reagentQualityCount = 0,
         recipeInfo = recipeInfo,
         schematic = schematic,
-        optimizerVersion = 2,
+        optimizerVersion = 3,
     }
     local allocationGUID = type(transaction.GetAllocationItemGUID) == "function"
         and SafeCall(transaction.GetAllocationItemGUID, transaction) or nil
     result.allocationGUID = allocationGUID
 
     for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
+        local required = math.max(1, math.floor((tonumber(slot.quantityRequired) or 1) + 0.5))
         local bestByQuality = {}
         for _, reagent in ipairs(slot.reagents or {}) do
             local itemID = tonumber(reagent.itemID)
@@ -6422,18 +6821,21 @@ function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, 
                 quality = tonumber(SafeCall(C_TradeSkillUI.GetItemReagentQualityByItemInfo, itemID)) or 0
             end
             if tonumber(slot.reagentType) == 1 and itemID and itemID > 0 and quality > 0 then
-                local quote = YQQuality.GetItemPriceQuote(itemID, 1, priceContext)
+                local costCurve, quote = YQQuality.BuildItemCostCurve(itemID, required, priceContext)
                 local option = {
                     itemID = itemID,
                     quality = quality,
                     price = quote and quote.amount or nil,
                     estimated = quote and quote.estimated == true or false,
-                    pricingKey = quote and quote.pricingKey or nil,
+                    pricingKey = costCurve and costCurve.signature or (quote and quote.pricingKey or nil),
+                    costCurve = costCurve,
                 }
-                option.costForQuantity = function(quantity)
-                    local costQuote = YQQuality.GetItemPriceQuote(itemID, quantity, priceContext)
-                    return costQuote and costQuote.total or nil,
-                        costQuote and costQuote.estimated == true or false
+                if not costCurve then
+                    option.costForQuantity = function(quantity)
+                        local costQuote = YQQuality.GetItemPriceQuote(itemID, quantity, priceContext)
+                        return costQuote and costQuote.total or nil,
+                            costQuote and costQuote.estimated == true or false
+                    end
                 end
                 local current = bestByQuality[quality]
                 if not current
@@ -6457,7 +6859,6 @@ function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, 
         for _, option in pairs(bestByQuality) do options[#options + 1] = option end
         table.sort(options, function(left, right) return left.quality < right.quality end)
         if #options > 1 then
-            local required = math.max(1, math.floor((tonumber(slot.quantityRequired) or 1) + 0.5))
             local tierCount = tonumber(options[#options].quality) or #options
             local slotData = {
                 slot = slot,
@@ -6629,7 +7030,7 @@ function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, 
             tierCount = slotData.tierCount,
             weightPerPoint = slotData.weightPerPoint,
             options = slotData.options,
-        })
+        }, yieldWork)
         if not choices then
             result.exactUnavailableReason = tostring(choiceError or "modèle de réactifs invalide")
             return result
@@ -6653,10 +7054,18 @@ function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, 
     )
     local predictionMismatch = #frontier == 0 and #(optimizerResult.states or {}) > 0
     local evaluationFailed = false
-    local function Evaluate(optimizerState)
+    local concentrationMismatch = false
+    local evaluationCache = {}
+    local evaluationCount = 0
+    local operationCallCount = 0
+    local steppedStats
+    local function Inspect(optimizerState)
+        local cached = evaluationCache[optimizerState]
+        if cached ~= nil then return cached or nil end
+        evaluationCount = evaluationCount + 1
         local reagents = YQQuality.BuildOptimizerReagents(baseline, result.slots, optimizerState)
-        local baseQuality
         if useConcentration then
+            operationCallCount = operationCallCount + 1
             local baseOperation = SafeCall(
                 C_TradeSkillUI.GetCraftingOperationInfo,
                 recipeID,
@@ -6664,16 +7073,17 @@ function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, 
                 allocationGUID,
                 false
             )
-            baseQuality = tonumber(baseOperation and baseOperation.craftingQuality) or 0
+            local baseQuality = tonumber(baseOperation and baseOperation.craftingQuality) or 0
             if not baseOperation or baseQuality <= 0 then
-                predictionMismatch = true
                 evaluationFailed = true
-                return
+                evaluationCache[optimizerState] = false
+                return nil
             end
-            if baseQuality >= result.maxQuality then
-                return
-            end
+            cached = { class = baseQuality, reagents = reagents }
+            evaluationCache[optimizerState] = cached
+            return cached
         end
+        operationCallCount = operationCallCount + 1
         local operation = SafeCall(
             C_TradeSkillUI.GetCraftingOperationInfo,
             recipeID,
@@ -6683,17 +7093,13 @@ function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, 
         )
         local quality = tonumber(operation and operation.craftingQuality) or 0
         if not operation or quality <= 0 then
-            predictionMismatch = true
             evaluationFailed = true
-            return
+            evaluationCache[optimizerState] = false
+            return nil
         end
-        if useConcentration and quality ~= baseQuality + 1 then
-            predictionMismatch = true
-            return
-        elseif optimizerState.predictedQuality and quality ~= optimizerState.predictedQuality then
-            predictionMismatch = true
-        end
-        YQQuality.InsertParetoCandidate(result.candidates, {
+        cached = { class = quality, reagents = reagents, candidateChecked = true }
+        evaluationCache[optimizerState] = cached
+        cached.candidate = {
             quality = quality,
             cost = optimizerState.cost,
             estimated = optimizerState.estimated == true,
@@ -6701,21 +7107,99 @@ function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, 
             usesConcentration = useConcentration == true,
             reagents = YQQuality.CopyReagents(reagents),
             operation = operation,
-        })
+        }
+        return cached
+    end
+    local function EnsureCandidate(optimizerState, evaluation)
+        if not evaluation or evaluation.candidateChecked then
+            return evaluation and evaluation.candidate or nil
+        end
+        evaluation.candidateChecked = true
+        if evaluation.class >= result.maxQuality then return nil end
+        operationCallCount = operationCallCount + 1
+        local operation = SafeCall(
+            C_TradeSkillUI.GetCraftingOperationInfo,
+            recipeID,
+            evaluation.reagents,
+            allocationGUID,
+            true
+        )
+        local quality = tonumber(operation and operation.craftingQuality) or 0
+        if not operation or quality <= 0 then
+            evaluationFailed = true
+            return nil
+        end
+        if quality ~= evaluation.class + 1 then
+            concentrationMismatch = true
+            return nil
+        end
+        evaluation.candidate = {
+            quality = quality,
+            cost = optimizerState.cost,
+            estimated = optimizerState.estimated == true,
+            skillWeight = optimizerState.weight,
+            usesConcentration = true,
+            reagents = YQQuality.CopyReagents(evaluation.reagents),
+            operation = operation,
+        }
+        return evaluation.candidate
+    end
+    local function AddEvaluation(optimizerState, checkPrediction)
+        local evaluation = Inspect(optimizerState)
+        if not evaluation then
+            predictionMismatch = true
+            return
+        end
+        local candidate = EnsureCandidate(optimizerState, evaluation)
+        if checkPrediction and optimizerState.predictedQuality
+            and (not candidate or candidate.quality ~= optimizerState.predictedQuality) then
+            predictionMismatch = true
+        end
+        if candidate then
+            YQQuality.InsertParetoCandidate(result.candidates, candidate)
+        end
     end
     for _, optimizerState in ipairs(frontier) do
-        Evaluate(optimizerState)
+        AddEvaluation(optimizerState, true)
         if yieldWork then yieldWork() end
     end
     if predictionMismatch then
         result.candidates = {}
-        evaluationFailed = false
-        for _, optimizerState in ipairs(optimizerResult.states or {}) do
-            optimizerState.predictedQuality = nil
-            Evaluate(optimizerState)
-            if yieldWork then yieldWork() end
+        if evaluationFailed or concentrationMismatch then
+            result.exactUnavailableReason = "oracle Blizzard incomplet"
+            return result
         end
-        if evaluationFailed then
+        local steppedMinima, steppedDetail = optimizer.FindSteppedClassMinima(
+            optimizerResult.states or {},
+            function(optimizerState)
+                local evaluation = Inspect(optimizerState)
+                if yieldWork then yieldWork() end
+                return evaluation and evaluation.class or nil
+            end
+        )
+        local steppedError
+        if steppedMinima then
+            steppedStats = steppedDetail
+        else
+            steppedError = steppedDetail
+        end
+        if not steppedMinima or evaluationFailed then
+            result.candidates = {}
+            local nonMonotone = steppedError == "classifier is not monotone"
+                or steppedError == "classifier changed inside a coarse plateau"
+            result.exactUnavailableReason = nonMonotone
+                and "qualité Blizzard non monotone"
+                or "oracle Blizzard incomplet"
+            return result
+        end
+        for _, minimum in ipairs(steppedMinima) do
+            local evaluation = Inspect(minimum.state)
+            local candidate = EnsureCandidate(minimum.state, evaluation)
+            if evaluation and evaluation.class == minimum.class and candidate then
+                YQQuality.InsertParetoCandidate(result.candidates, candidate)
+            end
+        end
+        if evaluationFailed or concentrationMismatch then
             result.candidates = {}
             result.exactUnavailableReason = "oracle Blizzard incomplet"
             return result
@@ -6740,7 +7224,9 @@ function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, 
             .. " max=" .. tostring(result.maxQuality)
             .. " reachable=" .. tostring(result.reachableQuality)
             .. " dp=" .. tostring(#(optimizerResult.states or {}))
-            .. " api=" .. tostring(predictionMismatch and #(optimizerResult.states or {}) or #frontier)
+            .. " inspected=" .. tostring(evaluationCount)
+            .. " evalOracle=" .. tostring(operationCallCount)
+            .. " refine=" .. tostring(steppedStats and steppedStats.classificationCount or 0)
             .. " candidates=" .. tostring(#result.candidates)
     )
     YQQuality.CacheRecipeState(qualityCache, cacheKey, result)
@@ -7501,14 +7987,7 @@ function YQQuality.GetGoldStarAcquisitionPlan(candidate, quantity)
     end
 
     local priceContext = YQQuality.CreateMaterialPriceContext()
-    local reserved = math.max(0, tonumber(priceContext.reservations[CONFIG.GOLD_STAR_ITEM_ID]) or 0)
-    local available = math.max(0, YQQuality.OwnsGoldStar() - reserved)
-    if available >= required then
-        return { steps = {} }
-    end
-
-    local missing = required - available
-    local quote = YQQuality.GetItemPriceQuote(CONFIG.GOLD_STAR_ITEM_ID, missing, priceContext)
+    local quote = YQQuality.GetItemPriceQuote(CONFIG.GOLD_STAR_ITEM_ID, required, priceContext)
     return quote and quote.mergePlan or nil
 end
 
@@ -7851,6 +8330,8 @@ function YQQuality.EnsureSelector(schematicForm)
     frame.goldStar:SetScript("OnClick", function(self)
         if state.craft.qualityTarget then
             state.craft.qualityTarget.useGoldStar = self:GetChecked() == true
+            state.EnsureDB()
+            db.qualityUseGoldStar = state.craft.qualityTarget.useGoldStar
             state.craft.qualityPreferences.useGoldStar = state.craft.qualityTarget.useGoldStar
         end
         YQQuality.UpdateSelector()
@@ -8435,8 +8916,12 @@ local function EnsureCraftingQueueButton(schematicForm)
             return
         end
 
-        local quantity = QueueRecipeContext(dumpState.context, nil, dumpState.maxQuantity)
-        Print("Ajoute " .. quantity .. "x " .. dumpState.context.recipeName .. " avec concentration.")
+        local batches, quantity = QueueConcentrationDump(self.schematicForm, dumpState, "button")
+        Print(
+            "Ajoute " .. quantity .. "x " .. dumpState.context.recipeName
+                .. " avec concentration"
+                .. (batches and (" (" .. #batches .. " sous-lot(s)).") or ".")
+        )
     end)
     dumpConcentrationButton:SetScript("OnEnter", function(self)
         local dumpState = GetConcentrationDumpState(self.schematicForm)

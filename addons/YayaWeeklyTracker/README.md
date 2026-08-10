@@ -11,6 +11,7 @@ Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suiv
 - `Containing the Helsworn` si la recompense est du gold brut
 - `Great Vault: a ouvrir` quand une recompense est disponible
 - `Abondance` a partir du niveau 80
+- `Shard of Dundun: 8/8 a depenser` quand le plafond de monnaie est atteint
 - le world boss `Midnight` actif selon les options `World boss si gold` et `World boss si ilvl`, au niveau 90 ; il reste toujours tracke si l'objectif Liadrin actif est `Midnight: World Boss`
 - `Defense des runestones` de la Soiree de Saltheril, au niveau 90
 - la weekly de Halduron uniquement quand `Hope in the Darkest Corners` est active
@@ -152,6 +153,7 @@ IDs utilises :
 - `War Resources` = `1560`
 - `Corrupted Mementos` = `1719`
 - `Coalescing Visions` = `1755`
+- `Shard of Dundun` = monnaie `3376`, plafond `8`
 - `Ny'alotha, the Waking City` map = `10522`
 
 Assauts N'Zoth :
