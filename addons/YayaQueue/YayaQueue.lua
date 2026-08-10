@@ -29,9 +29,10 @@ local CONFIG = {
     YQ_TSM_BUY_BUTTON = "YQTSMBuy",
     YQ_TSM_CRAFT_BUTTON = "YQTSMNext",
     CONCENTRATION_PHIAL_ITEM_IDS = {
-        [1] = 241313, -- Haranir Phial of Ingenuity R1
-        [2] = 241312, -- Haranir Phial of Ingenuity R2
+        [1] = 241313, -- Flasque d'inventivité haranir R1
+        [2] = 241312, -- Flasque d'inventivité haranir R2
     },
+    CONCENTRATION_PHIAL_BUFF_SPELL_ID = 1239755,
     CONCENTRATION_PHIAL_MIN_PURCHASE = 10,
     debugNextCraft = false,
     DEBUG_LOG_LIMIT = 400,
@@ -775,6 +776,7 @@ end
 YQQuality.IsIngenuityBuffActive = function()
     local names = {}
     local spellIDs = {}
+    spellIDs[CONFIG.CONCENTRATION_PHIAL_BUFF_SPELL_ID] = true
     for rank = 1, 2 do
         local itemID = CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[rank]
         local itemName = GetItemName(itemID)
