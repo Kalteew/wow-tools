@@ -5,7 +5,7 @@ if GetLocale() ~= "zhTW" then
 end
 
 ns.AddLocale("zhTW", {
-	ADDON_TITLE = "Crafting Orders++",
+	ADDON_TITLE = "YayaCraftingOrders",
 	OPTION_VERSION_FORMAT = "版本 %s",
 	OPTION_DESCRIPTION = "重寫贊助訂單面板，加入價格判斷，並可將缺少的材料匯出到 Auctionator 或 Auctioneer。",
 	OPTION_PRICING_ADDON_HEADER = "價格插件",
@@ -23,7 +23,7 @@ ns.AddLocale("zhTW", {
 	OPTION_OPENING_HEADER = "開啟贊助訂單",
 	OPTION_OPENING_NONE = "不執行任何動作",
 	OPTION_OPENING_APPLY_PLAN = "關閉使用最佳品質並套用規劃材料",
-	OPTION_OPENING_HINT = "只會影響從 Crafting Orders++ 贊助清單開啟的贊助訂單。",
+	OPTION_OPENING_HINT = "只會影響從 YayaCraftingOrders 贊助清單開啟的贊助訂單。",
 	OPTION_DONT_BUY_PER_CHARACTER = "依角色儲存不要購買清單",
 	OPTION_DONT_BUY_HINT = "關閉時，不要購買清單會由所有角色共用。",
 	OPTION_FOOTER_HINT = "購物清單匯出會依照所選價格插件。Auctionator 會建立購物清單，而 Auctioneer 會在可用時匯出到 Snatch。",

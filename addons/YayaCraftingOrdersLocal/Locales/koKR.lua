@@ -5,7 +5,7 @@ if GetLocale() ~= "koKR" then
 end
 
 ns.AddLocale("koKR", {
-	ADDON_TITLE = "Crafting Orders++",
+	ADDON_TITLE = "YayaCraftingOrders",
 	OPTION_VERSION_FORMAT = "버전 %s",
 	OPTION_DESCRIPTION = "후원 제작 주문 창을 다시 구성하고 가격 정보를 추가하며, 부족한 재료를 Auctionator 또는 Auctioneer로 내보낼 수 있습니다.",
 	OPTION_PRICING_ADDON_HEADER = "가격 애드온",
@@ -23,7 +23,7 @@ ns.AddLocale("koKR", {
 	OPTION_OPENING_HEADER = "후원 주문 열기",
 	OPTION_OPENING_NONE = "아무것도 하지 않음",
 	OPTION_OPENING_APPLY_PLAN = "최고 품질 사용을 끄고 계획된 재료 적용",
-	OPTION_OPENING_HINT = "Crafting Orders++ 후원 목록에서 연 후원 주문에만 적용됩니다.",
+	OPTION_OPENING_HINT = "YayaCraftingOrders 후원 목록에서 연 후원 주문에만 적용됩니다.",
 	OPTION_DONT_BUY_PER_CHARACTER = "구매 안 함 목록을 캐릭터별로 저장",
 	OPTION_DONT_BUY_HINT = "이 옵션이 꺼져 있으면 구매 안 함 목록이 모든 캐릭터 간에 공유됩니다.",
 	OPTION_FOOTER_HINT = "장보기 목록 내보내기는 선택한 가격 애드온을 따릅니다. Auctionator는 장보기 목록을 만들고, Auctioneer는 가능할 때 Snatch로 내보냅니다.",

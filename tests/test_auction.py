@@ -129,6 +129,27 @@ class AuctionHelpersTests(unittest.TestCase):
         self.assertEqual(suggestions[0]["display_name"], "Brilliant Alchemist's Stone")
         self.assertIsNone(suggestions[0]["variant_key"])
 
+    def test_snapshot_retention_keeps_only_latest_per_realm(self) -> None:
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        init_db(conn)
+        for index in range(3):
+            _save_snapshot(
+                conn,
+                region="eu",
+                connected_realm_id=42,
+                source=f"test-{index}",
+                aggregated={},
+                api_last_modified=None,
+                auction_count=0,
+                retention_days=30,
+                retention_per_realm=2,
+            )
+        rows = conn.execute(
+            "SELECT source FROM auction_snapshots ORDER BY id"
+        ).fetchall()
+        self.assertEqual([row["source"] for row in rows], ["test-1", "test-2"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -13,6 +13,7 @@ What it does:
 - Seeds a local legacy recipe graph and computes recursive `buy vs craft` profitability
 - Builds a compact local account digest from SavedVariables and TSM AppHelper
 - Compares current Blizzard Auction House prices by EU connected realm, including item-level variants
+- Provides a complete mount catalogue tab with images, Wowhead links, expansion/availability/RMT filters, reliability score, and time estimates
 
 Current scope:
 
@@ -29,6 +30,7 @@ python -m wow_tools bootstrap --region eu
 python -m wow_tools compare-expansions --region eu --top 5
 python -m wow_tools compare-farmability --region eu --top 5
 python -m wow_tools sync-catalog
+python -m wow_tools sync-mounts
 python -m wow_tools sync-prices --region eu
 python -m wow_tools sync-recipes --region eu
 python -m wow_tools analyze-recipes --region eu --top 10
@@ -83,6 +85,7 @@ Key files:
 - [wow_tools/auction.py](wow_tools/auction.py)
 - [wow_tools/sources/blizzard.py](wow_tools/sources/blizzard.py)
 - [wow_tools/local_account.py](wow_tools/local_account.py)
+- [wow_tools/mounts.py](wow_tools/mounts.py)
 
 Bundled addons:
 
@@ -95,6 +98,7 @@ Bundled addons:
 - [addons/YayaAddonProfiles](addons/YayaAddonProfiles)
 - [addons/YayaProfessionSpecializations](addons/YayaProfessionSpecializations)
 - [addons/YayaPremadeAssistant](addons/YayaPremadeAssistant)
+- [addons/YayaReagentSniper](addons/YayaReagentSniper)
 
 Notes:
 
@@ -111,6 +115,7 @@ Notes:
 - `analyze-discovered` takes arbitrary output item ids, discovers their Wowhead recipe graph, snapshots the needed TSM prices locally, scores the resulting crafts with the same balanced ranking, refreshes recipe ownership from `DataStore_Crafts` on every run, and shows both the global ranking and the locally owned subset when the spell id is known.
 - `analyze-discovered --owned-only` applies the same strict local ownership filter when the discovered recipe spell id can be matched.
 - `gui` opens a native Windows `tkinter` interface with recipe tabs, a scanned-characters tab, a `Spécialisation` tab for Midnight gold/concentration planning, and a `Lumber` tab that ranks which woods look worth farming from local TSM pricing plus linked logging-product demand.
+- The `Montures` tab loads `data/mounts-catalog.json`, keeps obtainable/retired/upcoming entries, excludes RMT by default, and sorts deterministic objectives above random drops. `sync-mounts` refreshes the 1,400+ entry source catalogue and preserves the source timestamp and failed-detail count.
 - `sync-profession-recipes` builds a local SQLite recipe catalog for supported profession skill pages, including outputs, reagents, and item ids needed for later profitability work.
 - `query-recipes` searches that local recipe catalog or expands a recursive tree for one crafted output item in plain text or JSON.
 - `plan-restock` uses local recipe outputs plus local TSM AppHelper sale metrics to recommend a per-item restock target and bucket summary for one profession expansion such as `Midnight`.
@@ -127,7 +132,8 @@ Notes:
 - The AH comparator uses Blizzard's Retail API for prices and connected-realm data. Set `BLIZZARD_CLIENT_ID` and `BLIZZARD_CLIENT_SECRET` first.
 - PowerShell example: `$env:BLIZZARD_CLIENT_ID = "..."; $env:BLIZZARD_CLIENT_SECRET = "..."`.
 - `sync-auction-catalog` downloads only item names from the public TSM region catalog; it does not provide AH prices or item ranks.
-- `sync-auction-data` stores local snapshots under `data/wow.sqlite3`, decodes item bonus lists with the public [Shatari item-key algorithm](https://github.com/erorus/shatari/blob/master/src/itemKey.js), and keeps commodities at EU scope.
+- `sync-auction-data` stores local snapshots under `data/wow.sqlite3`, reuses one Blizzard client/token per collection, decodes item bonus lists with the public [Shatari item-key algorithm](https://github.com/erorus/shatari/blob/master/src/itemKey.js), and keeps commodities at EU scope. Retention defaults to 30 days and 96 snapshots per realm; override with `WOW_AUCTION_RETENTION_DAYS` and `WOW_AUCTION_RETENTION_PER_REALM`.
+- `scripts/wowhead/build_reagent_sniper_catalog.py` writes atomically to the repo addon by default; `--output` can target another explicit path.
 - `search-auctions` shows one line per connected realm group. Missing listings are shown as `-`; old snapshots remain available locally for history.
 - `scripts/flipping/build-flipping-groups.py` builds the three flip TSM lists: housing, other fast (`saleRate > 0.2`), and an other slow shortlist (`saleRate >= 0.02`, `soldPerDay >= 0.02`, `1000g <= price <= 1M`, top 1000 by slot value).
 - `scripts/flipping/build-flip-lists.py` builds housing decor flip lists from local TSM AppHelper data and excludes commodities/watch items.
@@ -186,7 +192,7 @@ Actions :
 5. Vérifie que WoW Retail est fermé. Sauvegarde les dossiers d'addons existants avant remplacement, sans toucher à WTF ni aux SavedVariables.
 
 6. Depuis la racine du dépôt, installe ces addons avec le script officiel :
-   .\scripts\sync-wow-addon.ps1 -AddonNames YayaWeeklyTracker,YayaQueue,YayaSessionTracker,YayaCraftingOrders
+   .\scripts\sync-wow-addon.ps1 -AddonNames YayaWeeklyTracker,YayaQueue,YayaSessionTracker,YayaCraftingOrdersLocal
 
 7. Installe la dernière version stable Retail de TomTom depuis sa source officielle :
    https://www.curseforge.com/wow/addons/tomtom

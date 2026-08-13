@@ -4,7 +4,12 @@ local eventFrame = CreateFrame("Frame")
 local pendingSwitchToken = 0
 local hooksInstalled = false
 local elvUIHooksInstalled = false
-local debugEnabled = true
+local bankTypeHooksInstalled = false
+local bankSessionOpen = false
+local initialSelectionPending = false
+local initialSelectionHandled = false
+local applyingInitialSelection = false
+local debugEnabled = false
 
 local function Debug(message)
 	if debugEnabled and type(print) == "function" then
@@ -13,6 +18,13 @@ local function Debug(message)
 end
 
 local function IsAccountBankActive(bankFrame)
+	if type(Addon_GetBankType) == "function" then
+		local ok, bankType = pcall(Addon_GetBankType)
+		if ok and bankType ~= nil then
+			return bankType == Enum.BankType.Account
+		end
+	end
+
 	return bankFrame
 		and type(bankFrame.GetActiveBankType) == "function"
 		and bankFrame:GetActiveBankType() == Enum.BankType.Account
@@ -25,6 +37,32 @@ local function CanViewAccountBank()
 
 	local ok, canView = pcall(C_Bank.CanViewBank, Enum.BankType.Account)
 	return ok and canView == true
+end
+
+local function GetPurchasedBankTabCount(bankType)
+	if not (C_Bank and Enum and Enum.BankType and bankType ~= nil) then
+		return nil
+	end
+
+	if type(C_Bank.FetchPurchasedBankTabIDs) == "function" then
+		local ok, tabIDs = pcall(C_Bank.FetchPurchasedBankTabIDs, bankType)
+		if ok and type(tabIDs) == "table" then
+			local count = 0
+			for _ in pairs(tabIDs) do
+				count = count + 1
+			end
+			return count
+		end
+	end
+
+	if type(C_Bank.FetchNumPurchasedBankTabs) == "function" then
+		local ok, count = pcall(C_Bank.FetchNumPurchasedBankTabs, bankType)
+		if ok and type(count) == "number" then
+			return count
+		end
+	end
+
+	return nil
 end
 
 local function GetElvUIBags()
@@ -63,10 +101,12 @@ local function TrySelectAccountBank(token)
 	end
 
 	local canView = CanViewAccountBank()
+	local warbandPurchasedCount = GetPurchasedBankTabCount(Enum.BankType.Account)
 	Debug("Blizzard: token=" .. tostring(token)
 		.. " actif=" .. tostring(IsAccountBankActive(bankFrame))
 		.. " accountTabID=" .. tostring(bankFrame.accountBankTabID)
-		.. " canView=" .. tostring(canView))
+		.. " canView=" .. tostring(canView)
+		.. " warbandPurchased=" .. tostring(warbandPurchasedCount))
 
 	if IsAccountBankActive(bankFrame) then
 		return true
@@ -99,14 +139,8 @@ local function TrySelectElvUIAccountBank(token)
 
 	local accountTabID = bags.WarbandIndexs and bags.WarbandIndexs[1]
 	local canView = CanViewAccountBank()
-	local purchasedCount = "indisponible"
+	local warbandPurchasedCount = GetPurchasedBankTabCount(Enum.BankType.Account)
 	local canPurchase = "indisponible"
-	if C_Bank and type(C_Bank.FetchNumPurchasedBankTabs) == "function" then
-		local countOK, count = pcall(C_Bank.FetchNumPurchasedBankTabs, Enum.BankType.Account)
-		if countOK then
-			purchasedCount = count
-		end
-	end
 	if C_Bank and type(C_Bank.CanPurchaseBankTab) == "function" then
 		local purchaseOK, purchase = pcall(C_Bank.CanPurchaseBankTab, Enum.BankType.Account)
 		if purchaseOK then
@@ -117,7 +151,7 @@ local function TrySelectElvUIAccountBank(token)
 		.. " actuel=" .. tostring(bags.BankTab)
 		.. " cible=" .. tostring(accountTabID)
 		.. " canView=" .. tostring(canView)
-		.. " purchased=" .. tostring(purchasedCount)
+		.. " warbandPurchased=" .. tostring(warbandPurchasedCount)
 		.. " canPurchase=" .. tostring(canPurchase)
 		.. " SelectBankTab=" .. tostring(type(bags.SelectBankTab) == "function")
 		.. " ShowBankTab=" .. tostring(type(bags.ShowBankTab) == "function")
@@ -188,34 +222,92 @@ local function TrySelectElvUIAccountBank(token)
 	return ok and bags.BankTab == accountTabID
 end
 
-local function QueueSelectAccountBank()
+local function FinishInitialSelection(token, reason)
+	if token ~= pendingSwitchToken then
+		return
+	end
+	initialSelectionPending = false
+	initialSelectionHandled = true
+	pendingSwitchToken = pendingSwitchToken + 1
+	Debug("sélection initiale terminée: " .. tostring(reason))
+end
+
+local function QueueSelectAccountBank(force)
+	if initialSelectionPending or (initialSelectionHandled and not force) then
+		return
+	end
 	pendingSwitchToken = pendingSwitchToken + 1
 	local token = pendingSwitchToken
-	Debug("queue token=" .. tostring(token))
+	initialSelectionPending = true
+	Debug("queue initiale token=" .. tostring(token))
 
-	for _, delay in ipairs({ 0, 0.05, 0.15, 0.3, 0.6 }) do
+	local delays = { 0, 0.05, 0.15, 0.3, 0.6 }
+	for index, delay in ipairs(delays) do
 		C_Timer.After(delay, function()
-			TrySelectElvUIAccountBank(token)
-			TrySelectAccountBank(token)
+			if token ~= pendingSwitchToken or not initialSelectionPending then
+				return
+			end
+			applyingInitialSelection = true
+			local ok, selected = pcall(function()
+				return TrySelectElvUIAccountBank(token) or TrySelectAccountBank(token)
+			end)
+			applyingInitialSelection = false
+			if not ok then
+				Debug("erreur sélection initiale: " .. tostring(selected))
+			end
+			if (ok and selected) or index == #delays then
+				FinishInitialSelection(token, ok and selected and "Warband sélectionnée" or "essais épuisés")
+			end
 		end)
 	end
 end
 
-SLASH_YAYAWARBANDBANKDEFAULT1 = "/ywbdebug"
+local function BeginBankSession()
+	if bankSessionOpen then
+		return
+	end
+	bankSessionOpen = true
+	initialSelectionPending = false
+	initialSelectionHandled = false
+	QueueSelectAccountBank(false)
+end
+
+local function EndBankSession()
+	bankSessionOpen = false
+	initialSelectionPending = false
+	initialSelectionHandled = false
+	applyingInitialSelection = false
+	pendingSwitchToken = pendingSwitchToken + 1
+end
+
+local function HandleExternalBankSelection(source)
+	if bankSessionOpen and initialSelectionPending and not applyingInitialSelection then
+		FinishInitialSelection(pendingSwitchToken, source)
+	end
+end
+
+SLASH_YAYAWARBANDBANKDEFAULT1 = "/ywd"
+SLASH_YAYAWARBANDBANKDEFAULT2 = "/ywbdebug"
 SlashCmdList.YAYAWARBANDBANKDEFAULT = function(message)
 	local command = string.lower(message or "")
-	if command == "off" then
+	if command == "debug" then
+		debugEnabled = not debugEnabled
+		print("|cff00ff98YayaWarbandBankDefault:|r debug "
+			.. (debugEnabled and "activé" or "désactivé"))
+	elseif command == "off" then
 		debugEnabled = false
 		print("|cff00ff98YayaWarbandBankDefault:|r debug désactivé")
 	elseif command == "on" then
 		debugEnabled = true
-		Debug("debug activé")
+		print("|cff00ff98YayaWarbandBankDefault:|r debug activé")
 	elseif command == "retry" then
-		debugEnabled = true
 		Debug("nouvel essai demandé")
-		QueueSelectAccountBank()
+		initialSelectionPending = false
+		initialSelectionHandled = false
+		pendingSwitchToken = pendingSwitchToken + 1
+		QueueSelectAccountBank(true)
 	else
-		print("|cff00ff98YayaWarbandBankDefault:|r /ywbdebug on|off|retry")
+		print("|cff00ff98YayaWarbandBankDefault:|r /ywd debug|retry")
 	end
 end
 
@@ -232,30 +324,55 @@ local function InstallElvUIHooks()
 
 	hooksecurefunc(bags, "OpenBank", function()
 		Debug("ElvUI: OpenBank hook appelé")
-		QueueSelectAccountBank()
+		BeginBankSession()
 	end)
 	elvUIHooksInstalled = true
 	Debug("ElvUI: hook OpenBank installé")
 	return true
 end
 
+local function InstallBankTypeHooks()
+	if bankTypeHooksInstalled or type(hooksecurefunc) ~= "function" then
+		return bankTypeHooksInstalled
+	end
+
+	if type(Addon_SetBankType) == "function" then
+		hooksecurefunc("Addon_SetBankType", function()
+			Debug("Blizzard/TSM: Addon_SetBankType appelé")
+			HandleExternalBankSelection("choix Blizzard/TSM")
+		end)
+		bankTypeHooksInstalled = true
+		Debug("Blizzard/TSM: hook Addon_SetBankType installé")
+	elseif _G.BankFrame and _G.BankFrame.BankPanel
+		and type(_G.BankFrame.BankPanel.SetBankType) == "function" then
+		hooksecurefunc(_G.BankFrame.BankPanel, "SetBankType", function()
+			Debug("Blizzard/TSM: BankPanel.SetBankType appelé")
+			HandleExternalBankSelection("choix BankPanel")
+		end)
+		bankTypeHooksInstalled = true
+		Debug("Blizzard/TSM: hook BankPanel.SetBankType installé")
+	end
+
+	return bankTypeHooksInstalled
+end
+
 local function InstallHooks()
 	local bankFrame = _G.BankFrame
 	if not hooksInstalled and bankFrame and type(bankFrame.HookScript) == "function" then
 		hooksInstalled = true
-		bankFrame:HookScript("OnShow", QueueSelectAccountBank)
+		bankFrame:HookScript("OnShow", BeginBankSession)
 		Debug("Blizzard: hook OnShow installé")
 	end
 
 	InstallElvUIHooks()
+	InstallBankTypeHooks()
 	return hooksInstalled or elvUIHooksInstalled
 end
 
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("BANKFRAME_OPENED")
-eventFrame:RegisterEvent("BANK_TABS_CHANGED")
-eventFrame:RegisterEvent("BANK_TAB_SETTINGS_UPDATED")
+eventFrame:RegisterEvent("BANKFRAME_CLOSED")
 eventFrame:SetScript("OnEvent", function(_, event, ...)
 	Debug("event " .. tostring(event) .. " reçu")
 	if event == "ADDON_LOADED" then
@@ -264,7 +381,8 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
 		if loadedAddonName ~= addonName
 			and loadedAddonName ~= "Blizzard_UIPanels_Game"
 			and loadedAddonName ~= "Blizzard_BankUI"
-			and loadedAddonName ~= "ElvUI" then
+			and loadedAddonName ~= "ElvUI"
+			and loadedAddonName ~= "TradeSkillMaster" then
 			return
 		end
 
@@ -274,13 +392,8 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
 
 	InstallHooks()
 	if event == "BANKFRAME_OPENED" then
-		QueueSelectAccountBank()
-	elseif event == "BANK_TABS_CHANGED" or event == "BANK_TAB_SETTINGS_UPDATED" then
-		local bags = GetElvUIBags()
-		local bankFrame = bags and bags.BankFrame
-		Debug("bank tabs update: bankType=" .. tostring((...)))
-		if bankFrame and type(bankFrame.IsShown) == "function" and bankFrame:IsShown() then
-			QueueSelectAccountBank()
-		end
+		BeginBankSession()
+	elseif event == "BANKFRAME_CLOSED" then
+		EndBankSession()
 	end
 end)

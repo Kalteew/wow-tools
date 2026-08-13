@@ -66,6 +66,8 @@ Pane.retryConfig = {
 	orderTypeLimit = 20,
 	autoScanDelay = 0.1,
 	autoScanDuration = 2.5,
+	emptySyncDelay = 0.5,
+	emptySyncLimit = 3,
 }
 local ITEM_DATA_REFRESH_DELAY = 0.75
 local INITIALIZE_RETRY_DELAY = 0.1
@@ -3966,11 +3968,17 @@ function Pane:IsAutoQueueablePatronOrder(orderData, queueApi, bucket)
 		return false
 	end
 
-	if bucket and bucket[orderData.orderID] then
-		return false
+	if type(queueApi.HasPatronOrder) == "function" then
+		if queueApi.HasPatronOrder(orderData.orderID) then
+			return false
+		end
+		if bucket then
+			bucket[orderData.orderID] = nil
+		end
+		return true
 	end
 
-	return type(queueApi.HasPatronOrder) ~= "function" or not queueApi.HasPatronOrder(orderData.orderID)
+	return not (bucket and bucket[orderData.orderID])
 end
 
 function Pane:GetAutoQueueSessionBucket()
@@ -4739,6 +4747,37 @@ function Pane:SyncYayaQueuePatronOrders(rawOrders, professionID)
 		return 0
 	end
 
+	local rawCount = #(rawOrders or EMPTY_LIST)
+	if rawCount > 0 then
+		self.emptySyncConfirmation = nil
+	else
+		local confirmation = self.emptySyncConfirmation
+		if not confirmation
+			or confirmation.professionID ~= professionID
+			or confirmation.visibleSessionId ~= self.visibleSessionId then
+			confirmation = {
+				professionID = professionID,
+				visibleSessionId = self.visibleSessionId,
+				attempts = 0,
+			}
+			self.emptySyncConfirmation = confirmation
+		end
+		confirmation.attempts = confirmation.attempts + 1
+		if confirmation.attempts < Pane.retryConfig.emptySyncLimit then
+			self.needsRebuild = true
+			self:SchedulePendingRefresh("empty-sync-confirm", Pane.retryConfig.emptySyncDelay)
+			ns.Debug(
+				"queue",
+				"defer empty patron sync profession=%s confirmation=%s/%s",
+				tostring(professionID),
+				tostring(confirmation.attempts),
+				tostring(Pane.retryConfig.emptySyncLimit)
+			)
+			return 0
+		end
+		self.emptySyncConfirmation = nil
+	end
+
 	local availableOrderIDs = {}
 	for _, rawOrder in ipairs(rawOrders or EMPTY_LIST) do
 		local orderID = tonumber(rawOrder.orderID) or 0
@@ -4747,8 +4786,14 @@ function Pane:SyncYayaQueuePatronOrders(rawOrders, professionID)
 		end
 	end
 
-	local removed = queueApi.SyncPatronOrders(availableOrderIDs, professionID)
+	local removed, removedOrderIDs = queueApi.SyncPatronOrders(availableOrderIDs, professionID)
 	if removed > 0 then
+		local bucket = self:GetAutoQueueSessionBucket()
+		for orderID in pairs(removedOrderIDs or EMPTY_LIST) do
+			if bucket then
+				bucket[orderID] = nil
+			end
+		end
 		ns.Debug("queue", "removed unavailable patron orders profession=%s count=%s", tostring(professionID), tostring(removed))
 	end
 	return removed
@@ -5554,6 +5599,7 @@ function Pane:BeginVisibleSession()
 	self:LoadSavedSort()
 	self.visibleSessionId = (self.visibleSessionId or 0) + 1
 	self.autoQueuedOrderIDsBySession = {}
+	self.emptySyncConfirmation = nil
 	self.requestSettleUntil = nil
 	self.requestReadinessRetryCount = 0
 	self.requestFailureRetryCount = 0
@@ -6042,6 +6088,7 @@ function Pane:SetCustomPaneShown(isShown)
 		self.needsRebuild = false
 		self.needsRender = false
 		self.requestSettleUntil = nil
+		self.emptySyncConfirmation = nil
 		self.requestReadinessRetryCount = 0
 		self.trailingDirtyTokens = nil
 	end
@@ -6309,14 +6356,22 @@ function Pane:InitializeEvents()
 	end)
 
 	ns.RegisterEvent("ITEM_DATA_LOAD_RESULT", function(_, itemID)
-		if Pane.root
-			and Pane.root:IsShown()
-			and type(itemID) == "number"
-			and Pane.unresolvedItemIDs
-			and Pane.unresolvedItemIDs[itemID] then
+		if type(itemID) ~= "number" then
+			return
+		end
+		local isTrackedListItem = Pane.unresolvedItemIDs and Pane.unresolvedItemIDs[itemID]
+		local isTrackedDetailItem = Pane.detailWarningOrderData
+			and Pane.detailWarningOrderData.unresolvedItemIDs
+			and Pane.detailWarningOrderData.unresolvedItemIDs[itemID]
+		if not isTrackedListItem and not isTrackedDetailItem then
+			return
+		end
+		if Pane.root and Pane.root:IsShown() and isTrackedListItem then
 			Pane:ScheduleTrailingDirty("item-data", ITEM_DATA_REFRESH_DELAY)
 		end
-		Pane:MarkDetailWarningDirty()
+		if isTrackedDetailItem then
+			Pane:MarkDetailWarningDirty()
+		end
 	end)
 
 	ns.RegisterEvent("TRADE_SKILL_DATA_SOURCE_CHANGED", function()

@@ -3,7 +3,7 @@ local _, ns = ...
 ns.AddLocale("enUS", {
 	ADDON_TITLE = "YayaCraftingOrders",
 	OPTION_VERSION_FORMAT = "Version %s",
-	OPTION_DESCRIPTION = "Forks the patron crafting-orders pane with TSM pricing and direct YayaQueue queueing.",
+	OPTION_DESCRIPTION = "Adds a patron crafting-orders pane with TSM pricing and direct YayaQueue queueing.",
 	OPTION_PRICING_ADDON_HEADER = "Pricing",
 	OPTION_NO_PRICING_INFO = "TradeSkillMaster is not detected. Enable TSM to show costs, reward values, and profit.",
 	OPTION_PRICING_AUCTIONATOR = "Auctionator",

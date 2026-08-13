@@ -1,10 +1,10 @@
-## Interface: 120005
+## Interface: 120007
 ## Title: YayaCraftingOrders
 ## Author: Yaya
-## Version: 0.1.0
-## Notes: Patron orders fork with TSM pricing and YayaQueue integration.
+## Version: 0.2.0
+## Notes: Personal patron orders pane with TSM pricing and YayaQueue integration.
 ## Category: Professions
-## IconTexture: Interface\AddOns\YayaCraftingOrders\CraftingOrdersPP_Icon
+## IconTexture: Interface\AddOns\YayaCraftingOrdersLocal\YayaCraftingOrders_Icon
 ## OptionalDeps: Blizzard_Professions, TradeSkillMaster, YayaQueue, YayaContainerValues, YayaCraftedPrice
 ## SavedVariables: YayaCraftingOrdersDB
 

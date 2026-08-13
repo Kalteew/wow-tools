@@ -11,6 +11,7 @@ import socket
 import statistics
 import urllib.error
 import urllib.request
+import webbrowser
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,7 @@ from wow_tools.config import CACHE_DIR, DB_PATH, DEFAULT_REGION
 from wow_tools.db import connect
 from wow_tools.dynamic_recipe_profit import build_discovered_profit_report
 from wow_tools.logging_lumber import build_logging_lumber_report
+from wow_tools.mounts import load_mount_catalog, sync_mount_catalog
 from wow_tools.profession_recipes import default_professions as default_recipe_professions, sync_profession_recipes
 from wow_tools.recipe_catalog import default_favorite_spell_ids
 from wow_tools.recipe_favorites import ensure_favorite_spell_ids, set_favorite_spell_id
@@ -168,6 +170,27 @@ class _ExchangeTabState:
     overview_sort_reverse: bool
     detail_sort_column: str
     detail_sort_reverse: bool
+
+
+@dataclass
+class _MountsTabState:
+    summary_var: tk.StringVar
+    query_var: tk.StringVar
+    expansion_var: tk.StringVar
+    availability_var: tk.StringVar
+    no_rmt_var: tk.BooleanVar
+    sort_var: tk.StringVar
+    force_var: tk.BooleanVar
+    expansion_combo: ttk.Combobox
+    refresh_button: ttk.Button
+    tree: ttk.Treeview
+    details_text: tk.Text
+    image_label: tk.Label
+    open_button: ttk.Button
+    row_lookup: dict[str, dict[str, Any]]
+    all_rows: list[dict[str, Any]]
+    icon_images: dict[str, Any]
+    current_payload: dict[str, Any] | None
 
 
 _PRIMARY_PROFESSIONS = {
@@ -488,7 +511,8 @@ class ProfitabilityGui:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("WoW Tools - Marché EU")
-        self.root.overrideredirect(True)
+        # Keep the native Windows frame so the app appears in the taskbar and Alt-Tab.
+        self.root.overrideredirect(False)
         self.root.configure(background="#0b0908")
         self.root.geometry("1400x900+60+40")
         self.root.minsize(1100, 760)
@@ -515,6 +539,8 @@ class ProfitabilityGui:
         self._refresh_specialization_tab(self.specialization_tab)
         self.lumber_tab = self._build_lumber_tab(notebook)
         self._refresh_lumber_tab(self.lumber_tab)
+        self.mounts_tab = self._build_mounts_tab(notebook)
+        self._load_mounts_tab(self.mounts_tab)
         self.auction_tab = self._build_auction_tab(notebook)
         self.exchange_tab = self._build_exchange_tab(notebook)
         notebook.select(notebook.tabs()[-1])
@@ -1047,6 +1073,150 @@ class ProfitabilityGui:
         tree.bind("<<TreeviewSelect>>", lambda event, current=state: self._show_selected_lumber(current, event.widget))
         return state
 
+    def _build_mounts_tab(self, notebook: ttk.Notebook) -> _MountsTabState:
+        frame = ttk.Frame(notebook, padding=10)
+        notebook.add(frame, text="Montures")
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(3, weight=1)
+
+        header = ttk.Frame(frame)
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        header.columnconfigure(0, weight=1)
+        ttk.Label(header, text="Catalogue des montures", style="Header.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            header,
+            text="Liste exhaustive · fiabilité d’obtention · timegates · filtre sans RMT",
+            style="Summary.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(2, 0))
+
+        controls = ttk.LabelFrame(frame, text="Filtres", padding=8)
+        controls.grid(row=1, column=0, sticky="ew")
+        controls.columnconfigure(1, weight=1)
+        controls.columnconfigure(3, weight=1)
+        controls.columnconfigure(5, weight=1)
+
+        query_var = tk.StringVar()
+        expansion_var = tk.StringVar(value="Toutes")
+        availability_var = tk.StringVar(value="Toutes")
+        no_rmt_var = tk.BooleanVar(value=True)
+        sort_var = tk.StringVar(value="Fiabilité ↓")
+        force_var = tk.BooleanVar(value=False)
+
+        ttk.Label(controls, text="Rechercher").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=4)
+        search_entry = ttk.Entry(controls, textvariable=query_var)
+        search_entry.grid(row=0, column=1, sticky="ew", pady=4)
+        ttk.Label(controls, text="Extension").grid(row=0, column=2, sticky="w", padx=(14, 6), pady=4)
+        expansion_combo = ttk.Combobox(controls, textvariable=expansion_var, values=["Toutes"], state="readonly", width=24)
+        expansion_combo.grid(row=0, column=3, sticky="ew", pady=4)
+        ttk.Label(controls, text="Disponibilité").grid(row=0, column=4, sticky="w", padx=(14, 6), pady=4)
+        availability_combo = ttk.Combobox(
+            controls,
+            textvariable=availability_var,
+            values=["Toutes", "Toujours obtenables", "Obtenables maintenant", "Retirées", "À venir", "Non implémentées"],
+            state="readonly",
+            width=24,
+        )
+        availability_combo.grid(row=0, column=5, sticky="ew", pady=4)
+
+        ttk.Label(controls, text="Tri").grid(row=1, column=0, sticky="w", padx=(0, 6), pady=4)
+        sort_combo = ttk.Combobox(
+            controls,
+            textvariable=sort_var,
+            values=["Fiabilité ↓", "Temps estimé ↑", "Nom A→Z", "Extension"],
+            state="readonly",
+            width=24,
+        )
+        sort_combo.grid(row=1, column=1, sticky="w", pady=4)
+        ttk.Checkbutton(controls, text="Exclure RMT / boutique", variable=no_rmt_var).grid(
+            row=1, column=2, columnspan=2, sticky="w", padx=(14, 0), pady=4
+        )
+        ttk.Checkbutton(controls, text="Forcer la synchronisation", variable=force_var).grid(
+            row=1, column=4, sticky="w", padx=(14, 0), pady=4
+        )
+        refresh_button = ttk.Button(controls, text="Synchroniser le catalogue")
+        refresh_button.grid(row=1, column=5, sticky="e", pady=4)
+
+        summary_var = tk.StringVar(value="Catalogue absent : synchronise le catalogue pour charger toutes les montures.")
+        ttk.Label(frame, textvariable=summary_var, style="Summary.TLabel").grid(
+            row=2, column=0, sticky="ew", pady=(8, 8)
+        )
+
+        body = ttk.Panedwindow(frame, orient="horizontal")
+        body.grid(row=3, column=0, sticky="nsew")
+
+        tree_frame = ttk.Frame(body)
+        tree_frame.columnconfigure(0, weight=1)
+        tree_frame.rowconfigure(0, weight=1)
+        body.add(tree_frame, weight=3)
+        columns = ("expansion", "source", "availability", "reliability", "time")
+        tree = ttk.Treeview(tree_frame, columns=columns, show="tree headings", height=20)
+        tree.grid(row=0, column=0, sticky="nsew")
+        tree.heading("#0", text="Monture")
+        tree.column("#0", width=270, anchor="w")
+        headings = {
+            "expansion": ("Extension", 145),
+            "source": ("Source", 155),
+            "availability": ("État", 120),
+            "reliability": ("Fiabilité", 135),
+            "time": ("Temps estimé", 180),
+        }
+        for column, (label, width) in headings.items():
+            tree.heading(column, text=label)
+            tree.column(column, width=width, anchor="w")
+        tree.tag_configure("unavailable", foreground="#9a7770")
+        tree.tag_configure("rmt", foreground="#a48b83")
+        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        tree.configure(yscrollcommand=scrollbar.set)
+
+        details_box = ttk.LabelFrame(body, text="Détails", padding=8)
+        details_box.columnconfigure(0, weight=1)
+        details_box.rowconfigure(2, weight=1)
+        body.add(details_box, weight=2)
+        image_label = tk.Label(
+            details_box,
+            text="Sélectionne une monture",
+            background="#171313",
+            foreground="#d8c6bd",
+            height=8,
+            anchor="center",
+        )
+        image_label.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        open_button = ttk.Button(details_box, text="Ouvrir le lien Wowhead", state="disabled")
+        open_button.grid(row=1, column=0, sticky="e", pady=(0, 8))
+        details_text = tk.Text(details_box, wrap="word", height=16, font=("Consolas", 9))
+        details_text.grid(row=2, column=0, sticky="nsew")
+        details_text.configure(state="disabled")
+
+        state = _MountsTabState(
+            summary_var=summary_var,
+            query_var=query_var,
+            expansion_var=expansion_var,
+            availability_var=availability_var,
+            no_rmt_var=no_rmt_var,
+            sort_var=sort_var,
+            force_var=force_var,
+            expansion_combo=expansion_combo,
+            refresh_button=refresh_button,
+            tree=tree,
+            details_text=details_text,
+            image_label=image_label,
+            open_button=open_button,
+            row_lookup={},
+            all_rows=[],
+            icon_images={},
+            current_payload=None,
+        )
+        refresh_button.configure(command=lambda current=state: self._start_mount_catalog_sync(current))
+        open_button.configure(command=lambda current=state: self._open_selected_mount(current))
+        for variable in (query_var, expansion_var, availability_var, no_rmt_var, sort_var):
+            variable.trace_add("write", lambda *_args, current=state: self._apply_mount_filters(current))
+        expansion_combo.bind("<<ComboboxSelected>>", lambda _event, current=state: self._apply_mount_filters(current))
+        availability_combo.bind("<<ComboboxSelected>>", lambda _event, current=state: self._apply_mount_filters(current))
+        sort_combo.bind("<<ComboboxSelected>>", lambda _event, current=state: self._apply_mount_filters(current))
+        tree.bind("<<TreeviewSelect>>", lambda event, current=state: self._show_selected_mount(current, event.widget))
+        return state
+
     def _build_auction_tab(self, notebook: ttk.Notebook) -> _AuctionTabState:
         frame = ttk.Frame(notebook, padding=10)
         notebook.add(frame, text="Comparateur AH")
@@ -1506,23 +1676,27 @@ class ProfitabilityGui:
         self._hide_exchange_suggestions(state)
         state.search_button.configure(state="disabled")
         state.summary_var.set("Recherche des variantes et des prix…")
-        threading.Thread(target=self._run_exchange_search, args=(state,), daemon=True).start()
+        params = {
+            "region": state.region_var.get().strip().lower() or DEFAULT_REGION,
+            "query": state.query_var.get().strip(),
+            "variant_key": state.selected_variant_key,
+        }
+        threading.Thread(target=self._run_exchange_search, args=(state, params), daemon=True).start()
 
-    def _run_exchange_search(self, state: _ExchangeTabState) -> None:
+    def _run_exchange_search(self, state: _ExchangeTabState, params: dict[str, Any]) -> None:
         try:
             conn = connect(DB_PATH)
-            region = state.region_var.get().strip().lower() or DEFAULT_REGION
             report = build_auction_report(
                 conn,
-                state.query_var.get().strip(),
-                region,
-                variant_key=state.selected_variant_key,
+                params["query"],
+                params["region"],
+                variant_key=params["variant_key"],
             )
             conn.close()
             report["icon_bytes"] = self._fetch_auction_icon_bytes(report)
         except Exception as exc:  # pragma: no cover - GUI error path
             details = traceback.format_exc()
-            self.root.after(0, lambda: self._handle_exchange_error(state, exc, details, "Recherche"))
+            self.root.after(0, lambda error=exc, trace=details: self._handle_exchange_error(state, error, trace, "Recherche"))
             return
         self.root.after(0, lambda: self._apply_exchange_report(state, report))
 
@@ -1779,26 +1953,31 @@ class ProfitabilityGui:
         state.sync_button.configure(state="disabled")
         state.search_button.configure(state="disabled")
         state.summary_var.set("Synchronisation AH EU en cours…")
-        threading.Thread(target=self._run_exchange_sync, args=(state,), daemon=True).start()
+        params = {
+            "region": state.region_var.get().strip().lower() or DEFAULT_REGION,
+            "query": state.query_var.get().strip(),
+            "variant_key": state.selected_variant_key,
+        }
+        threading.Thread(target=self._run_exchange_sync, args=(state, params), daemon=True).start()
 
-    def _run_exchange_sync(self, state: _ExchangeTabState) -> None:
+    def _run_exchange_sync(self, state: _ExchangeTabState, params: dict[str, Any]) -> None:
         try:
             conn = connect(DB_PATH)
             cache = HttpCache(CACHE_DIR)
-            region = state.region_var.get().strip().lower() or DEFAULT_REGION
+            region = params["region"]
             sync_auction_catalog(conn, cache, region)
             summary = sync_auction_data(conn, cache, region)
             report = build_auction_report(
                 conn,
-                state.query_var.get().strip(),
+                params["query"],
                 region,
-                variant_key=state.selected_variant_key,
+                variant_key=params["variant_key"],
             )
             conn.close()
             report["icon_bytes"] = self._fetch_auction_icon_bytes(report)
         except Exception as exc:  # pragma: no cover - GUI error path
             details = traceback.format_exc()
-            self.root.after(0, lambda: self._handle_exchange_error(state, exc, details, "Synchronisation AH"))
+            self.root.after(0, lambda error=exc, trace=details: self._handle_exchange_error(state, error, trace, "Synchronisation AH"))
             return
         self.root.after(0, lambda: self._apply_exchange_sync(state, summary, report))
 
@@ -1930,21 +2109,279 @@ class ProfitabilityGui:
     def _refresh_lumber_tab(self, state: _LumberTabState) -> None:
         state.refresh_button.configure(state="disabled")
         state.summary_var.set("Analyse en cours...")
-        worker = threading.Thread(target=self._run_lumber_refresh, args=(state,), daemon=True)
+        params = {
+            "region": state.region_var.get().strip().lower() or DEFAULT_REGION,
+            "sync": bool(state.sync_var.get()),
+            "force": bool(state.force_var.get()),
+        }
+        worker = threading.Thread(target=self._run_lumber_refresh, args=(state, params), daemon=True)
         worker.start()
 
-    def _run_lumber_refresh(self, state: _LumberTabState) -> None:
+    def _load_mounts_tab(self, state: _MountsTabState) -> None:
         try:
-            region = state.region_var.get().strip().lower() or DEFAULT_REGION
+            payload = load_mount_catalog()
+        except Exception as exc:  # pragma: no cover - GUI error path
+            state.summary_var.set("Catalogue illisible")
+            self._set_mount_details(state, str(exc))
+            return
+        state.current_payload = payload
+        state.all_rows = list(payload.get("mounts") or [])
+        expansions = sorted({str(row.get("expansion") or "Inconnue") for row in state.all_rows})
+        state.expansion_combo.configure(values=["Toutes", *expansions])
+        self._apply_mount_filters(state)
+
+    def _start_mount_catalog_sync(self, state: _MountsTabState) -> None:
+        state.refresh_button.configure(state="disabled")
+        state.summary_var.set("Synchronisation du catalogue des montures en cours...")
+        worker = threading.Thread(
+            target=self._run_mount_catalog_sync,
+            args=(state, bool(state.force_var.get())),
+            daemon=True,
+        )
+        worker.start()
+
+    def _run_mount_catalog_sync(self, state: _MountsTabState, force: bool) -> None:
+        try:
+            summary = sync_mount_catalog(force=force)
+            payload = load_mount_catalog()
+        except Exception as exc:  # pragma: no cover - GUI error path
+            details = traceback.format_exc()
+            self.root.after(0, lambda error=exc, trace=details: self._handle_mount_sync_error(state, error, trace))
+            return
+        self.root.after(0, lambda: self._apply_mount_catalog(state, payload, summary))
+
+    def _apply_mount_catalog(
+        self,
+        state: _MountsTabState,
+        payload: dict[str, Any],
+        summary: dict[str, Any],
+    ) -> None:
+        state.refresh_button.configure(state="normal")
+        state.current_payload = payload
+        state.all_rows = list(payload.get("mounts") or [])
+        expansions = sorted({str(row.get("expansion") or "Inconnue") for row in state.all_rows})
+        state.expansion_combo.configure(values=["Toutes", *expansions])
+        self._apply_mount_filters(state)
+        if summary.get("failures"):
+            state.summary_var.set(
+                f"{summary.get('count', 0)} montures synchronisées | "
+                f"{summary.get('failures')} détails à vérifier | source Warcraft Mounts"
+            )
+
+    def _apply_mount_filters(self, state: _MountsTabState) -> None:
+        rows = list(state.all_rows)
+        query = state.query_var.get().strip().casefold()
+        expansion = state.expansion_var.get()
+        availability = state.availability_var.get()
+        if query:
+            rows = [
+                row
+                for row in rows
+                if query in " ".join(
+                    str(row.get(key) or "")
+                    for key in ("display_name", "name", "source_text", "notes", "category_label")
+                ).casefold()
+            ]
+        if expansion and expansion != "Toutes":
+            rows = [row for row in rows if row.get("expansion") == expansion]
+        if state.no_rmt_var.get():
+            rows = [row for row in rows if not row.get("is_rmt")]
+        if availability == "Toujours obtenables":
+            rows = [row for row in rows if row.get("is_always_obtainable")]
+        elif availability == "Obtenables maintenant":
+            rows = [row for row in rows if row.get("currently_obtainable")]
+        elif availability == "Retirées":
+            rows = [row for row in rows if row.get("availability") == "retired"]
+        elif availability == "À venir":
+            rows = [row for row in rows if row.get("availability") == "upcoming"]
+        elif availability == "Non implémentées":
+            rows = [row for row in rows if row.get("availability") == "unimplemented"]
+
+        sort_mode = state.sort_var.get()
+        if sort_mode == "Temps estimé ↑":
+            rows.sort(key=lambda row: (row.get("estimated_hours") is None, row.get("estimated_hours") or 0, str(row.get("display_name") or "").casefold()))
+        elif sort_mode == "Nom A→Z":
+            rows.sort(key=lambda row: str(row.get("display_name") or row.get("name") or "").casefold())
+        elif sort_mode == "Extension":
+            rows.sort(key=lambda row: (str(row.get("expansion") or ""), str(row.get("display_name") or "").casefold()))
+        else:
+            rows.sort(
+                key=lambda row: (
+                    -int(row.get("reliability_score") or 0),
+                    row.get("estimated_hours") is None,
+                    row.get("estimated_hours") or 0,
+                    str(row.get("display_name") or row.get("name") or "").casefold(),
+                )
+            )
+
+        for item in state.tree.get_children():
+            state.tree.delete(item)
+        state.row_lookup.clear()
+        first_row_id: str | None = None
+        for row in rows:
+            mount_id = str(row.get("warcraft_mounts_id") or row.get("blizzard_id") or len(state.row_lookup))
+            row_id = f"mount-{mount_id}"
+            state.row_lookup[row_id] = row
+            if first_row_id is None:
+                first_row_id = row_id
+            tags: list[str] = []
+            if row.get("availability") != "available":
+                tags.append("unavailable")
+            if row.get("is_rmt"):
+                tags.append("rmt")
+            insert_options = {
+                "iid": row_id,
+                "text": row.get("display_name") or row.get("name") or "-",
+                "values": (
+                    row.get("expansion") or "-",
+                    row.get("category_label") or "-",
+                    self._mount_availability_label(row),
+                    f"{row.get('reliability_score', 0)}/100",
+                    row.get("time_estimate") or "-",
+                ),
+                "tags": tags,
+            }
+            image = state.icon_images.get(row.get("image_url") or "")
+            if image is not None:
+                insert_options["image"] = image
+            state.tree.insert("", "end", **insert_options)
+
+        total = len(state.all_rows)
+        available = sum(1 for row in state.all_rows if row.get("currently_obtainable"))
+        visible = len(rows)
+        synced_at = (state.current_payload or {}).get("synced_at") or "jamais"
+        state.summary_var.set(f"{visible}/{total} affichées | {available} disponibles maintenant | catalogue : {synced_at[:10]}")
+        if first_row_id is not None:
+            state.tree.selection_set(first_row_id)
+            state.tree.focus(first_row_id)
+            self._show_selected_mount(state, state.tree)
+        else:
+            self._set_mount_details(state, "Aucune monture ne correspond aux filtres.")
+            state.image_label.configure(image="", text="Aucune sélection")
+            state.open_button.configure(state="disabled")
+
+    def _mount_availability_label(self, row: dict[str, Any]) -> str:
+        return {
+            "available": "Disponible",
+            "retired": "Retirée",
+            "upcoming": "À venir",
+            "unimplemented": "Non implémentée",
+        }.get(str(row.get("availability") or ""), "À vérifier")
+
+    def _show_selected_mount(self, state: _MountsTabState, tree: ttk.Treeview) -> None:
+        selection = tree.selection()
+        if not selection:
+            return
+        row = state.row_lookup.get(selection[0])
+        if row is None:
+            return
+        self._set_mount_details(state, self._render_mount_details(row))
+        state.open_button.configure(state="normal" if row.get("wowhead_url") else "disabled")
+        self._start_mount_image_load(state, row)
+
+    def _start_mount_image_load(self, state: _MountsTabState, row: dict[str, Any]) -> None:
+        image_url = str(row.get("image_url") or "")
+        if not image_url or Image is None or ImageTk is None:
+            state.image_label.configure(image="", text="Image indisponible")
+            return
+        cached_image = state.icon_images.get(image_url)
+        if cached_image is not None:
+            state.image_label.configure(image=cached_image, text="")
+            return
+
+        mount_id = str(row.get("warcraft_mounts_id") or row.get("blizzard_id") or "")
+        state.image_label.configure(image="", text="Chargement de l’image…")
+
+        def worker() -> None:
+            try:
+                request = urllib.request.Request(image_url, headers={"User-Agent": "wow-tools/0.1", "Accept": "image/*"})
+                with urllib.request.urlopen(request, timeout=10) as response:
+                    payload = response.read()
+            except Exception:
+                payload = None
+            self.root.after(0, lambda: self._apply_mount_image(state, image_url, mount_id, payload))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _apply_mount_image(
+        self,
+        state: _MountsTabState,
+        image_url: str,
+        mount_id: str,
+        payload: bytes | None,
+    ) -> None:
+        if not payload:
+            state.image_label.configure(image="", text="Image indisponible")
+            return
+        try:
+            image = Image.open(io.BytesIO(payload)).convert("RGBA")
+            image.thumbnail((420, 220), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(image, master=self.root)
+        except Exception:
+            state.image_label.configure(image="", text="Image indisponible")
+            return
+        state.icon_images[image_url] = photo
+        selected = state.tree.selection()
+        selected_row = state.row_lookup.get(selected[0]) if selected else None
+        selected_id = str((selected_row or {}).get("warcraft_mounts_id") or (selected_row or {}).get("blizzard_id") or "")
+        if selected_id == mount_id:
+            state.image_label.configure(image=photo, text="")
+
+    def _open_selected_mount(self, state: _MountsTabState) -> None:
+        selection = state.tree.selection()
+        row = state.row_lookup.get(selection[0]) if selection else None
+        url = str((row or {}).get("wowhead_url") or "")
+        if url:
+            webbrowser.open(url)
+
+    def _set_mount_details(self, state: _MountsTabState, text: str) -> None:
+        state.details_text.configure(state="normal")
+        state.details_text.delete("1.0", "end")
+        state.details_text.insert("1.0", text)
+        state.details_text.configure(state="disabled")
+
+    def _render_mount_details(self, row: dict[str, Any]) -> str:
+        lines = [
+            f"Monture: {row.get('display_name') or row.get('name') or '-'}",
+            f"Extension: {row.get('expansion') or '-'}",
+            f"Source: {row.get('category_label') or '-'}",
+            f"État: {self._mount_availability_label(row)}",
+            f"Sans RMT: {'oui' if not row.get('is_rmt') else 'non'}",
+            f"Fiabilité: {row.get('reliability_score', 0)}/100 — {row.get('reliability_label') or '-'}",
+            f"Timegate: {row.get('time_gate') or '-'}",
+            f"Temps estimé: {row.get('time_estimate') or '-'}",
+            f"Niveau requis: {row.get('required_level') or '-'}",
+            f"Mode de déplacement: {row.get('travel_mode') or '-'}",
+            "",
+            "Obtention",
+        ]
+        sources = row.get("sources") or []
+        lines.extend(f"- {source}" for source in sources)
+        if not sources:
+            lines.append("- Source détaillée indisponible")
+        if row.get("notes"):
+            lines.extend(["", f"Notes: {row['notes']}"])
+        lines.extend(["", f"Wowhead: {row.get('wowhead_url') or 'lien indisponible'}"])
+        return "\n".join(lines)
+
+    def _handle_mount_sync_error(self, state: _MountsTabState, error: Exception, details: str) -> None:
+        state.refresh_button.configure(state="normal")
+        state.summary_var.set("Synchronisation impossible")
+        self._set_mount_details(state, details)
+        messagebox.showerror("Catalogue des montures", str(error), parent=self.root)
+
+    def _run_lumber_refresh(self, state: _LumberTabState, params: dict[str, Any]) -> None:
+        try:
+            region = params["region"]
             conn = connect(DB_PATH)
-            if state.sync_var.get():
+            if params["sync"]:
                 cache = HttpCache(CACHE_DIR)
-                sync_recipe_prices(conn, cache, region, force=bool(state.force_var.get()))
+                sync_recipe_prices(conn, cache, region, force=params["force"])
             conn.close()
             report = build_logging_lumber_report(region)
         except Exception as exc:  # pragma: no cover - GUI error path
             details = traceback.format_exc()
-            self.root.after(0, lambda: self._handle_lumber_error(state, exc, details))
+            self.root.after(0, lambda error=exc, trace=details: self._handle_lumber_error(state, error, trace))
             return
         self.root.after(0, lambda: self._apply_lumber_report(state, report))
 
@@ -2133,44 +2570,50 @@ class ProfitabilityGui:
         self._hide_auction_suggestions(state)
         state.search_button.configure(state="disabled")
         state.summary_var.set("Recherche locale en cours...")
-        worker = threading.Thread(target=self._run_auction_search, args=(state,), daemon=True)
+        params = {
+            "query": query,
+            "region": state.region_var.get().strip().lower() or DEFAULT_REGION,
+            "variant_key": state.selected_variant_key,
+        }
+        worker = threading.Thread(target=self._run_auction_search, args=(state, params), daemon=True)
         worker.start()
 
-    def _run_auction_search(self, state: _AuctionTabState) -> None:
+    def _run_auction_search(self, state: _AuctionTabState, params: dict[str, Any]) -> None:
         try:
             conn = connect(DB_PATH)
             report = build_auction_report(
                 conn,
-                state.query_var.get().strip(),
-                state.region_var.get().strip().lower() or DEFAULT_REGION,
-                variant_key=state.selected_variant_key,
+                params["query"],
+                params["region"],
+                variant_key=params["variant_key"],
             )
             conn.close()
             report["icon_bytes"] = self._fetch_auction_icon_bytes(report)
         except Exception as exc:  # pragma: no cover - GUI error path
             details = traceback.format_exc()
-            self.root.after(0, lambda: self._handle_auction_error(state, exc, details, "Recherche"))
+            self.root.after(0, lambda error=exc, trace=details: self._handle_auction_error(state, error, trace, "Recherche"))
             return
         self.root.after(0, lambda: self._apply_auction_report(state, report))
 
     def _start_auction_realms(self, state: _AuctionTabState) -> None:
         state.realms_button.configure(state="disabled")
         state.summary_var.set("Récupération des groupes de royaumes Blizzard...")
-        worker = threading.Thread(target=self._run_auction_realms, args=(state,), daemon=True)
+        region = state.region_var.get().strip().lower() or DEFAULT_REGION
+        worker = threading.Thread(target=self._run_auction_realms, args=(state, region), daemon=True)
         worker.start()
 
-    def _run_auction_realms(self, state: _AuctionTabState) -> None:
+    def _run_auction_realms(self, state: _AuctionTabState, region: str) -> None:
         try:
             conn = connect(DB_PATH)
             summary = sync_auction_realms(
                 conn,
                 BlizzardClient(),
-                state.region_var.get().strip().lower() or DEFAULT_REGION,
+                region,
             )
             conn.close()
         except Exception as exc:  # pragma: no cover - GUI error path
             details = traceback.format_exc()
-            self.root.after(0, lambda: self._handle_auction_error(state, exc, details, "Royaumes"))
+            self.root.after(0, lambda error=exc, trace=details: self._handle_auction_error(state, error, trace, "Royaumes"))
             return
         self.root.after(0, lambda: self._auction_operation_done(state, f"{summary['realms']} groupes de royaumes enregistrés."))
 
@@ -2179,24 +2622,29 @@ class ProfitabilityGui:
         state.realms_button.configure(state="disabled")
         state.search_button.configure(state="disabled")
         state.summary_var.set("Synchronisation AH Blizzard en cours : plusieurs minutes possibles...")
-        worker = threading.Thread(target=self._run_auction_sync, args=(state,), daemon=True)
+        params = {
+            "region": state.region_var.get().strip().lower() or DEFAULT_REGION,
+            "query": state.query_var.get().strip(),
+            "variant_key": state.selected_variant_key,
+        }
+        worker = threading.Thread(target=self._run_auction_sync, args=(state, params), daemon=True)
         worker.start()
 
-    def _run_auction_sync(self, state: _AuctionTabState) -> None:
+    def _run_auction_sync(self, state: _AuctionTabState, params: dict[str, Any]) -> None:
         try:
             conn = connect(DB_PATH)
             cache = HttpCache(CACHE_DIR)
-            region = state.region_var.get().strip().lower() or DEFAULT_REGION
+            region = params["region"]
             sync_auction_catalog(conn, cache, region)
             summary = sync_auction_data(conn, cache, region)
             report = (
                 build_auction_report(
                     conn,
-                    state.query_var.get().strip(),
+                    params["query"],
                     region,
-                    variant_key=state.selected_variant_key,
+                    variant_key=params["variant_key"],
                 )
-                if state.query_var.get().strip()
+                if params["query"]
                 else None
             )
             conn.close()
@@ -2204,7 +2652,7 @@ class ProfitabilityGui:
                 report["icon_bytes"] = self._fetch_auction_icon_bytes(report)
         except Exception as exc:  # pragma: no cover - GUI error path
             details = traceback.format_exc()
-            self.root.after(0, lambda: self._handle_auction_error(state, exc, details, "Synchronisation AH"))
+            self.root.after(0, lambda error=exc, trace=details: self._handle_auction_error(state, error, trace, "Synchronisation AH"))
             return
         self.root.after(0, lambda: self._apply_auction_sync(state, summary, report))
 
@@ -2903,7 +3351,7 @@ class ProfitabilityGui:
             report = self._build_report(state, params)
         except Exception as exc:  # pragma: no cover - GUI error path
             details = traceback.format_exc()
-            self.root.after(0, lambda: self._handle_error(state, exc, details))
+            self.root.after(0, lambda error=exc, trace=details: self._handle_error(state, error, trace))
             return
         self.root.after(0, lambda: self._apply_report(state, report))
 

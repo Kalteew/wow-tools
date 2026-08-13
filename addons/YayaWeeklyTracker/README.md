@@ -10,7 +10,7 @@ Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suiv
 - `Jard`
 - `Containing the Helsworn` si la recompense est du gold brut
 - `Great Vault: a ouvrir` quand une recompense est disponible
-- `Abondance` a partir du niveau 80
+- `Abondance` a partir du niveau 90
 - `Shard of Dundun: 8/8 a depenser` quand le plafond de monnaie est atteint
 - le world boss `Midnight` actif selon les options `World boss si gold` et `World boss si ilvl`, au niveau 90 ; il reste toujours tracke si l'objectif Liadrin actif est `Midnight: World Boss`
 - le world boss de la rotation `Val`/`Naigtal` au niveau 90 ; un seul boss est affiche selon la quete active de la semaine (`Imperator Pertinax` ou `Nexus-Captain Leth'ir`)
@@ -36,11 +36,14 @@ Resume `Midnight` :
 - `traite` = rappel traite hebdo si le metier est a `25+` et que l'option `Tracker les traites (inscription)` est active
 - `DMF` = Darkmoon Faire active et quete metier pas encore faite ce mois-ci
 - `KP x a placer` en rouge = plus de `5` points de connaissance non depenses dans ce metier
-- `+10KP (zone)` = livre de connaissance Midnight encore non consomme ; les livres d'Abundance sont suivis en plus pour Enchantement, Herboristerie, Minage et Depeçage ; si le livre est deja dans les sacs, le rappel est masque au profit du bouton `Utiliser KP`
+- `+10KP (zone)` = livre de connaissance Midnight encore non consomme ; les livres d'Abundance sont suivis a partir du niveau 90 pour Enchantement, Herboristerie, Minage et Depeçage ; si le livre est deja dans les sacs, le rappel est masque au profit du bouton `Utiliser KP`
 - `moxie x/y` et `abondance x/y` = recapitulatif du cout des livres manquants ; la valeur passe en rouge si la monnaie manque
 - le rappel `moxie x` reste affiche meme si aucun tresor, livre ou recette ne reste dans `One time`
-- les recettes manquantes suivies sont `Potion of Recklessness`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; leur etat connu utilise le tooltip Blizzard du personnage courant, comme Yaya Vendor Filter, puis les API metier en secours
+- les recettes manquantes suivies sont `Potion of Recklessness`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; leur etat connu utilise le tooltip Blizzard du personnage courant, comme Yaya Vendor Filter, puis les API metier en secours ; une recette ayant un cout Abundance n'est suivie qu'a partir du niveau 90
 - une recette suivie non apprise mais deja presente dans les sacs est retiree de `One time` ; un bouton `Utiliser recette` permet de la consommer directement
+- quand une recette suivie manque, un bouton `Ouvrir interface marls` ouvre l'onglet Monnaies et le panneau de transfert ; une fois les donnees Warband chargees, le meme bouton renseigne le montant puis declenche la confirmation native Blizzard pour transferer les `Voidlight Marl` necessaires depuis les autres personnages, par tranches jusqu'au besoin total
+- si Blizzard ne renvoie pas la fin du transfert, le bouton detecte le blocage apres `20` secondes et propose de reinitialiser l'interface sans relancer automatiquement une transaction
+- chaque recette Midnight suivie compte pour `1500` `Voidlight Marl` ; le manque sur le personnage courant ne bloque pas le transfert, le bouton devient grise uniquement apres chargement si les autres personnages n'en ont plus
 - `Lost Legends` est suivie comme weekly par personnage des legendes Haranir
 - la completion weekly de `Lost Legends` accepte la quete de selection (`89268`) et les variantes repetables `The Story of...` (`92716`, `92719` a `92725`) ; les quetes initiales (`88993` a `88999`) ne sont pas utilisees car leur completion historique est permanente
 - `Research Console: Exploring the Void` est suivie comme weekly quand la quete est active
@@ -157,6 +160,7 @@ IDs utilises :
 - `Corrupted Mementos` = `1719`
 - `Coalescing Visions` = `1755`
 - `Shard of Dundun` = monnaie `3376`, plafond `8`
+- `Voidlight Marl` = monnaie `3316`, transferable entre personnages Warband
 - `Ny'alotha, the Waking City` map = `10522`
 
 Assauts N'Zoth :

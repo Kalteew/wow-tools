@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import re
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -49,36 +50,39 @@ class BlizzardClient:
         self.timeout = timeout
         self._access_token: str | None = None
         self._token_expires_at = 0.0
+        self._token_lock = threading.Lock()
 
     def _get_access_token(self) -> str:
         if self._access_token and time.time() < self._token_expires_at:
             return self._access_token
+        with self._token_lock:
+            if self._access_token and time.time() < self._token_expires_at:
+                return self._access_token
+            client_id, client_secret = _credentials()
+            basic = base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("ascii")
+            request = urllib.request.Request(
+                "https://oauth.battle.net/token",
+                data=urllib.parse.urlencode({"grant_type": "client_credentials"}).encode("ascii"),
+                method="POST",
+                headers={
+                    "Authorization": f"Basic {basic}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Accept": "application/json",
+                    "User-Agent": "wow-tools/0.1",
+                },
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+            except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError) as exc:
+                raise BlizzardApiError(f"Authentification Blizzard impossible: {exc}") from exc
 
-        client_id, client_secret = _credentials()
-        basic = base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("ascii")
-        request = urllib.request.Request(
-            "https://oauth.battle.net/token",
-            data=urllib.parse.urlencode({"grant_type": "client_credentials"}).encode("ascii"),
-            method="POST",
-            headers={
-                "Authorization": f"Basic {basic}",
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Accept": "application/json",
-                "User-Agent": "wow-tools/0.1",
-            },
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError) as exc:
-            raise BlizzardApiError(f"Authentification Blizzard impossible: {exc}") from exc
-
-        self._access_token = str(payload.get("access_token") or "")
-        if not self._access_token:
-            raise BlizzardApiError("Blizzard n'a pas renvoyé de jeton OAuth.")
-        lifetime = int(payload.get("expires_in") or BLIZZARD_TOKEN_TTL_SECONDS)
-        self._token_expires_at = time.time() + max(60, lifetime - 60)
-        return self._access_token
+            self._access_token = str(payload.get("access_token") or "")
+            if not self._access_token:
+                raise BlizzardApiError("Blizzard n'a pas renvoyé de jeton OAuth.")
+            lifetime = int(payload.get("expires_in") or BLIZZARD_TOKEN_TTL_SECONDS)
+            self._token_expires_at = time.time() + max(60, lifetime - 60)
+            return self._access_token
 
     def get(self, path: str, region: str = "eu", *, locale: str | None = None) -> BlizzardResponse:
         region = region.lower()

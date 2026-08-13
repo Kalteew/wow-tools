@@ -5,7 +5,7 @@ if GetLocale() ~= "ptBR" then
 end
 
 ns.AddLocale("ptBR", {
-	ADDON_TITLE = "Crafting Orders++",
+	ADDON_TITLE = "YayaCraftingOrders",
 	OPTION_VERSION_FORMAT = "Versão %s",
 	OPTION_DESCRIPTION = "Reescreve o painel de pedidos de patrono, adiciona reconhecimento de preços e pode exportar reagentes faltantes para Auctionator ou Auctioneer.",
 	OPTION_PRICING_ADDON_HEADER = "Addon de preços",
@@ -23,7 +23,7 @@ ns.AddLocale("ptBR", {
 	OPTION_OPENING_HEADER = "Abertura de pedidos de patrono",
 	OPTION_OPENING_NONE = "Não fazer nada",
 	OPTION_OPENING_APPLY_PLAN = "Desativar Usar Melhor Qualidade e aplicar os materiais planejados",
-	OPTION_OPENING_HINT = "Afeta apenas pedidos de patrono abertos a partir da lista de patronos do Crafting Orders++.",
+	OPTION_OPENING_HINT = "Afeta apenas pedidos de patrono abertos a partir da lista de patronos do YayaCraftingOrders.",
 	OPTION_DONT_BUY_PER_CHARACTER = "Manter a lista Não comprar por personagem",
 	OPTION_DONT_BUY_HINT = "Quando desmarcada, a lista Não comprar é compartilhada entre todos os personagens.",
 	OPTION_FOOTER_HINT = "A exportação da lista de compras segue o addon de preços selecionado. Auctionator cria listas de compras, enquanto Auctioneer exporta para Snatch quando ele está disponível.",

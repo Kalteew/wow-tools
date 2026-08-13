@@ -3,6 +3,6 @@
 ## Notes: Opens the bank on the warband bank tab by default.
 ## Author: Codex
 ## Version: 0.8.0-debug
-## OptionalDeps: ElvUI
+## OptionalDeps: ElvUI, TradeSkillMaster
 
 YayaWarbandBankDefault.lua

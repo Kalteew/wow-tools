@@ -94,6 +94,7 @@ local state = {
         byProfession = {},
         recipeRoles = {},
         scanQueued = false,
+        transientRetryCount = 0,
         generation = 0,
     },
     ah = {
@@ -119,6 +120,7 @@ local state = {
     merchantAutoBuyPending = nil,
     merchantAutoBuySubmitted = {},
     itemLoadPending = {},
+    itemLoadRetryAt = {},
     incomingItemCounts = {},
     observedItemCounts = {},
     professionsHooksInitialized = false,
@@ -418,6 +420,7 @@ end
 
 local function NormalizeQueueEntries()
     local normalized = {}
+    local seenPatronOrderIDs = {}
 
     for _, rawEntry in ipairs(db.queue or {}) do
         if type(rawEntry) == "table" then
@@ -429,6 +432,7 @@ local function NormalizeQueueEntries()
                 local queueKind = rawEntry.queueKind == "patron" and "patron"
                     or rawEntry.queueKind == "merge" and "merge"
                     or nil
+                local orderID = tonumber(rawEntry.orderID) or nil
                 local craftQty
 
                 if mode == "crafts" then
@@ -438,39 +442,47 @@ local function NormalizeQueueEntries()
                     craftQty = ClampQuantity(math.ceil(outputQty / outputPerCraft))
                 end
 
-                normalized[#normalized + 1] = {
-                    recipeID = recipeID,
-                    recipeName = type(rawEntry.recipeName) == "string" and rawEntry.recipeName ~= ""
-                        and rawEntry.recipeName
-                        or ("Recette " .. recipeID),
-                    outputItemID = tonumber(rawEntry.outputItemID) or nil,
-                    outputPerCraft = outputPerCraft,
-                    craftQty = craftQty,
-                    mode = "crafts",
-                    reagents = reagents,
-                    reagentSignature = BuildReagentSignature(reagents),
-                    craftingReagents = NormalizeCraftingReagents(rawEntry.craftingReagents),
-                    slotAllocations = NormalizeSlotAllocations(rawEntry.slotAllocations),
-                    clearSlotIndices = NormalizeSlotIndices(rawEntry.clearSlotIndices),
-                    targetQuality = NormalizeTargetQuality(rawEntry.targetQuality),
-                    targetQualitySimplified = rawEntry.targetQualitySimplified == true,
-                    concentrationCost = tonumber(rawEntry.concentrationCost) or nil,
-                    concentrationCurrencyID = tonumber(rawEntry.concentrationCurrencyID) or nil,
-                    concentrationPhialItemID = tonumber(rawEntry.concentrationPhialItemID) or nil,
-                    orderID = tonumber(rawEntry.orderID) or nil,
-                    professionID = tonumber(rawEntry.professionID) or nil,
-                    queueKind = queueKind,
-                    mergeKey = type(rawEntry.mergeKey) == "string" and rawEntry.mergeKey or nil,
-                    mergeInputItemID = tonumber(rawEntry.mergeInputItemID) or nil,
-                    mergeOutputItemID = tonumber(rawEntry.mergeOutputItemID) or nil,
-                    mergeInputQuantity = tonumber(rawEntry.mergeInputQuantity) or nil,
-                    mergeDepth = tonumber(rawEntry.mergeDepth) or nil,
-                    isRecraft = rawEntry.isRecraft == true,
-                    applyConcentration = NormalizeApplyConcentration(rawEntry.applyConcentration),
-                    pendingSubmit = rawEntry.pendingSubmit == true,
-                    profitValue = tonumber(rawEntry.profitValue) or nil,
-                    profitKnown = rawEntry.profitKnown == true,
-                }
+                if queueKind == "patron" then
+                    craftQty = 1
+                end
+                if queueKind ~= "patron" or (orderID and not seenPatronOrderIDs[orderID]) then
+                    if queueKind == "patron" then
+                        seenPatronOrderIDs[orderID] = true
+                    end
+                    normalized[#normalized + 1] = {
+                        recipeID = recipeID,
+                        recipeName = type(rawEntry.recipeName) == "string" and rawEntry.recipeName ~= ""
+                            and rawEntry.recipeName
+                            or ("Recette " .. recipeID),
+                        outputItemID = tonumber(rawEntry.outputItemID) or nil,
+                        outputPerCraft = outputPerCraft,
+                        craftQty = craftQty,
+                        mode = "crafts",
+                        reagents = reagents,
+                        reagentSignature = BuildReagentSignature(reagents),
+                        craftingReagents = NormalizeCraftingReagents(rawEntry.craftingReagents),
+                        slotAllocations = NormalizeSlotAllocations(rawEntry.slotAllocations),
+                        clearSlotIndices = NormalizeSlotIndices(rawEntry.clearSlotIndices),
+                        targetQuality = NormalizeTargetQuality(rawEntry.targetQuality),
+                        targetQualitySimplified = rawEntry.targetQualitySimplified == true,
+                        concentrationCost = tonumber(rawEntry.concentrationCost) or nil,
+                        concentrationCurrencyID = tonumber(rawEntry.concentrationCurrencyID) or nil,
+                        concentrationPhialItemID = tonumber(rawEntry.concentrationPhialItemID) or nil,
+                        orderID = orderID,
+                        professionID = tonumber(rawEntry.professionID) or nil,
+                        queueKind = queueKind,
+                        mergeKey = type(rawEntry.mergeKey) == "string" and rawEntry.mergeKey or nil,
+                        mergeInputItemID = tonumber(rawEntry.mergeInputItemID) or nil,
+                        mergeOutputItemID = tonumber(rawEntry.mergeOutputItemID) or nil,
+                        mergeInputQuantity = tonumber(rawEntry.mergeInputQuantity) or nil,
+                        mergeDepth = tonumber(rawEntry.mergeDepth) or nil,
+                        isRecraft = rawEntry.isRecraft == true,
+                        applyConcentration = NormalizeApplyConcentration(rawEntry.applyConcentration),
+                        pendingSubmit = rawEntry.pendingSubmit == true,
+                        profitValue = tonumber(rawEntry.profitValue) or nil,
+                        profitKnown = rawEntry.profitKnown == true,
+                    }
+                end
             elseif rawEntry.queueKind == "direct_item" or rawEntry.directItemID or rawEntry.itemID then
                 local directEntry = NormalizeDirectItemEntry(rawEntry)
                 if directEntry then
@@ -708,27 +720,46 @@ local function IsPendingWorkOrderSubmit(orderID)
     return false
 end
 
-WarmItemData = function(itemID)
+WarmItemData = function(itemID, refreshCraftGear)
     if type(itemID) ~= "number" or itemID <= 0 then
-        return
+        return false
     end
-    if state.itemLoadPending[itemID] or not Item or type(Item.CreateFromItemID) ~= "function" then
-        return
+    local now = GetTime()
+    local pending = state.itemLoadPending[itemID]
+    if pending then
+        pending.refreshCraftGear = pending.refreshCraftGear or refreshCraftGear == true
+        return true
+    end
+    if not Item or type(Item.CreateFromItemID) ~= "function" then
+        return false
     end
 
     local item = Item:CreateFromItemID(itemID)
     if not item or item:IsItemDataCached() then
-        return
+        return false
+    end
+    if now < (state.itemLoadRetryAt[itemID] or 0) then
+        return true
     end
 
-    state.itemLoadPending[itemID] = true
+    state.itemLoadPending[itemID] = {
+        refreshCraftGear = refreshCraftGear == true,
+    }
     item:ContinueOnItemLoad(function()
+        local request = state.itemLoadPending[itemID]
         state.itemLoadPending[itemID] = nil
-        if state.craftGear and state.craftGear.ScheduleScan then
-            state.craftGear.ScheduleScan()
+        local cached = type(item.IsItemDataCached) == "function" and item:IsItemDataCached() == true
+        state.itemLoadRetryAt[itemID] = GetTime() + (cached and 0.5 or 5)
+        if not cached then
+            return
         end
-        ScheduleRefresh()
+        if request and request.refreshCraftGear and state.craftGear and state.craftGear.ScheduleScan then
+            state.craftGear.ScheduleScan()
+        else
+            ScheduleRefresh()
+        end
     end)
+    return true
 end
 
 GetItemName = function(itemID)
@@ -3104,6 +3135,7 @@ state.RunPatronNextAction = function()
             favoriteTracker.beforeConcentration = state.GetCurrentConcentrationAmount()
             favoriteTracker.awaitingCraft = favoriteTracker.beforeConcentration ~= nil
             favoriteTracker.craftConfirmed = false
+            favoriteTracker.reservationConsumed = false
         end
         local vellumLocation
         if recipeInfo and recipeInfo.isEnchantingRecipe and type(C_TradeSkillUI.CraftEnchant) == "function" then
@@ -4025,12 +4057,25 @@ state.craftGear.GetBagItem = function(bagID, slotIndex)
 end
 
 state.craftGear.IsMainToolLink = function(link, itemID)
-    if type(link) ~= "string" or link == "" then
+    if (type(link) ~= "string" or link == "") and not itemID then
         return false
     end
+    local itemReference = itemID or link
     local equipLoc
-    if type(GetItemInfo) == "function" then
-        local ok, _, _, _, _, _, _, _, _, itemEquipLoc = pcall(GetItemInfo, link or itemID)
+    if type(C_Item) == "table" and type(C_Item.GetItemInfoInstant) == "function" then
+        local ok, _, _, _, itemEquipLoc = pcall(C_Item.GetItemInfoInstant, itemReference)
+        if ok then
+            equipLoc = itemEquipLoc
+        end
+    end
+    if not equipLoc and type(GetItemInfoInstant) == "function" then
+        local ok, _, _, _, itemEquipLoc = pcall(GetItemInfoInstant, itemReference)
+        if ok then
+            equipLoc = itemEquipLoc
+        end
+    end
+    if not equipLoc and type(GetItemInfo) == "function" then
+        local ok, _, _, _, _, _, _, _, _, itemEquipLoc = pcall(GetItemInfo, itemReference)
         if ok then
             equipLoc = itemEquipLoc
         end
@@ -4081,15 +4126,22 @@ end
 
 state.craftGear.Scan = function()
     local gearState = state.craftGear
-    wipe(gearState.byProfession)
-    wipe(gearState.recipeRoles)
-    gearState.generation = (gearState.generation or 0) + 1
 
     if type(C_TradeSkillUI) ~= "table" then
         return
     end
 
+    local knownToolIDs = {}
+    for _, profession in pairs(gearState.byProfession) do
+        for _, tool in ipairs(profession.tools or {}) do
+            if tool.itemID then knownToolIDs[tool.itemID] = true end
+        end
+        if profession.equipped and profession.equipped.itemID then
+            knownToolIDs[profession.equipped.itemID] = true
+        end
+    end
     local candidatesBySkillLine = {}
+    local hasPendingItemData = false
     for bagID = 0, 4 do
         local slotCount = type(C_Container) == "table"
             and type(C_Container.GetContainerNumSlots) == "function"
@@ -4098,31 +4150,46 @@ state.craftGear.Scan = function()
             or 0
         for slotIndex = 1, math.max(0, slotCount or 0) do
             local itemID, link = state.craftGear.GetBagItem(bagID, slotIndex)
-            if itemID and link then
-                local skillLineID = type(C_TradeSkillUI.GetSkillLineForGear) == "function"
-                    and tonumber(SafeCall(C_TradeSkillUI.GetSkillLineForGear, link))
-                    or nil
-                if skillLineID and state.craftGear.IsMainToolLink(link, itemID) then
-                    local role = state.craftGear.GetRoleForLink(link)
-                    if role == "multicraft" or role == "resourcefulness" then
-                        candidatesBySkillLine[skillLineID] = candidatesBySkillLine[skillLineID] or {}
-                        candidatesBySkillLine[skillLineID][#candidatesBySkillLine[skillLineID] + 1] = {
-                            itemID = itemID,
-                            link = link,
-                            role = role,
-                            bagID = bagID,
-                            slotIndex = slotIndex,
-                        }
+            if itemID then
+                local isMainTool = state.craftGear.IsMainToolLink(link, itemID)
+                local hasUsableLink = type(link) == "string" and link:find("item:", 1, true) ~= nil
+                if isMainTool and not hasUsableLink then
+                    hasPendingItemData = true
+                    WarmItemData(itemID, true)
+                elseif isMainTool then
+                    local skillLineID = type(C_TradeSkillUI.GetSkillLineForGear) == "function"
+                        and tonumber(SafeCall(C_TradeSkillUI.GetSkillLineForGear, link))
+                        or nil
+                    if skillLineID then
+                        local role = state.craftGear.GetRoleForLink(link)
+                        if role == "multicraft" or role == "resourcefulness" then
+                            candidatesBySkillLine[skillLineID] = candidatesBySkillLine[skillLineID] or {}
+                            candidatesBySkillLine[skillLineID][#candidatesBySkillLine[skillLineID] + 1] = {
+                                itemID = itemID,
+                                link = link,
+                                role = role,
+                                bagID = bagID,
+                                slotIndex = slotIndex,
+                            }
+                        else
+                            hasPendingItemData = WarmItemData(itemID, true)
+                                or knownToolIDs[itemID]
+                                or hasPendingItemData
+                        end
                     else
-                        WarmItemData(itemID)
+                        hasPendingItemData = WarmItemData(itemID, true)
+                            or knownToolIDs[itemID]
+                            or hasPendingItemData
                     end
-                elseif itemID then
-                    WarmItemData(itemID)
+                elseif knownToolIDs[itemID] then
+                    hasPendingItemData = true
+                    WarmItemData(itemID, true)
                 end
             end
         end
     end
 
+    local scannedByProfession = {}
     for _, record in ipairs(state.craftGear.GetProfessionRecords()) do
         local professionID = record.professionID
         local slots = type(C_TradeSkillUI.GetProfessionSlots) == "function"
@@ -4137,7 +4204,15 @@ state.craftGear.Scan = function()
             or nil
         local equippedRole = state.craftGear.GetRoleForLink(equippedLink)
         if equippedItemID and equippedRole == "none" then
-            WarmItemData(equippedItemID)
+            local previous = gearState.byProfession[professionID]
+            hasPendingItemData = WarmItemData(equippedItemID, true)
+                or (
+                    previous
+                    and previous.equipped
+                    and previous.equipped.itemID == equippedItemID
+                    and previous.equipped.role ~= "none"
+                )
+                or hasPendingItemData
         end
 
         local roleSet = {}
@@ -4163,10 +4238,28 @@ state.craftGear.Scan = function()
             roleSet[candidate.role] = true
         end
         profession.active = roleSet.multicraft == true and roleSet.resourcefulness == true
-        gearState.byProfession[professionID] = profession
+        scannedByProfession[professionID] = profession
+    end
+
+    if not hasPendingItemData then
+        gearState.transientRetryCount = 0
+        gearState.byProfession = scannedByProfession
+        wipe(gearState.recipeRoles)
+        gearState.generation = (gearState.generation or 0) + 1
+    else
+        if (gearState.transientRetryCount or 0) < 3 then
+            gearState.transientRetryCount = (gearState.transientRetryCount or 0) + 1
+            C_Timer.After(0.25, function()
+                state.craftGear.ScheduleScan()
+            end)
+        end
+        if CONFIG.debugNextCraft then
+            DebugPrint("craft-gear preserve-last-good reason=item-data retry=" .. tostring(gearState.transientRetryCount))
+        end
     end
 
     state.craftGear.ConfirmPendingTool()
+    return not hasPendingItemData
 end
 
 state.craftGear.ScheduleScan = function()
@@ -4176,8 +4269,9 @@ state.craftGear.ScheduleScan = function()
     state.craftGear.scanQueued = true
     C_Timer.After(0, function()
         state.craftGear.scanQueued = false
-        state.craftGear.Scan()
-        ScheduleRefresh()
+        if state.craftGear.Scan() then
+            ScheduleRefresh()
+        end
     end)
 end
 
@@ -4366,6 +4460,11 @@ state.InvalidateQualityPricing = function()
     if type(YQQuality.ClearRecipeCache) == "function" then
         YQQuality.ClearRecipeCache(true)
     end
+end
+
+state.InvalidateMaterialPricing = function()
+    state.craft.qualityPriceCache = {}
+    state.craft.qualityPriceRevision = (state.craft.qualityPriceRevision or 0) + 1
 end
 
 local function GetBoundBagItemCount(itemID)
@@ -4614,6 +4713,7 @@ local function QueueConcentrationDump(schematicForm, dumpState, source)
             source = source,
             awaitingCraft = false,
             craftConfirmed = false,
+            reservationConsumed = false,
             requeued = false,
         }
         DebugPrint(
@@ -4737,11 +4837,7 @@ function YQQuality.TryQueueFavoriteConcentrationRefund()
     local professionID = tonumber(tracker.professionID) or state.GetCurrentProfessionID()
     local currencyID = tonumber(tracker.concentrationCurrencyID)
     local reserved = GetQueuedConcentrationReservation(professionID, currencyID)
-    local pendingEntry = state.pendingCraftEntries[1]
-    if pendingEntry
-        and pendingEntry.recipeID == tracker.recipeID
-        and pendingEntry.applyConcentration == true
-    then
+    if tracker.reservationConsumed ~= true then
         reserved = math.max(0, reserved - cost)
     end
     local availableAfterQueue = math.max(0, after - reserved)
@@ -5619,7 +5715,7 @@ local function CaptureSearchCache(itemID)
             end
         end
         if YQQuality.ClearRecipeCache then
-            YQQuality.ClearRecipeCache(true)
+            state.InvalidateMaterialPricing()
         else
             state.craft.qualityPriceCache[itemID] = nil
         end
@@ -6084,25 +6180,25 @@ end
 function YQQuality.BuildItemCostCurve(itemID, maxQuantity, priceContext)
     maxQuantity = math.max(1, math.floor(tonumber(maxQuantity) or 1))
     local firstQuote = YQQuality.GetItemPriceQuote(itemID, 1, priceContext)
-    if not firstQuote then return nil, nil end
+    if not firstQuote then return nil, nil, nil end
     local fullQuote = maxQuantity == 1
         and firstQuote or YQQuality.GetItemPriceQuote(itemID, maxQuantity, priceContext)
     local fullTotal = tonumber(fullQuote and fullQuote.total)
     local smartQuantity = tonumber(fullQuote and fullQuote.smartQuantity)
     local fallbackQuantity = tonumber(fullQuote and fullQuote.fallbackQuantity)
     if not fullTotal or fullTotal < 0 or not smartQuantity or not fallbackQuantity then
-        return nil, firstQuote
+        return nil, firstQuote, fullQuote
     end
     smartQuantity = math.max(0, math.floor(smartQuantity))
     fallbackQuantity = math.max(0, math.floor(fallbackQuantity))
-    if smartQuantity + fallbackQuantity ~= maxQuantity then return nil, firstQuote end
+    if smartQuantity + fallbackQuantity ~= maxQuantity then return nil, firstQuote, fullQuote end
 
     local tiers = {}
     local smartUnitPrice
     if smartQuantity > 0 then
-        if tonumber(firstQuote.smartQuantity) ~= 1 then return nil, firstQuote end
+        if tonumber(firstQuote.smartQuantity) ~= 1 then return nil, firstQuote, fullQuote end
         smartUnitPrice = tonumber(firstQuote.total)
-        if not smartUnitPrice or smartUnitPrice < 0 then return nil, firstQuote end
+        if not smartUnitPrice or smartUnitPrice < 0 then return nil, firstQuote, fullQuote end
         tiers[#tiers + 1] = {
             upTo = smartQuantity,
             unitPrice = smartUnitPrice,
@@ -6112,18 +6208,19 @@ function YQQuality.BuildItemCostCurve(itemID, maxQuantity, priceContext)
     if fallbackQuantity > 0 then
         local fallbackTotal = fullTotal - smartQuantity * (smartUnitPrice or 0)
         local fallbackUnitPrice = fallbackTotal / fallbackQuantity
-        if fallbackUnitPrice < 0 then return nil, firstQuote end
+        if fallbackUnitPrice < 0 then return nil, firstQuote, fullQuote end
         tiers[#tiers + 1] = {
             upTo = maxQuantity,
             unitPrice = fallbackUnitPrice,
             estimated = fullQuote.estimated == true,
         }
     end
-    if #tiers == 0 then return nil, firstQuote end
+    if #tiers == 0 then return nil, firstQuote, fullQuote end
 
     return {
         tiers = tiers,
         maxQuantity = maxQuantity,
+        total = fullTotal,
         signature = table.concat({
             tostring(firstQuote.pricingKey or ""),
             tostring(fullQuote.pricingKey or ""),
@@ -6132,7 +6229,7 @@ function YQQuality.BuildItemCostCurve(itemID, maxQuantity, priceContext)
             tostring(smartUnitPrice or ""),
             tostring(tiers[#tiers].unitPrice or ""),
         }, ":"),
-    }, firstQuote
+    }, firstQuote, fullQuote
 end
 
 function YQQuality.GetConcentrationCurrencyID(operation)
@@ -6823,13 +6920,14 @@ function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, 
                 quality = tonumber(SafeCall(C_TradeSkillUI.GetItemReagentQualityByItemInfo, itemID)) or 0
             end
             if tonumber(slot.reagentType) == 1 and itemID and itemID > 0 and quality > 0 then
-                local costCurve, quote = YQQuality.BuildItemCostCurve(itemID, required, priceContext)
+                local costCurve, quote, requiredQuote = YQQuality.BuildItemCostCurve(itemID, required, priceContext)
                 local option = {
                     itemID = itemID,
                     quality = quality,
                     price = quote and quote.amount or nil,
-                    estimated = quote and quote.estimated == true or false,
-                    pricingKey = costCurve and costCurve.signature or (quote and quote.pricingKey or nil),
+                    requiredCost = tonumber(requiredQuote and requiredQuote.total),
+                    estimated = requiredQuote and requiredQuote.estimated == true or false,
+                    pricingKey = costCurve and costCurve.signature or (requiredQuote and requiredQuote.pricingKey or nil),
                     costCurve = costCurve,
                 }
                 if not costCurve then
@@ -6841,15 +6939,19 @@ function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, 
                 end
                 local current = bestByQuality[quality]
                 if not current
-                    or (option.price and not current.price)
-                    or (option.price and current.price and option.price < current.price)
+                    or (option.requiredCost and not current.requiredCost)
                     or (
-                        option.price == current.price
+                        option.requiredCost
+                        and current.requiredCost
+                        and option.requiredCost < current.requiredCost
+                    )
+                    or (
+                        option.requiredCost == current.requiredCost
                         and option.estimated ~= current.estimated
                         and not option.estimated
                     )
                     or (
-                        option.price == current.price
+                        option.requiredCost == current.requiredCost
                         and option.estimated == current.estimated
                         and option.itemID < current.itemID
                     ) then
@@ -7837,8 +7939,9 @@ function YQQuality.GetTSMOutputStock(itemReference)
         if okWarbank and type(quantity) == "number" then warbank = quantity end
     end
 
-    -- TSM excludes equipped items and includes the tracked characters/AH data.
-    return character + characterAuctions, alts + altAuctions + warbank
+    -- Keep C for the current character's immediately owned stock. Auctions are
+    -- account/realm-wide in practice, so expose current and alt auctions in W.
+    return character, alts + warbank + characterAuctions + altAuctions
 end
 
 function YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQuality)
@@ -9869,7 +9972,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
     if event == "TRADE_SKILL_ITEM_CRAFTED_RESULT" then
         state.firstCraftAvailability = {}
         YQQuality.MarkStockDirty(true, false, false)
-        state.InvalidateQualityPricing()
+        state.InvalidateMaterialPricing()
         EndCraftClickLock()
         local itemID = arg1 and arg1.itemID or nil
         local quantity = arg1 and arg1.quantity or nil
@@ -9946,6 +10049,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
             and pendingEntry.recipeID == favoriteTracker.recipeID
         then
             favoriteTracker.craftConfirmed = true
+            favoriteTracker.reservationConsumed = recipeName ~= nil
         end
         local nextActionLock = GetNextActionLock()
         if nextActionLock
@@ -9983,6 +10087,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
             if state.autoFavoriteConcentration.tracker then
                 state.autoFavoriteConcentration.tracker.awaitingCraft = false
                 state.autoFavoriteConcentration.tracker.craftConfirmed = false
+                state.autoFavoriteConcentration.tracker.reservationConsumed = false
             end
             DebugPrint("event=" .. tostring(event) .. " pendingEntries=" .. tostring(#state.pendingCraftEntries) .. " pendingBatches=" .. tostring(#state.pendingCraftBatches))
             ClearPendingCraftBatches()
@@ -10009,23 +10114,23 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
 
     if event == "BAG_UPDATE_DELAYED" then
         YQQuality.MarkStockDirty(true, true, true)
-        state.InvalidateQualityPricing()
+        state.InvalidateMaterialPricing()
         state.craftGear.ScheduleScan()
         C_Timer.After(0, YQQuality.ConfirmPendingMerge)
     elseif event == "BANKFRAME_OPENED" then
         YQQuality.MarkStockDirty(false, true, true)
-        state.InvalidateQualityPricing()
+        state.InvalidateMaterialPricing()
         C_Timer.After(0, function()
             YQQuality.ScanStockScope("character")
             YQQuality.ScanStockScope("warband")
         end)
     elseif event == "PLAYERBANKSLOTS_CHANGED" or event == "PLAYERREAGENTBANKSLOTS_CHANGED" then
         YQQuality.MarkStockDirty(false, true, false)
-        state.InvalidateQualityPricing()
+        state.InvalidateMaterialPricing()
         C_Timer.After(0, function() YQQuality.ScanStockScope("character") end)
     elseif event == "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED" then
         YQQuality.MarkStockDirty(false, false, true)
-        state.InvalidateQualityPricing()
+        state.InvalidateMaterialPricing()
         C_Timer.After(0, function() YQQuality.ScanStockScope("warband") end)
     end
 
@@ -10165,11 +10270,27 @@ function YayaQueueAPI.AddRecipe(context, quantity)
         return false, "Invalid recipe context"
     end
 
-    if context.queueKind == "patron" and WasPatronOrderCompletedRecently(context.orderID) then
-        if CONFIG.debugNextCraft then
-            DebugPrint("skip-add-recipe completed-order recipe=" .. tostring(context.recipeID) .. " order=" .. tostring(context.orderID))
+    if context.queueKind == "patron" then
+        local orderID = tonumber(context.orderID) or 0
+        if orderID <= 0 then
+            return false, "Invalid patron orderID"
         end
-        return false, "Order deja terminee"
+        context.orderID = orderID
+        if WasPatronOrderCompletedRecently(orderID) then
+            if CONFIG.debugNextCraft then
+                DebugPrint("skip-add-recipe completed-order recipe=" .. tostring(context.recipeID) .. " order=" .. tostring(orderID))
+            end
+            return false, "Order deja terminee"
+        end
+        state.EnsureDB()
+        for _, entry in ipairs(db.queue) do
+            if entry.queueKind == "patron" and (tonumber(entry.orderID) or 0) == orderID then
+                if CONFIG.debugNextCraft then
+                    DebugPrint("skip-add-recipe duplicate-order recipe=" .. tostring(context.recipeID) .. " order=" .. tostring(orderID))
+                end
+                return false, "Order deja en file"
+            end
+        end
     end
 
     if type(context.recipeName) ~= "string" or context.recipeName == "" then
@@ -10220,11 +10341,24 @@ function YayaQueueAPI.SyncPatronOrders(orderIDs, professionID)
     professionID = tonumber(professionID)
     local removed = 0
     local removedOrderIDs = {}
+    local claimedOrder = type(C_CraftingOrders) == "table"
+        and type(C_CraftingOrders.GetClaimedOrder) == "function"
+        and C_CraftingOrders.GetClaimedOrder()
+        or nil
+    local claimedOrderID = tonumber(claimedOrder and claimedOrder.orderID) or 0
+    local ordersPage = ProfessionsFrame and ProfessionsFrame.OrdersPage
+    local currentOrder = ordersPage and ordersPage.OrderView and ordersPage.OrderView.order
+    local currentOrderID = tonumber(currentOrder and currentOrder.orderID) or 0
+    local nextActionLock = GetNextActionLock()
+    local lockedOrderID = tonumber(nextActionLock and nextActionLock.orderID) or 0
     for index = #db.queue, 1, -1 do
         local entry = db.queue[index]
         local sameProfession = not professionID or tonumber(entry.professionID) == professionID
         local orderID = tonumber(entry.orderID) or 0
-        if entry.queueKind == "patron" and sameProfession and not availableOrderIDs[orderID] then
+        local isActive = (orderID > 0 and orderID == claimedOrderID)
+            or (orderID > 0 and orderID == currentOrderID)
+            or (orderID > 0 and orderID == lockedOrderID)
+        if entry.queueKind == "patron" and sameProfession and not availableOrderIDs[orderID] and not isActive then
             removedOrderIDs[orderID] = true
             table.remove(db.queue, index)
             removed = removed + 1
@@ -10233,15 +10367,11 @@ function YayaQueueAPI.SyncPatronOrders(orderIDs, professionID)
 
     if removed > 0 then
         state.InvalidateQualityPricing()
-        local nextActionLock = GetNextActionLock()
-        if nextActionLock and removedOrderIDs[nextActionLock.orderID] then
-            ClearNextActionLock("patron-order-unavailable")
-        end
         DebugPrint("sync-patron-orders profession=" .. tostring(professionID) .. " removed=" .. tostring(removed))
         ScheduleRefresh()
     end
 
-    return removed
+    return removed, removedOrderIDs
 end
 
 function YayaQueueAPI.AddItem(itemID, quantity, itemName)

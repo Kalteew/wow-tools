@@ -1,5 +1,6 @@
 param(
-    [string[]]$AddonNames
+    [string[]]$AddonNames,
+    [switch]$AllowDowngrade
 )
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -34,6 +35,32 @@ function Get-RelativePath {
     $fullUri = [System.Uri]([System.IO.Path]::GetFullPath($FullPath))
     $relativeUri = $baseUri.MakeRelativeUri($fullUri)
     return [System.Uri]::UnescapeDataString($relativeUri.ToString()).Replace('/', '\')
+}
+
+function Get-AddonVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AddonPath
+    )
+
+    $tocFile = Get-ChildItem -LiteralPath $AddonPath -Filter "*.toc" -File | Select-Object -First 1
+    if (-not $tocFile) {
+        return $null
+    }
+
+    $versionLine = Select-String -LiteralPath $tocFile.FullName -Pattern '^## Version:\s*(.+?)\s*$' |
+        Select-Object -First 1
+    if (-not $versionLine) {
+        return $null
+    }
+
+    $versionText = $versionLine.Matches[0].Groups[1].Value
+    $numericVersion = [regex]::Match($versionText, '\d+(?:\.\d+){1,3}')
+    $parsedVersion = $null
+    if ($numericVersion.Success -and [System.Version]::TryParse($numericVersion.Value, [ref]$parsedVersion)) {
+        return $parsedVersion
+    }
+    return $null
 }
 
 function Copy-AddonTree {
@@ -114,6 +141,17 @@ foreach ($addonName in $AddonNames) {
     }
 
     Assert-PathWithinRoot -Path $targetPath -Root $targetRoot
+
+    if ((Test-Path -LiteralPath $targetPath -PathType Container) -and -not $AllowDowngrade) {
+        $sourceVersion = Get-AddonVersion -AddonPath $sourcePath
+        $targetVersion = Get-AddonVersion -AddonPath $targetPath
+        if ($sourceVersion -and $targetVersion -and $targetVersion -gt $sourceVersion) {
+            throw (
+                "Refusing to downgrade {0} from live version {1} to repo version {2}. " +
+                "Import the live changes into the repo first, or pass -AllowDowngrade explicitly."
+            ) -f $addonName, $targetVersion, $sourceVersion
+        }
+    }
 
     Copy-AddonTree -SourcePath $sourcePath -TargetPath $targetPath -TargetRoot $targetRoot
     Write-Output "Synced $addonName -> $targetPath"

@@ -43,6 +43,7 @@ from wow_tools.local_recipes import (
     render_recipe_ownership_report,
     save_recipe_ownership_report,
 )
+from wow_tools.mounts import sync_mount_catalog
 from wow_tools.recipe_discovery import discover_recipe_graph, save_discovered_recipe_graph
 from wow_tools.recipe_profit import (
     build_recipe_profit_report,
@@ -80,6 +81,17 @@ def cmd_sync_catalog(args: argparse.Namespace) -> int:
         print(f"- {profession}: {data['items']} items")
     if summary["missing"]:
         print(f"- missing seeds: {len(summary['missing'])}")
+    return 0
+
+
+def cmd_sync_mounts(args: argparse.Namespace) -> int:
+    summary = sync_mount_catalog(force=args.force, max_workers=args.workers)
+    print("Mount catalog sync complete")
+    print(f"- mounts: {summary['count']}/{summary['reported']}")
+    print(f"- currently obtainable: {summary['available']}")
+    print(f"- no RMT: {summary['no_rmt']}")
+    print(f"- detail failures: {summary['failures']}")
+    print(f"- file: {summary['path']}")
     return 0
 
 
@@ -448,6 +460,14 @@ def build_parser() -> argparse.ArgumentParser:
     sync_catalog_parser.add_argument("--profession", action="append", choices=["herbalism", "mining", "skinning"])
     sync_catalog_parser.add_argument("--force", action="store_true")
     sync_catalog_parser.set_defaults(func=cmd_sync_catalog)
+
+    sync_mounts_parser = subparsers.add_parser(
+        "sync-mounts",
+        help="Sync the exhaustive mount catalog with availability and Wowhead links",
+    )
+    sync_mounts_parser.add_argument("--force", action="store_true")
+    sync_mounts_parser.add_argument("--workers", type=int, default=8)
+    sync_mounts_parser.set_defaults(func=cmd_sync_mounts)
 
     sync_prices_parser = subparsers.add_parser("sync-prices", help="Sync TSM prices")
     sync_prices_parser.add_argument("--region", default=DEFAULT_REGION)

@@ -5,7 +5,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-. (Join-Path $PSScriptRoot "TSMAutoPatch.Common.ps1")
+. (Join-Path $PSScriptRoot "WQTAutoPatch.Common.ps1")
 
 $mutex = $null
 $mutexOwned = $false
@@ -18,14 +18,14 @@ try {
         $mutexOwned = $mutex.WaitOne(0, $false)
     } catch [System.Threading.AbandonedMutexException] {
         $mutexOwned = $true
-        Write-TSMAutoPatchLog -Message "watcher recovered an abandoned mutex" -Quiet
+        Write-WQTAutoPatchLog -Message "watcher recovered an abandoned mutex" -Quiet
     }
     if (-not $mutexOwned) {
         return
     }
 
-    $resolvedAddonPath = Resolve-TSMAddonPath -AddonPath $AddonPath
-    Invoke-TSMMailingPatch -AddonPath $resolvedAddonPath -Quiet | Out-Null
+    $resolvedAddonPath = Resolve-WQTAddonPath -AddonPath $AddonPath
+    Invoke-WQTAutoPatch -AddonPath $resolvedAddonPath -Quiet | Out-Null
 
     $state = [hashtable]::Synchronized(@{
         Pending = $false
@@ -46,7 +46,7 @@ try {
         }
     }
 
-    Write-TSMAutoPatchLog -Message ("watcher started for {0}" -f $resolvedAddonPath) -Quiet
+    Write-WQTAutoPatchLog -Message ("watcher started for {0}" -f $resolvedAddonPath) -Quiet
 
     $lastHeartbeat = Get-Date
     while ($true) {
@@ -55,43 +55,32 @@ try {
         if ($state.Pending -and ((Get-Date) - $state.LastEvent).TotalSeconds -ge 3) {
             $state.Pending = $false
             try {
-                Invoke-TSMMailingPatch -AddonPath $resolvedAddonPath -Quiet | Out-Null
+                Invoke-WQTAutoPatch -AddonPath $resolvedAddonPath -Quiet | Out-Null
             } catch {
-                Write-TSMAutoPatchLog -Message ("watcher retry failed: {0}" -f $_.Exception.Message) -Quiet
+                Write-WQTAutoPatchLog -Message ("watcher retry failed: {0}" -f $_.Exception.Message) -Quiet
             }
         }
 
         if (((Get-Date) - $lastHeartbeat).TotalMinutes -ge 30) {
             $lastHeartbeat = Get-Date
             try {
-                Invoke-TSMMailingPatch -AddonPath $resolvedAddonPath -Quiet | Out-Null
+                Invoke-WQTAutoPatch -AddonPath $resolvedAddonPath -Quiet | Out-Null
             } catch {
-                Write-TSMAutoPatchLog -Message ("heartbeat patch failed: {0}" -f $_.Exception.Message) -Quiet
+                Write-WQTAutoPatchLog -Message ("heartbeat patch failed: {0}" -f $_.Exception.Message) -Quiet
             }
         }
     }
 } finally {
     foreach ($subscription in $eventSubscriptions) {
-        try {
-            Unregister-Event -SubscriptionId $subscription.Id -ErrorAction SilentlyContinue
-        } catch {
-        }
-        try {
-            Remove-Job -Id $subscription.Id -Force -ErrorAction SilentlyContinue
-        } catch {
-        }
+        try { Unregister-Event -SubscriptionId $subscription.Id -ErrorAction SilentlyContinue } catch {}
+        try { Remove-Job -Id $subscription.Id -Force -ErrorAction SilentlyContinue } catch {}
     }
     if ($watcher) {
         $watcher.EnableRaisingEvents = $false
         $watcher.Dispose()
     }
     if ($mutexOwned -and $mutex) {
-        try {
-            $mutex.ReleaseMutex() | Out-Null
-        } catch {
-        }
+        try { $mutex.ReleaseMutex() | Out-Null } catch {}
     }
-    if ($mutex) {
-        $mutex.Dispose()
-    }
+    if ($mutex) { $mutex.Dispose() }
 }

@@ -291,6 +291,7 @@ local MIDNIGHT_TREATISES_BY_SKILL_LINE_ID = {
 }
 runtimeState = runtimeState or {}
 runtimeState.minimumMidnightProfessionLevel = 80
+runtimeState.minimumMidnightAbundanceLevel = 90
 runtimeState.unspentKnowledgeWarningThreshold = 5
 runtimeState.currencyQuantities = {}
 runtimeState.midnightShardOfDundunCurrencyID = 3376
@@ -803,12 +804,30 @@ local activeCacheOpen
 runtimeState.activeCacheFinalizeToken = 0
 runtimeState.trackerRefreshToken = 0
 runtimeState.midnightRecipeStatePending = false
+runtimeState.midnightVoidlightMarlCurrencyID = 3316
+runtimeState.midnightRecipeVoidlightMarlCost = 1500
+runtimeState.midnightRecipeTransferDataPending = false
+runtimeState.midnightRecipeTransferMenuPending = false
+runtimeState.midnightRecipeTransferRequestToken = 0
+runtimeState.midnightRecipeTransferPendingAt = nil
+runtimeState.midnightRecipeTransferStartingQuantity = nil
+runtimeState.midnightRecipeTransferRequestedQuantity = nil
+runtimeState.midnightRecipeTransferRecoveryAvailable = false
+runtimeState.midnightRecipeTransferTimeoutSeconds = 20
 runtimeState.trackerNeedsJardOwnerRefresh = false
 runtimeState.trackerRefreshDeferredByCombat = false
 runtimeState.tradeSkillBootstrapAttempted = false
 runtimeState.tradeSkillBootstrapPending = false
 runtimeState.tradeSkillBootstrapArmed = false
 runtimeState.tradeSkillBootstrapProfessionID = nil
+runtimeState.itemDataLoadPending = {}
+runtimeState.itemDataLoadRetryAt = {}
+runtimeState.itemDataLoadCooldownSeconds = 5
+runtimeState.bagScanRetryLimit = 12
+runtimeState.bagScanRetryDelaySeconds = 0.25
+runtimeState.bagScanRetryCount = {}
+runtimeState.bagScanRetryQueued = {}
+runtimeState.bagScanRetryToken = {}
 local questStateCache = {}
 local questRewardCache = {}
 local midnightCaches = {
@@ -842,6 +861,7 @@ local GetContainerItemLinkCompat
 local GetDateAtNoonTimestamp
 local AddEntry
 local UpdateTracker
+local ScheduleTrackerRefresh
 local trackerUI = {}
 
 for _, details in pairs(NZOTH_ASSAULT_DETAILS) do
@@ -988,6 +1008,117 @@ local function DebugLog(message, ...)
     end
 end
 
+trackerUI.ResetBagScanRetry = function(cacheKey)
+    runtimeState.bagScanRetryCount = runtimeState.bagScanRetryCount or {}
+    runtimeState.bagScanRetryQueued = runtimeState.bagScanRetryQueued or {}
+    runtimeState.bagScanRetryToken = runtimeState.bagScanRetryToken or {}
+    runtimeState.bagScanRetryCount[cacheKey] = 0
+    runtimeState.bagScanRetryQueued[cacheKey] = nil
+    runtimeState.bagScanRetryToken[cacheKey] = (runtimeState.bagScanRetryToken[cacheKey] or 0) + 1
+end
+
+trackerUI.UsePreviousBagCacheOnTransientEmpty = function(cacheKey, previousCount, currentCount, previousState)
+    runtimeState.bagScanRetryCount = runtimeState.bagScanRetryCount or {}
+
+    -- A partial result is authoritative: only protect a completely empty scan.
+    if currentCount ~= 0 or previousCount <= 0 then
+        trackerUI.ResetBagScanRetry(cacheKey)
+        return false
+    end
+
+    if cacheKey ~= "trackedProfessions" and type(previousState) == "table" then
+        local itemIDs = {}
+        if type(previousState.countsByItemID) == "table" then
+            for itemID in pairs(previousState.countsByItemID) do
+                itemIDs[tonumber(itemID) or itemID] = true
+            end
+        elseif previousState.itemID then
+            itemIDs[tonumber(previousState.itemID) or previousState.itemID] = true
+        else
+            for _, state in ipairs(previousState) do
+                if type(state) == "table" and state.itemID then
+                    itemIDs[tonumber(state.itemID) or state.itemID] = true
+                end
+            end
+        end
+
+        local checkedItemCount = 0
+        local hasOwnedItem = false
+        for itemID in pairs(itemIDs) do
+            checkedItemCount = checkedItemCount + 1
+            local owned = C_Item and SafeCall(C_Item.GetItemCount, itemID, false, false, false, false)
+                or SafeCall(GetItemCount, itemID)
+            if (tonumber(owned) or 0) > 0 then
+                hasOwnedItem = true
+                break
+            end
+        end
+        if checkedItemCount == 0 or not hasOwnedItem then
+            trackerUI.ResetBagScanRetry(cacheKey)
+            return false
+        end
+    end
+
+    if not (C_Timer and C_Timer.After) then
+        trackerUI.ResetBagScanRetry(cacheKey)
+        return false
+    end
+
+    local retryCount = (runtimeState.bagScanRetryCount[cacheKey] or 0) + 1
+    local retryLimit = runtimeState.bagScanRetryLimit or 12
+    if retryCount > retryLimit then
+        trackerUI.ResetBagScanRetry(cacheKey)
+        DebugLog(
+            "Bag scan empty accepted cache=%s after=%d retries",
+            tostring(cacheKey),
+            retryLimit
+        )
+        return false
+    end
+
+    runtimeState.bagScanRetryCount[cacheKey] = retryCount
+    runtimeState.bagScanRetryQueued = runtimeState.bagScanRetryQueued or {}
+    runtimeState.bagScanRetryToken = runtimeState.bagScanRetryToken or {}
+    if not runtimeState.bagScanRetryQueued[cacheKey] then
+        runtimeState.bagScanRetryQueued[cacheKey] = true
+        runtimeState.bagScanRetryToken[cacheKey] = (runtimeState.bagScanRetryToken[cacheKey] or 0) + 1
+        local retryToken = runtimeState.bagScanRetryToken[cacheKey]
+        C_Timer.After(runtimeState.bagScanRetryDelaySeconds or 0.25, function()
+            if runtimeState.bagScanRetryToken[cacheKey] ~= retryToken then
+                return
+            end
+            runtimeState.bagScanRetryQueued[cacheKey] = nil
+            if cacheKey == "trackedProfessions" then
+                midnightCaches.trackedProfessionsDirty = true
+            elseif cacheKey == "knowledge" then
+                midnightCaches.knowledgeDirty = true
+            elseif cacheKey == "recipeItems" then
+                midnightCaches.recipeItemsDirty = true
+            elseif cacheKey == "payout" then
+                midnightCaches.payoutDirty = true
+            elseif cacheKey == "surplusReagents" then
+                midnightCaches.surplusReagentsDirty = true
+            end
+
+            if ScheduleTrackerRefresh then
+                ScheduleTrackerRefresh(0, false)
+            elseif UpdateTracker then
+                UpdateTracker()
+            end
+        end)
+    end
+
+    if retryCount == 1 or retryCount == retryLimit then
+        DebugLog(
+            "Bag scan transient empty cache=%s previous=%d retry=%d",
+            tostring(cacheKey),
+            previousCount,
+            retryCount
+        )
+    end
+    return true
+end
+
 local function DebugSafeCall(label, func, ...)
     if type(func) ~= "function" then
         DebugLog("%s: fonction absente", tostring(label))
@@ -1039,35 +1170,22 @@ local function InvalidateQuestCaches()
 end
 
 local function InvalidateTrackedMidnightProfessions()
-    midnightCaches.trackedProfessions = nil
     midnightCaches.trackedProfessionsDirty = true
-    midnightCaches.knowledge = nil
-    midnightCaches.knowledgeDirty = true
-    midnightCaches.recipeItems = nil
-    midnightCaches.recipeItemsDirty = true
-    midnightCaches.payout = nil
-    midnightCaches.payoutDirty = true
-    midnightCaches.surplusReagents = nil
-    midnightCaches.surplusReagentsDirty = true
 end
 
 local function InvalidateMidnightKnowledgeConsumableCache()
-    midnightCaches.knowledge = nil
     midnightCaches.knowledgeDirty = true
 end
 
 trackerUI.InvalidateMidnightRecipeItemCache = function()
-    midnightCaches.recipeItems = nil
     midnightCaches.recipeItemsDirty = true
 end
 
 local function InvalidateArtisanConsortiumPayoutCache()
-    midnightCaches.payout = nil
     midnightCaches.payoutDirty = true
 end
 
 trackerUI.InvalidateSurplusReagentContainerCache = function()
-    midnightCaches.surplusReagents = nil
     midnightCaches.surplusReagentsDirty = true
 end
 
@@ -1621,15 +1739,6 @@ end
 local function GetProfessionSkillLineInfo(skillLineID)
     local info = SafeCall(C_TradeSkillUI and C_TradeSkillUI.GetProfessionInfoBySkillLineID, skillLineID)
     if type(info) == "table" then
-        DebugLog(
-            "ProfessionInfoBySkillLineID input=%s professionID=%s parentProfessionID=%s skillLineID=%s skill=%s/%s",
-            tostring(skillLineID),
-            tostring(info.professionID),
-            tostring(info.parentProfessionID),
-            tostring(info.skillLineID),
-            tostring(info.skillLevel),
-            tostring(info.maxSkillLevel)
-        )
         return {
             skillLineID = info.professionID or info.skillLineID or skillLineID,
             parentSkillLineID = info.parentProfessionID,
@@ -1641,12 +1750,6 @@ local function GetProfessionSkillLineInfo(skillLineID)
     end
 
     local _, skillLevel, maxSkillLevel = SafeCall(C_TradeSkillUI and C_TradeSkillUI.GetTradeSkillLineInfoByID, skillLineID)
-    DebugLog(
-        "TradeSkillLineInfoByID input=%s skill=%s/%s",
-        tostring(skillLineID),
-        tostring(skillLevel),
-        tostring(maxSkillLevel)
-    )
     return {
         skillLineID = skillLineID,
         skillLevel = skillLevel or 0,
@@ -1664,6 +1767,7 @@ local function GetTrackedMidnightProfessions()
         return midnightCaches.trackedProfessions
     end
 
+    local previous = midnightCaches.trackedProfessions
     local rows = {}
     local rowBySkillLineID = {}
     local seenSkillLineIDs = {}
@@ -1748,13 +1852,6 @@ local function GetTrackedMidnightProfessions()
         for _, professionIndex in ipairs(professionIndices) do
             if professionIndex then
                 local _, _, skillLevel, maxSkillLevel, _, _, skillLineID = GetProfessionInfo(professionIndex)
-                DebugLog(
-                    "GetProfessionInfo index=%s skillLineID=%s skill=%s/%s",
-                    tostring(professionIndex),
-                    tostring(skillLineID),
-                    tostring(skillLevel),
-                    tostring(maxSkillLevel)
-                )
                 if skillLineID then
                     fallbackCount = fallbackCount + 1
                     learnedParentSkillLineIDs[skillLineID] = true
@@ -1785,6 +1882,36 @@ local function GetTrackedMidnightProfessions()
     table.sort(rows, function(a, b)
         return (a.config.order or 999) < (b.config.order or 999)
     end)
+
+    if previous and trackerUI.UsePreviousBagCacheOnTransientEmpty(
+        "trackedProfessions",
+        #previous,
+        #rows
+    ) then
+        midnightCaches.trackedProfessions = previous
+        midnightCaches.trackedProfessionsDirty = false
+        return previous
+    end
+
+    if previous then
+        local previousSkillLineIDs = {}
+        local trackedProfessionSetChanged = #previous ~= #rows
+        for _, row in ipairs(previous) do
+            previousSkillLineIDs[row.skillLineID] = true
+        end
+        if not trackedProfessionSetChanged then
+            for _, row in ipairs(rows) do
+                if not previousSkillLineIDs[row.skillLineID] then
+                    trackedProfessionSetChanged = true
+                    break
+                end
+            end
+        end
+        if trackedProfessionSetChanged then
+            midnightCaches.knowledgeDirty = true
+            midnightCaches.recipeItemsDirty = true
+        end
+    end
 
     local debugParts = {}
     for _, row in ipairs(rows) do
@@ -1862,6 +1989,7 @@ local function FindMidnightKnowledgeConsumableInBags(trackedRows)
         return midnightCaches.knowledge
     end
 
+    local previous = midnightCaches.knowledge
     trackedRows = trackedRows or GetTrackedMidnightProfessions()
 
     local trackedSkillLineIDs = {}
@@ -1870,6 +1998,17 @@ local function FindMidnightKnowledgeConsumableInBags(trackedRows)
     end
 
     if not next(trackedSkillLineIDs) then
+        if previous and trackerUI.UsePreviousBagCacheOnTransientEmpty(
+            "knowledge",
+            previous.totalCount or 0,
+            0,
+            previous
+        ) then
+            midnightCaches.knowledge = previous
+            midnightCaches.knowledgeDirty = false
+            return previous
+        end
+
         midnightCaches.knowledge = {
             totalCount = 0,
         }
@@ -1920,6 +2059,17 @@ local function FindMidnightKnowledgeConsumableInBags(trackedRows)
         itemName = firstMatch and firstMatch.itemName or nil,
         slotIndex = firstMatch and firstMatch.slotIndex or nil,
     }
+    if previous and trackerUI.UsePreviousBagCacheOnTransientEmpty(
+        "knowledge",
+        previous.totalCount or 0,
+        result.totalCount or 0,
+        previous
+    ) then
+        midnightCaches.knowledge = previous
+        midnightCaches.knowledgeDirty = false
+        return previous
+    end
+
     local debugSignature = ("%d:%s"):format(result.totalCount or 0, tostring(result.itemID or "none"))
     if debugSignature ~= debugSignatures.knowledge then
         debugSignatures.knowledge = debugSignature
@@ -1936,6 +2086,7 @@ local function FindArtisanConsortiumPayoutInBags()
         return midnightCaches.payout
     end
 
+    local previous = midnightCaches.payout
     local maxBagIndex = math.max(NUM_TOTAL_EQUIPPED_BAG_SLOTS or 0, NUM_BAG_SLOTS or 0, 5)
     local matches = {}
     local totalCount = 0
@@ -1989,6 +2140,17 @@ local function FindArtisanConsortiumPayoutInBags()
         targetKey = selectedMatch and selectedMatch.targetKey or nil,
         isPayout = selectedMatch and selectedMatch.isPayout or false,
     }
+    if previous and trackerUI.UsePreviousBagCacheOnTransientEmpty(
+        "payout",
+        previous.totalCount or 0,
+        result.totalCount or 0,
+        previous
+    ) then
+        midnightCaches.payout = previous
+        midnightCaches.payoutDirty = false
+        return previous
+    end
+
     local debugSignature = ("%d:%s:%s"):format(
         result.totalCount or 0,
         tostring(result.itemID or "none"),
@@ -2014,6 +2176,7 @@ trackerUI.FindSurplusReagentContainersInBags = function()
         return midnightCaches.surplusReagents
     end
 
+    local previous = midnightCaches.surplusReagents
     local byItemID = {}
     local maxBagIndex = math.max(NUM_TOTAL_EQUIPPED_BAG_SLOTS or 0, NUM_BAG_SLOTS or 0, 5)
 
@@ -2047,6 +2210,17 @@ trackerUI.FindSurplusReagentContainersInBags = function()
     table.sort(results, function(left, right)
         return (left.order or 99) < (right.order or 99)
     end)
+
+    if previous and trackerUI.UsePreviousBagCacheOnTransientEmpty(
+        "surplusReagents",
+        #previous,
+        #results,
+        previous
+    ) then
+        midnightCaches.surplusReagents = previous
+        midnightCaches.surplusReagentsDirty = false
+        return previous
+    end
 
     local debugParts = {}
     for _, state in ipairs(results) do
@@ -2148,6 +2322,285 @@ trackerUI.UpdateMidnightRecipeButton = function(state)
     end
     button:Hide()
     return false
+end
+
+trackerUI.GetMidnightRecipeTransferStatus = function(trackedRows)
+    local result = {
+        requiredQuantity = 0,
+        currentQuantity = 0,
+        neededQuantity = 0,
+        availableQuantity = 0,
+        transferQuantity = 0,
+        sourceGUID = nil,
+        sourceName = nil,
+        dataReady = false,
+        transferInProgress = false,
+        transferFailureReason = nil,
+        transferRecoveryAvailable = runtimeState.midnightRecipeTransferRecoveryAvailable == true,
+        canTransfer = false,
+    }
+
+    for _, row in ipairs(trackedRows or GetTrackedMidnightProfessions()) do
+        local recipeStatus = trackerUI.GetMidnightRecipeStatus(row)
+        result.requiredQuantity = result.requiredQuantity + (recipeStatus.requiredVoidlightMarl or 0)
+    end
+
+    if result.requiredQuantity <= 0 then
+        return result
+    end
+
+    local currencyID = runtimeState.midnightVoidlightMarlCurrencyID
+    result.currentQuantity = GetCurrencyQuantity(currencyID)
+    result.neededQuantity = math.max(result.requiredQuantity - result.currentQuantity, 0)
+    if result.neededQuantity <= 0 then
+        return result
+    end
+
+    if not (C_CurrencyInfo and type(C_CurrencyInfo.FetchCurrencyDataFromAccountCharacters) == "function") then
+        return result
+    end
+
+    local accountCurrencyDataReady = SafeCall(
+        C_CurrencyInfo.IsAccountCharacterCurrencyDataReady
+    )
+    local accountCharacters = SafeCall(
+        C_CurrencyInfo.FetchCurrencyDataFromAccountCharacters,
+        currencyID
+    )
+    if type(accountCharacters) ~= "table"
+        or accountCurrencyDataReady == false
+        or (accountCurrencyDataReady ~= true and next(accountCharacters) == nil) then
+        return result
+    end
+
+    result.dataReady = true
+    local playerGUID = UnitGUID and UnitGUID("player") or nil
+    local bestSource
+    for _, characterData in pairs(accountCharacters) do
+        local quantity = math.max(tonumber(characterData and characterData.quantity) or 0, 0)
+        local characterGUID = characterData and characterData.characterGUID or nil
+        if quantity > 0 and characterGUID and characterGUID ~= playerGUID then
+            result.availableQuantity = result.availableQuantity + quantity
+            if not bestSource or quantity > bestSource.quantity then
+                bestSource = {
+                    guid = characterGUID,
+                    name = characterData.fullCharacterName or characterData.characterName,
+                    quantity = quantity,
+                }
+            end
+        end
+    end
+
+    result.sourceGUID = bestSource and bestSource.guid or nil
+    result.sourceName = bestSource and bestSource.name or nil
+    result.transferQuantity = bestSource and math.min(result.neededQuantity, bestSource.quantity) or 0
+    if bestSource and type(C_CurrencyInfo.GetMaxTransferableAmountFromQuantity) == "function" then
+        local maxTransferQuantity = SafeCall(
+            C_CurrencyInfo.GetMaxTransferableAmountFromQuantity,
+            currencyID,
+            bestSource.quantity
+        )
+        if type(maxTransferQuantity) == "number" then
+            result.transferQuantity = math.min(result.transferQuantity, math.max(maxTransferQuantity, 0))
+        end
+    end
+    result.transferInProgress = runtimeState.midnightRecipeTransferDataPending
+        or (SafeCall(C_CurrencyInfo.IsCurrencyTransferInProgress) == true
+            and not result.transferRecoveryAvailable)
+    result.canTransfer = result.transferQuantity > 0 and not result.transferInProgress
+    if result.canTransfer and type(C_CurrencyInfo.CanTransferCurrency) == "function" then
+        local canTransfer, failureReason = SafeCall(C_CurrencyInfo.CanTransferCurrency, currencyID)
+        result.transferFailureReason = failureReason
+        if canTransfer == false then
+            result.canTransfer = false
+        end
+    end
+    return result
+end
+
+trackerUI.ClearMidnightRecipeTransferPending = function(reason)
+    runtimeState.midnightRecipeTransferDataPending = false
+    runtimeState.midnightRecipeTransferPendingAt = nil
+    runtimeState.midnightRecipeTransferStartingQuantity = nil
+    runtimeState.midnightRecipeTransferRequestedQuantity = nil
+    runtimeState.midnightRecipeTransferRequestToken = (runtimeState.midnightRecipeTransferRequestToken or 0) + 1
+    runtimeState.midnightRecipeTransferRecoveryAvailable = false
+    if reason then
+        DebugLog("Marl transfer state cleared: %s", tostring(reason))
+    end
+    ScheduleTrackerRefresh(0.05, false)
+end
+
+trackerUI.StartMidnightRecipeTransferWatchdog = function(requestedQuantity)
+    runtimeState.midnightRecipeTransferDataPending = true
+    runtimeState.midnightRecipeTransferPendingAt = GetTime and GetTime() or 0
+    runtimeState.midnightRecipeTransferStartingQuantity = GetCurrencyQuantity(
+        runtimeState.midnightVoidlightMarlCurrencyID
+    )
+    runtimeState.midnightRecipeTransferRequestedQuantity = requestedQuantity
+    runtimeState.midnightRecipeTransferRecoveryAvailable = false
+    runtimeState.midnightRecipeTransferRequestToken = (runtimeState.midnightRecipeTransferRequestToken or 0) + 1
+    local requestToken = runtimeState.midnightRecipeTransferRequestToken
+    if C_Timer and type(C_Timer.After) == "function" then
+        C_Timer.After(runtimeState.midnightRecipeTransferTimeoutSeconds or 20, function()
+            if runtimeState.midnightRecipeTransferRequestToken ~= requestToken
+                or not runtimeState.midnightRecipeTransferDataPending then
+                return
+            end
+
+            local currentQuantity = GetCurrencyQuantity(runtimeState.midnightVoidlightMarlCurrencyID)
+            local startingQuantity = runtimeState.midnightRecipeTransferStartingQuantity or 0
+            local requestedAmount = runtimeState.midnightRecipeTransferRequestedQuantity or 0
+            if requestedAmount > 0 and currentQuantity >= startingQuantity + requestedAmount then
+                trackerUI.ClearMidnightRecipeTransferPending("quantity updated")
+                return
+            end
+
+            runtimeState.midnightRecipeTransferDataPending = false
+            runtimeState.midnightRecipeTransferPendingAt = nil
+            runtimeState.midnightRecipeTransferRecoveryAvailable = true
+            DebugLog(
+                "Marl transfer watchdog timeout current=%d start=%d requested=%d apiInProgress=%s",
+                currentQuantity,
+                startingQuantity,
+                requestedAmount,
+                tostring(SafeCall(C_CurrencyInfo.IsCurrencyTransferInProgress) == true)
+            )
+            ScheduleTrackerRefresh(0.05, false)
+        end)
+    end
+end
+
+trackerUI.RecoverMidnightRecipeTransfer = function()
+    runtimeState.midnightRecipeTransferRequestToken = (runtimeState.midnightRecipeTransferRequestToken or 0) + 1
+    runtimeState.midnightRecipeTransferDataPending = false
+    runtimeState.midnightRecipeTransferPendingAt = nil
+    runtimeState.midnightRecipeTransferRecoveryAvailable = false
+    if CurrencyTransferMenu and type(HideUIPanel) == "function" then
+        pcall(HideUIPanel, CurrencyTransferMenu)
+    end
+    if CurrencyTransferLog and type(HideUIPanel) == "function" then
+        pcall(HideUIPanel, CurrencyTransferLog)
+    end
+    if C_CurrencyInfo and type(C_CurrencyInfo.RequestCurrencyDataForAccountCharacters) == "function" then
+        pcall(C_CurrencyInfo.RequestCurrencyDataForAccountCharacters)
+    end
+    DebugLog("Marl transfer interface reset")
+    trackerUI.OpenMidnightRecipeCurrencyTransfer()
+end
+
+trackerUI.OpenMidnightRecipeTransferMenu = function()
+    local currencyID = runtimeState.midnightVoidlightMarlCurrencyID
+    if not (CurrencyTransferMenu
+        and type(CurrencyTransferMenu.TriggerEvent) == "function"
+        and CurrencyTransferMenuMixin
+        and CurrencyTransferMenuMixin.Event
+        and CurrencyTransferMenuMixin.Event.CurrencyTransferRequested) then
+        return false
+    end
+    if SafeCall(C_CurrencyInfo.IsAccountCharacterCurrencyDataReady) ~= true then
+        return false
+    end
+
+    local ok, err = pcall(
+        CurrencyTransferMenu.TriggerEvent,
+        CurrencyTransferMenu,
+        CurrencyTransferMenuMixin.Event.CurrencyTransferRequested,
+        currencyID
+    )
+    if not ok then
+        DebugLog("Marl transfer menu failed: %s", tostring(err))
+        return false
+    end
+    return true
+end
+
+trackerUI.OpenMidnightRecipeCurrencyTransfer = function()
+    local transferableFilter = Enum
+        and Enum.CurrencyFilterType
+        and Enum.CurrencyFilterType.DiscoveredAndAllAccountTransferable
+    if transferableFilter and C_CurrencyInfo and type(C_CurrencyInfo.SetCurrencyFilter) == "function" then
+        pcall(C_CurrencyInfo.SetCurrencyFilter, transferableFilter)
+    end
+
+    local tokenFrameShown = TokenFrame and type(TokenFrame.IsShown) == "function" and TokenFrame:IsShown()
+    if not tokenFrameShown then
+        if CharacterFrame and type(CharacterFrame.ToggleTokenFrame) == "function" then
+            pcall(CharacterFrame.ToggleTokenFrame, CharacterFrame)
+        elseif type(ToggleCharacter) == "function" then
+            pcall(ToggleCharacter, "TokenFrame")
+        end
+    end
+    if C_CurrencyInfo and type(C_CurrencyInfo.RequestCurrencyDataForAccountCharacters) == "function" then
+        pcall(C_CurrencyInfo.RequestCurrencyDataForAccountCharacters)
+    end
+    trackerUI.OpenMidnightRecipeTransferMenu()
+    ScheduleTrackerRefresh(0.05, false)
+end
+
+trackerUI.ResetMidnightRecipeTransferAction = function(button)
+    if not button then
+        return
+    end
+
+    button.midnightRecipeTransferActionArmed = false
+    button.midnightRecipeTransferActionQuantity = nil
+    if not (InCombatLockdown and InCombatLockdown()) then
+        button:SetAttribute("type", nil)
+        button:SetAttribute("clickbutton", nil)
+    end
+end
+
+trackerUI.UpdateMidnightRecipeTransferButton = function(trackedRows)
+    local button = trackerFrame and trackerFrame.recipeMarlButton or nil
+    if not button then
+        return false
+    end
+
+    local state = trackerUI.GetMidnightRecipeTransferStatus(trackedRows)
+    trackerUI.ResetMidnightRecipeTransferAction(button)
+    if state.requiredQuantity <= 0 or state.neededQuantity <= 0 then
+        button:SetEnabled(true)
+        button.requiredQuantity = nil
+        button.currentQuantity = nil
+        button.availableQuantity = nil
+        button.sourceGUID = nil
+        button.transferQuantity = nil
+        button.transferRecoveryAvailable = nil
+        button:Hide()
+        return false
+    end
+
+    button.requiredQuantity = state.requiredQuantity
+    button.currentQuantity = state.currentQuantity
+    button.availableQuantity = state.availableQuantity
+    button.sourceGUID = state.sourceGUID
+    button.sourceName = state.sourceName
+    button.transferQuantity = state.transferQuantity
+    button.transferRecoveryAvailable = state.transferRecoveryAvailable
+
+    if state.transferRecoveryAvailable then
+        button:SetText("Réinitialiser transfert")
+        button:SetEnabled(true)
+    elseif state.transferInProgress then
+        button:SetText("Transfert en cours")
+        button:SetEnabled(false)
+    elseif not state.dataReady then
+        button:SetText("Ouvrir interface marls")
+        button:SetEnabled(type(ToggleCharacter) == "function")
+    elseif state.canTransfer then
+        button:SetText(("Transferer marls x%d"):format(state.transferQuantity))
+        button:SetEnabled(true)
+    elseif state.sourceGUID then
+        button:SetText("Transfert indisponible")
+        button:SetEnabled(false)
+    else
+        button:SetText("Aucun marl disponible")
+        button:SetEnabled(false)
+    end
+
+    button:Show()
+    return true
 end
 
 trackerUI.UpdateArtisanConsortiumPayoutButton = function(state)
@@ -2350,7 +2803,14 @@ trackerUI.GetRecipeKnownFromTooltip = function(itemID)
 
     if type(tooltipData) ~= "table" or type(tooltipData.lines) ~= "table" or #tooltipData.lines == 0 then
         if C_Item and type(C_Item.RequestLoadItemDataByID) == "function" then
-            SafeCall(C_Item.RequestLoadItemDataByID, itemID)
+            local now = GetTime and GetTime() or 0
+            local retryAt = runtimeState.itemDataLoadRetryAt[itemID] or 0
+            if not runtimeState.itemDataLoadPending[itemID] and now >= retryAt then
+                runtimeState.itemDataLoadPending[itemID] = true
+                runtimeState.itemDataLoadRetryAt[itemID] = now + runtimeState.itemDataLoadCooldownSeconds
+                DebugLog("Request item data item=%s", tostring(itemID))
+                SafeCall(C_Item.RequestLoadItemDataByID, itemID)
+            end
         end
         return nil
     end
@@ -2366,6 +2826,7 @@ trackerUI.GetRecipeKnownFromTooltip = function(itemID)
             and line.type == usageRequirement
             and line.usable ~= true
             and line.requirementType == requirementTypes.NotAlreadyKnown then
+            -- The NotAlreadyKnown requirement is failing: this recipe is known.
             return true
         end
 
@@ -2377,6 +2838,7 @@ trackerUI.GetRecipeKnownFromTooltip = function(itemID)
         end
     end
 
+    -- Item data is loaded and no "already known" marker was found.
     return false
 end
 
@@ -2385,14 +2847,26 @@ local function IsMidnightRecipeKnown(recipe)
         return true
     end
 
+    local characterDB = GetCharacterDB()
+    characterDB.knownMidnightRecipes = characterDB.knownMidnightRecipes or {}
+    if characterDB.knownMidnightRecipes[recipe.itemID] == true then
+        return true
+    end
+
     local tooltipKnown = trackerUI.GetRecipeKnownFromTooltip(recipe.itemID)
-    if tooltipKnown ~= nil then
+    if tooltipKnown == true then
+        characterDB.knownMidnightRecipes[recipe.itemID] = true
+        midnightCaches.recipeItemsDirty = true
         return tooltipKnown
+    elseif tooltipKnown == false then
+        return false
     end
 
     if C_TradeSkillUI and recipe.spellID and type(C_TradeSkillUI.GetRecipeInfo) == "function" then
         local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipe.spellID)
         if type(recipeInfo) == "table" and recipeInfo.learned == true then
+            characterDB.knownMidnightRecipes[recipe.itemID] = true
+            midnightCaches.recipeItemsDirty = true
             return true
         end
     end
@@ -2410,6 +2884,8 @@ local function IsMidnightRecipeKnown(recipe)
             false
         )
         if known == true then
+            characterDB.knownMidnightRecipes[recipe.itemID] = true
+            midnightCaches.recipeItemsDirty = true
             return true
         end
     end
@@ -2417,6 +2893,8 @@ local function IsMidnightRecipeKnown(recipe)
     if C_TradeSkillUI and recipe.itemID and type(C_TradeSkillUI.GetRecipeInfoForItemID) == "function" then
         local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfoForItemID, recipe.itemID)
         if type(recipeInfo) == "table" and recipeInfo.learned == true then
+            characterDB.knownMidnightRecipes[recipe.itemID] = true
+            midnightCaches.recipeItemsDirty = true
             return true
         end
     end
@@ -2430,6 +2908,7 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
         return midnightCaches.recipeItems
     end
 
+    local previous = midnightCaches.recipeItems
     trackedRows = trackedRows or GetTrackedMidnightProfessions()
     local trackedRecipesByItemID = {}
     for _, row in ipairs(trackedRows or EMPTY_TABLE) do
@@ -2480,6 +2959,17 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
         itemName = firstMatch and firstMatch.itemName or nil,
         slotIndex = firstMatch and firstMatch.slotIndex or nil,
     }
+    if previous and trackerUI.UsePreviousBagCacheOnTransientEmpty(
+        "recipeItems",
+        previous.totalCount or 0,
+        result.totalCount or 0,
+        previous
+    ) then
+        midnightCaches.recipeItems = previous
+        midnightCaches.recipeItemsDirty = false
+        return previous
+    end
+
     local debugSignature = ("%d:%s"):format(result.totalCount or 0, tostring(result.itemID or "none"))
     if debugSignature ~= debugSignatures.recipeItems then
         debugSignatures.recipeItems = debugSignature
@@ -2492,26 +2982,41 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
 end
 
 trackerUI.GetMidnightRecipeStatus = function(row)
-    local result = { missingRecipes = {}, requiredMoxie = 0, currentMoxie = 0 }
+    local result = {
+        missingRecipes = {},
+        requiredMoxie = 0,
+        currentMoxie = 0,
+        requiredVoidlightMarl = 0,
+        currentVoidlightMarl = 0,
+    }
     local recipes = row and row.skillLineID and MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID[row.skillLineID]
     if not recipes then
         return result
     end
 
+    local playerLevel = UnitLevel and UnitLevel("player") or 0
     local recipeItems = trackerUI.FindMidnightRecipeInBags()
     for _, recipe in ipairs(recipes) do
-        if GetAccountDB()[recipe.optionKey] ~= false then
+        local requiresAbundance = recipe.abundance == true
+            or (tonumber(recipe.abundanceCost) or 0) > 0
+        if GetAccountDB()[recipe.optionKey] ~= false
+            and (not requiresAbundance or playerLevel >= runtimeState.minimumMidnightAbundanceLevel) then
             local known = IsMidnightRecipeKnown(recipe)
             if known == nil then
                 runtimeState.midnightRecipeStatePending = true
             elseif not known and (recipeItems.countsByItemID[recipe.itemID] or 0) == 0 then
                 result.missingRecipes[#result.missingRecipes + 1] = recipe
                 result.requiredMoxie = result.requiredMoxie + (recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST)
+                result.requiredVoidlightMarl = result.requiredVoidlightMarl
+                    + (recipe.voidlightMarlCost or runtimeState.midnightRecipeVoidlightMarlCost)
             end
         end
     end
     if result.requiredMoxie > 0 then
         result.currentMoxie = GetCurrencyQuantity(row.moxieCurrencyID or MIDNIGHT_MOXIE_CURRENCY_IDS[row.skillLineID])
+    end
+    if result.requiredVoidlightMarl > 0 then
+        result.currentVoidlightMarl = GetCurrencyQuantity(runtimeState.midnightVoidlightMarlCurrencyID)
     end
     return result
 end
@@ -2774,13 +3279,16 @@ trackerUI.GetMidnightKnowledgeBookStatus = function(row)
         return result
     end
 
+    local playerLevel = UnitLevel and UnitLevel("player") or 0
     local knowledgeItems = FindMidnightKnowledgeConsumableInBags()
     for _, book in ipairs(books) do
         local itemCount = book.itemID
             and knowledgeItems.countsByItemID
             and knowledgeItems.countsByItemID[book.itemID]
             or 0
-        if not IsQuestDone(book.questID) and itemCount == 0 then
+        if (not book.abundance or playerLevel >= runtimeState.minimumMidnightAbundanceLevel)
+            and not IsQuestDone(book.questID)
+            and itemCount == 0 then
             result.missingBooks[#result.missingBooks + 1] = book
             if book.abundance then
                 result.requiredAbundance = result.requiredAbundance + MIDNIGHT_KNOWLEDGE_BOOK_ABUNDANCE_COST
@@ -2826,6 +3334,14 @@ trackerUI.GetMidnightProfessionWarningText = function(row)
             bookStatus.requiredAbundance
         )
         warningParts[#warningParts + 1] = "|cffff3333" .. abundanceText .. "|r"
+    end
+    if recipeStatus.requiredVoidlightMarl > 0
+        and recipeStatus.currentVoidlightMarl < recipeStatus.requiredVoidlightMarl then
+        local marlText = ("marls %d/%d"):format(
+            recipeStatus.currentVoidlightMarl,
+            recipeStatus.requiredVoidlightMarl
+        )
+        warningParts[#warningParts + 1] = "|cffff3333" .. marlText .. "|r"
     end
     if #warningParts > 0 then
         return table.concat(warningParts, " ")
@@ -3340,11 +3856,21 @@ end
 
 GetContainerItemLinkCompat = function(bagID, slotIndex)
     if C_Container and C_Container.GetContainerItemLink then
-        return C_Container.GetContainerItemLink(bagID, slotIndex)
+        local link = SafeCall(C_Container.GetContainerItemLink, bagID, slotIndex)
+        if link then
+            return link
+        end
+    end
+
+    if C_Container and C_Container.GetContainerItemInfo then
+        local info = SafeCall(C_Container.GetContainerItemInfo, bagID, slotIndex)
+        if info and info.hyperlink then
+            return info.hyperlink
+        end
     end
 
     if GetContainerItemLink then
-        return GetContainerItemLink(bagID, slotIndex)
+        return SafeCall(GetContainerItemLink, bagID, slotIndex)
     end
 end
 
@@ -3784,7 +4310,6 @@ local function ScheduleFinalizeActiveCacheOpen(delaySeconds)
     end)
 end
 
-local ScheduleTrackerRefresh
 local function RefreshTrackerNow()
     if not trackerFrame then
         return
@@ -3972,23 +4497,46 @@ end
 
 GetContainerItemIDCompat = function(bagID, slotIndex)
     if C_Container and C_Container.GetContainerItemInfo then
-        local info = C_Container.GetContainerItemInfo(bagID, slotIndex)
+        local info = SafeCall(C_Container.GetContainerItemInfo, bagID, slotIndex)
         if info and info.itemID then
-            return info.itemID
+            return tonumber(info.itemID) or info.itemID
         end
 
-        if C_Container.GetContainerItemLink and GetItemInfoInstant then
-            local link = C_Container.GetContainerItemLink(bagID, slotIndex)
-            if link then
-                return GetItemInfoInstant(link)
+        local link = info and info.hyperlink or nil
+        if not link and C_Container.GetContainerItemLink then
+            link = SafeCall(C_Container.GetContainerItemLink, bagID, slotIndex)
+        end
+        if link then
+            if C_Item and C_Item.GetItemInfoInstant then
+                local itemID = SafeCall(C_Item.GetItemInfoInstant, link)
+                if itemID then
+                    return tonumber(itemID) or itemID
+                end
+            end
+            if GetItemInfoInstant then
+                local itemID = SafeCall(GetItemInfoInstant, link)
+                if itemID then
+                    return tonumber(itemID) or itemID
+                end
             end
         end
     end
 
-    if GetContainerItemLink and GetItemInfoInstant then
-        local link = GetContainerItemLink(bagID, slotIndex)
+    if GetContainerItemLink then
+        local link = SafeCall(GetContainerItemLink, bagID, slotIndex)
         if link then
-            return GetItemInfoInstant(link)
+            if C_Item and C_Item.GetItemInfoInstant then
+                local itemID = SafeCall(C_Item.GetItemInfoInstant, link)
+                if itemID then
+                    return tonumber(itemID) or itemID
+                end
+            end
+            if GetItemInfoInstant then
+                local itemID = SafeCall(GetItemInfoInstant, link)
+                if itemID then
+                    return tonumber(itemID) or itemID
+                end
+            end
         end
     end
 end
@@ -4058,7 +4606,9 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
     local config = runtimeState.generalWeeklyQuests
     local accountDB = GetAccountDB()
 
-    if accountDB.trackAbundance ~= false and level >= 80 and not IsAnyQuestDone(config.abundanceQuestIDs) then
+    if accountDB.trackAbundance ~= false
+        and level >= runtimeState.minimumMidnightAbundanceLevel
+        and not IsAnyQuestDone(config.abundanceQuestIDs) then
         AddEntry(entries, "Abondance", "todo")
     end
 
@@ -4499,14 +5049,15 @@ UpdateTracker = function()
         local surplusReagentStates = DebugSafeCall("FindSurplusReagentContainersInBags", trackerUI.FindSurplusReagentContainersInBags)
         local hasKnowledgeButton = DebugSafeCall("UpdateMidnightKnowledgeButton", trackerUI.UpdateMidnightKnowledgeButton, knowledgeItemState) or false
         local hasRecipeButton = DebugSafeCall("UpdateMidnightRecipeButton", trackerUI.UpdateMidnightRecipeButton, recipeItemState) or false
+        local hasRecipeMarlButton = DebugSafeCall("UpdateMidnightRecipeTransferButton", trackerUI.UpdateMidnightRecipeTransferButton, trackedRows) or false
         local hasPayoutButton = DebugSafeCall("UpdateArtisanConsortiumPayoutButton", trackerUI.UpdateArtisanConsortiumPayoutButton, payoutItemState) or false
         local surplusButtonCount = DebugSafeCall("UpdateSurplusReagentButtons", trackerUI.UpdateSurplusReagentButtons, surplusReagentStates) or 0
         DebugSafeCall("EnsureEnchantingWeeklyQueueItem", trackerUI.EnsureEnchantingWeeklyQueueItem, trackedRows)
         local hasTreasureButton = DebugSafeCall("UpdateMidnightTreasureButton", trackerUI.UpdateMidnightTreasureButton, trackedRows) or false
-        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|po=%s|sr=%d|tt=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasTreasureButton))
+        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|tt=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasTreasureButton))
         if trackerDebugSignature ~= debugSignatures.tracker then
             debugSignatures.tracker = trackerDebugSignature
-            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s payoutButton=%s surplusButtons=%d treasureButton=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasTreasureButton))
+            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d treasureButton=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasTreasureButton))
         end
         local hasUsefulEntry = false
         for _, entry in ipairs(entries) do
@@ -4515,7 +5066,7 @@ UpdateTracker = function()
                 break
             end
         end
-        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasPayoutButton and surplusButtonCount == 0 and not hasTreasureButton then
+        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and not hasTreasureButton then
             DebugLog("UpdateTracker hide frame: all professions complete and no other actions")
             trackerFrame:Hide()
             if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
@@ -4575,12 +5126,28 @@ UpdateTracker = function()
             offsetY = offsetY + 24
         end
 
+        if hasRecipeMarlButton then
+            trackerFrame.recipeMarlButton:ClearAllPoints()
+            if hasRecipeButton then
+                trackerFrame.recipeMarlButton:SetPoint("TOPLEFT", trackerFrame.recipeButton, "BOTTOMLEFT", 0, -4)
+            elseif hasKnowledgeButton then
+                trackerFrame.recipeMarlButton:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
+            elseif hasPayoutButton then
+                trackerFrame.recipeMarlButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
+            else
+                trackerFrame.recipeMarlButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
+            end
+            offsetY = offsetY + 24
+        end
+
         local lastSurplusButton
         for index = 1, surplusButtonCount do
             local button = trackerFrame.surplusReagentButtons[index]
             button:ClearAllPoints()
             if lastSurplusButton then
                 button:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
+            elseif hasRecipeMarlButton then
+                button:SetPoint("TOPLEFT", trackerFrame.recipeMarlButton, "BOTTOMLEFT", 0, -4)
             elseif hasRecipeButton then
                 button:SetPoint("TOPLEFT", trackerFrame.recipeButton, "BOTTOMLEFT", 0, -4)
             elseif hasKnowledgeButton then
@@ -4598,6 +5165,8 @@ UpdateTracker = function()
             trackerFrame.treasureButton:ClearAllPoints()
             if lastSurplusButton then
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
+            elseif hasRecipeMarlButton then
+                trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.recipeMarlButton, "BOTTOMLEFT", 0, -4)
             elseif hasRecipeButton then
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.recipeButton, "BOTTOMLEFT", 0, -4)
             elseif hasKnowledgeButton then
@@ -4648,10 +5217,14 @@ trackerUI.CreateTrackerFrame = function()
 
     trackerFrame.knowledgeButton = CreateFrame("Button", addonName .. "KnowledgeButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
     trackerFrame.knowledgeButton:SetSize(178, 20)
-    trackerFrame.knowledgeButton:RegisterForClicks("AnyUp", "AnyDown")
+    trackerFrame.knowledgeButton:RegisterForClicks("AnyUp")
+    trackerFrame.knowledgeButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.knowledgeButton:SetText("Utiliser KP")
     trackerFrame.knowledgeButton:Hide()
-    trackerFrame.knowledgeButton:HookScript("PreClick", function(self)
+    trackerFrame.knowledgeButton:HookScript("PreClick", function(self, _, down)
+        if down then
+            return
+        end
         DebugLog(
             "KnowledgeButton click itemID=%s bag=%s slot=%s link=%s name=%s item=%s",
             tostring(self.itemID or "none"),
@@ -4675,7 +5248,7 @@ trackerUI.CreateTrackerFrame = function()
 
     trackerFrame.recipeButton = CreateFrame("Button", addonName .. "RecipeButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
     trackerFrame.recipeButton:SetSize(178, 20)
-    trackerFrame.recipeButton:RegisterForClicks("AnyUp", "AnyDown")
+    trackerFrame.recipeButton:RegisterForClicks("AnyUp")
     trackerFrame.recipeButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.recipeButton:SetText("Utiliser recette")
     trackerFrame.recipeButton:Hide()
@@ -4696,12 +5269,133 @@ trackerUI.CreateTrackerFrame = function()
     end)
     trackerFrame.recipeButton:SetScript("OnLeave", GameTooltip_Hide)
 
+    trackerFrame.recipeMarlButton = CreateFrame("Button", addonName .. "RecipeMarlButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+    trackerFrame.recipeMarlButton:SetSize(178, 20)
+    trackerFrame.recipeMarlButton:RegisterForClicks("AnyUp")
+    trackerFrame.recipeMarlButton:SetAttribute("useOnKeyDown", false)
+    trackerFrame.recipeMarlButton:SetText("Ouvrir interface marls")
+    trackerFrame.recipeMarlButton:Hide()
+    trackerFrame.recipeMarlButton:SetScript("PreClick", function(self, _, down)
+        trackerUI.ResetMidnightRecipeTransferAction(self)
+        if down then
+            return
+        end
+        if InCombatLockdown and InCombatLockdown() then
+            return
+        end
+
+        local tokenFrameShown = TokenFrame and type(TokenFrame.IsShown) == "function" and TokenFrame:IsShown()
+        if runtimeState.midnightRecipeTransferRecoveryAvailable then
+            trackerUI.RecoverMidnightRecipeTransfer()
+            return
+        end
+
+        local transferMenuShown = CurrencyTransferMenu
+            and type(CurrencyTransferMenu.IsShown) == "function"
+            and CurrencyTransferMenu:IsShown()
+            and type(CurrencyTransferMenu.GetCurrencyID) == "function"
+            and CurrencyTransferMenu:GetCurrencyID() == runtimeState.midnightVoidlightMarlCurrencyID
+        if not transferMenuShown then
+            runtimeState.midnightRecipeTransferMenuPending = true
+            if not tokenFrameShown then
+                trackerUI.OpenMidnightRecipeCurrencyTransfer()
+            else
+                if C_CurrencyInfo and type(C_CurrencyInfo.RequestCurrencyDataForAccountCharacters) == "function" then
+                    pcall(C_CurrencyInfo.RequestCurrencyDataForAccountCharacters)
+                end
+                if trackerUI.OpenMidnightRecipeTransferMenu() then
+                    runtimeState.midnightRecipeTransferMenuPending = false
+                end
+                ScheduleTrackerRefresh(0.05, false)
+            end
+            return
+        end
+
+        runtimeState.midnightRecipeTransferMenuPending = false
+        local state = trackerUI.GetMidnightRecipeTransferStatus(GetTrackedMidnightProfessions())
+        if state.canTransfer and state.sourceGUID and state.transferQuantity > 0 then
+            local menuContent = CurrencyTransferMenu and CurrencyTransferMenu.Content or nil
+            local amountSelector = menuContent and menuContent.AmountSelector or nil
+            local amountInput = amountSelector and amountSelector.InputBox or nil
+            local confirmButton = menuContent and menuContent.ConfirmButton or nil
+            local nativeSource = type(CurrencyTransferMenu.GetSourceCharacterData) == "function"
+                and CurrencyTransferMenu:GetSourceCharacterData()
+                or nil
+            if not (nativeSource and nativeSource.characterGUID == state.sourceGUID
+                and amountInput and type(amountInput.SetNumber) == "function"
+                and type(amountInput.ValidateAndSetValue) == "function" and confirmButton) then
+                DebugLog("Marl transfer native menu not ready source=%s input=%s confirm=%s", tostring(nativeSource and nativeSource.characterGUID == state.sourceGUID), tostring(amountInput ~= nil), tostring(confirmButton ~= nil))
+                return
+            end
+
+            amountInput:SetNumber(state.transferQuantity)
+            amountInput:ValidateAndSetValue()
+            local nativeAmount = type(CurrencyTransferMenu.GetRequestedCurrencyTransferAmount) == "function"
+                and CurrencyTransferMenu:GetRequestedCurrencyTransferAmount()
+                or 0
+            if nativeAmount ~= state.transferQuantity then
+                DebugLog("Marl transfer native amount mismatch requested=%d native=%d", state.transferQuantity, nativeAmount)
+                return
+            end
+            if type(confirmButton.IsEnabled) == "function" and not confirmButton:IsEnabled() then
+                DebugLog("Marl transfer native confirm disabled amount=%d", state.transferQuantity)
+                return
+            end
+
+            self:SetAttribute("type", "click")
+            self:SetAttribute("clickbutton", confirmButton)
+            self.midnightRecipeTransferActionArmed = true
+            self.midnightRecipeTransferActionQuantity = state.transferQuantity
+            trackerUI.StartMidnightRecipeTransferWatchdog(state.transferQuantity)
+            self:SetEnabled(false)
+            ScheduleTrackerRefresh(0, false)
+        elseif state.transferFailureReason then
+            DebugLog("Marl transfer unavailable reason=%s", tostring(state.transferFailureReason))
+        end
+    end)
+    trackerFrame.recipeMarlButton:SetScript("PostClick", function(self, _, down)
+        if down then
+            return
+        end
+        if self.midnightRecipeTransferActionArmed then
+            self.midnightRecipeTransferActionArmed = false
+            self.midnightRecipeTransferActionQuantity = nil
+            ScheduleTrackerRefresh(0.05, false)
+        end
+    end)
+    trackerFrame.recipeMarlButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Transfere les Voidlight Marls des autres personnages pour acheter les recettes suivies.")
+        if self.requiredQuantity then
+            GameTooltip:AddLine(("Manque actuel : %d / %d"):format(
+                math.max(self.currentQuantity or 0, 0),
+                self.requiredQuantity
+            ), 1, 1, 1, true)
+        end
+        if self.availableQuantity then
+            GameTooltip:AddLine(("Disponible sur les autres personnages : %d"):format(self.availableQuantity), 0.7, 0.85, 1, true)
+        end
+        if self.sourceGUID and self.transferQuantity then
+            GameTooltip:AddLine(("Prochaine source : %s (%d)"):format(
+                self.sourceName or "personnage",
+                self.transferQuantity
+            ), 0.7, 1, 0.7, true)
+        elseif self.transferRecoveryAvailable then
+            GameTooltip:AddLine("Le transfert semble bloqué. Clique pour réinitialiser l'interface.", 1, 0.7, 0.2, true)
+        elseif not self:IsEnabled() then
+            GameTooltip:AddLine("Plus assez de marls disponibles sur les autres personnages.", 1, 0.4, 0.4, true)
+        end
+        GameTooltip:Show()
+    end)
+    trackerFrame.recipeMarlButton:SetScript("OnLeave", GameTooltip_Hide)
+
     trackerFrame.payoutButton = CreateFrame("Button", addonName .. "PayoutButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
     trackerFrame.payoutButton:SetSize(178, 20)
-    trackerFrame.payoutButton:RegisterForClicks("AnyUp", "AnyDown")
+    trackerFrame.payoutButton:RegisterForClicks("AnyUp")
     trackerFrame.payoutButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.payoutButton:SetText("Ouvrir payout")
     trackerFrame.payoutButton:Hide()
+    trackerFrame.payoutButton:HookScript("PreClick", trackerUI.NotifyContainerOpening)
     trackerFrame.payoutButton:HookScript("PostClick", function(self, _, down)
         if down then
             return
@@ -4734,10 +5428,11 @@ trackerUI.CreateTrackerFrame = function()
     for index = 1, 11 do
         local button = CreateFrame("Button", addonName .. "SurplusReagentButton" .. index, trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
         button:SetSize(178, 20)
-        button:RegisterForClicks("AnyUp", "AnyDown")
+        button:RegisterForClicks("AnyUp")
         button:SetAttribute("useOnKeyDown", false)
         button:SetText("Ouvrir surplus")
         button:Hide()
+        button:HookScript("PreClick", trackerUI.NotifyContainerOpening)
         button:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
             GameTooltip:SetText("Ouvre ce type de conteneur de composants en surplus.")
@@ -4792,7 +5487,6 @@ eventFrame:RegisterEvent("TRADE_SKILL_SHOW")
 eventFrame:RegisterEvent("TRADE_SKILL_DATA_SOURCE_CHANGED")
 eventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
 eventFrame:RegisterEvent("TRAIT_TREE_CURRENCY_INFO_UPDATED")
-eventFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 eventFrame:RegisterEvent("AREA_POIS_UPDATED")
 eventFrame:RegisterEvent("QUEST_DATA_LOAD_RESULT")
 eventFrame:RegisterEvent("ITEM_DATA_LOAD_RESULT")
@@ -4808,8 +5502,15 @@ eventFrame:RegisterEvent("PLAYER_LEVEL_UP")
 eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 eventFrame:RegisterEvent("PLAYER_AVG_ITEM_LEVEL_UPDATE")
 eventFrame:RegisterEvent("WEEKLY_REWARDS_UPDATE")
+eventFrame:RegisterEvent("ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED")
+eventFrame:RegisterEvent("CURRENCY_TRANSFER_INITIATED")
+eventFrame:RegisterEvent("CURRENCY_TRANSFER_SUCCESS")
+eventFrame:RegisterEvent("CURRENCY_TRANSFER_FAILED")
+eventFrame:RegisterEvent("CURRENCY_TRANSFER_LOG_UPDATE")
 eventFrame:SetScript("OnEvent", function(_, event, ...)
-    DebugLog("Event %s", tostring(event))
+    if event ~= "ITEM_DATA_LOAD_RESULT" and event ~= "CHAT_MSG_CURRENCY" then
+        DebugLog("Event %s", tostring(event))
+    end
     if event == "TRADE_SKILL_SHOW" and runtimeState.tradeSkillBootstrapPending then
         if C_Timer and C_Timer.After then
             C_Timer.After(0, trackerUI.FinishTradeSkillBootstrap)
@@ -4911,33 +5612,70 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         or event == "SPELLS_CHANGED"
         or event == "SKILL_LINES_CHANGED"
         or event == "TRADE_SKILL_SHOW"
-        or event == "TRADE_SKILL_DATA_SOURCE_CHANGED"
-        or event == "TRAIT_CONFIG_UPDATED"
-        or event == "TRAIT_TREE_CURRENCY_INFO_UPDATED" then
+        or event == "TRADE_SKILL_DATA_SOURCE_CHANGED" then
         InvalidateTrackedMidnightProfessions()
         ScheduleTrackerRefresh(0.05, true)
         trackerUI.ArmTradeSkillBootstrap(eventFrame)
-    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
-        local unit = ...
-        if unit == "player" then
-            InvalidateTrackedMidnightProfessions()
-            ScheduleTrackerRefresh(0.20, true)
-        end
+    elseif event == "TRAIT_CONFIG_UPDATED" or event == "TRAIT_TREE_CURRENCY_INFO_UPDATED" then
+        ScheduleTrackerRefresh(0.05, false)
     elseif event == "PLAYER_LEVEL_UP" then
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "PLAYER_EQUIPMENT_CHANGED" or event == "PLAYER_AVG_ITEM_LEVEL_UPDATE" then
+        ScheduleTrackerRefresh(0.05, false)
+    elseif event == "ITEM_DATA_LOAD_RESULT" then
+        local rawItemID, success = ...
+        local itemID = tonumber(rawItemID)
+        local wasPending = itemID and runtimeState.itemDataLoadPending[itemID] == true
+        if itemID then
+            runtimeState.itemDataLoadPending[itemID] = nil
+            if wasPending then
+                runtimeState.itemDataLoadRetryAt[itemID] = (GetTime and GetTime() or 0)
+                    + (success == false and runtimeState.itemDataLoadCooldownSeconds or 10)
+            end
+        end
+        if wasPending then
+            DebugLog(
+                "ITEM_DATA_LOAD_RESULT item=%s success=%s pending=%s",
+                tostring(itemID or rawItemID or "none"),
+                tostring(success),
+                tostring(wasPending == true)
+            )
+        end
+        if wasPending then
+            trackerUI.InvalidateMidnightRecipeItemCache()
+            ScheduleTrackerRefresh(0.05, false)
+        end
+    elseif event == "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED" then
+        if runtimeState.midnightRecipeTransferMenuPending
+            and trackerUI.OpenMidnightRecipeTransferMenu() then
+            runtimeState.midnightRecipeTransferMenuPending = false
+        end
+        ScheduleTrackerRefresh(0.05, false)
+    elseif event == "CURRENCY_TRANSFER_INITIATED" then
+        if not runtimeState.midnightRecipeTransferDataPending then
+            trackerUI.StartMidnightRecipeTransferWatchdog(nil)
+        end
+        ScheduleTrackerRefresh(0.05, false)
+    elseif event == "CURRENCY_TRANSFER_SUCCESS" then
+        trackerUI.ClearMidnightRecipeTransferPending("success event")
+        if C_CurrencyInfo and type(C_CurrencyInfo.RequestCurrencyDataForAccountCharacters) == "function" then
+            pcall(C_CurrencyInfo.RequestCurrencyDataForAccountCharacters)
+        end
+        ScheduleTrackerRefresh(0.05, false)
+    elseif event == "CURRENCY_TRANSFER_FAILED" then
+        local failureReason = ...
+        DebugLog("Marl transfer failed reason=%s", tostring(failureReason))
+        trackerUI.ClearMidnightRecipeTransferPending("failure event")
+        ScheduleTrackerRefresh(0.05, false)
+    elseif event == "CURRENCY_TRANSFER_LOG_UPDATE" then
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "QUEST_LOG_UPDATE"
         or event == "SPELL_UPDATE_COOLDOWN"
         or event == "AREA_POIS_UPDATED"
         or event == "QUEST_DATA_LOAD_RESULT"
-        or event == "ITEM_DATA_LOAD_RESULT"
         or event == "ZONE_CHANGED_NEW_AREA"
         or event == "COVENANT_SANCTUM_RENOWN_LEVEL_CHANGED"
         or event == "WEEKLY_REWARDS_UPDATE" then
-        if event == "ITEM_DATA_LOAD_RESULT" then
-            trackerUI.InvalidateMidnightRecipeItemCache()
-        end
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "PLAYER_REGEN_ENABLED" then
         if runtimeState.combatVisibilityUpdateDeferred then
@@ -4949,8 +5687,17 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         end
     elseif event == "CURRENCY_DISPLAY_UPDATE" then
         local currencyID, quantity = ...
+        local previousQuantity = type(currencyID) == "number"
+            and runtimeState.currencyQuantities[currencyID]
+            or nil
         if type(currencyID) == "number" and type(quantity) == "number" then
             runtimeState.currencyQuantities[currencyID] = quantity
+            if currencyID == runtimeState.midnightVoidlightMarlCurrencyID
+                and runtimeState.midnightRecipeTransferDataPending
+                and type(previousQuantity) == "number"
+                and quantity > previousQuantity then
+                trackerUI.ClearMidnightRecipeTransferPending("currency display update")
+            end
         end
         ScheduleTrackerRefresh(0.05, false)
         if activeCacheOpen then

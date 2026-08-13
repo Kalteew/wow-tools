@@ -1,4 +1,4 @@
-## Interface: 120005
+## Interface: 120007
 ## Title: YayaQueue
 ## Notes: Queue craft needs from professions to AH and vendor tasks.
 ## Author: Yaya

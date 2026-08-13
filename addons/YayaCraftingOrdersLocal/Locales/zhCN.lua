@@ -5,7 +5,7 @@ if GetLocale() ~= "zhCN" then
 end
 
 ns.AddLocale("zhCN", {
-	ADDON_TITLE = "Crafting Orders++",
+	ADDON_TITLE = "YayaCraftingOrders",
 	OPTION_VERSION_FORMAT = "版本 %s",
 	OPTION_DESCRIPTION = "重写赞助订单面板，加入价格感知，并可将缺少的材料导出到 Auctionator 或 Auctioneer。",
 	OPTION_PRICING_ADDON_HEADER = "价格插件",
@@ -23,7 +23,7 @@ ns.AddLocale("zhCN", {
 	OPTION_OPENING_HEADER = "赞助订单打开行为",
 	OPTION_OPENING_NONE = "不执行任何操作",
 	OPTION_OPENING_APPLY_PLAN = "关闭使用最佳品质并应用计划材料",
-	OPTION_OPENING_HINT = "仅影响从 Crafting Orders++ 赞助列表中打开的赞助订单。",
+	OPTION_OPENING_HINT = "仅影响从 YayaCraftingOrders 赞助列表中打开的赞助订单。",
 	OPTION_DONT_BUY_PER_CHARACTER = "按角色保存不要购买列表",
 	OPTION_DONT_BUY_HINT = "关闭时，不要购买列表会在所有角色之间共享。",
 	OPTION_FOOTER_HINT = "购物清单导出遵循所选价格插件。Auctionator 会创建购物清单，而 Auctioneer 会在可用时导出到 Snatch。",

@@ -6,7 +6,9 @@ local BETWEEN_QUERIES = 0.1
 local BETWEEN_CYCLES = 0.05
 local FAST_BATCH_SIZE = 100
 local ALERT_REPEAT_AFTER = 30
+local PURCHASE_REFRESH_MAX_AGE = 10
 local PURCHASE_READY_DELAY = 0.15
+local DIAGNOSTIC_LOG_LIMIT = 1200
 local PRICE_SORT = {
 	 sortOrder = Enum.AuctionHouseSortOrder.Price,
 	 reverseSort = false,
@@ -37,11 +39,16 @@ local state = {
 	resultRows = {},
 	resultsContent = nil,
 	inventoryRefreshPending = false,
+	diagnosticSnapshot = {},
+	diagnosticSnapshotTimer = nil,
+	diagnosticSnapshotReasons = {},
+	itemLoadRequests = {},
 	scanStats = { items = 0, goldSpent = 0 },
 	seenAlerts = {},
 	suppressedResults = {},
 	purchase = nil,
 	resumeAfterPurchase = false,
+	sortResults = true,
 }
 
 local UpdateView
@@ -57,6 +64,7 @@ local StartScan
 local EnsureUI
 local ResumeScanAfterPurchase
 local StartPendingPurchase
+local BeginPurchaseRefresh
 
 local function GetDB()
 	if type(YayaReagentSniperDB) ~= "table" then
@@ -66,10 +74,35 @@ local function GetDB()
 	db.group = type(db.group) == "string" and db.group or ""
 	db.sound = db.sound ~= false
 	db.debug = db.debug == true
+	db.diagnostics = db.diagnostics ~= false
+	db.diagnosticLog = type(db.diagnosticLog) == "table" and db.diagnosticLog or {}
 	db.inTransit = type(db.inTransit) == "table" and db.inTransit or {}
 	db.maxGoldPerScan = math.max(0, math.floor(tonumber(db.maxGoldPerScan) or 0))
 	return db
 end
+
+local function DiagnosticLog(category, message, ...)
+	local db = state.db or GetDB()
+	if not db.diagnostics then
+		return
+	end
+	local ok, text = pcall(format, tostring(message or ""), ...)
+	if not ok then
+		text = tostring(message or "") .. " | logger=" .. tostring(text)
+	end
+	local stamp = date and date("%Y-%m-%d %H:%M:%S") or "unknown-time"
+	local line = format("%s [%.3f] %s %s", stamp, GetTime and GetTime() or 0, tostring(category or "INFO"), text)
+	local log = db.diagnosticLog
+	log[#log + 1] = line
+	while #log > DIAGNOSTIC_LOG_LIMIT do
+		table.remove(log, 1)
+	end
+	if db.debug and print then
+		print("|cff33ff99YRS DIAG|r " .. line)
+	end
+end
+
+_G.YayaReagentSniperTrace = DiagnosticLog
 
 local function SetStatus(text)
 	if state.frame and state.frame.status then
@@ -78,14 +111,7 @@ local function SetStatus(text)
 end
 
 local function BuyDebug(message, ...)
-	if not state.db or not state.db.debug then
-		return
-	end
-	local ok, text = pcall(format, message, ...)
-	if not ok then
-		text = message .. " | erreur du logger: " .. tostring(text)
-	end
-	print(format("|cff33ff99YRS achat|r [%.3f] %s", GetTime(), text))
+	DiagnosticLog("BUY", message, ...)
 end
 
 local function SetScanStatus()
@@ -110,6 +136,82 @@ end
 
 local function IsAHVisible()
 	return AuctionHouseFrame and AuctionHouseFrame:IsShown()
+		and state.frame and state.frame:IsShown()
+end
+
+local function CaptureBagDiagnostics(reason)
+	if not state.db or not state.db.diagnostics or not C_Container then
+		return
+	end
+	local previous = state.diagnosticSnapshot or {}
+	local current = {}
+	local slotCount = 0
+	local changeCount = 0
+	for bag = 0, 4 do
+		local numSlots = C_Container.GetContainerNumSlots and C_Container.GetContainerNumSlots(bag) or 0
+		for slot = 1, numSlots do
+			local key = tostring(bag) .. ":" .. tostring(slot)
+			local info = C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bag, slot) or nil
+			local itemID = info and info.itemID or (C_Container.GetContainerItemID and C_Container.GetContainerItemID(bag, slot))
+			local link = info and info.hyperlink or (C_Container.GetContainerItemLink and C_Container.GetContainerItemLink(bag, slot))
+			local entry = itemID and {
+				itemID = itemID,
+				link = link,
+				quality = info and info.quality or nil,
+				count = info and info.stackCount or nil,
+				locked = info and info.isLocked or false,
+			} or nil
+			if entry then
+				current[key] = entry
+				slotCount = slotCount + 1
+			end
+			local old = previous[key]
+			if old and entry and old.itemID == entry.itemID then
+				if old.link and not entry.link then
+					changeCount = changeCount + 1
+					DiagnosticLog("BAG_LINK_LOST", "reason=%s slot=%s item=%s count=%s quality=%s locked=%s", reason, key, tostring(entry.itemID), tostring(entry.count), tostring(entry.quality), tostring(entry.locked))
+				elseif not old.link and entry.link then
+					changeCount = changeCount + 1
+					DiagnosticLog("BAG_LINK_RESTORED", "reason=%s slot=%s item=%s count=%s quality=%s", reason, key, tostring(entry.itemID), tostring(entry.count), tostring(entry.quality))
+				elseif old.quality ~= entry.quality then
+					changeCount = changeCount + 1
+					DiagnosticLog("BAG_QUALITY", "reason=%s slot=%s item=%s old=%s new=%s link=%s", reason, key, tostring(entry.itemID), tostring(old.quality), tostring(entry.quality), tostring(entry.link ~= nil))
+				elseif old.count ~= entry.count or old.locked ~= entry.locked then
+					changeCount = changeCount + 1
+					DiagnosticLog("BAG_STATE", "reason=%s slot=%s item=%s count=%s->%s locked=%s->%s", reason, key, tostring(entry.itemID), tostring(old.count), tostring(entry.count), tostring(old.locked), tostring(entry.locked))
+				end
+			elseif old or entry then
+				changeCount = changeCount + 1
+				DiagnosticLog("BAG_SLOT", "reason=%s slot=%s item=%s->%s link=%s->%s", reason, key, tostring(old and old.itemID), tostring(entry and entry.itemID), tostring(old and old.link ~= nil), tostring(entry and entry.link ~= nil))
+			end
+		end
+	end
+	state.diagnosticSnapshot = current
+	if not next(previous) then
+		DiagnosticLog("BAG_BASELINE", "reason=%s occupied=%d", reason, slotCount)
+	elseif changeCount > 0 then
+		DiagnosticLog("BAG_SUMMARY", "reason=%s changes=%d occupied=%d", reason, changeCount, slotCount)
+	end
+end
+
+local function QueueBagDiagnostics(reason, delay)
+	if not state.db or not state.db.diagnostics or not (AuctionHouseFrame and AuctionHouseFrame:IsShown()) then
+		return
+	end
+	state.diagnosticSnapshotReasons[tostring(reason or "event")] = true
+	if state.diagnosticSnapshotTimer then
+		return
+	end
+	state.diagnosticSnapshotTimer = C_Timer.NewTimer(delay or 0, function()
+		state.diagnosticSnapshotTimer = nil
+		local reasons = {}
+		for queuedReason in pairs(state.diagnosticSnapshotReasons) do
+			reasons[#reasons + 1] = queuedReason
+		end
+		wipe(state.diagnosticSnapshotReasons)
+		table.sort(reasons)
+		CaptureBagDiagnostics(table.concat(reasons, "+"))
+	end)
 end
 
 local function GetItemID(itemString)
@@ -155,7 +257,10 @@ local function RequestItemInfo(item)
 	end
 	item.infoRequested = true
 	local itemObject = Item:CreateFromItemID(item.itemID)
+	state.itemLoadRequests[item.itemID] = (state.itemLoadRequests[item.itemID] or 0) + 1
+	DiagnosticLog("ITEM_LOAD_REQUEST", "item=%s requests=%d frameShown=%s scan=%s", tostring(item.itemID), state.itemLoadRequests[item.itemID], tostring(IsAHVisible()), tostring(state.scanning))
 	itemObject:ContinueOnItemLoad(function()
+		DiagnosticLog("ITEM_LOAD_CALLBACK", "item=%s cached=%s", tostring(item.itemID), tostring(itemObject:IsItemDataCached()))
 		local name = itemObject:GetItemName()
 		local icon = GetItemTexture(item.itemID)
 		local quality, qualityAtlas = GetItemQuality(item.itemID, item.itemString)
@@ -330,7 +435,8 @@ RefreshGroupList = function()
 				local fontString = self:GetFontString()
 				if fontString and fontString.IsTruncated and fontString:IsTruncated() then
 					GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-					GameTooltip:SetText(self.fullLabel or "", 1, 1, 1, true)
+					GameTooltip:ClearLines()
+					GameTooltip:AddLine(self.fullLabel or "", 1, 1, 1, true)
 					GameTooltip:Show()
 				end
 			end)
@@ -572,17 +678,13 @@ RefreshOperationLimits = function()
 			elseif valid then
 				local item = currentByID[itemID]
 				if not item then
-					local quality, qualityAtlas = GetItemQuality(itemID, itemString)
 					item = {
 						itemID = itemID,
 						itemString = itemString,
 						name = GetItemName(itemID),
 						icon = GetItemTexture(itemID),
-						quality = quality,
-						qualityAtlas = qualityAtlas,
 						commodity = true,
 					}
-					RequestItemInfo(item)
 				end
 				item.shoppingValid = true
 				item.maxPrice = maxPrice
@@ -624,6 +726,27 @@ local function SetIdleNeedsStatus()
 	end
 end
 
+local function MarkResultStale(result, reason)
+	if not result then
+		return
+	end
+	result.lifecycleState = "stale"
+	result.lifecycleReason = reason or "Résultat non confirmé par le dernier scan."
+	result.purchaseVerifiedAt = nil
+	result.staleSince = result.staleSince or GetTime()
+end
+
+local function MarkResultFresh(result)
+	if not result then
+		return
+	end
+	result.lifecycleState = "fresh"
+	result.lifecycleReason = nil
+	result.staleSince = nil
+	result.lastSeenAt = GetTime()
+	result.purchaseVerifiedAt = nil
+end
+
 local function ClearResults()
 	wipe(state.results)
 	wipe(state.resultMap)
@@ -632,15 +755,24 @@ local function ClearResults()
 	end
 end
 
-local function PruneResults()
+local function PruneResults(removeUnseen)
 	local changed = false
 	for index = #state.results, 1, -1 do
 		local result = state.results[index]
-		if not result.item or result.item.shoppingValid == false or result.unitPrice > result.item.maxPrice then
+		if not result.item then
 			table.remove(state.results, index)
 			state.resultMap[result.rowKey] = nil
 			changed = true
 		else
+			local invalid = result.item.shoppingValid == false or result.unitPrice > result.item.maxPrice
+			local unseen = removeUnseen and result.lastSeenCycle ~= state.cycle
+			if invalid then
+				MarkResultStale(result, "La cible ou son prix n’a pas été confirmé par le scan.")
+				changed = true
+			elseif unseen then
+				MarkResultStale(result, "Aucun nouveau résultat confirmé pour ce cycle.")
+				changed = true
+			end
 			changed = changed or result.maxPrice ~= result.item.maxPrice or result.maxQuantity ~= result.item.maxQuantity
 			result.maxPrice = result.item.maxPrice
 			result.maxQuantity = result.item.maxQuantity
@@ -664,12 +796,17 @@ local function ReconcileTransitPurchases()
 end
 
 local function QueueInventoryRefresh()
-	if state.inventoryRefreshPending then
+	if state.inventoryRefreshPending or not IsAHVisible() then
 		return
 	end
 	state.inventoryRefreshPending = true
 	C_Timer.After(0.2, function()
 		state.inventoryRefreshPending = false
+		if not IsAHVisible() then
+			DiagnosticLog("DORMANT", "inventory refresh cancelled because sniper tab is hidden")
+			return
+		end
+		DiagnosticLog("INVENTORY_REFRESH", "begin scan=%s purchase=%s items=%d", tostring(state.scanning), tostring(state.purchase ~= nil), #state.items)
 		ReconcileTransitPurchases()
 		RefreshOperationLimits()
 		PruneResults()
@@ -745,6 +882,14 @@ local function GetPurchaseCost(result)
 	return math.floor(unitPrice * quantity + 0.5)
 end
 
+local function IsPurchaseFresh(result)
+	local verifiedAt = result and tonumber(result.purchaseVerifiedAt)
+	return result
+		and result.lifecycleState ~= "stale"
+		and verifiedAt
+		and GetTime() - verifiedAt <= PURCHASE_REFRESH_MAX_AGE
+end
+
 local function FormatDealPercent(unitPrice, maxPrice)
 	if not unitPrice or not maxPrice or maxPrice <= 0 then
 		return "?%"
@@ -774,6 +919,7 @@ local function AddResult(result)
 	if not IsDeal(result.item, result.unitPrice) then
 		return
 	end
+	RequestItemInfo(result.item)
 	result.lastSeenCycle = state.cycle
 	result.rowKey = result.kind .. ":" .. result.itemID
 	if (state.suppressedResults[result.rowKey] or 0) >= state.cycle then
@@ -792,9 +938,11 @@ local function AddResult(result)
 		previous.maxQuantity = result.maxQuantity
 		previous.maxPrice = result.maxPrice
 		previous.alertKey = result.alertKey
+		MarkResultFresh(previous)
 		AlertResult(previous)
 		return
 	end
+	MarkResultFresh(result)
 	state.resultMap[result.rowKey] = result
 	state.results[#state.results + 1] = result
 	while #state.results > 60 do
@@ -829,7 +977,6 @@ end
 
 local function ProcessCommodityResults(item)
 	local count = C_AuctionHouse.GetNumCommoditySearchResults(item.itemID)
-	local found = false
 	for index = 1, count do
 		local info = C_AuctionHouse.GetCommoditySearchResultInfo(item.itemID, index)
 		if info and info.unitPrice and info.quantity and info.quantity > 0 then
@@ -847,25 +994,28 @@ local function ProcessCommodityResults(item)
 					maxPrice = item.maxPrice,
 					alertKey = "commodity:" .. item.itemID .. ":" .. info.unitPrice,
 				})
-				found = true
 			end
 			break
 		end
 	end
-	if not found then
-		RemoveResult(state.resultMap["commodity:" .. item.itemID], true)
-	end
 end
 
 local function ProcessFastBrowseResults(active, addedResults)
-	local browseResults = addedResults or (C_AuctionHouse.GetBrowseResults and C_AuctionHouse.GetBrowseResults()) or {}
-	local foundItems = {}
+	local browseResults = {}
+	local currentResults = C_AuctionHouse.GetBrowseResults and C_AuctionHouse.GetBrowseResults() or {}
+	for _, info in ipairs(currentResults) do
+		browseResults[#browseResults + 1] = info
+	end
+	if addedResults then
+		for _, info in ipairs(addedResults) do
+			browseResults[#browseResults + 1] = info
+		end
+	end
 	for _, info in ipairs(browseResults) do
 		local itemKey = info and info.itemKey
 		local item = itemKey and active.itemsByID[itemKey.itemID]
 		local available = info and info.totalQuantity
 		if item and item.commodity and info.minPrice and info.minPrice > 0 and available and available > 0 and IsDeal(item, info.minPrice) then
-			foundItems[item.itemID] = true
 			local quantity = item.maxQuantity and math.min(item.maxQuantity, available) or available
 			AddResult({
 				item = item,
@@ -879,11 +1029,6 @@ local function ProcessFastBrowseResults(active, addedResults)
 				maxPrice = item.maxPrice,
 				alertKey = "commodity:" .. item.itemID .. ":" .. info.minPrice,
 			})
-		end
-	end
-	for _, item in ipairs(active.items) do
-		if not foundItems[item.itemID] then
-			RemoveResult(state.resultMap["commodity:" .. item.itemID], true)
 		end
 	end
 end
@@ -941,7 +1086,9 @@ ProcessNext = function()
 	end
 	if state.queueIndex >= #state.queue then
 		RefreshOperationLimits()
-		PruneResults()
+		state.sortResults = true
+		PruneResults(true)
+		UpdateView()
 		state.cycle = state.cycle + 1
 		for rowKey, untilCycle in pairs(state.suppressedResults) do
 			if untilCycle < state.cycle then
@@ -991,6 +1138,7 @@ ProcessNext = function()
 		Schedule("timeoutTimer", QUERY_TIMEOUT, function()
 			FinishFastSearch(state.active, true)
 		end)
+		DiagnosticLog("AH_QUERY", "kind=batch count=%d cycle=%d", #itemKeys, state.cycle)
 		C_AuctionHouse.SearchForItemKeys(itemKeys, {})
 		return
 	end
@@ -1006,10 +1154,14 @@ ProcessNext = function()
 	Schedule("timeoutTimer", QUERY_TIMEOUT, function()
 		FinishActiveSearch(item, true)
 	end)
+	DiagnosticLog("AH_QUERY", "kind=item item=%s cycle=%d", tostring(item.itemID), state.cycle)
 	C_AuctionHouse.SendSearchQuery(itemKey, PRICE_SORT, not item.commodity)
 end
 
 StopScan = function()
+	if state.scanning or state.active then
+		DiagnosticLog("SCAN_STOP", "cycle=%d queue=%d/%d active=%s frameShown=%s", state.cycle, state.queueIndex, #state.queue, tostring(state.active ~= nil), tostring(IsAHVisible()))
+	end
 	state.scanning = false
 	state.fastMode = false
 	state.active = nil
@@ -1025,6 +1177,13 @@ StopScan = function()
 end
 
 StartScan = function()
+	if state.purchase then
+		SetStatus("Attends la fin de l’achat avant de relancer le scan.")
+		return
+	end
+	if YayaReagentSniperReset and YayaReagentSniperReset.StopScan then
+		YayaReagentSniperReset:StopScan("Scan Reset arrêté par le Sniper.")
+	end
 	if state.scanning then
 		StopScan()
 		SetStatus("Scan arrêté.")
@@ -1042,7 +1201,10 @@ StartScan = function()
 	end
 	state.scanStats.items = 0
 	state.scanStats.goldSpent = 0
-	ClearResults()
+	for _, result in ipairs(state.results) do
+		MarkResultStale(result, "Nouveau scan en cours : prix à revalider.")
+	end
+	state.sortResults = true
 	wipe(state.suppressedResults)
 	wipe(state.queue)
 	state.resumeAfterPurchase = false
@@ -1050,9 +1212,10 @@ StartScan = function()
 		state.queue[#state.queue + 1] = item
 	end
 	state.queueIndex = 0
-	state.cycle = 1
+	state.cycle = math.max(1, state.cycle + 1)
 	state.fastMode = type(C_AuctionHouse.SearchForItemKeys) == "function" and type(C_AuctionHouse.MakeItemKey) == "function"
 	state.scanning = true
+	DiagnosticLog("SCAN_START", "items=%d fast=%s", #state.queue, tostring(state.fastMode))
 	if state.frame and state.frame.scanButton then
 		state.frame.scanButton:SetText("Arrêter le scan")
 	end
@@ -1061,15 +1224,18 @@ StartScan = function()
 end
 
 local function PauseScanForPurchase()
-	if not state.scanning then
+	local shouldResume = state.scanning or state.active or state.resumeAfterPurchase
+	if not shouldResume then
 		return
 	end
 	state.resumeAfterPurchase = true
 	state.scanning = false
-	CancelTimer("nextTimer")
-	if not state.active then
-		CancelTimer("timeoutTimer")
+	if state.active then
+		BuyDebug("pause du scan : requête active ignorée avant le refresh ciblé")
+		state.active = nil
 	end
+	CancelTimer("nextTimer")
+	CancelTimer("timeoutTimer")
 	if state.frame and state.frame.scanButton then
 		state.frame.scanButton:SetText("Reprendre le scan")
 	end
@@ -1158,7 +1324,7 @@ end
 
 StartPendingPurchase = function()
 	local purchase = state.purchase
-	if not purchase or purchase.started or purchase.confirming or purchase.refreshing then
+	if not purchase or purchase.started or purchase.confirming then
 		return
 	end
 	if state.active then
@@ -1166,76 +1332,78 @@ StartPendingPurchase = function()
 		SetStatus("Achat en attente de la requête de scan en cours…")
 		return
 	end
-
-	local throttleReady = true
-	if C_AuctionHouse.IsThrottledMessageSystemReady then
-		local throttleOk, ready = pcall(C_AuctionHouse.IsThrottledMessageSystemReady)
-		throttleReady = not throttleOk or ready == true
-		BuyDebug("throttle pcall=%s prêt=%s", tostring(throttleOk), tostring(ready))
-	end
-	if not throttleReady then
-		purchase.readySince = nil
-		if GetTime() - purchase.waitingSince >= QUERY_TIMEOUT then
-			BuyDebug("ABANDON : throttle indisponible après %.1f s", GetTime() - purchase.waitingSince)
-			CancelPurchase(true)
-			SetStatus("Achat annulé : hôtel des ventes encore occupé.")
-			return
-		end
-		SetStatus("Achat en attente de l’hôtel des ventes…")
-		Schedule("timeoutTimer", 0.05, StartPendingPurchase)
+	purchase.started = true
+	BuyDebug("phase START direct item=%s quantité=%s", tostring(purchase.itemID), tostring(purchase.quantity))
+	local startOk, startResult = pcall(C_AuctionHouse.StartCommoditiesPurchase, purchase.itemID, purchase.quantity)
+	BuyDebug("StartCommoditiesPurchase pcall=%s retour=%s", tostring(startOk), tostring(startResult))
+	if not startOk then
+		purchase.started = false
+		CancelPurchase(true)
+		SetStatus("Impossible de lancer l’achat après vérification.")
 		return
 	end
-	local readyFor = purchase.readySince and (GetTime() - purchase.readySince) or 0
-	if readyFor < PURCHASE_READY_DELAY then
-		purchase.readySince = purchase.readySince or GetTime()
-		local remaining = PURCHASE_READY_DELAY - readyFor
-		BuyDebug("throttle prêt : stabilisation pendant encore %.3f s", remaining)
-		SetStatus("Achat prêt — synchronisation avec l’hôtel des ventes…")
-		Schedule("timeoutTimer", remaining, StartPendingPurchase)
+	Schedule("timeoutTimer", QUERY_TIMEOUT, function()
+		if state.purchase and state.purchase.started and not state.purchase.confirming then
+			BuyDebug("TIMEOUT : aucun COMMODITY_PRICE_UPDATED reçu")
+			CancelPurchase(true)
+			SetStatus("Achat sans réponse de l’hôtel des ventes.")
+		end
+	end)
+	UpdateView()
+	SetStatus("Vérification automatique du prix : " .. purchase.name)
+end
+
+BeginPurchaseRefresh = function(result)
+	if not result or state.purchase then
 		return
 	end
-
-	if not purchase.refreshed then
-		if not C_AuctionHouse.SendSearchQuery or not C_AuctionHouse.MakeItemKey then
-			CancelPurchase(true)
-			SetStatus("Impossible de vérifier cette enchère.")
-			return
-		end
-		local itemKey = C_AuctionHouse.MakeItemKey(purchase.itemID)
-		if not itemKey then
-			CancelPurchase(true)
-			SetStatus("Impossible de vérifier cette enchère.")
-			return
-		end
-		purchase.refreshing = true
-		BuyDebug("recherche ciblée avant achat item=%s", tostring(purchase.itemID))
-		local searchOk, searchResult = pcall(C_AuctionHouse.SendSearchQuery, itemKey, { PRICE_SORT }, false)
-		BuyDebug("SendSearchQuery achat pcall=%s retour=%s", tostring(searchOk), tostring(searchResult))
-		if not searchOk then
-			purchase.refreshing = false
-			CancelPurchase(true)
-			SetStatus("Impossible de vérifier cette enchère.")
-			return
-		end
-		Schedule("timeoutTimer", QUERY_TIMEOUT, function()
-			if state.purchase and state.purchase.refreshing then
-				local result = state.purchase.result
-				BuyDebug("TIMEOUT : aucune réponse à la recherche ciblée, ligne retirée")
-				if result then
-					state.suppressedResults[result.rowKey] = state.cycle
-					RemoveResult(result, true)
-				end
-				CancelPurchase(true)
-				SetStatus("Enchère sans réponse : ligne retirée.")
-			end
-		end)
-		SetStatus("Actualisation de l’enchère avant achat…")
+	if type(C_AuctionHouse.MakeItemKey) ~= "function" or type(C_AuctionHouse.SendSearchQuery) ~= "function" then
+		MarkResultStale(result, "L’API de refresh AH est indisponible.")
+		UpdateView()
+		SetStatus("Refresh AH indisponible : aucun achat lancé.")
+		return
+	end
+	if C_AuctionHouse.IsThrottledMessageSystemReady and not C_AuctionHouse.IsThrottledMessageSystemReady() then
+		SetStatus("Hôtel des ventes occupé : réessaie dans un instant.")
+		return
+	end
+	local itemKey = C_AuctionHouse.MakeItemKey(result.itemID)
+	if not itemKey then
+		MarkResultStale(result, "Référence AH indisponible : refresh requis.")
+		UpdateView()
+		SetStatus("Référence AH indisponible : aucun achat lancé.")
 		return
 	end
 
-	BuyDebug("ABANDON : tentative de lancement différé interdite par Blizzard")
-	CancelPurchase(true)
-	SetStatus("L’achat doit être déclenché directement par un clic.")
+	PauseScanForPurchase()
+	state.purchase = {
+		kind = "commodity",
+		itemID = result.itemID,
+		name = result.name,
+		quantity = math.max(1, math.floor(tonumber(result.quantity) or 1)),
+		requestedQuantity = math.max(1, math.floor(tonumber(result.quantity) or 1)),
+		result = result,
+		started = false,
+		refreshed = false,
+		refreshing = true,
+		confirming = false,
+		waitingSince = GetTime(),
+	}
+	local ok = pcall(C_AuctionHouse.SendSearchQuery, itemKey, PRICE_SORT, false)
+	if not ok then
+		CancelPurchase(true)
+		SetStatus("Refresh AH impossible : aucun achat lancé.")
+		return
+	end
+	Schedule("timeoutTimer", QUERY_TIMEOUT, function()
+		if state.purchase and state.purchase.refreshing then
+			MarkResultStale(state.purchase.result, "Le refresh AH n’a pas répondu.")
+			CancelPurchase(true)
+			SetStatus("Refresh AH sans réponse : aucun achat lancé.")
+		end
+	end)
+	UpdateView()
+	SetStatus("Actualisation AH : " .. result.name)
 end
 
 local function FinishPurchaseSearch(itemID)
@@ -1271,14 +1439,15 @@ local function FinishPurchaseSearch(itemID)
 	end
 	if not result or acceptableQuantity <= 0 or not minimumPrice then
 		if result then
-			state.suppressedResults[result.rowKey] = state.cycle
-			RemoveResult(result, true)
+			MarkResultStale(result, lowestPrice and lowestPrice > maxPrice
+				and "Prix au-dessus du maximum TSM après refresh."
+				or "Aucune offre disponible après refresh.")
 		end
 		CancelPurchase(true)
 		if lowestPrice and lowestPrice > maxPrice then
 			SetStatus("Prix remonté au-dessus du max TSM.")
 		else
-			SetStatus("Enchère indisponible : ligne retirée.")
+			SetStatus("Enchère indisponible : ligne conservée en périmé.")
 		end
 		return true
 	end
@@ -1292,6 +1461,11 @@ local function FinishPurchaseSearch(itemID)
 	result.quantity = purchase.quantity
 	result.available = acceptableQuantity
 	result.totalPrice = estimatedTotal
+	result.lifecycleState = "fresh"
+	result.lifecycleReason = nil
+	result.staleSince = nil
+	result.purchaseVerifiedAt = GetTime()
+	result.budgetRejected = nil
 	local availableMoney = type(GetMoney) == "function" and tonumber(GetMoney()) or nil
 	if estimatedTotal > 0 and availableMoney and estimatedTotal > availableMoney then
 		BuyDebug("ABANDON : coût détaillé supérieur à l’or requis=%s disponible=%s", tostring(estimatedTotal), tostring(availableMoney))
@@ -1304,15 +1478,15 @@ local function FinishPurchaseSearch(itemID)
 		BuyDebug("ABANDON : budget du scan dépassé coût=%s limite=%s", tostring(estimatedTotal), tostring(budgetLimit))
 		if purchase.result then
 			purchase.result.budgetRejected = true
-			state.suppressedResults[purchase.result.rowKey] = state.cycle + 1
-			RemoveResult(purchase.result)
+			MarkResultStale(purchase.result, "Le coût confirmé dépasse le budget du scan.")
 		end
 		CancelPurchase(true)
 		return true
 	end
-	BuyDebug("recherche ciblée validée quantité=%d total=%s", purchase.quantity, tostring(estimatedTotal))
+	BuyDebug("refresh ciblé validé quantité=%d total=%s", purchase.quantity, tostring(estimatedTotal))
+	state.purchase = nil
 	UpdateView()
-	Schedule("timeoutTimer", 0, StartPendingPurchase)
+	SetStatus("Auction actualisée : clique « Acheter » pour confirmer.")
 	return true
 end
 
@@ -1333,6 +1507,11 @@ local function BuyResult(result)
 		SetStatus("Achat déjà en cours…")
 		return
 	end
+	if result.kind == "commodity" and not IsPurchaseFresh(result) then
+		BuyDebug("phase REFRESH avant achat item=%s", tostring(result.itemID))
+		BeginPurchaseRefresh(result)
+		return
+	end
 	local purchaseCost = GetPurchaseCost(result)
 	local availableMoney = type(GetMoney) == "function" and tonumber(GetMoney()) or nil
 	if purchaseCost > 0 and availableMoney and purchaseCost > availableMoney then
@@ -1350,6 +1529,7 @@ local function BuyResult(result)
 	if result.kind == "item" then
 		BuyDebug("branche enchère classique auctionID=%s total=%s", tostring(result.auctionID), tostring(result.totalPrice))
 		if result.auctionID and C_AuctionHouse.PlaceBid then
+			PauseScanForPurchase()
 			C_AuctionHouse.PlaceBid(result.auctionID, result.totalPrice)
 			SetStatus("Achat envoyé : " .. result.name)
 		end
@@ -1369,7 +1549,7 @@ local function BuyResult(result)
 		quantity = quantity,
 		totalPrice = result.unitPrice * quantity,
 		result = result,
-		started = true,
+		started = false,
 		refreshed = false,
 		refreshing = false,
 		confirming = false,
@@ -1379,23 +1559,14 @@ local function BuyResult(result)
 		readySince = nil,
 	}
 	BuyDebug(
-		"phase START depuis OnClick item=%s quantité=%s prixUnitaire=%s maxTSM=%s",
+		"phase ATTENTE depuis OnClick item=%s quantité=%s prixUnitaire=%s maxTSM=%s",
 		tostring(result.itemID),
 		tostring(quantity),
 		tostring(result.unitPrice),
 		tostring(result.maxPrice)
 	)
-	C_AuctionHouse.StartCommoditiesPurchase(result.itemID, quantity)
-	BuyDebug("StartCommoditiesPurchase envoyé depuis le clic utilisateur")
-	Schedule("timeoutTimer", QUERY_TIMEOUT, function()
-		if state.purchase and state.purchase.started and not state.purchase.confirming then
-			BuyDebug("TIMEOUT : aucun COMMODITY_PRICE_UPDATED reçu")
-			CancelPurchase(true)
-			SetStatus("Achat sans réponse de l’hôtel des ventes.")
-		end
-	end)
 	UpdateView()
-	SetStatus("Vérification automatique du prix : " .. result.name)
+	StartPendingPurchase()
 end
 
 local function HandleAuctionEvent(_, event, value, unitPrice, totalPrice)
@@ -1449,10 +1620,14 @@ local function HandleAuctionEvent(_, event, value, unitPrice, totalPrice)
 	elseif (event == "AUCTION_HOUSE_BROWSE_RESULTS_UPDATED" or event == "AUCTION_HOUSE_BROWSE_RESULTS_ADDED") and state.active and state.active.fast then
 		FinishFastSearch(state.active, false, event == "AUCTION_HOUSE_BROWSE_RESULTS_ADDED" and value or nil)
 	end
-	if event == "COMMODITY_SEARCH_RESULTS_UPDATED" and state.purchase and state.purchase.refreshing and value == state.purchase.itemID then
+	if (event == "COMMODITY_SEARCH_RESULTS_UPDATED" or event == "COMMODITY_SEARCH_RESULTS_ADDED")
+		and state.purchase and state.purchase.refreshing and value == state.purchase.itemID
+	then
 		FinishPurchaseSearch(value)
 		return
-	elseif event == "COMMODITY_SEARCH_RESULTS_UPDATED" and active and active.commodity and value == active.itemID then
+	elseif (event == "COMMODITY_SEARCH_RESULTS_UPDATED" or event == "COMMODITY_SEARCH_RESULTS_ADDED")
+		and active and active.commodity and value == active.itemID
+	then
 		FinishActiveSearch(active, false)
 	elseif event == "ITEM_SEARCH_RESULTS_UPDATED" and active and not active.commodity and value and value.itemID == active.itemID then
 		FinishActiveSearch(active, false)
@@ -1477,8 +1652,7 @@ local function HandleAuctionEvent(_, event, value, unitPrice, totalPrice)
 		if currentUnitPrice and state.purchase.result and currentUnitPrice > state.purchase.result.maxPrice then
 			BuyDebug("ABANDON : prix %s supérieur au max TSM %s", tostring(currentUnitPrice), tostring(state.purchase.result.maxPrice))
 			local result = state.purchase.result
-			state.suppressedResults[result.rowKey] = state.cycle + 1
-			RemoveResult(result)
+			MarkResultStale(result, "Le prix confirmé dépasse le maximum TSM.")
 			CancelPurchase(true)
 			SetStatus("Prix remonté au-dessus du max TSM.")
 			return
@@ -1487,6 +1661,7 @@ local function HandleAuctionEvent(_, event, value, unitPrice, totalPrice)
 		local confirmedCost = currentTotalPrice or state.purchase.totalPrice or 0
 		if confirmedCost > 0 and availableMoney and confirmedCost > availableMoney then
 			BuyDebug("ABANDON : total Blizzard supérieur à l’or requis=%s disponible=%s", tostring(confirmedCost), tostring(availableMoney))
+			MarkResultStale(state.purchase.result, "Or insuffisant au moment de la confirmation.")
 			CancelPurchase(true)
 			SetStatus("Or insuffisant : " .. FormatPrice(confirmedCost) .. " requis, " .. FormatPrice(availableMoney) .. " disponible.")
 			return
@@ -1496,8 +1671,7 @@ local function HandleAuctionEvent(_, event, value, unitPrice, totalPrice)
 			BuyDebug("ABANDON : budget du scan dépassé coût=%s limite=%s", tostring(confirmedCost), tostring(budgetLimit))
 			if state.purchase.result then
 				state.purchase.result.budgetRejected = true
-				state.suppressedResults[state.purchase.result.rowKey] = state.cycle + 1
-				RemoveResult(state.purchase.result)
+				MarkResultStale(state.purchase.result, "Le coût confirmé dépasse le budget du scan.")
 			end
 			CancelPurchase(true)
 			return
@@ -1505,8 +1679,7 @@ local function HandleAuctionEvent(_, event, value, unitPrice, totalPrice)
 		if not currentUnitPrice or not C_AuctionHouse.ConfirmCommoditiesPurchase then
 			BuyDebug("ABANDON : prix ou API ConfirmCommoditiesPurchase indisponible")
 			if state.purchase.result then
-				state.suppressedResults[state.purchase.result.rowKey] = state.cycle
-				RemoveResult(state.purchase.result, true)
+				MarkResultStale(state.purchase.result, "Prix indisponible avant la confirmation.")
 			end
 			CancelPurchase(true)
 			SetStatus("Achat automatique impossible : prix indisponible.")
@@ -1534,8 +1707,7 @@ local function HandleAuctionEvent(_, event, value, unitPrice, totalPrice)
 	elseif event == "COMMODITY_PRICE_UNAVAILABLE" and state.purchase then
 		BuyDebug("ÉCHEC : prix devenu indisponible")
 		if state.purchase.result then
-			state.suppressedResults[state.purchase.result.rowKey] = state.cycle
-			RemoveResult(state.purchase.result, true)
+			MarkResultStale(state.purchase.result, "Prix indisponible : une nouvelle lecture est requise.")
 		end
 		CancelPurchase(true)
 		SetStatus("Prix indisponible : enchère déjà partie ?")
@@ -1548,8 +1720,7 @@ local function HandleAuctionEvent(_, event, value, unitPrice, totalPrice)
 	elseif event == "COMMODITY_PURCHASE_FAILED" and state.purchase then
 		BuyDebug("ÉCHEC : achat refusé par Blizzard")
 		if state.purchase.result then
-			state.suppressedResults[state.purchase.result.rowKey] = state.cycle
-			RemoveResult(state.purchase.result, true)
+			MarkResultStale(state.purchase.result, "Achat refusé : une nouvelle lecture est requise.")
 		end
 		CancelPurchase(true)
 		SetStatus("Achat refusé ou enchère déjà partie.")
@@ -1559,6 +1730,9 @@ end
 local function IsResultBlocked(result)
 	if not result then
 		return true
+	end
+	if result.lifecycleState == "stale" then
+		return false
 	end
 	local purchaseCost = GetPurchaseCost(result)
 	local availableMoney = type(GetMoney) == "function" and tonumber(GetMoney()) or nil
@@ -1573,26 +1747,29 @@ local function RefreshRows()
 	if not state.frame then
 		return
 	end
-	table.sort(state.results, function(left, right)
-		local leftBlocked = IsResultBlocked(left)
-		local rightBlocked = IsResultBlocked(right)
-		if leftBlocked ~= rightBlocked then
-			return not leftBlocked
-		end
-		local leftMaxPrice = tonumber(left.maxPrice) or 0
-		local rightMaxPrice = tonumber(right.maxPrice) or 0
-		local leftPercent = leftMaxPrice > 0 and (tonumber(left.unitPrice) or math.huge) / leftMaxPrice or math.huge
-		local rightPercent = rightMaxPrice > 0 and (tonumber(right.unitPrice) or math.huge) / rightMaxPrice or math.huge
-		if leftPercent ~= rightPercent then
-			return leftPercent < rightPercent
-		end
-		local leftItemID = tonumber(left.itemID) or math.huge
-		local rightItemID = tonumber(right.itemID) or math.huge
-		if leftItemID ~= rightItemID then
-			return leftItemID < rightItemID
-		end
-		return tostring(left.rowKey or "") < tostring(right.rowKey or "")
-	end)
+	if state.sortResults then
+		table.sort(state.results, function(left, right)
+			local leftBlocked = IsResultBlocked(left)
+			local rightBlocked = IsResultBlocked(right)
+			if leftBlocked ~= rightBlocked then
+				return not leftBlocked
+			end
+			local leftMaxPrice = tonumber(left.maxPrice) or 0
+			local rightMaxPrice = tonumber(right.maxPrice) or 0
+			local leftPercent = leftMaxPrice > 0 and (tonumber(left.unitPrice) or math.huge) / leftMaxPrice or math.huge
+			local rightPercent = rightMaxPrice > 0 and (tonumber(right.unitPrice) or math.huge) / rightMaxPrice or math.huge
+			if leftPercent ~= rightPercent then
+				return leftPercent < rightPercent
+			end
+			local leftItemID = tonumber(left.itemID) or math.huge
+			local rightItemID = tonumber(right.itemID) or math.huge
+			if leftItemID ~= rightItemID then
+				return leftItemID < rightItemID
+			end
+			return tostring(left.rowKey or "") < tostring(right.rowKey or "")
+		end)
+		state.sortResults = false
+	end
 	for index, row in ipairs(state.resultRows) do
 		local result = state.results[index]
 		if result then
@@ -1609,7 +1786,7 @@ local function RefreshRows()
 				row.quality:Hide()
 			end
 			row.price:SetText(FormatPrice(result.unitPrice))
-			row.deal:SetText(FormatDealPercent(result.unitPrice, result.maxPrice))
+			row.deal:SetText(result.lifecycleState == "stale" and "Périmé" or FormatDealPercent(result.unitPrice, result.maxPrice))
 			row.limit:SetText(result.maxQuantity and format("x%d", result.maxQuantity) or "∞")
 			local purchaseCost = GetPurchaseCost(result)
 			local availableMoney = type(GetMoney) == "function" and tonumber(GetMoney()) or nil
@@ -1623,8 +1800,16 @@ local function RefreshRows()
 			row.purchaseCost = purchaseCost
 			row.availableMoney = availableMoney
 			row.budgetLimit = budgetLimit
-			row.buy:SetEnabled(state.purchase == nil and not row.insufficientMoney and not row.budgetExceeded)
-			row.buy:SetText(state.purchase and state.purchase.result == result and "Achat…" or "Acheter")
+			local purchaseFresh = IsPurchaseFresh(result)
+			local itemUnavailable = result.item and result.item.shoppingValid == false
+			local canRefresh = not purchaseFresh and not itemUnavailable
+			local canBuy = purchaseFresh and not row.insufficientMoney and not row.budgetExceeded
+			row.buy:SetEnabled(state.purchase == nil and (canRefresh or canBuy))
+			row.buy:SetText(
+				state.purchase and state.purchase.result == result
+					and (state.purchase.refreshing and "Actualisation…" or "Achat…")
+					or (purchaseFresh and "Acheter" or "Actualiser")
+			)
 			row:Show()
 		else
 			HideItemTooltip(row.itemCell)
@@ -1646,6 +1831,9 @@ end
 UpdateView = function()
 	if not state.frame then
 		return
+	end
+	if not state.scanning and not state.resumeAfterPurchase then
+		state.sortResults = true
 	end
 	state.frame.scanButton:SetEnabled(not state.purchase and (not state.scanning or #state.items > 0))
 	UpdateScanStats()
@@ -1770,7 +1958,7 @@ local function CreateFrames()
 	end)
 	budgetInput:SetScript("OnEditFocusLost", CommitBudget)
 
-	local sound = CreateCheck(scanPanel, "Son", state.db.sound, { "TOPLEFT", budgetInput, "BOTTOMLEFT", -4, -2 }, function(check)
+	local sound = CreateCheck(scanPanel, "Son", state.db.sound, { "TOPLEFT", budgetLabel, "BOTTOMLEFT", 0, -2 }, function(check)
 		state.db.sound = check:GetChecked()
 	end)
 
@@ -1807,15 +1995,35 @@ local function CreateFrames()
 	headerLimit:SetPoint("LEFT", headerDeal, "RIGHT", 4, 0)
 	headerLimit:SetWidth(54)
 	headerLimit:SetText("Qté TSM")
+	local headerBuy = scanPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	headerBuy:SetWidth(76)
+	headerBuy:SetJustifyH("CENTER")
+	headerBuy:SetText("Action")
 
 	local resultsScroll = CreateFrame("ScrollFrame", nil, scanPanel, "UIPanelScrollFrameTemplate")
 	resultsScroll:SetPoint("TOPLEFT", headerName, "BOTTOMLEFT", -4, -4)
 	resultsScroll:SetPoint("BOTTOMRIGHT", scanPanel, "BOTTOMRIGHT", -18, 4)
 	local resultsContent = CreateFrame("Frame", nil, resultsScroll)
-	resultsContent:SetWidth(455)
+	resultsContent:SetWidth(1)
 	resultsContent:SetHeight(1)
 	resultsScroll:SetScrollChild(resultsContent)
 	state.resultsContent = resultsContent
+	local function LayoutResults(width)
+		local viewportWidth = math.max(1, math.floor(tonumber(width) or resultsScroll:GetWidth() or 1))
+		local itemWidth = math.max(90, viewportWidth - 290)
+		resultsContent:SetWidth(viewportWidth)
+		headerName:SetWidth(itemWidth)
+		headerBuy:ClearAllPoints()
+		headerBuy:SetPoint("TOP", headerLimit, "TOP", 0, 0)
+		headerBuy:SetPoint("RIGHT", resultsScroll, "RIGHT", -4, 0)
+		for _, row in ipairs(state.resultRows) do
+			row.itemCell:SetWidth(itemWidth)
+			row.name:SetWidth(math.max(36, itemWidth - 54))
+		end
+	end
+	resultsScroll:SetScript("OnSizeChanged", function(_, width)
+		LayoutResults(width)
+	end)
 	frame.emptyResults = scanPanel:CreateFontString(nil, "OVERLAY", "GameFontDisable")
 	frame.emptyResults:SetPoint("TOP", resultsScroll, "TOP", 0, -34)
 	frame.emptyResults:SetText("Aucune opportunité pour le moment")
@@ -1823,6 +2031,9 @@ local function CreateFrames()
 	for index = 1, MAX_ROWS do
 		local row = CreateFrame("Frame", nil, resultsContent, "BackdropTemplate")
 		row:SetHeight(30)
+		if row.SetClipsChildren then
+			row:SetClipsChildren(true)
+		end
 		row:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background" })
 		row:SetBackdropColor(0.06, 0.06, 0.06, index % 2 == 0 and 0.62 or 0.38)
 		if index == 1 then
@@ -1905,6 +2116,12 @@ local function CreateFrames()
 				GameTooltip:AddLine("Budget : " .. FormatPrice(resultRow.budgetLimit), 0.75, 0.75, 0.75)
 				GameTooltip:AddLine("Items achetés : " .. state.scanStats.items .. " • Dépensé : " .. FormatPrice(state.scanStats.goldSpent), 0.75, 0.75, 0.75)
 				GameTooltip:Show()
+			elseif resultRow.data and not IsPurchaseFresh(resultRow.data) and GameTooltip then
+				GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+				GameTooltip:ClearLines()
+				GameTooltip:AddLine("Actualiser avant achat", 1, 0.82, 0.25)
+				GameTooltip:AddLine("Le prix de cette ligne n’est plus considéré comme fiable. Le scan sera mis en pause pendant le refresh.", 0.75, 0.75, 0.75, true)
+				GameTooltip:Show()
 			end
 		end)
 		row.buy:SetScript("OnLeave", function(button)
@@ -1916,12 +2133,34 @@ local function CreateFrames()
 		row:Hide()
 		state.resultRows[index] = row
 	end
+	LayoutResults(resultsScroll:GetWidth())
 
 	state.frame = frame
 	frame.scanButton = scanButton
 	frame.resultCount = frame.resultCount
-	RefreshGroupPaths()
-	RebuildItems()
+	frame:SetScript("OnShow", function()
+		DiagnosticLog("UI", "sniper tab shown; lazy initialization starting")
+		QueueBagDiagnostics("sniper-show", 0)
+		C_Timer.After(0, function()
+			if not IsAHVisible() then
+				return
+			end
+			LayoutResults(resultsScroll:GetWidth())
+			local startedAt = GetTime()
+			RefreshGroupPaths()
+			RebuildItems()
+			DiagnosticLog("LAZY_INIT", "completed groups=%d items=%d elapsed=%.3f", #state.groupPaths, #state.items, GetTime() - startedAt)
+		end)
+	end)
+	frame:SetScript("OnHide", function()
+		DiagnosticLog("UI", "sniper tab hidden; entering strict dormant mode")
+		if state.scanning or state.active then
+			StopScan()
+		end
+		if state.purchase then
+			CancelPurchase(false)
+		end
+	end)
 end
 
 local function CreateTab()
@@ -1949,6 +2188,9 @@ local function CreateTab()
 	tab:SetScript("OnClick", function()
 		AuctionHouseFrame:SetDisplayMode({})
 		AuctionHouseFrame.displayMode = nil
+		if YayaReagentSniperReset and YayaReagentSniperReset.Hide then
+			YayaReagentSniperReset:Hide()
+		end
 		state.frame:Show()
 		AuctionHouseFrame:SetTitle(tab.tabHeader)
 	end)
@@ -2014,14 +2256,37 @@ local function HandleSlashCommand(message)
 		else
 			state.db.debug = not state.db.debug
 		end
-		print(format("Yaya Reagent Sniper : debug achat %s", state.db.debug and "ACTIVÉ" or "désactivé"))
+		print(format("Yaya Reagent Sniper : affichage diagnostic %s", state.db.debug and "ACTIVÉ" or "désactivé"))
 		if state.db.debug then
 			PrintDebug()
 		end
+	elseif command == "diag" then
+		local action, value = argument:match("^(%S*)%s*(.-)$")
+		if action == "on" then
+			state.db.diagnostics = true
+			DiagnosticLog("DIAG", "persistent diagnostics enabled")
+		elseif action == "off" then
+			DiagnosticLog("DIAG", "persistent diagnostics disabled")
+			state.db.diagnostics = false
+		elseif action == "clear" then
+			wipe(state.db.diagnosticLog)
+			wipe(state.diagnosticSnapshot)
+			print("Yaya Reagent Sniper : journal diagnostic vidé.")
+			return
+		elseif action == "dump" then
+			local count = math.max(1, math.min(100, tonumber(value) or 40))
+			local first = math.max(1, #state.db.diagnosticLog - count + 1)
+			print(format("Yaya Reagent Sniper : %d dernière(s) ligne(s) diagnostic", #state.db.diagnosticLog - first + 1))
+			for index = first, #state.db.diagnosticLog do
+				print(state.db.diagnosticLog[index])
+			end
+			return
+		end
+		print(format("Yaya Reagent Sniper : diagnostics persistants %s • %d/%d lignes", state.db.diagnostics and "ACTIFS" or "désactivés", #state.db.diagnosticLog, DIAGNOSTIC_LOG_LIMIT))
 	elseif command == "status" then
 		PrintDebug()
 	else
-		print("Yaya Reagent Sniper : /yrs debug [on|off] • /yrs status")
+		print("Yaya Reagent Sniper : /yrs debug [on|off] • /yrs diag [on|off|clear|dump 40] • /yrs status")
 	end
 end
 
@@ -2035,6 +2300,14 @@ EnsureUI = function()
 	end
 	CreateFrames()
 	CreateTab()
+	if YayaReagentSniperReset and YayaReagentSniperReset.EnsureUI then
+		YayaReagentSniperReset:EnsureUI(AuctionHouseFrame, {
+			stopSniper = StopScan,
+			isPurchaseBusy = function()
+				return state.purchase ~= nil
+			end,
+		})
+	end
 end
 
 local eventFrame = CreateFrame("Frame")
@@ -2046,6 +2319,9 @@ eventFrame:RegisterEvent("AUCTION_HOUSE_BROWSE_RESULTS_ADDED")
 eventFrame:RegisterEvent("AUCTION_HOUSE_BROWSE_FAILURE")
 eventFrame:RegisterEvent("AUCTION_HOUSE_THROTTLED_SYSTEM_READY")
 eventFrame:RegisterEvent("COMMODITY_SEARCH_RESULTS_UPDATED")
+eventFrame:RegisterEvent("COMMODITY_SEARCH_RESULTS_ADDED")
+eventFrame:RegisterEvent("OWNED_AUCTIONS_UPDATED")
+eventFrame:RegisterEvent("AUCTION_CANCELED")
 eventFrame:RegisterEvent("ITEM_SEARCH_RESULTS_UPDATED")
 eventFrame:RegisterEvent("COMMODITY_PRICE_UPDATED")
 eventFrame:RegisterEvent("COMMODITY_PRICE_UNAVAILABLE")
@@ -2055,19 +2331,46 @@ eventFrame:RegisterEvent("UI_ERROR_MESSAGE")
 eventFrame:RegisterEvent("PLAYER_MONEY")
 eventFrame:RegisterEvent("MAIL_INBOX_UPDATE")
 eventFrame:RegisterEvent("MAIL_SHOW")
+eventFrame:RegisterEvent("BAG_UPDATE")
 eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+eventFrame:RegisterEvent("ITEM_DATA_LOAD_RESULT")
 eventFrame:SetScript("OnEvent", function(self, event, ...)
-	if event == "PLAYER_LOGIN" or event == "AUCTION_HOUSE_SHOW" then
+	if YayaReagentSniperReset and YayaReagentSniperReset.OnEvent then
+		YayaReagentSniperReset:OnEvent(event, ...)
+	end
+	if event == "PLAYER_LOGIN" then
+		DiagnosticLog("LIFECYCLE", "player login; addon dormant until an own tab is opened")
+		return
+	elseif event == "AUCTION_HOUSE_SHOW" then
+		DiagnosticLog("LIFECYCLE", "auction house shown; creating hidden tabs only")
+		QueueBagDiagnostics("ah-show", 0)
 		C_Timer.After(0.2, EnsureUI)
 		return
+	elseif event == "ITEM_DATA_LOAD_RESULT" then
+		local itemID, success = ...
+		if state.itemLoadRequests[itemID] then
+			DiagnosticLog("ITEM_DATA_EVENT", "item=%s success=%s ownRequests=%d frameShown=%s", tostring(itemID), tostring(success), state.itemLoadRequests[itemID], tostring(IsAHVisible()))
+			QueueBagDiagnostics("own-item-data:" .. tostring(itemID), 0)
+		end
+		return
+	elseif event == "BAG_UPDATE" then
+		QueueBagDiagnostics("bag-update:" .. tostring((...)), 0)
+		return
 	elseif event == "PLAYER_MONEY" then
-		UpdateView()
+		if IsAHVisible() then
+			UpdateView()
+		end
 		return
 	elseif event == "MAIL_INBOX_UPDATE" or event == "MAIL_SHOW" or event == "BAG_UPDATE_DELAYED" then
-		QueueInventoryRefresh()
+		QueueBagDiagnostics(string.lower(event), 0)
+		if IsAHVisible() then
+			QueueInventoryRefresh()
+		end
 		return
 	end
-	HandleAuctionEvent(self, event, ...)
+	if event == "AUCTION_HOUSE_CLOSED" or state.scanning or state.active or state.purchase then
+		HandleAuctionEvent(self, event, ...)
+	end
 end)
 
 state.db = GetDB()

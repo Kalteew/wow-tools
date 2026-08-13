@@ -7,7 +7,7 @@ end
 ns.AddLocale("frFR", {
 	ADDON_TITLE = "YayaCraftingOrders",
 	OPTION_VERSION_FORMAT = "Version %s",
-	OPTION_DESCRIPTION = "Fork du panneau de commandes de mécènes avec prix TSM et ajout direct dans YayaQueue.",
+	OPTION_DESCRIPTION = "Ajoute un panneau de commandes de mécènes avec prix TSM et ajout direct dans YayaQueue.",
 	OPTION_PRICING_ADDON_HEADER = "Prix",
 	OPTION_NO_PRICING_INFO = "TradeSkillMaster n'est pas détecté. Activez TSM pour afficher les coûts, la valeur des récompenses et le profit.",
 	OPTION_PRICING_AUCTIONATOR = "Auctionator",

@@ -6,11 +6,13 @@ import json
 import math
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from wow_tools.cache import HttpCache
 from wow_tools.config import (
+    AUCTION_SNAPSHOT_RETENTION_DAYS,
+    AUCTION_SNAPSHOT_RETENTION_PER_REALM,
     BLIZZARD_AUCTION_TTL_SECONDS,
     BLIZZARD_CATALOG_TTL_SECONDS,
 )
@@ -341,7 +343,51 @@ def _catalog_map(conn) -> dict[int, str]:
     return catalog
 
 
-def _save_snapshot(conn, *, region: str, connected_realm_id: int, source: str, aggregated: dict[str, dict[str, Any]], api_last_modified: str | None, auction_count: int, status: str = "ok", error: str | None = None) -> None:
+def _prune_snapshots(
+    conn,
+    *,
+    region: str,
+    connected_realm_id: int,
+    retention_days: int,
+    retention_per_realm: int,
+) -> int:
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=max(1, retention_days))).isoformat()
+    rows = conn.execute(
+        """
+        SELECT id, fetched_at
+        FROM auction_snapshots
+        WHERE region = ? AND connected_realm_id = ?
+        ORDER BY fetched_at DESC, id DESC
+        """,
+        (region, connected_realm_id),
+    ).fetchall()
+    delete_ids = [
+        int(row["id"])
+        for index, row in enumerate(rows)
+        if index >= max(1, retention_per_realm) or str(row["fetched_at"]) < cutoff
+    ]
+    if not delete_ids:
+        return 0
+    placeholders = ", ".join("?" for _ in delete_ids)
+    conn.execute(f"DELETE FROM auction_prices WHERE snapshot_id IN ({placeholders})", delete_ids)
+    conn.execute(f"DELETE FROM auction_snapshots WHERE id IN ({placeholders})", delete_ids)
+    return len(delete_ids)
+
+
+def _save_snapshot(
+    conn,
+    *,
+    region: str,
+    connected_realm_id: int,
+    source: str,
+    aggregated: dict[str, dict[str, Any]],
+    api_last_modified: str | None,
+    auction_count: int,
+    status: str = "ok",
+    error: str | None = None,
+    retention_days: int = AUCTION_SNAPSHOT_RETENTION_DAYS,
+    retention_per_realm: int = AUCTION_SNAPSHOT_RETENTION_PER_REALM,
+) -> None:
     fetched_at = _now_iso()
     cursor = conn.execute(
         """
@@ -385,11 +431,23 @@ def _save_snapshot(conn, *, region: str, connected_realm_id: int, source: str, a
                 row["listing_count"],
             ),
         )
+    _prune_snapshots(
+        conn,
+        region=region,
+        connected_realm_id=connected_realm_id,
+        retention_days=retention_days,
+        retention_per_realm=retention_per_realm,
+    )
     conn.commit()
 
 
-def _sync_one_realm(realm: dict[str, Any], region: str, decoder: ItemVariantDecoder, catalog: dict[int, str]) -> dict[str, Any]:
-    client = BlizzardClient()
+def _sync_one_realm(
+    realm: dict[str, Any],
+    region: str,
+    decoder: ItemVariantDecoder,
+    catalog: dict[int, str],
+    client: BlizzardClient,
+) -> dict[str, Any]:
     try:
         response = client.auctions(int(realm["connected_realm_id"]), region)
         auctions = response.payload.get("auctions") or []
@@ -417,10 +475,11 @@ def sync_auction_data(
     workers: int = 4,
 ) -> dict[str, Any]:
     region = region.lower()
+    client = BlizzardClient()
     if not conn.execute("SELECT 1 FROM auction_catalog LIMIT 1").fetchone():
         sync_auction_catalog(conn, cache, region, force=force)
     if not conn.execute("SELECT 1 FROM auction_realms WHERE region = ? LIMIT 1", (region,)).fetchone():
-        sync_auction_realms(conn, BlizzardClient(), region)
+        sync_auction_realms(conn, client, region)
 
     decoder = ItemVariantDecoder.from_cache(cache, force=force)
     hydrate_auction_icons(conn, decoder)
@@ -440,7 +499,7 @@ def sync_auction_data(
     synced = 0
     failures: list[dict[str, Any]] = []
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        futures = [pool.submit(_sync_one_realm, realm, region, decoder, catalog) for realm in realms]
+        futures = [pool.submit(_sync_one_realm, realm, region, decoder, catalog, client) for realm in realms]
         for index, future in enumerate(as_completed(futures), start=1):
             result = future.result()
             realm = result["realm"]
@@ -464,7 +523,7 @@ def sync_auction_data(
     commodities = 0
     if include_commodities:
         try:
-            response = BlizzardClient().commodities(region)
+            response = client.commodities(region)
             auctions = response.payload.get("auctions") or []
             grouped = aggregate_auctions(auctions, decoder, catalog, is_commodity=True)
             _save_snapshot(

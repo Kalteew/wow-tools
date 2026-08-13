@@ -23,6 +23,7 @@ Addon Retail simple pour :
 - recalculer automatiquement les besoins selon l'inventaire courant
 - choisir récursivement entre achat direct et fusion des rangs Gold Star, avec les Gold Stars déjà détenues par le personnage valorisées à 0 (jamais la banque de bataillon), puis exécuter les fusions nécessaires via `Next` avant le craft final
 - lors du `dump conc.` et de l’auto-dump de concentration du favori, vider uniquement les réactifs de finition liés dans les sacs du personnage, y compris le sac de réactifs, par sous-lots Multicraft puis Resourcefulness puis Ingéniosité ; une réinjection après proc d’Ingéniosité applique les mêmes règles et ne se fait qu’après les réservations de concentration déjà présentes dans la queue
+- la réinjection d’un proc d’Ingéniosité distingue une réservation déjà consommée afin de ne jamais soustraire deux fois le craft terminé
 
 Notes :
 
@@ -35,15 +36,18 @@ Notes :
 - le sélecteur utilise un solveur de coût exact par points de compétence : toutes les répartitions entières R1/R2/R3 restent possibles (`41/59` compris), mais les devis sont pré-calculés par paliers `SmartAvgBuy`/marché et les seuils Blizzard sont affinés par dichotomie ; les lignes sont calibrées sur `0`, `1`, `N-1` et `N`, et un modèle non linéaire est refusé au lieu d'afficher un faux optimum
 - une recette à plusieurs lignes de réactifs qualité utilise les poids entiers exposés par CraftSim; si ces poids manquent, YQ signale l'optimum exact indisponible au lieu d'approximer
 - le solveur garde en cache les plans de plusieurs recettes pendant toute la session et répartit un calcul inédit sur plusieurs frames (2 ms maximum) ; un craft ou la fermeture du métier ne vide plus ce cache, et coût/profit restent masqués pendant le calcul
+- les changements de sacs actualisent les profils de prix sans annuler systématiquement le solveur; le scan d’outils conserve son dernier état valide tant que les liens d’objets sont incomplets
 - le coût des réactifs passe par `YayaCraftedPriceAPI` quand il est chargé : `SmartAvgBuy` jusqu'à la quantité couverte par `NumInventory`, puis snapshot AH, `vendorbuy`, `dbminbuyout`, `dbmarket` estimé et moyenne container; les outputs craftés conservent leur itemString exact et le profit après 5 % de commission HV
+- lorsqu’un rang de réactif propose plusieurs objets, leur coût est comparé sur toute la quantité requise avant d’éliminer une option
 - les snapshots AH n'ont pas de TTL; TSM reste le repli quand aucun snapshot n'est disponible, sans comparaison de date car l'API TSM publique ne l'expose pas
 - avec concentration, l'optimiseur exige exactement le rang précédent sans concentration puis vérifie le gain d'un rang avec l'API Blizzard ; il choisit uniquement le plan le moins cher en or, la concentration disponible servant seulement à autoriser le lot complet
 - les coches concentration, finishing et Gold Star ainsi que la qualité désirée persistent entre les recettes; la qualité atteignable la plus proche est choisie si nécessaire
 - la coche Gold Star est aussi mémorisée entre les sessions du personnage
 - finishing est coché par défaut, mais le plan sans finishing reste toujours en concurrence et gagne s'il est moins cher ou si le finishing est inutile
-- la ligne `Stock` affiche `C` (personnage courant, sacs/banque/courrier/AHV) et `W` (alts suivis, banque de bataillon et AH) via l’API TSM, en interrogeant le `levelItemString` exact des équipements ; les autres royaumes couverts par TSM sont inclus. Le repli natif ne filtre que les objets soulbound et affiche `?` si une banque n’a jamais été lisible
+- la ligne `Stock` affiche `C` (stock détenu par le personnage courant) et `W` (alts suivis, banque de bataillon et enchères AH du personnage courant et des alts) via l’API TSM, en interrogeant le `levelItemString` exact des équipements ; les autres royaumes couverts par TSM sont inclus. Le repli natif ne filtre que les objets soulbound et affiche `?` si une banque n’a jamais été lisible
 - les entrées ajoutées via la frame qualité mémorisent `targetQuality`, les allocations exactes, les optionnels retenus et l’option concentration
 - pour un patron order, `Next` applique aussi `SetApplyConcentration` à la transaction de commande avant le craft ; le flag du contexte YCO ne reste pas limité aux crafts normaux
+- une commande patron est strictement unique par `orderID`; les doublons persistés sont normalisés à un craft et les synchronisations ne retirent jamais la commande affichée, claimée ou verrouillée par `Next`
 - chaque ajout d’une entrée avec concentration ajoute une demande de Flasque d’inventivité haranir (R1 par défaut, R2 configurable via `/yq options`); le même bouton sécurisé `Next: Phial` consomme l’objet depuis les sacs avant le craft normal ou le patron order si le buff est absent, puis redevient `Next: Craft` après confirmation du buff, quelle que soit la langue du client
 - les achats marchand de phials Haranir d’ingéniosité se font par 10 minimum afin de conserver un buffer
 - l’utilisation automatique des phials peut être désactivée dans `/yq options`; les demandes automatiques déjà présentes sont masquées pendant la désactivation

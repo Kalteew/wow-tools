@@ -5,7 +5,7 @@ if GetLocale() ~= "ruRU" then
 end
 
 ns.AddLocale("ruRU", {
-	ADDON_TITLE = "Crafting Orders++",
+	ADDON_TITLE = "YayaCraftingOrders",
 	OPTION_VERSION_FORMAT = "Версия %s",
 	OPTION_DESCRIPTION = "Перерабатывает панель заказов покровителя, добавляет учет цен и может экспортировать недостающие реагенты в Auctionator или Auctioneer.",
 	OPTION_PRICING_ADDON_HEADER = "Аддон цен",
@@ -23,7 +23,7 @@ ns.AddLocale("ruRU", {
 	OPTION_OPENING_HEADER = "Открытие заказов покровителя",
 	OPTION_OPENING_NONE = "Ничего не делать",
 	OPTION_OPENING_APPLY_PLAN = "Выключить Использовать лучшее качество и применить запланированные материалы",
-	OPTION_OPENING_HINT = "Влияет только на заказы покровителя, открытые из списка покровителей Crafting Orders++.",
+	OPTION_OPENING_HINT = "Влияет только на заказы покровителя, открытые из списка покровителей YayaCraftingOrders.",
 	OPTION_DONT_BUY_PER_CHARACTER = "Хранить список Не покупать отдельно для каждого персонажа",
 	OPTION_DONT_BUY_HINT = "Если опция выключена, список Не покупать будет общим для всех персонажей.",
 	OPTION_FOOTER_HINT = "Экспорт списка покупок использует выбранный аддон цен. Auctionator создает списки покупок, а Auctioneer экспортирует в Snatch, если он доступен.",
