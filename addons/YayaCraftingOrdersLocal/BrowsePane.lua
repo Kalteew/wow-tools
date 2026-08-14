@@ -3902,6 +3902,7 @@ function Pane:BuildYayaQueueContext(orderData, skipDontBuyItems)
 		orderID = orderData.orderID,
 		professionID = self.visibleProfession or self:GetCurrentProfessionID(),
 		queueKind = "patron",
+		isEnchantingRecipe = recipeInfo.isEnchantingRecipe == true,
 		applyConcentration = applyConcentration,
 		concentrationCost = applyConcentration and tonumber(orderData.concentration.currentCost) or nil,
 		concentrationCurrencyID = applyConcentration and tonumber(orderData.concentration.currencyID) or nil,

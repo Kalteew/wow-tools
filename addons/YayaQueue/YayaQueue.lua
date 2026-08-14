@@ -33,7 +33,17 @@ local CONFIG = {
         [2] = 241312, -- Flasque d'inventivité haranir R2
     },
     CONCENTRATION_PHIAL_BUFF_SPELL_ID = 1239755,
-    CONCENTRATION_PHIAL_MIN_PURCHASE = 10,
+    CONCENTRATION_PHIAL_DEFAULT_PURCHASE = 10,
+    SHATTER_ESSENCE_SPELL_ID = 1235731,
+    SHATTER_ESSENCE_BUFF_SPELL_ID = 1235733,
+    SHATTER_MOTE_ITEM_IDS = {
+        236949, -- Mote of Light
+        236950, -- Mote of Primal Energy
+        236951, -- Mote of Wild Magic
+        236952, -- Mote of Pure Void
+    },
+    CONCENTRATION_REFUND_RETRY_DELAY = 0.25,
+    CONCENTRATION_REFUND_MAX_RETRIES = 12,
     debugNextCraft = false,
     DEBUG_LOG_LIMIT = 400,
     COMMODITY_SORT = { sortOrder = 0, reverseSort = false },
@@ -109,6 +119,7 @@ local state = {
         searchQueue = nil,
         pendingCommodity = nil,
         pendingItem = nil,
+        soundCheckbox = nil,
         statusMessage = "",
     },
     searchCache = {},
@@ -141,6 +152,8 @@ local state = {
     firstCraftScanRunning = false,
     firstCraftAvailability = {},
     pendingIngenuityPhial = nil,
+    armedShatter = nil,
+    pendingShatter = nil,
     armedMerge = nil,
     pendingMerge = nil,
     armedCraftTool = nil,
@@ -414,6 +427,7 @@ local function NormalizeDirectItemEntry(rawEntry)
         itemName = itemName,
         directQuantity = quantity,
         concentrationPhial = rawEntry.concentrationPhial == true,
+        shatterMote = rawEntry.shatterMote == true,
         queueKind = rawEntry.queueKind == "direct_item" and "direct_item" or "direct_item",
     }
 end
@@ -477,6 +491,7 @@ local function NormalizeQueueEntries()
                         mergeInputQuantity = tonumber(rawEntry.mergeInputQuantity) or nil,
                         mergeDepth = tonumber(rawEntry.mergeDepth) or nil,
                         isRecraft = rawEntry.isRecraft == true,
+                        isEnchantingRecipe = rawEntry.isEnchantingRecipe == true,
                         applyConcentration = NormalizeApplyConcentration(rawEntry.applyConcentration),
                         pendingSubmit = rawEntry.pendingSubmit == true,
                         profitValue = tonumber(rawEntry.profitValue) or nil,
@@ -519,10 +534,20 @@ state.EnsureDB = function()
     if YayaQueueDB.autoBuyVendor == nil then
         YayaQueueDB.autoBuyVendor = true
     end
+    if YayaQueueDB.auctionPriceWarningSoundEnabled == nil then
+        YayaQueueDB.auctionPriceWarningSoundEnabled = true
+    else
+        YayaQueueDB.auctionPriceWarningSoundEnabled = YayaQueueDB.auctionPriceWarningSoundEnabled == true
+    end
     if YayaQueueDB.concentrationPhialEnabled == nil then
         YayaQueueDB.concentrationPhialEnabled = true
     else
         YayaQueueDB.concentrationPhialEnabled = YayaQueueDB.concentrationPhialEnabled == true
+    end
+    if YayaQueueDB.autoQueueIngenuityRefund == nil then
+        YayaQueueDB.autoQueueIngenuityRefund = true
+    else
+        YayaQueueDB.autoQueueIngenuityRefund = YayaQueueDB.autoQueueIngenuityRefund == true
     end
     if YayaQueueDB.resetQuantityOnRecipeChange == nil then
         YayaQueueDB.resetQuantityOnRecipeChange = false
@@ -536,12 +561,72 @@ state.EnsureDB = function()
     end
     local phialRank = tonumber(YayaQueueDB.concentrationPhialRank)
     YayaQueueDB.concentrationPhialRank = phialRank == 2 and 2 or 1
+    local phialPurchaseQuantity = tonumber(YayaQueueDB.concentrationPhialPurchaseQuantity)
+    YayaQueueDB.concentrationPhialPurchaseQuantity = phialPurchaseQuantity == 1
+        and 1
+        or CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE
     db = YayaQueueDB
     state.craft.qualityPreferences.useGoldStar = db.qualityUseGoldStar
     for itemID in pairs(CONFIG.KNOWN_VENDOR_ITEMS) do
         db.vendorItems[itemID] = true
     end
     NormalizeQueueEntries()
+end
+
+YQQuality.FindShatterMoteDemand = function()
+    state.EnsureDB()
+    for _, entry in ipairs(db.queue) do
+        if entry.queueKind == "direct_item" and entry.shatterMote == true then
+            return entry
+        end
+    end
+    return nil
+end
+
+YQQuality.RemoveShatterMoteDemand = function(itemID)
+    state.EnsureDB()
+    itemID = tonumber(itemID)
+    local removed = false
+    for index = #db.queue, 1, -1 do
+        local entry = db.queue[index]
+        if entry.queueKind == "direct_item"
+            and entry.shatterMote == true
+            and (not itemID or tonumber(entry.itemID) == itemID)
+        then
+            table.remove(db.queue, index)
+            state.searchCache[entry.itemID] = nil
+            removed = true
+        end
+    end
+    if removed then
+        state.InvalidateQualityPricing()
+    end
+    return removed
+end
+
+YQQuality.AddShatterMoteDemand = function(itemID)
+    state.EnsureDB()
+    itemID = tonumber(itemID) or 0
+    if itemID <= 0 or YQQuality.FindShatterMoteDemand() then
+        return false
+    end
+
+    local entry = NormalizeDirectItemEntry({
+        itemID = itemID,
+        itemName = GetItemName(itemID),
+        directQuantity = 1,
+        shatterMote = true,
+        queueKind = "direct_item",
+    })
+    if not entry then
+        return false
+    end
+
+    table.insert(db.queue, entry)
+    state.searchCache[itemID] = nil
+    state.InvalidateQualityPricing()
+    DebugPrint("shatter-demand item=" .. tostring(itemID))
+    return true
 end
 
 local function ScheduleRefresh()
@@ -791,6 +876,16 @@ YQQuality.IsConcentrationPhialEnabled = function()
     return not db or db.concentrationPhialEnabled ~= false
 end
 
+YQQuality.IsIngenuityRefundAutoQueueEnabled = function()
+    state.EnsureDB()
+    return db.autoQueueIngenuityRefund ~= false
+end
+
+YQQuality.GetConcentrationPhialPurchaseQuantity = function()
+    state.EnsureDB()
+    return db.concentrationPhialPurchaseQuantity
+end
+
 YQQuality.GetIngenuityPhialCount = function(itemID, getter)
     itemID = tonumber(itemID) or 0
     if type(getter) ~= "function" then
@@ -837,6 +932,15 @@ YQQuality.IsIngenuityBuffActive = function()
         end
     end
 
+    if C_UnitAuras and type(C_UnitAuras.GetPlayerAuraBySpellID) == "function" then
+        for spellID in pairs(spellIDs) do
+            if C_UnitAuras.GetPlayerAuraBySpellID(spellID) then
+                return true
+            end
+        end
+        return false
+    end
+
     if AuraUtil and type(AuraUtil.FindAuraBySpellID) == "function" then
         for spellID in pairs(spellIDs) do
             if AuraUtil.FindAuraBySpellID(spellID, "player", "HELPFUL") then
@@ -853,20 +957,17 @@ YQQuality.IsIngenuityBuffActive = function()
         end
     end
 
-    if C_UnitAuras and type(C_UnitAuras.GetAuraDataByIndex) == "function" then
-        for index = 1, 40 do
-            local aura = C_UnitAuras.GetAuraDataByIndex("player", index, "HELPFUL")
-            if aura and (spellIDs[tonumber(aura.spellId)] or names[aura.name]) then
-                return true
-            end
-        end
-    elseif type(UnitAura) == "function" then
-        for index = 1, 40 do
-            local name, _, _, _, _, _, _, _, _, auraSpellID = UnitAura("player", index, "HELPFUL")
-            if spellIDs[tonumber(auraSpellID)] or (name and names[name]) then
-                return true
-            end
-        end
+    return false
+end
+
+YQQuality.IsShatterBuffActive = function()
+    local spellID = CONFIG.SHATTER_ESSENCE_BUFF_SPELL_ID
+    if C_UnitAuras and type(C_UnitAuras.GetPlayerAuraBySpellID) == "function" then
+        return C_UnitAuras.GetPlayerAuraBySpellID(spellID) ~= nil
+    end
+
+    if AuraUtil and type(AuraUtil.FindAuraBySpellID) == "function" then
+        return AuraUtil.FindAuraBySpellID(spellID, "player", "HELPFUL") ~= nil
     end
 
     return false
@@ -1036,8 +1137,67 @@ YQQuality.EnsureOptions = function()
         state.ah.statusMessage = self:GetChecked() and "Phial R2 preferee" or "Phial R1 preferee"
         ScheduleRefresh()
     end)
+
+    local purchaseHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    purchaseHeader:SetPoint("TOPLEFT", checkbox, "BOTTOMLEFT", 4, -12)
+    purchaseHeader:SetText("Quantité achetée chez le marchand")
+
+    local purchaseByTen = CreateFrame("CheckButton", addonName .. "ConcentrationPhialPurchaseTen", panel, "UIRadioButtonTemplate")
+    purchaseByTen:SetPoint("TOPLEFT", purchaseHeader, "BOTTOMLEFT", 0, -5)
+    local purchaseByTenLabel = purchaseByTen.Text or purchaseByTen.text
+    if not purchaseByTenLabel then
+        purchaseByTenLabel = purchaseByTen:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        purchaseByTenLabel:SetPoint("LEFT", purchaseByTen, "RIGHT", 2, 1)
+        purchaseByTen.Text = purchaseByTenLabel
+    end
+    purchaseByTenLabel:SetText("Par 10 (buffer)")
+
+    local purchaseByOne = CreateFrame("CheckButton", addonName .. "ConcentrationPhialPurchaseOne", panel, "UIRadioButtonTemplate")
+    purchaseByOne:SetPoint("TOPLEFT", purchaseByTen, "BOTTOMLEFT", 0, -4)
+    local purchaseByOneLabel = purchaseByOne.Text or purchaseByOne.text
+    if not purchaseByOneLabel then
+        purchaseByOneLabel = purchaseByOne:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        purchaseByOneLabel:SetPoint("LEFT", purchaseByOne, "RIGHT", 2, 1)
+        purchaseByOne.Text = purchaseByOneLabel
+    end
+    purchaseByOneLabel:SetText("Par 1 (au plus juste)")
+
+    local function SetPhialPurchaseQuantity(quantity)
+        state.EnsureDB()
+        db.concentrationPhialPurchaseQuantity = quantity == 1 and 1 or CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE
+        purchaseByTen:SetChecked(db.concentrationPhialPurchaseQuantity == CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE)
+        purchaseByOne:SetChecked(db.concentrationPhialPurchaseQuantity == 1)
+        ScheduleRefresh()
+    end
+
+    purchaseByTen:SetScript("OnClick", function()
+        SetPhialPurchaseQuantity(CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE)
+    end)
+    purchaseByOne:SetScript("OnClick", function()
+        SetPhialPurchaseQuantity(1)
+    end)
+
+    local refundCheckbox = CreateFrame("CheckButton", addonName .. "AutoQueueIngenuityRefund", panel, "UICheckButtonTemplate")
+    refundCheckbox:SetPoint("TOPLEFT", purchaseByOne, "BOTTOMLEFT", 0, -6)
+    local refundLabel = refundCheckbox.Text or refundCheckbox.text
+    if not refundLabel then
+        refundLabel = refundCheckbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        refundLabel:SetPoint("LEFT", refundCheckbox, "RIGHT", 2, 1)
+        refundCheckbox.Text = refundLabel
+    end
+    refundLabel:SetText("Réinjecter un craft après un remboursement d’ingéniosité")
+    refundCheckbox:SetScript("OnClick", function(self)
+        state.EnsureDB()
+        db.autoQueueIngenuityRefund = self:GetChecked() == true
+        if not db.autoQueueIngenuityRefund and state.autoFavoriteConcentration.tracker then
+            state.autoFavoriteConcentration.tracker.awaitingCraft = false
+            state.autoFavoriteConcentration.tracker.craftConfirmed = false
+        end
+        ScheduleRefresh()
+    end)
+
     local resetQuantityCheckbox = CreateFrame("CheckButton", addonName .. "ResetQuantityOnRecipeChange", panel, "UICheckButtonTemplate")
-    resetQuantityCheckbox:SetPoint("TOPLEFT", checkbox, "BOTTOMLEFT", 0, -6)
+    resetQuantityCheckbox:SetPoint("TOPLEFT", refundCheckbox, "BOTTOMLEFT", 0, -6)
     local resetQuantityLabel = resetQuantityCheckbox.Text or resetQuantityCheckbox.text
     if not resetQuantityLabel then
         resetQuantityLabel = resetQuantityCheckbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
@@ -1053,6 +1213,9 @@ YQQuality.EnsureOptions = function()
         state.EnsureDB()
         usePhialCheckbox:SetChecked(db.concentrationPhialEnabled ~= false)
         checkbox:SetChecked(db.concentrationPhialRank == 2)
+        purchaseByTen:SetChecked(db.concentrationPhialPurchaseQuantity == CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE)
+        purchaseByOne:SetChecked(db.concentrationPhialPurchaseQuantity == 1)
+        refundCheckbox:SetChecked(db.autoQueueIngenuityRefund ~= false)
         resetQuantityCheckbox:SetChecked(db.resetQuantityOnRecipeChange == true)
     end)
 
@@ -1210,6 +1373,149 @@ local function GetMailboxCount(itemID)
     return state.incomingItemCounts[itemID] or 0
 end
 
+YQQuality.GetShatterMotePrice = function(itemID)
+    if type(YQQuality.GetFallbackItemPrice) == "function" then
+        local quote = YQQuality.GetFallbackItemPrice(itemID)
+        local price = tonumber(quote and quote.unitPrice)
+        if price and price > 0 then
+            return price
+        end
+    end
+
+    if type(YQQuality.GetItemPriceQuote) == "function" then
+        local quote = YQQuality.GetItemPriceQuote(itemID, 1)
+        local price = tonumber(quote and quote.amount)
+        if price and price > 0 then
+            return price
+        end
+    end
+
+    return nil
+end
+
+YQQuality.GetCheapestShatterMote = function()
+    local cheapestItemID
+    local cheapestPrice
+    for _, itemID in ipairs(CONFIG.SHATTER_MOTE_ITEM_IDS) do
+        local price = YQQuality.GetShatterMotePrice(itemID)
+        if price and (not cheapestPrice or price < cheapestPrice) then
+            cheapestItemID = itemID
+            cheapestPrice = price
+        elseif not cheapestItemID then
+            cheapestItemID = itemID
+        end
+    end
+    return cheapestItemID
+end
+
+YQQuality.GetAvailableShatterMote = function()
+    local availableItemID
+    local availablePrice
+    for _, itemID in ipairs(CONFIG.SHATTER_MOTE_ITEM_IDS) do
+        if GetTotalOwnedCount(itemID) > 0 then
+            local price = YQQuality.GetShatterMotePrice(itemID)
+            if not availableItemID
+                or (price and (not availablePrice or price < availablePrice))
+            then
+                availableItemID = itemID
+                availablePrice = price
+            end
+        end
+    end
+    return availableItemID
+end
+
+YQQuality.GetShatterMoteState = function()
+    if YQQuality.IsShatterBuffActive() then
+        return { active = true }
+    end
+
+    local availableItemID = YQQuality.GetAvailableShatterMote()
+    if availableItemID then
+        return {
+            active = false,
+            itemID = availableItemID,
+        }
+    end
+
+    local demand = YQQuality.FindShatterMoteDemand()
+    local demandItemID = tonumber(demand and demand.itemID) or YQQuality.GetCheapestShatterMote()
+    return {
+        active = false,
+        demandItemID = demandItemID,
+        mailboxCount = demandItemID and GetMailboxCount(demandItemID) or 0,
+    }
+end
+
+YQQuality.ConfirmPendingShatter = function()
+    local pending = state.pendingShatter
+    if not pending then
+        return
+    end
+
+    if YQQuality.IsShatterBuffActive() then
+        YQQuality.RemoveShatterMoteDemand(pending.itemID)
+        state.pendingShatter = nil
+        ClearNextActionLock("shatter-confirmed")
+        state.ah.statusMessage = "Shatter confirme"
+        ScheduleRefresh()
+        return
+    end
+
+    pending.attempts = (pending.attempts or 0) + 1
+    if GetTime() < (pending.expiresAt or 0) and pending.attempts < 16 then
+        C_Timer.After(0.25, YQQuality.ConfirmPendingShatter)
+        return
+    end
+
+    state.pendingShatter = nil
+    ClearNextActionLock("shatter-timeout")
+    state.ah.statusMessage = "Shatter non confirme"
+    ScheduleRefresh()
+end
+
+YQQuality.IsEnchantingRecipeInfo = function(recipeInfo, entry)
+    return (type(recipeInfo) == "table" and recipeInfo.isEnchantingRecipe == true)
+        or (type(entry) == "table" and entry.isEnchantingRecipe == true)
+end
+
+YQQuality.GetRecipeInfoForEntry = function(entry)
+    if not entry or not entry.recipeID or type(C_TradeSkillUI) ~= "table"
+        or type(C_TradeSkillUI.GetRecipeInfo) ~= "function"
+    then
+        return nil
+    end
+    return SafeCall(C_TradeSkillUI.GetRecipeInfo, entry.recipeID)
+end
+
+YQQuality.EnsureShatterMoteDemandForEntry = function(entry, recipeInfo)
+    if not entry or entry.queueKind == "merge" or entry.queueKind == "direct_item" then
+        return
+    end
+
+    recipeInfo = recipeInfo or YQQuality.GetRecipeInfoForEntry(entry)
+    if not YQQuality.IsEnchantingRecipeInfo(recipeInfo, entry) then
+        return
+    end
+
+    if YQQuality.IsShatterBuffActive() then
+        YQQuality.RemoveShatterMoteDemand()
+        return
+    end
+
+    local moteState = YQQuality.GetShatterMoteState()
+    if moteState.itemID then
+        YQQuality.RemoveShatterMoteDemand()
+        return
+    end
+
+    if not YQQuality.FindShatterMoteDemand() and moteState.demandItemID then
+        if YQQuality.AddShatterMoteDemand(moteState.demandItemID) then
+            ScheduleRefresh()
+        end
+    end
+end
+
 function YQQuality.GetConcentrationPhialState(entry)
     if not (entry and entry.applyConcentration == true)
         or not YQQuality.IsConcentrationPhialEnabled()
@@ -1272,7 +1578,7 @@ local function GetMerchantNumItemsCompat()
     return 0
 end
 
-local function GetItemLocationFromItemID(itemID)
+local function GetItemLocationFromItemID(itemID, includeBank)
     if type(itemID) ~= "number" or itemID <= 0 or type(ItemLocation) ~= "table" then
         return nil
     end
@@ -1285,6 +1591,24 @@ local function GetItemLocationFromItemID(itemID)
         Enum.BagIndex and Enum.BagIndex.Bag_4 or 4,
         Enum.BagIndex and Enum.BagIndex.ReagentBag or 5,
     }
+
+    if includeBank then
+        local bagIndex = Enum and Enum.BagIndex or {}
+        local characterFirst = tonumber(bagIndex.CharacterBankTab_1)
+        local characterLast = tonumber(bagIndex.CharacterBankTab_6)
+        local accountFirst = tonumber(bagIndex.AccountBankTab_1)
+        local accountLast = tonumber(bagIndex.AccountBankTab_5)
+        if characterFirst and characterLast then
+            for bagID = characterFirst, characterLast do
+                bagIDs[#bagIDs + 1] = bagID
+            end
+        end
+        if accountFirst and accountLast then
+            for bagID = accountFirst, accountLast do
+                bagIDs[#bagIDs + 1] = bagID
+            end
+        end
+    end
 
     for _, bagID in ipairs(bagIDs) do
         local numSlots = (C_Container and C_Container.GetContainerNumSlots and C_Container.GetContainerNumSlots(bagID))
@@ -1656,11 +1980,15 @@ local function ResetQueue()
     state.InvalidateQualityPricing()
     state.concentrationPhialSessionQueued = false
     state.armedIngenuityPhial = nil
+    state.armedShatter = nil
+    state.pendingShatter = nil
     state.armedMerge = nil
     state.pendingMerge = nil
     state.armedCraftTool = nil
     state.pendingCraftTool = nil
-    if state.nextActionLock and state.nextActionLock.action == "equip_tool" then
+    if state.nextActionLock
+        and (state.nextActionLock.action == "equip_tool" or state.nextActionLock.action == "shatter")
+    then
         ClearNextActionLock("queue-reset")
     end
     wipe(state.searchCache)
@@ -1737,6 +2065,7 @@ local function AddRecipeToQueue(context, quantity)
             entry.mergeInputQuantity = tonumber(context.mergeInputQuantity) or nil
             entry.mergeDepth = tonumber(context.mergeDepth) or nil
             entry.isRecraft = context.isRecraft == true
+            entry.isEnchantingRecipe = context.isEnchantingRecipe == true
             entry.applyConcentration = NormalizeApplyConcentration(context.applyConcentration)
             entry.pendingSubmit = context.pendingSubmit == true
             entry.profitValue = tonumber(context.profitValue) or nil
@@ -1776,6 +2105,7 @@ local function AddRecipeToQueue(context, quantity)
         mergeInputQuantity = tonumber(context.mergeInputQuantity) or nil,
         mergeDepth = tonumber(context.mergeDepth) or nil,
         isRecraft = context.isRecraft == true,
+        isEnchantingRecipe = context.isEnchantingRecipe == true,
         applyConcentration = NormalizeApplyConcentration(context.applyConcentration),
         pendingSubmit = context.pendingSubmit == true,
         profitValue = tonumber(context.profitValue) or nil,
@@ -2045,6 +2375,7 @@ local function BuildQueueSummary()
     for _, entry in ipairs(db.queue) do
         if entry.queueKind == "direct_item"
             and not (entry.concentrationPhial == true and not YQQuality.IsConcentrationPhialEnabled())
+            and not (entry.shatterMote == true and YQQuality.IsShatterBuffActive())
         then
             local itemID = tonumber(entry.itemID) or 0
             local quantity = ClampQuantity(entry.directQuantity or 1)
@@ -2055,9 +2386,15 @@ local function BuildQueueSummary()
                         itemID = itemID,
                         name = entry.itemName or GetItemName(itemID),
                         needed = 0,
+                        immediateNeeded = 0,
+                        shatterMote = false,
                     }
                 end
                 neededByItemID[itemID].needed = neededByItemID[itemID].needed + quantity
+                if entry.shatterMote == true then
+                    neededByItemID[itemID].shatterMote = true
+                    neededByItemID[itemID].immediateNeeded = (neededByItemID[itemID].immediateNeeded or 0) + quantity
+                end
             end
         end
     end
@@ -2090,6 +2427,8 @@ local function BuildQueueSummary()
                             itemID = reagent.itemID,
                             name = GetItemName(reagent.itemID),
                             needed = 0,
+                            immediateNeeded = 0,
+                            shatterMote = false,
                         }
                     end
                     neededByItemID[reagent.itemID].needed = neededByItemID[reagent.itemID].needed + (craftsRemaining * reagent.quantity)
@@ -2111,6 +2450,11 @@ local function BuildQueueSummary()
         task.queuedOutput = math.max(0, tonumber(plannedOutputs[itemID]) or 0)
         DebugPrintReagentCount("queue-summary", itemID, task.needed, task.mailbox)
         task.missing = math.max(0, task.needed - task.owned - task.queuedOutput)
+        if (tonumber(task.immediateNeeded) or 0) > 0 and task.shatterMote ~= true then
+            local immediateOwned = GetImmediateOwnedCount(itemID)
+            local immediateMissing = math.max(0, task.immediateNeeded - immediateOwned)
+            task.missing = math.max(task.missing, immediateMissing)
+        end
         if task.missing > 0 then
             local mailboxMissing = math.min(task.missing, task.mailbox or 0)
             local remainingMissing = math.max(0, task.missing - mailboxMissing)
@@ -2134,7 +2478,7 @@ local function BuildQueueSummary()
             if itemID == CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[1]
                 or itemID == CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[2]
             then
-                task.missing = math.max(task.missing, CONFIG.CONCENTRATION_PHIAL_MIN_PURCHASE)
+                task.missing = math.max(task.missing, YQQuality.GetConcentrationPhialPurchaseQuantity())
             end
             if IsKnownVendorItem(itemID) then
                 table.insert(summary.vendorTasks, task)
@@ -2726,6 +3070,30 @@ local function GetPatronNextButtonState()
             if toolAction then
                 return toolAction
             end
+            local recipeInfo = schematicForm and type(schematicForm.GetRecipeInfo) == "function"
+                and SafeCall(schematicForm.GetRecipeInfo, schematicForm)
+                or YQQuality.GetRecipeInfoForEntry(entry)
+            if YQQuality.IsEnchantingRecipeInfo(recipeInfo, entry) then
+                YQQuality.EnsureShatterMoteDemandForEntry(entry, recipeInfo)
+                local shatterState = YQQuality.GetShatterMoteState()
+                if not shatterState.active then
+                    if shatterState.itemID then
+                        return {
+                            entry = entry,
+                            text = "Next: Shatter",
+                            enabled = true,
+                            action = "shatter",
+                            itemID = shatterState.itemID,
+                        }
+                    end
+                    return {
+                        entry = entry,
+                        text = (shatterState.mailboxCount or 0) > 0 and "Next: Mailbox" or "Next: mote",
+                        enabled = (shatterState.mailboxCount or 0) > 0,
+                        action = (shatterState.mailboxCount or 0) > 0 and "mailbox" or nil,
+                    }
+                end
+            end
             return {
                 entry = entry,
                 text = craftAmount > 1 and ("Next: Craft x" .. craftAmount) or "Next: Craft",
@@ -2925,6 +3293,31 @@ local function GetPatronNextButtonState()
             local toolAction = state.craftGear.GetToolAction(entry, transaction)
             if toolAction then
                 return toolAction
+            end
+            local recipeInfo = schematicForm and type(schematicForm.GetRecipeInfo) == "function"
+                and SafeCall(schematicForm.GetRecipeInfo, schematicForm)
+                or YQQuality.GetRecipeInfoForEntry(entry)
+            if YQQuality.IsEnchantingRecipeInfo(recipeInfo, entry) then
+                YQQuality.EnsureShatterMoteDemandForEntry(entry, recipeInfo)
+                local shatterState = YQQuality.GetShatterMoteState()
+                if not shatterState.active then
+                    if shatterState.itemID then
+                        DebugPrint("next-state order=" .. tostring(entry.orderID) .. " state=shatter")
+                        return {
+                            entry = entry,
+                            text = "Next: Shatter",
+                            enabled = true,
+                            action = "shatter",
+                            itemID = shatterState.itemID,
+                        }
+                    end
+                    return {
+                        entry = entry,
+                        text = (shatterState.mailboxCount or 0) > 0 and "Next: Mailbox" or "Next: mote",
+                        enabled = (shatterState.mailboxCount or 0) > 0,
+                        action = (shatterState.mailboxCount or 0) > 0 and "mailbox" or nil,
+                    }
+                end
             end
             DebugPrint("next-state order=" .. tostring(entry.orderID) .. " state=craft recipe=" .. tostring(recipeID))
             return {
@@ -3136,6 +3529,9 @@ state.RunPatronNextAction = function()
             favoriteTracker.awaitingCraft = favoriteTracker.beforeConcentration ~= nil
             favoriteTracker.craftConfirmed = false
             favoriteTracker.reservationConsumed = false
+            favoriteTracker.refundCheckAttempts = 0
+            favoriteTracker.refundCheckScheduled = false
+            favoriteTracker.currencyEventAmount = nil
         end
         local vellumLocation
         if recipeInfo and recipeInfo.isEnchantingRecipe and type(C_TradeSkillUI.CraftEnchant) == "function" then
@@ -4701,7 +5097,10 @@ local function QueueConcentrationDump(schematicForm, dumpState, source)
             .. " batches=" .. tostring(batches and #batches or 0)
             .. " fallback=" .. tostring(batches == nil)
     )
-    if (source == "button" or source == "auto-favorite") and queuedQuantity > 0 then
+    if (source == "button" or source == "auto-favorite")
+        and queuedQuantity > 0
+        and YQQuality.IsIngenuityRefundAutoQueueEnabled()
+    then
         local context = dumpState and dumpState.context
         state.autoFavoriteConcentration.tracker = {
             professionID = context and tonumber(context.professionID) or state.GetCurrentProfessionID(),
@@ -4715,6 +5114,9 @@ local function QueueConcentrationDump(schematicForm, dumpState, source)
             craftConfirmed = false,
             reservationConsumed = false,
             requeued = false,
+            refundCheckAttempts = 0,
+            refundCheckScheduled = false,
+            currencyEventAmount = nil,
         }
         DebugPrint(
             "concentration-refund armed source=" .. tostring(source)
@@ -4819,20 +5221,65 @@ state.GetCurrentConcentrationAmount = function()
     return currencyInfo and tonumber(currencyInfo.quantity) or nil
 end
 
-function YQQuality.TryQueueFavoriteConcentrationRefund()
+local function ScheduleFavoriteConcentrationRefundRetry(tracker)
+    local attempts = (tonumber(tracker.refundCheckAttempts) or 0) + 1
+    tracker.refundCheckAttempts = attempts
+    if attempts > CONFIG.CONCENTRATION_REFUND_MAX_RETRIES then
+        tracker.awaitingCraft = false
+        DebugPrint("concentration-refund timeout waiting-for-currency-update")
+        return
+    end
+    if tracker.refundCheckScheduled then
+        return
+    end
+    tracker.refundCheckScheduled = true
+    C_Timer.After(CONFIG.CONCENTRATION_REFUND_RETRY_DELAY, function()
+        if state.autoFavoriteConcentration.tracker ~= tracker then
+            return
+        end
+        tracker.refundCheckScheduled = false
+        YQQuality.TryQueueFavoriteConcentrationRefund()
+    end)
+end
+
+function YQQuality.TryQueueFavoriteConcentrationRefund(observedAmount)
     local tracker = state.autoFavoriteConcentration.tracker
     if not tracker or not tracker.awaitingCraft or not tracker.craftConfirmed or tracker.requeued then
         return
     end
 
-    tracker.awaitingCraft = false
-    local before = tonumber(tracker.beforeConcentration)
-    local after = state.GetCurrentConcentrationAmount()
-    local cost = tonumber(tracker.concentrationCost) or 0
-    if not before or not after or cost <= 0 then
+    if not YQQuality.IsIngenuityRefundAutoQueueEnabled() then
+        tracker.awaitingCraft = false
+        tracker.craftConfirmed = false
         return
     end
 
+    local before = tonumber(tracker.beforeConcentration)
+    local after = state.GetCurrentConcentrationAmount()
+    local eventAmount = tonumber(observedAmount) or tonumber(tracker.currencyEventAmount)
+    if after == before and eventAmount and eventAmount ~= before then
+        after = eventAmount
+    end
+    local cost = tonumber(tracker.concentrationCost) or 0
+    if not before or not after or cost <= 0 then
+        ScheduleFavoriteConcentrationRefundRetry(tracker)
+        return
+    end
+
+    -- CURRENCY_DISPLAY_UPDATE can arrive before GetCurrencyInfo exposes the
+    -- post-craft value. Never treat the pre-craft amount as a refund result.
+    if after == before then
+        DebugPrint(
+            "concentration-refund wait currency-update before=" .. tostring(before)
+                .. " observed=" .. tostring(after)
+        )
+        ScheduleFavoriteConcentrationRefundRetry(tracker)
+        return
+    end
+
+    tracker.awaitingCraft = false
+    tracker.refundCheckAttempts = 0
+    tracker.currencyEventAmount = nil
     local spent = before - cost
     local professionID = tonumber(tracker.professionID) or state.GetCurrentProfessionID()
     local currencyID = tonumber(tracker.concentrationCurrencyID)
@@ -5481,6 +5928,7 @@ local function UpdateCraftPanel(summary)
         if nextState then
             state.craft.nextButton:SetShown(true)
             local toolArmed = false
+            local shatterArmed = false
             local phialArmed = false
             local mergeArmed = false
             local inCombat = InCombatLockdown and InCombatLockdown()
@@ -5500,6 +5948,22 @@ local function UpdateCraftPanel(summary)
                 toolArmed = true
             end
             if not inCombat and not toolArmed
+                and nextState.enabled
+                and nextState.action == "shatter"
+                and nextState.itemID
+            then
+                -- Shatter is a salvage recipe. CraftSalvage receives the
+                -- selected mote location and can consume it from bags or bank.
+                state.craft.nextButton:SetAttribute("type", nil)
+                state.craft.nextButton:SetAttribute("item", nil)
+                state.armedShatter = {
+                    itemID = nextState.itemID,
+                    expiresAt = GetTime() + 2.0,
+                }
+                shatterArmed = true
+            end
+            if not inCombat and not toolArmed
+                and not shatterArmed
                 and nextState.enabled
                 and (nextState.action == "craft_normal" or nextState.action == "craft")
                 and nextState.entry
@@ -5539,17 +6003,19 @@ local function UpdateCraftPanel(summary)
                 }
                 mergeArmed = true
             end
-            if not inCombat and not toolArmed and not phialArmed and not mergeArmed then
+            if not inCombat and not toolArmed and not shatterArmed and not phialArmed and not mergeArmed then
                 state.craft.nextButton:SetAttribute("type", nil)
                 state.craft.nextButton:SetAttribute("item", nil)
+                state.armedShatter = nil
                 state.armedIngenuityPhial = nil
                 state.armedMerge = nil
                 state.armedCraftTool = nil
             end
             state.craft.nextButton:SetText(
                 toolArmed and (nextState.text or "Next: outil")
-                    or (phialArmed and "Next: Phial"
-                        or (mergeArmed and "Next: Fusion" or (nextState.text or "Next")))
+                    or (shatterArmed and "Next: Shatter"
+                        or (phialArmed and "Next: Phial"
+                            or (mergeArmed and "Next: Fusion" or (nextState.text or "Next"))))
             )
             if nextState.enabled then
                 state.craft.nextButton:Enable()
@@ -5567,6 +6033,7 @@ local function UpdateCraftPanel(summary)
             if not (InCombatLockdown and InCombatLockdown()) then
                 state.craft.nextButton:SetAttribute("type", nil)
                 state.craft.nextButton:SetAttribute("item", nil)
+                state.armedShatter = nil
                 state.armedIngenuityPhial = nil
                 state.armedCraftTool = nil
             end
@@ -5604,6 +6071,8 @@ local function ShowAuctionFrame()
     end
 
     if state.ah.tab.libAHTab and state.ah.tab.libTabID then
+        PanelTemplates_TabResize(state.ah.tab, 20, nil, 70)
+        state.ah.tab:SetWidth(70)
         state.ah.tab.libAHTab:SetSelected(state.ah.tab.libTabID)
         ScheduleRefresh()
         C_Timer.After(0, function()
@@ -5797,6 +6266,10 @@ local function UpdateAuctionFrame(summary)
 
     UpdateAuctionLines(summary)
     UpdateAuctionButton(summary)
+    if state.ah.soundCheckbox then
+        state.EnsureDB()
+        state.ah.soundCheckbox:SetChecked(db.auctionPriceWarningSoundEnabled ~= false)
+    end
     state.ah.statusText:SetText(state.ah.statusMessage ~= "" and state.ah.statusMessage or "Pret")
 end
 
@@ -5818,7 +6291,9 @@ function YQQuality.WarnIfAuctionPriceAboveExpected(name, actualPrice, expectedPr
         percent
     )
     Print(message)
-    if type(PlaySound) == "function" and type(SOUNDKIT) == "table" and SOUNDKIT.RAID_WARNING then
+    state.EnsureDB()
+    if db.auctionPriceWarningSoundEnabled ~= false
+        and type(PlaySound) == "function" and type(SOUNDKIT) == "table" and SOUNDKIT.RAID_WARNING then
         pcall(PlaySound, SOUNDKIT.RAID_WARNING)
     end
     return message
@@ -9255,7 +9730,9 @@ local function HookCraftAPIs()
     if not state.craftApiHooksInitialized then
         if type(C_TradeSkillUI.CraftRecipe) == "function" then
             hooksecurefunc(C_TradeSkillUI, "CraftRecipe", function(recipeID, amount)
-                QueuePendingCraftRecipe(recipeID, amount)
+                if tonumber(recipeID) ~= CONFIG.SHATTER_ESSENCE_SPELL_ID then
+                    QueuePendingCraftRecipe(recipeID, amount)
+                end
             end)
         end
         if type(C_TradeSkillUI.CraftEnchant) == "function" then
@@ -9265,7 +9742,9 @@ local function HookCraftAPIs()
         end
         if type(C_TradeSkillUI.CraftSalvage) == "function" then
             hooksecurefunc(C_TradeSkillUI, "CraftSalvage", function(recipeID, amount)
-                QueuePendingCraftRecipe(recipeID, amount)
+                if tonumber(recipeID) ~= CONFIG.SHATTER_ESSENCE_SPELL_ID then
+                    QueuePendingCraftRecipe(recipeID, amount)
+                end
             end)
         end
         if type(C_TradeSkillUI.RecraftRecipe) == "function" then
@@ -9384,7 +9863,46 @@ local function CreateCraftPanel()
     nextButton:RegisterForClicks("AnyUp", "AnyDown")
     -- HookScript preserves SecureActionButtonTemplate's native item handler.
     -- SetScript would replace it and leave the phial click inert.
+    nextButton:HookScript("PreClick", function()
+        local shatter = state.armedShatter
+        if not shatter then
+            return
+        end
+
+        state.armedShatter = nil
+        state.pendingShatter = {
+            itemID = shatter.itemID,
+            expiresAt = GetTime() + 4.0,
+            attempts = 0,
+        }
+        BeginNextActionLock("shatter", 0, 5.0)
+        local salvageLocation = GetItemLocationFromItemID(shatter.itemID, true)
+        local callOK = type(C_TradeSkillUI) == "table"
+            and type(C_TradeSkillUI.CraftSalvage) == "function"
+            and salvageLocation ~= nil
+            and pcall(
+                C_TradeSkillUI.CraftSalvage,
+                CONFIG.SHATTER_ESSENCE_SPELL_ID,
+                1,
+                salvageLocation,
+                nil,
+                false
+            )
+        if not callOK then
+            state.pendingShatter = nil
+            ClearNextActionLock("shatter-call-failed")
+            state.ah.statusMessage = salvageLocation and "Shatter indisponible" or "Mote introuvable"
+            ScheduleRefresh()
+            return
+        end
+
+        state.ah.statusMessage = "Shatter en cours"
+        C_Timer.After(0.1, YQQuality.ConfirmPendingShatter)
+    end)
     nextButton:HookScript("OnClick", function()
+        if state.pendingShatter then
+            return
+        end
         local tool = state.armedCraftTool
         if tool then
             state.armedCraftTool = nil
@@ -9511,8 +10029,26 @@ local function CreateAuctionFrame()
     helpText:SetJustifyH("LEFT")
     helpText:SetText("Rechercher tout puis acheter suivant.")
 
+    local soundCheckbox = CreateFrame("CheckButton", addonName .. "AuctionPriceWarningSound", frame, "UICheckButtonTemplate")
+    soundCheckbox:SetPoint("TOPLEFT", helpText, "BOTTOMLEFT", -4, -4)
+    local soundLabel = soundCheckbox.Text or soundCheckbox.text
+    if not soundLabel then
+        soundLabel = soundCheckbox:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        soundLabel:SetPoint("LEFT", soundCheckbox, "RIGHT", 2, 1)
+        soundCheckbox.Text = soundLabel
+    end
+    soundLabel:SetText("Jouer un son si le prix est trop haut")
+    soundCheckbox:SetScript("OnClick", function(self)
+        state.EnsureDB()
+        db.auctionPriceWarningSoundEnabled = self:GetChecked() == true
+    end)
+    frame:SetScript("OnShow", function()
+        state.EnsureDB()
+        soundCheckbox:SetChecked(db.auctionPriceWarningSoundEnabled ~= false)
+    end)
+
     local totalText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    totalText:SetPoint("TOPLEFT", helpText, "BOTTOMLEFT", 0, -8)
+    totalText:SetPoint("TOPLEFT", soundCheckbox, "BOTTOMLEFT", 0, -6)
     totalText:SetPoint("RIGHT", frame, "RIGHT", -14, 0)
     totalText:SetJustifyH("LEFT")
     totalText:SetText("Total estime: ?")
@@ -9550,6 +10086,7 @@ local function CreateAuctionFrame()
     state.ah.statusText = statusText
     state.ah.totalText = totalText
     state.ah.actionButton = actionButton
+    state.ah.soundCheckbox = soundCheckbox
 end
 
 local function CreateAuctionTab()
@@ -9565,6 +10102,14 @@ local function CreateAuctionTab()
 
         local tab = libAHTab:GetButton(addonName)
         if tab then
+            -- TSM can leave the shared LibAHTab button stretched on its first
+            -- switch back to Blizzard's AH. YQ has a fixed two-letter label.
+            PanelTemplates_TabResize(tab, 20, nil, 70)
+            tab:SetWidth(70)
+            tab:HookScript("OnShow", function(self)
+                PanelTemplates_TabResize(self, 20, nil, 70)
+                self:SetWidth(70)
+            end)
             tab.libAHTab = libAHTab
             tab.libTabID = addonName
             tab.tabHeader = "YayaQueue"
@@ -9583,6 +10128,7 @@ local function CreateAuctionTab()
     local tab = CreateFrame("Button", addonName .. "AuctionTab", root, "AuctionHouseFrameDisplayModeTabTemplate")
     tab:SetText("YQ")
     PanelTemplates_TabResize(tab, 20, nil, 70)
+    tab:SetWidth(70)
     tab:SetPoint("TOPLEFT", root, "TOPLEFT", 3, 0)
     tab:SetHitRectInsets(0, 0, 0, 0)
     tab.tabHeader = "YayaQueue"
@@ -9822,6 +10368,7 @@ state.RefreshAll = function()
     HookCraftAPIs()
     CacheMerchantItems()
 
+    YQQuality.EnsureShatterMoteDemandForEntry(GetNextQueueEntry())
     local summary = BuildQueueSummary()
     PruneSearchCache(summary)
     ApplyQueuedRecipeConfigNow()
@@ -9848,7 +10395,7 @@ state.RefreshAll = function()
     end
 end
 
-addon:SetScript("OnEvent", function(_, event, arg1, arg2)
+addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
     InstallRecipeDescriptionGuard()
     if event == "ADDON_LOADED" then
         if arg1 == "TradeSkillMaster" then
@@ -9964,6 +10511,12 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
     end
 
     if event == "CURRENCY_DISPLAY_UPDATE" then
+        local favoriteTracker = state.autoFavoriteConcentration.tracker
+        if favoriteTracker and favoriteTracker.awaitingCraft
+            and tonumber(arg1) == tonumber(favoriteTracker.concentrationCurrencyID)
+        then
+            favoriteTracker.currencyEventAmount = tonumber(arg2)
+        end
         C_Timer.After(0.25, YQQuality.TryQueueFavoriteConcentrationRefund)
         ScheduleRefresh()
         return
@@ -10015,6 +10568,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
     end
 
     if event == "UNIT_AURA" and arg1 == "player" then
+        if YQQuality.IsShatterBuffActive() then
+            if state.pendingShatter then
+                YQQuality.ConfirmPendingShatter()
+            else
+                YQQuality.RemoveShatterMoteDemand()
+            end
+        end
         if state.pendingIngenuityPhial and YQQuality.IsIngenuityBuffActive() then
             YQQuality.RemoveConcentrationPhialDemand(state.pendingIngenuityPhial.demandItemID, 1)
             state.pendingIngenuityPhial = nil
@@ -10027,6 +10587,11 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         local unit = arg1
         if unit ~= "player" then
+            return
+        end
+
+        if state.pendingShatter or tonumber(arg3) == CONFIG.SHATTER_ESSENCE_SPELL_ID then
+            C_Timer.After(0.1, YQQuality.ConfirmPendingShatter)
             return
         end
 
@@ -10076,6 +10641,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2)
     if event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_INTERRUPTED" then
         local unit = arg1
         if unit == "player" then
+            if state.pendingShatter or tonumber(arg3) == CONFIG.SHATTER_ESSENCE_SPELL_ID then
+                state.pendingShatter = nil
+                ClearNextActionLock(string.lower(tostring(event)))
+                state.ah.statusMessage = "Shatter echoue"
+                ScheduleRefresh()
+                return
+            end
             if state.pendingMerge then
                 state.pendingMerge = nil
                 state.armedMerge = nil
@@ -10392,7 +10964,10 @@ function YayaQueueAPI.AddItem(itemID, quantity, itemName)
     end
 
     for _, entry in ipairs(db.queue) do
-        if entry.queueKind == "direct_item" and entry.itemID == directEntry.itemID then
+        if entry.queueKind == "direct_item"
+            and entry.itemID == directEntry.itemID
+            and entry.shatterMote ~= true
+        then
             entry.directQuantity = ClampQuantity((entry.directQuantity or 0) + directEntry.directQuantity)
             entry.itemName = directEntry.itemName
             state.searchCache[entry.itemID] = nil
@@ -10487,7 +11062,10 @@ function YayaQueueAPI.SetItemTarget(itemID, quantity, itemName)
     end
 
     for _, entry in ipairs(db.queue) do
-        if entry.queueKind == "direct_item" and entry.itemID == directEntry.itemID then
+        if entry.queueKind == "direct_item"
+            and entry.itemID == directEntry.itemID
+            and entry.shatterMote ~= true
+        then
             entry.directQuantity = directEntry.directQuantity
             entry.itemName = directEntry.itemName
             state.searchCache[entry.itemID] = nil
