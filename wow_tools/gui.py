@@ -507,6 +507,11 @@ def _format_exchange_price(value: Any) -> str:
     return f"{copper}c"
 
 
+def _format_lumber_profession(value: Any) -> str:
+    raw = str(value or "").strip()
+    return raw.replace("_", " ").title() if raw else "-"
+
+
 class ProfitabilityGui:
     def __init__(self, root: tk.Tk):
         self.root = root
@@ -1028,19 +1033,30 @@ class ProfitabilityGui:
         tree_frame.columnconfigure(0, weight=1)
         tree_frame.rowconfigure(0, weight=1)
 
-        columns = ("expansion", "wood", "value", "profit", "sale_rate", "products", "marketed", "wood_price")
+        columns = (
+            "expansion",
+            "wood",
+            "profession",
+            "value",
+            "profit",
+            "sale_rate",
+            "products",
+            "marketed",
+            "wood_price",
+        )
         tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=12)
         tree.grid(row=0, column=0, sticky="nsew")
 
         headings = {
             "expansion": ("Extension", 120),
             "wood": ("Bois", 200),
+            "profession": ("Meilleur métier", 130),
             "value": ("Valeur/bois", 100),
             "profit": ("Profit moy", 100),
             "sale_rate": ("SR moy", 80),
             "products": ("Produits", 70),
             "marketed": ("Pricés", 70),
-            "wood_price": ("Prix bois", 100),
+            "wood_price": ("Prix avgSell", 100),
         }
         for column, (label, width) in headings.items():
             tree.heading(column, text=label)
@@ -2401,6 +2417,7 @@ class ProfitabilityGui:
             values = (
                 row.get("expansion") or "-",
                 row.get("wood_name") or "-",
+                _format_lumber_profession(row.get("best_profession")),
                 format_copper(row.get("estimated_value_per_wood_copper")),
                 format_copper(row.get("avg_craft_profit_copper")),
                 format_number(row.get("avg_product_sell_rate")),
@@ -2412,7 +2429,7 @@ class ProfitabilityGui:
 
         region = str(report.get("region") or DEFAULT_REGION).upper()
         has_live_data = any((row.get("estimated_value_per_wood_copper") or 0) != 0 for row in rows)
-        summary = f"{len(rows)} bois | région {region} | valeur = profit craft moyen avec malus sell rate"
+        summary = f"{len(rows)} bois | région {region} | base prix avgSell | valeur = profit craft moyen avec malus sell rate"
         if not has_live_data:
             summary += " | coche Sync prices"
         state.summary_var.set(summary)
@@ -2449,7 +2466,8 @@ class ProfitabilityGui:
         lines = [
             f"Extension: {row.get('expansion') or '-'}",
             f"Bois: {row.get('wood_name') or '-'} ({row.get('wood_item_id') or '-'})",
-            f"Prix bois: {format_copper(row.get('wood_price_copper'))}",
+            f"Meilleur métier par bois: {_format_lumber_profession(row.get('best_profession'))}",
+            f"Prix bois (avgSell): {format_copper(row.get('wood_price_copper'))}",
             f"Produits logging: {row.get('product_count') or 0}",
             f"Produits pricés: {row.get('product_market_count') or 0}",
             f"Profit craft moyen: {format_copper(row.get('avg_craft_profit_copper'))}",
@@ -2464,7 +2482,8 @@ class ProfitabilityGui:
         ]
         for product in row.get("top_products") or []:
             lines.append(
-                f"- {product.get('item_name') or product['item_id']}: "
+                f"- [{_format_lumber_profession(product.get('profession'))}] "
+                f"{product.get('item_name') or product['item_id']}: "
                 f"profit {format_copper(product.get('craft_profit_copper'))} | "
                 f"sr {format_number(product.get('sell_rate'))} | "
                 f"qte bois {format_number(product.get('wood_quantity'))} | "

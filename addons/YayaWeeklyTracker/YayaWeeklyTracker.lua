@@ -766,6 +766,8 @@ local TRACKER_DEFAULTS = {
     trackProfessionDarkmoon = true,
     trackProfessionLoots = true,
     trackProfessionDisenchants = true,
+    autoBuyAbundanceEnchantingBags = false,
+    autoBuyAbundanceFusedVitality = false,
     trackRecipePotionRecklessness = true,
     trackRecipeHaranirMulticrafting = true,
     trackRecipeHaranirGlamour = true,
@@ -790,6 +792,8 @@ runtimeState.trackingOptions = {
     { category = "Metiers Midnight", key = "trackProfessionDarkmoon", label = "DMF metiers" },
     { category = "Metiers Midnight", key = "trackProfessionLoots", label = "Loots metiers" },
     { category = "Metiers Midnight", key = "trackProfessionDisenchants", label = "Dez Enchantement" },
+    { category = "Marchand Abondance", key = "autoBuyAbundanceEnchantingBags", label = "Acheter automatiquement les sacs de matériaux d'enchantement" },
+    { category = "Marchand Abondance", key = "autoBuyAbundanceFusedVitality", label = "Acheter automatiquement les Fused Vitality" },
     { category = "Recettes Midnight", key = "trackRecipePotionRecklessness", label = "Potion of Recklessness" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirMulticrafting", label = "Enchant Tool - Haranir Multicrafting" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirGlamour", label = "Gleeful Glamour - Haranir" },
@@ -823,6 +827,21 @@ runtimeState.tradeSkillBootstrapProfessionID = nil
 runtimeState.itemDataLoadPending = {}
 runtimeState.itemDataLoadRetryAt = {}
 runtimeState.itemDataLoadCooldownSeconds = 5
+runtimeState.abundanceEnchantingBagItemID = 250755
+runtimeState.abundanceFusedVitalityItemID = 245345
+runtimeState.abundancePurchaseTargets = {
+    { itemID = 250755, optionKey = "autoBuyAbundanceEnchantingBags", requiresEnchanting = true },
+    { itemID = 245345, optionKey = "autoBuyAbundanceFusedVitality" },
+}
+runtimeState.abundanceEnchantingPurchaseGeneration = 0
+runtimeState.abundanceEnchantingPurchaseScheduled = false
+runtimeState.abundanceEnchantingPurchaseAttempted = false
+runtimeState.abundanceEnchantingPurchasePending = nil
+runtimeState.abundanceEnchantingPurchaseRetryCount = 0
+runtimeState.abundanceEnchantingPurchaseStalledCount = 0
+runtimeState.abundancePurchaseSkippedItems = {}
+runtimeState.abundanceEnchantingPurchaseRetryLimit = 20
+runtimeState.abundanceEnchantingPurchaseDelaySeconds = 0.15
 runtimeState.bagScanRetryLimit = 12
 runtimeState.bagScanRetryDelaySeconds = 0.25
 runtimeState.bagScanRetryCount = {}
@@ -841,6 +860,8 @@ local midnightCaches = {
     payoutDirty = true,
     surplusReagents = nil,
     surplusReagentsDirty = true,
+    warbankTreatises = nil,
+    warbankTreatisesDirty = true,
 }
 local treasureWaypointUIDs = {}
 local treasureWaypointSignature
@@ -854,6 +875,7 @@ local debugSignatures = {
     trackedProfessions = nil,
     tracker = nil,
     treasure = nil,
+    warbankTreatises = nil,
 }
 local GetContainerItemIDCompat
 local GetContainerNumSlotsCompat
@@ -2171,6 +2193,161 @@ local function FindArtisanConsortiumPayoutInBags()
     return result
 end
 
+trackerUI.InvalidateWarbankTreatiseCache = function()
+    midnightCaches.warbankTreatisesDirty = true
+end
+
+trackerUI.IsAccountBankOpen = function()
+    local accountBankType = Enum and Enum.BankType and Enum.BankType.Account
+    if accountBankType == nil then
+        return false
+    end
+
+    local bankFrame = _G.BankFrame or BankFrame
+    local isBankShown = bankFrame
+        and type(bankFrame.IsShown) == "function"
+        and bankFrame:IsShown()
+    local bags
+    local elvUI = _G.ElvUI
+    if not isBankShown and type(elvUI) == "table" then
+        local engine = elvUI[1]
+        bags = engine and type(engine.GetModule) == "function"
+            and SafeCall(engine.GetModule, engine, "Bags")
+        bankFrame = bags and bags.BankFrame or nil
+        isBankShown = bankFrame
+            and type(bankFrame.IsShown) == "function"
+            and bankFrame:IsShown()
+    end
+    if not isBankShown then
+        return false
+    end
+
+    local activeBankType = type(Addon_GetBankType) == "function"
+        and SafeCall(Addon_GetBankType)
+        or nil
+    if activeBankType == nil and type(bankFrame.GetActiveBankType) == "function" then
+        activeBankType = SafeCall(bankFrame.GetActiveBankType, bankFrame)
+    end
+    local bankPanel = _G.BankPanel or bankFrame.BankPanel
+    if activeBankType == nil and bankPanel and type(bankPanel.GetActiveBankType) == "function" then
+        activeBankType = SafeCall(bankPanel.GetActiveBankType, bankPanel)
+    end
+    if activeBankType ~= nil then
+        return activeBankType == accountBankType
+    end
+
+    local accountTabID = bags and bags.WarbandIndexs and bags.WarbandIndexs[1]
+    return accountTabID ~= nil and bags.BankTab == accountTabID
+end
+
+trackerUI.GetAccountBankBagIDs = function()
+    local bagIDs = {}
+    local seenBagIDs = {}
+    local accountBankType = Enum and Enum.BankType and Enum.BankType.Account
+    if accountBankType ~= nil and C_Bank and type(C_Bank.FetchPurchasedBankTabIDs) == "function" then
+        local purchased = SafeCall(C_Bank.FetchPurchasedBankTabIDs, accountBankType)
+        if type(purchased) == "table" then
+            for _, bagID in pairs(purchased) do
+                bagID = tonumber(bagID)
+                if bagID and not seenBagIDs[bagID] then
+                    seenBagIDs[bagID] = true
+                    bagIDs[#bagIDs + 1] = bagID
+                end
+            end
+        end
+    end
+
+    if #bagIDs == 0 then
+        local bagIndex = Enum and Enum.BagIndex or {}
+        local first = tonumber(bagIndex.AccountBankTab_1)
+        local last = tonumber(bagIndex.AccountBankTab_5)
+        if first and last then
+            for bagID = first, last do
+                bagIDs[#bagIDs + 1] = bagID
+            end
+        end
+    end
+
+    table.sort(bagIDs)
+    return bagIDs
+end
+
+trackerUI.FindMissingMidnightTreatisesInWarbank = function(trackedRows)
+    if GetAccountDB().trackTreatises == false or not trackerUI.IsAccountBankOpen() then
+        local closedResult = { bankOpen = false, matches = EMPTY_TABLE }
+        midnightCaches.warbankTreatises = closedResult
+        midnightCaches.warbankTreatisesDirty = false
+        return closedResult
+    end
+    if not midnightCaches.warbankTreatisesDirty and midnightCaches.warbankTreatises then
+        return midnightCaches.warbankTreatises
+    end
+
+    trackedRows = trackedRows or GetTrackedMidnightProfessions()
+    local missingBySkillLineID = {}
+    for _, row in ipairs(trackedRows) do
+        local config = MIDNIGHT_PROFESSION_CONFIGS[row.skillLineID]
+        local treatiseInfo = MIDNIGHT_TREATISES_BY_SKILL_LINE_ID[row.skillLineID]
+        if config and treatiseInfo
+            and row.skillLevel >= (config.treatiseMinSkill or math.huge)
+            and not IsQuestDone(treatiseInfo.weeklyQuestID) then
+            missingBySkillLineID[row.skillLineID] = {
+                label = config.label or tostring(row.skillLineID),
+                itemID = treatiseInfo.itemID,
+            }
+        end
+    end
+
+    local matchesBySkillLineID = {}
+    for _, bagID in ipairs(trackerUI.GetAccountBankBagIDs()) do
+        local slotCount = GetContainerNumSlotsCompat(bagID)
+        for slotIndex = 1, slotCount do
+            local itemID = GetContainerItemIDCompat(bagID, slotIndex)
+            local skillLineID = itemID and MIDNIGHT_KNOWLEDGE_ITEM_SKILL_LINE_IDS[itemID] or nil
+            local missing = skillLineID and missingBySkillLineID[skillLineID] or nil
+            if missing and missing.itemID == itemID and not matchesBySkillLineID[skillLineID] then
+                matchesBySkillLineID[skillLineID] = {
+                    skillLineID = skillLineID,
+                    label = missing.label,
+                    bagID = bagID,
+                    slotIndex = slotIndex,
+                    itemID = itemID,
+                    itemLink = GetContainerItemLinkCompat(bagID, slotIndex),
+                    itemName = GetItemInfo and GetItemInfo(itemID) or nil,
+                    stackCount = math.max(GetContainerItemCountCompat(bagID, slotIndex), 1),
+                }
+            end
+        end
+    end
+
+    local matches = {}
+    for _, row in ipairs(trackedRows) do
+        local match = matchesBySkillLineID[row.skillLineID]
+        if match then
+            matches[#matches + 1] = match
+        end
+    end
+
+    local debugParts = {}
+    for _, match in ipairs(matches) do
+        debugParts[#debugParts + 1] = ("%s:%d:%d"):format(
+            match.label or "?",
+            match.itemID or 0,
+            match.stackCount or 0
+        )
+    end
+    local debugSignature = table.concat(debugParts, ",")
+    if debugSignature ~= debugSignatures.warbankTreatises then
+        debugSignatures.warbankTreatises = debugSignature
+        DebugLog("Warbank treatises = %s", debugSignature ~= "" and debugSignature or "none")
+    end
+
+    local result = { bankOpen = true, matches = matches }
+    midnightCaches.warbankTreatises = result
+    midnightCaches.warbankTreatisesDirty = false
+    return result
+end
+
 trackerUI.FindSurplusReagentContainersInBags = function()
     if not midnightCaches.surplusReagentsDirty and midnightCaches.surplusReagents then
         return midnightCaches.surplusReagents
@@ -2551,14 +2728,45 @@ trackerUI.ResetMidnightRecipeTransferAction = function(button)
     end
 end
 
+trackerUI.IsMidnightRecipeNativeTransferAmountReady = function(state)
+    if not state or not state.sourceGUID or state.transferQuantity <= 0 then
+        return false
+    end
+
+    local menu = CurrencyTransferMenu
+    local content = menu and menu.Content or nil
+    local amountSelector = content and content.AmountSelector or nil
+    local amountInput = amountSelector and amountSelector.InputBox or nil
+    local confirmButton = content and content.ConfirmButton or nil
+    if not (menu and type(menu.IsShown) == "function" and menu:IsShown()
+        and type(menu.GetCurrencyID) == "function"
+        and menu:GetCurrencyID() == runtimeState.midnightVoidlightMarlCurrencyID
+        and type(menu.GetSourceCharacterData) == "function"
+        and type(menu.GetRequestedCurrencyTransferAmount) == "function"
+        and amountInput and confirmButton) then
+        return false
+    end
+
+    local source = menu:GetSourceCharacterData()
+    local nativeAmount = menu:GetRequestedCurrencyTransferAmount()
+    return source and source.characterGUID == state.sourceGUID
+        and nativeAmount == state.transferQuantity
+        and (type(confirmButton.IsEnabled) ~= "function" or confirmButton:IsEnabled())
+end
+
 trackerUI.UpdateMidnightRecipeTransferButton = function(trackedRows)
     local button = trackerFrame and trackerFrame.recipeMarlButton or nil
     if not button then
         return false
     end
 
+    if runtimeState.midnightRecipeTransferFeatureEnabled ~= true then
+        trackerUI.ResetMidnightRecipeTransferAction(button)
+        button:Hide()
+        return false
+    end
+
     local state = trackerUI.GetMidnightRecipeTransferStatus(trackedRows)
-    trackerUI.ResetMidnightRecipeTransferAction(button)
     if state.requiredQuantity <= 0 or state.neededQuantity <= 0 then
         button:SetEnabled(true)
         button.requiredQuantity = nil
@@ -2589,7 +2797,11 @@ trackerUI.UpdateMidnightRecipeTransferButton = function(trackedRows)
         button:SetText("Ouvrir interface marls")
         button:SetEnabled(type(ToggleCharacter) == "function")
     elseif state.canTransfer then
-        button:SetText(("Transferer marls x%d"):format(state.transferQuantity))
+        if trackerUI.IsMidnightRecipeNativeTransferAmountReady(state) then
+            button:SetText("Confirmer transfert")
+        else
+            button:SetText(("Definir qte x%d"):format(state.transferQuantity))
+        end
         button:SetEnabled(true)
     elseif state.sourceGUID then
         button:SetText("Transfert indisponible")
@@ -2678,6 +2890,49 @@ trackerUI.UpdateSurplusReagentButtons = function(states)
     return visibleCount
 end
 
+trackerUI.UpdateWarbankTreatiseButtons = function(state)
+    local buttons = trackerFrame and trackerFrame.warbankTreatiseButtons or EMPTY_TABLE
+    local matches = state and state.bankOpen and state.matches or EMPTY_TABLE
+    local visibleCount = 0
+
+    for index, button in ipairs(buttons) do
+        local match = matches[index]
+        if match and match.bagID and match.slotIndex then
+            button.skillLineID = match.skillLineID
+            button.itemID = match.itemID
+            button.itemLink = match.itemLink
+            button.itemName = match.itemName
+            button.bagID = match.bagID
+            button.slotIndex = match.slotIndex
+            button:SetText(("Récupérer traité %s x%d"):format(match.label or "", match.stackCount or 1))
+            if not (InCombatLockdown and InCombatLockdown()) then
+                button:SetAttribute("type", "item")
+                button:SetAttribute("item", ("%d %d"):format(match.bagID, match.slotIndex))
+                button:SetAttribute("bag", nil)
+                button:SetAttribute("slot", nil)
+            end
+            button:Show()
+            visibleCount = visibleCount + 1
+        else
+            button.skillLineID = nil
+            button.itemID = nil
+            button.itemLink = nil
+            button.itemName = nil
+            button.bagID = nil
+            button.slotIndex = nil
+            if not (InCombatLockdown and InCombatLockdown()) then
+                button:SetAttribute("type", nil)
+                button:SetAttribute("item", nil)
+                button:SetAttribute("bag", nil)
+                button:SetAttribute("slot", nil)
+            end
+            button:Hide()
+        end
+    end
+
+    return visibleCount
+end
+
 trackerUI.GetOwnedItemCount = function(itemID)
     if type(itemID) ~= "number" or itemID <= 0 then
         return 0
@@ -2692,6 +2947,192 @@ trackerUI.GetOwnedItemCount = function(itemID)
     end
 
     return 0
+end
+
+trackerUI.HasEnchantingProfession = function()
+    if not GetProfessions or not GetProfessionInfo then
+        return false
+    end
+
+    local professionIndices = { GetProfessions() }
+    for _, professionIndex in pairs(professionIndices) do
+        if professionIndex then
+            local _, _, skillLevel, _, _, _, skillLineID = SafeCall(GetProfessionInfo, professionIndex)
+            if skillLineID == 333 and (skillLevel or 0) > 0 then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+trackerUI.FindAbundancePurchaseMerchantIndices = function()
+    local merchantCount = 0
+    if type(GetMerchantNumItems) == "function" then
+        merchantCount = tonumber(SafeCall(GetMerchantNumItems)) or 0
+    elseif C_MerchantFrame and type(C_MerchantFrame.GetNumItems) == "function" then
+        merchantCount = tonumber(SafeCall(C_MerchantFrame.GetNumItems)) or 0
+    end
+
+    local itemIndices = {}
+    for index = 1, merchantCount do
+        local itemInfo = C_MerchantFrame and type(C_MerchantFrame.GetItemInfo) == "function"
+            and SafeCall(C_MerchantFrame.GetItemInfo, index)
+            or nil
+        local itemID = type(GetMerchantItemID) == "function"
+            and SafeCall(GetMerchantItemID, index)
+            or nil
+        if not itemID and type(itemInfo) == "table" then
+            itemID = itemInfo.itemID
+        end
+        if not itemID and type(GetMerchantItemLink) == "function"
+            and C_Item and type(C_Item.GetItemInfoInstant) == "function" then
+            local itemLink = SafeCall(GetMerchantItemLink, index)
+            itemID = itemLink and SafeCall(C_Item.GetItemInfoInstant, itemLink) or nil
+        end
+        if itemID == runtimeState.abundanceEnchantingBagItemID
+            or itemID == runtimeState.abundanceFusedVitalityItemID then
+            itemIndices[itemID] = index
+        end
+    end
+    return itemIndices
+end
+
+trackerUI.FindAbundancePurchaseTarget = function(itemIndices)
+    local accountDB = GetAccountDB()
+    local skippedItems = runtimeState.abundancePurchaseSkippedItems or EMPTY_TABLE
+    for _, target in ipairs(runtimeState.abundancePurchaseTargets or EMPTY_TABLE) do
+        if accountDB[target.optionKey] == true
+            and not skippedItems[target.itemID]
+            and itemIndices[target.itemID]
+            and (not target.requiresEnchanting or trackerUI.HasEnchantingProfession())
+        then
+            return target
+        end
+    end
+end
+
+trackerUI.ScheduleAbundanceEnchantingBagPurchase = function(delaySeconds)
+    local accountDB = GetAccountDB()
+    if (accountDB.autoBuyAbundanceEnchantingBags ~= true
+            and accountDB.autoBuyAbundanceFusedVitality ~= true)
+        or runtimeState.abundanceEnchantingPurchaseAttempted
+        or runtimeState.abundanceEnchantingPurchaseScheduled
+        or not C_Timer
+        or type(C_Timer.After) ~= "function"
+    then
+        return
+    end
+
+    runtimeState.abundanceEnchantingPurchaseScheduled = true
+    local generation = runtimeState.abundanceEnchantingPurchaseGeneration
+    C_Timer.After(delaySeconds or runtimeState.abundanceEnchantingPurchaseDelaySeconds, function()
+        runtimeState.abundanceEnchantingPurchaseScheduled = false
+        if generation ~= runtimeState.abundanceEnchantingPurchaseGeneration
+            or runtimeState.abundanceEnchantingPurchaseAttempted
+            or not MerchantFrame
+            or type(MerchantFrame.IsShown) ~= "function"
+            or not MerchantFrame:IsShown()
+        then
+            return
+        end
+        trackerUI.TryBuyAbundanceEnchantingBags()
+    end)
+end
+
+trackerUI.TryBuyAbundanceEnchantingBags = function()
+    if runtimeState.abundanceEnchantingPurchaseAttempted
+        or not MerchantFrame
+        or type(MerchantFrame.IsShown) ~= "function"
+        or not MerchantFrame:IsShown()
+    then
+        return
+    end
+
+    local pending = runtimeState.abundanceEnchantingPurchasePending
+    if pending then
+        local currentOwned = trackerUI.GetOwnedItemCount(pending.itemID)
+        local currentCurrency = GetCurrencyQuantity(MIDNIGHT_UNALLOYED_ABUNDANCE_CURRENCY_ID)
+        local progressed = currentOwned > (pending.ownedBefore or 0)
+            or currentCurrency < (pending.currencyBefore or currentCurrency)
+        runtimeState.abundanceEnchantingPurchasePending = nil
+        if progressed then
+            runtimeState.abundanceEnchantingPurchaseStalledCount = 0
+        else
+            runtimeState.abundanceEnchantingPurchaseStalledCount = (runtimeState.abundanceEnchantingPurchaseStalledCount or 0) + 1
+            if runtimeState.abundanceEnchantingPurchaseStalledCount >= 3 then
+                runtimeState.abundancePurchaseSkippedItems[pending.itemID] = true
+                runtimeState.abundanceEnchantingPurchaseStalledCount = 0
+                DebugLog("Abundance purchase target stopped: no progress (item=%s)", tostring(pending.itemID))
+            else
+                trackerUI.ScheduleAbundanceEnchantingBagPurchase()
+                return
+            end
+        end
+    end
+
+    local merchantIndices = trackerUI.FindAbundancePurchaseMerchantIndices()
+    local target = trackerUI.FindAbundancePurchaseTarget(merchantIndices)
+    if not target then
+        local hasMerchantTarget = next(merchantIndices) ~= nil
+        runtimeState.abundanceEnchantingPurchaseRetryCount = (runtimeState.abundanceEnchantingPurchaseRetryCount or 0) + 1
+        if not hasMerchantTarget
+            and runtimeState.abundanceEnchantingPurchaseRetryCount < (runtimeState.abundanceEnchantingPurchaseRetryLimit or 20)
+        then
+            trackerUI.ScheduleAbundanceEnchantingBagPurchase()
+        else
+            runtimeState.abundanceEnchantingPurchaseAttempted = true
+            DebugLog("Abundance purchase stopped: no eligible target")
+        end
+        return
+    end
+
+    local itemInfo = C_MerchantFrame and type(C_MerchantFrame.GetItemInfo) == "function"
+        and SafeCall(C_MerchantFrame.GetItemInfo, merchantIndices[target.itemID])
+        or nil
+    if type(itemInfo) == "table" then
+        if itemInfo.numAvailable and itemInfo.numAvailable == 0 then
+            runtimeState.abundancePurchaseSkippedItems[target.itemID] = true
+            trackerUI.ScheduleAbundanceEnchantingBagPurchase(0)
+            return
+        end
+        if itemInfo.isPurchasable == false or itemInfo.isUsable == false then
+            runtimeState.abundancePurchaseSkippedItems[target.itemID] = true
+            trackerUI.ScheduleAbundanceEnchantingBagPurchase(0)
+            return
+        end
+    end
+
+    if type(CanAffordMerchantItem) == "function"
+        and SafeCall(CanAffordMerchantItem, merchantIndices[target.itemID]) == false
+    then
+        runtimeState.abundancePurchaseSkippedItems[target.itemID] = true
+        trackerUI.ScheduleAbundanceEnchantingBagPurchase(0)
+        return
+    end
+
+    local ownedBefore = trackerUI.GetOwnedItemCount(target.itemID)
+    local currencyBefore = GetCurrencyQuantity(MIDNIGHT_UNALLOYED_ABUNDANCE_CURRENCY_ID)
+    local ok, err
+    if type(BuyMerchantItem) ~= "function" then
+        ok, err = false, "BuyMerchantItem unavailable"
+    else
+        ok, err = pcall(BuyMerchantItem, merchantIndices[target.itemID], 1)
+    end
+    if not ok then
+        runtimeState.abundanceEnchantingPurchaseAttempted = true
+        DebugLog("Abundance enchanting bag purchase failed: %s", tostring(err))
+        return
+    end
+
+    runtimeState.abundanceEnchantingPurchasePending = {
+        itemID = target.itemID,
+        ownedBefore = ownedBefore,
+        currencyBefore = currencyBefore,
+    }
+    runtimeState.abundanceEnchantingPurchaseRetryCount = 0
+    trackerUI.ScheduleAbundanceEnchantingBagPurchase()
 end
 
 trackerUI.FindActiveMidnightEnchantingWeekly = function(trackedRows)
@@ -5047,17 +5488,19 @@ UpdateTracker = function()
         local recipeItemState = DebugSafeCall("FindMidnightRecipeInBags", trackerUI.FindMidnightRecipeInBags, trackedRows)
         local payoutItemState = DebugSafeCall("FindArtisanConsortiumPayoutInBags", FindArtisanConsortiumPayoutInBags)
         local surplusReagentStates = DebugSafeCall("FindSurplusReagentContainersInBags", trackerUI.FindSurplusReagentContainersInBags)
+        local warbankTreatiseState = DebugSafeCall("FindMissingMidnightTreatisesInWarbank", trackerUI.FindMissingMidnightTreatisesInWarbank, trackedRows)
         local hasKnowledgeButton = DebugSafeCall("UpdateMidnightKnowledgeButton", trackerUI.UpdateMidnightKnowledgeButton, knowledgeItemState) or false
         local hasRecipeButton = DebugSafeCall("UpdateMidnightRecipeButton", trackerUI.UpdateMidnightRecipeButton, recipeItemState) or false
         local hasRecipeMarlButton = DebugSafeCall("UpdateMidnightRecipeTransferButton", trackerUI.UpdateMidnightRecipeTransferButton, trackedRows) or false
         local hasPayoutButton = DebugSafeCall("UpdateArtisanConsortiumPayoutButton", trackerUI.UpdateArtisanConsortiumPayoutButton, payoutItemState) or false
         local surplusButtonCount = DebugSafeCall("UpdateSurplusReagentButtons", trackerUI.UpdateSurplusReagentButtons, surplusReagentStates) or 0
+        local warbankTreatiseButtonCount = DebugSafeCall("UpdateWarbankTreatiseButtons", trackerUI.UpdateWarbankTreatiseButtons, warbankTreatiseState) or 0
         DebugSafeCall("EnsureEnchantingWeeklyQueueItem", trackerUI.EnsureEnchantingWeeklyQueueItem, trackedRows)
         local hasTreasureButton = DebugSafeCall("UpdateMidnightTreasureButton", trackerUI.UpdateMidnightTreasureButton, trackedRows) or false
-        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|tt=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasTreasureButton))
+        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|wb=%d|tt=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton))
         if trackerDebugSignature ~= debugSignatures.tracker then
             debugSignatures.tracker = trackerDebugSignature
-            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d treasureButton=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, tostring(hasTreasureButton))
+            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d warbankTreatiseButtons=%d treasureButton=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton))
         end
         local hasUsefulEntry = false
         for _, entry in ipairs(entries) do
@@ -5066,7 +5509,7 @@ UpdateTracker = function()
                 break
             end
         end
-        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and not hasTreasureButton then
+        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and warbankTreatiseButtonCount == 0 and not hasTreasureButton then
             DebugLog("UpdateTracker hide frame: all professions complete and no other actions")
             trackerFrame:Hide()
             if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
@@ -5161,9 +5604,34 @@ UpdateTracker = function()
             offsetY = offsetY + 24
         end
 
+        local lastWarbankTreatiseButton
+        for index = 1, warbankTreatiseButtonCount do
+            local button = trackerFrame.warbankTreatiseButtons[index]
+            button:ClearAllPoints()
+            if lastWarbankTreatiseButton then
+                button:SetPoint("TOPLEFT", lastWarbankTreatiseButton, "BOTTOMLEFT", 0, -4)
+            elseif lastSurplusButton then
+                button:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
+            elseif hasRecipeMarlButton then
+                button:SetPoint("TOPLEFT", trackerFrame.recipeMarlButton, "BOTTOMLEFT", 0, -4)
+            elseif hasRecipeButton then
+                button:SetPoint("TOPLEFT", trackerFrame.recipeButton, "BOTTOMLEFT", 0, -4)
+            elseif hasKnowledgeButton then
+                button:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
+            elseif hasPayoutButton then
+                button:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
+            else
+                button:SetPoint("TOPLEFT", 6, -(offsetY + 2))
+            end
+            lastWarbankTreatiseButton = button
+            offsetY = offsetY + 24
+        end
+
         if hasTreasureButton then
             trackerFrame.treasureButton:ClearAllPoints()
-            if lastSurplusButton then
+            if lastWarbankTreatiseButton then
+                trackerFrame.treasureButton:SetPoint("TOPLEFT", lastWarbankTreatiseButton, "BOTTOMLEFT", 0, -4)
+            elseif lastSurplusButton then
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
             elseif hasRecipeMarlButton then
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.recipeMarlButton, "BOTTOMLEFT", 0, -4)
@@ -5328,13 +5796,14 @@ trackerUI.CreateTrackerFrame = function()
                 return
             end
 
-            amountInput:SetNumber(state.transferQuantity)
-            amountInput:ValidateAndSetValue()
             local nativeAmount = type(CurrencyTransferMenu.GetRequestedCurrencyTransferAmount) == "function"
                 and CurrencyTransferMenu:GetRequestedCurrencyTransferAmount()
                 or 0
             if nativeAmount ~= state.transferQuantity then
-                DebugLog("Marl transfer native amount mismatch requested=%d native=%d", state.transferQuantity, nativeAmount)
+                amountInput:SetNumber(state.transferQuantity)
+                amountInput:ValidateAndSetValue()
+                DebugLog("Marl transfer amount set requested=%d native=%d", state.transferQuantity, nativeAmount)
+                ScheduleTrackerRefresh(0.05, false)
                 return
             end
             if type(confirmButton.IsEnabled) == "function" and not confirmButton:IsEnabled() then
@@ -5445,6 +5914,34 @@ trackerUI.CreateTrackerFrame = function()
         trackerFrame.surplusReagentButtons[index] = button
     end
 
+    trackerFrame.warbankTreatiseButtons = {}
+    for index = 1, 11 do
+        local button = CreateFrame("Button", addonName .. "WarbankTreatiseButton" .. index, trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+        button:SetSize(178, 20)
+        button:RegisterForClicks("AnyUp")
+        button:SetAttribute("useOnKeyDown", false)
+        button:SetText("Récupérer traité")
+        button:Hide()
+        button:HookScript("PostClick", function(self, _, down)
+            if down then
+                return
+            end
+            trackerUI.InvalidateWarbankTreatiseCache()
+            ScheduleTrackerRefresh(0.05, false)
+        end)
+        button:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText("Récupère le stack complet du traité depuis la Warbank.")
+            if self.itemLink then
+                GameTooltip:AddLine(self.itemLink, 0.5, 0.8, 1, true)
+            end
+            GameTooltip:AddLine("Le transfert nécessite un clic et ne splitte pas le stack.", 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", GameTooltip_Hide)
+        trackerFrame.warbankTreatiseButtons[index] = button
+    end
+
     trackerFrame.treasureButton = CreateFrame("Button", addonName .. "TreasureButton", trackerFrame, "UIPanelButtonTemplate")
     trackerFrame.treasureButton:SetSize(178, 20)
     trackerFrame.treasureButton:RegisterForClicks("AnyUp")
@@ -5478,8 +5975,13 @@ local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+eventFrame:RegisterEvent("BANKFRAME_OPENED")
+eventFrame:RegisterEvent("BANKFRAME_CLOSED")
+pcall(eventFrame.RegisterEvent, eventFrame, "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
 eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
 eventFrame:RegisterEvent("QUEST_TURNED_IN")
+eventFrame:RegisterEvent("MERCHANT_SHOW")
+eventFrame:RegisterEvent("MERCHANT_UPDATE")
 eventFrame:RegisterEvent("SPELLS_CHANGED")
 eventFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 eventFrame:RegisterEvent("SKILL_LINES_CHANGED")
@@ -5545,12 +6047,14 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
                 trackerUI.InvalidateMidnightRecipeItemCache()
                 InvalidateArtisanConsortiumPayoutCache()
                 trackerUI.InvalidateSurplusReagentContainerCache()
+                trackerUI.InvalidateWarbankTreatiseCache()
                 debugSignatures.knowledge = nil
                 debugSignatures.payout = nil
                 debugSignatures.surplusReagents = nil
                 debugSignatures.trackedProfessions = nil
                 debugSignatures.tracker = nil
                 debugSignatures.treasure = nil
+                debugSignatures.warbankTreatises = nil
                 DebugLog("Forced debug refresh")
             elseif command == "log" then
                 PrintPersistentDebugLog(20)
@@ -5575,6 +6079,17 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         end
         DebugLog("Debug actif. Commandes: /ywt debug, /ywt debug on, /ywt debug off, /ywt traites")
         ScheduleTrackerRefresh(0, true)
+    elseif event == "MERCHANT_SHOW" then
+        runtimeState.abundanceEnchantingPurchaseGeneration = (runtimeState.abundanceEnchantingPurchaseGeneration or 0) + 1
+        runtimeState.abundanceEnchantingPurchaseScheduled = false
+        runtimeState.abundanceEnchantingPurchaseAttempted = false
+        runtimeState.abundanceEnchantingPurchasePending = nil
+        runtimeState.abundanceEnchantingPurchaseRetryCount = 0
+        runtimeState.abundanceEnchantingPurchaseStalledCount = 0
+        runtimeState.abundancePurchaseSkippedItems = {}
+        trackerUI.ScheduleAbundanceEnchantingBagPurchase(0.05)
+    elseif event == "MERCHANT_UPDATE" then
+        trackerUI.ScheduleAbundanceEnchantingBagPurchase()
     elseif event == "QUEST_TURNED_IN" then
         local questID = ...
         local reagentInfo = runtimeState.midnightEnchantingWeeklyReagents[questID]
@@ -5596,6 +6111,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             end
         end
         QueuePendingNzothCache(questID)
+        trackerUI.InvalidateWarbankTreatiseCache()
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "BAG_UPDATE_DELAYED" then
         runtimeState.attemptedPayoutTargetKeys = runtimeState.attemptedPayoutTargetKeys or {}
@@ -5604,16 +6120,36 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         trackerUI.InvalidateMidnightRecipeItemCache()
         InvalidateArtisanConsortiumPayoutCache()
         trackerUI.InvalidateSurplusReagentContainerCache()
+        trackerUI.InvalidateWarbankTreatiseCache()
         ScheduleTrackerRefresh(0.05, false)
+        if runtimeState.abundanceEnchantingPurchasePending then
+            trackerUI.ScheduleAbundanceEnchantingBagPurchase(0)
+        end
         if activeCacheOpen then
             ScheduleFinalizeActiveCacheOpen(0.35)
         end
+    elseif event == "BANKFRAME_OPENED" then
+        trackerUI.InvalidateWarbankTreatiseCache()
+        ScheduleTrackerRefresh(0.05, false)
+        if C_Timer and type(C_Timer.After) == "function" then
+            C_Timer.After(0.75, function()
+                trackerUI.InvalidateWarbankTreatiseCache()
+                ScheduleTrackerRefresh(0, false)
+            end)
+        end
+    elseif event == "BANKFRAME_CLOSED" then
+        trackerUI.InvalidateWarbankTreatiseCache()
+        ScheduleTrackerRefresh(0, false)
+    elseif event == "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED" then
+        trackerUI.InvalidateWarbankTreatiseCache()
+        ScheduleTrackerRefresh(0.05, false)
     elseif event == "PLAYER_ENTERING_WORLD"
         or event == "SPELLS_CHANGED"
         or event == "SKILL_LINES_CHANGED"
         or event == "TRADE_SKILL_SHOW"
         or event == "TRADE_SKILL_DATA_SOURCE_CHANGED" then
         InvalidateTrackedMidnightProfessions()
+        trackerUI.InvalidateWarbankTreatiseCache()
         ScheduleTrackerRefresh(0.05, true)
         trackerUI.ArmTradeSkillBootstrap(eventFrame)
     elseif event == "TRAIT_CONFIG_UPDATED" or event == "TRAIT_TREE_CURRENCY_INFO_UPDATED" then
@@ -5700,6 +6236,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             end
         end
         ScheduleTrackerRefresh(0.05, false)
+        trackerUI.ScheduleAbundanceEnchantingBagPurchase(0)
         if activeCacheOpen then
             ScheduleFinalizeActiveCacheOpen(0.35)
         end

@@ -325,7 +325,9 @@ local function GetItemClassID(itemID)
 end
 
 local function IsCommodity(itemID)
-	return Enum.ItemClass.Tradegoods and GetItemClassID(itemID) == Enum.ItemClass.Tradegoods
+	local classID = GetItemClassID(itemID)
+	return classID == Enum.ItemClass.Tradegoods
+		or (Enum.ItemClass.Consumable and classID == Enum.ItemClass.Consumable)
 end
 
 local function GetGroupLabel(path)
@@ -2318,6 +2320,7 @@ eventFrame:RegisterEvent("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
 eventFrame:RegisterEvent("AUCTION_HOUSE_BROWSE_RESULTS_ADDED")
 eventFrame:RegisterEvent("AUCTION_HOUSE_BROWSE_FAILURE")
 eventFrame:RegisterEvent("AUCTION_HOUSE_THROTTLED_SYSTEM_READY")
+eventFrame:RegisterEvent("AUCTION_HOUSE_THROTTLED_MESSAGE_DROPPED")
 eventFrame:RegisterEvent("COMMODITY_SEARCH_RESULTS_UPDATED")
 eventFrame:RegisterEvent("COMMODITY_SEARCH_RESULTS_ADDED")
 eventFrame:RegisterEvent("OWNED_AUCTIONS_UPDATED")

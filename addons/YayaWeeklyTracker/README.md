@@ -41,9 +41,7 @@ Resume `Midnight` :
 - le rappel `moxie x` reste affiche meme si aucun tresor, livre ou recette ne reste dans `One time`
 - les recettes manquantes suivies sont `Potion of Recklessness`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; leur etat connu utilise le tooltip Blizzard du personnage courant, comme Yaya Vendor Filter, puis les API metier en secours ; une recette ayant un cout Abundance n'est suivie qu'a partir du niveau 90
 - une recette suivie non apprise mais deja presente dans les sacs est retiree de `One time` ; un bouton `Utiliser recette` permet de la consommer directement
-- quand une recette suivie manque, un bouton `Ouvrir interface marls` ouvre l'onglet Monnaies et le panneau de transfert ; une fois les donnees Warband chargees, le meme bouton renseigne le montant puis declenche la confirmation native Blizzard pour transferer les `Voidlight Marl` necessaires depuis les autres personnages, par tranches jusqu'au besoin total
-- si Blizzard ne renvoie pas la fin du transfert, le bouton detecte le blocage apres `20` secondes et propose de reinitialiser l'interface sans relancer automatiquement une transaction
-- chaque recette Midnight suivie compte pour `1500` `Voidlight Marl` ; le manque sur le personnage courant ne bloque pas le transfert, le bouton devient grise uniquement apres chargement si les autres personnages n'en ont plus
+- le transfert de `Voidlight Marl` depuis les autres personnages est temporairement desactive ; son bouton reste masque pendant la stabilisation du flux Blizzard
 - `Lost Legends` est suivie comme weekly par personnage des legendes Haranir
 - la completion weekly de `Lost Legends` accepte la quete de selection (`89268`) et les variantes repetables `The Story of...` (`92716`, `92719` a `92725`) ; les quetes initiales (`88993` a `88999`) ne sont pas utilisees car leur completion historique est permanente
 - `Research Console: Exploring the Void` est suivie comme weekly quand la quete est active
@@ -58,9 +56,13 @@ Resume `Midnight` :
 - un bouton `Ouvrir payout` apparait si un `Artisan's Consortium Payout` est detecte dans les sacs; chaque clic cible un payout encore present et un clic excedentaire reste sans effet
 - le meme bouton ouvre aussi les coffres de la whitelist (`263934`, `263466`, `263467` et `254677`) presents dans les sacs, en alternant les slots disponibles
 - des boutons independants `Ouvrir surplus` apparaissent pour les conteneurs de composants en surplus des 11 metiers Midnight reconnus, afin de pouvoir alterner les clics pendant leur ouverture
+- si `Tracker les traites (inscription)` est active, un bouton par traite hebdomadaire manquant apparait a l'ouverture de la Warbank lorsqu'un stack correspondant y est present ; le clic retire le stack complet sans split
 - si YayaContainerValues est charge, ses hooks suivent l'utilisation réelle de l'item afin d'éviter les doubles signalements lors des clics rapides
 - si la weekly `Midnight Enchanting` active demande un reagent manquant, YWT ajoute automatiquement la quantite complete a la queue YayaQueue, sans bouton et sans doublon aux refreshs
 - quand cette weekly est rendue, YWT retire uniquement la quantite qu'il a automatiquement ajoutee, sans toucher aux besoins des recettes ni a une demande deja existante
+- si l'option est activee et que le personnage connait l'Enchantement, YWT achete automatiquement tous les `Pouch of Mystic Grindings` achetables a l'ouverture d'un marchand d'Abondance
+- si l'option correspondante est activee, YWT achete aussi automatiquement tous les `Fused Vitality` achetables a l'ouverture d'un marchand d'Abondance
+- si les deux options sont actives, les sacs de materiaux d'enchantement sont achetes avant les `Fused Vitality`
 
 Etat des lignes :
 
@@ -83,6 +85,8 @@ Dans `Echap > Options > AddOns > Yaya Weekly Tracker`, les options account-wide 
 
 - cacher integralement la frame en combat (desactive par defaut)
 - activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des world bosses Val/Naigtal, du world boss selon gold ou ilvl, des traites, des weeklies metiers trainer, du DMF metiers, des loots metiers, du dez Enchantement, de chaque recette Midnight, de `Lost Legends` et de `Research Console: Exploring the Void` (tous actives par defaut)
+- activer l'achat automatique des sacs de materiaux d'enchantement du marchand d'Abondance (desactive par defaut)
+- activer l'achat automatique des `Fused Vitality` du marchand d'Abondance (desactive par defaut)
 
 L'addon enregistre aussi en account-wide les personnages qui connaissent `Jard` dans `YayaWeeklyTrackerAccountDB.jardOwners`.
 
@@ -161,6 +165,9 @@ IDs utilises :
 - `Coalescing Visions` = `1755`
 - `Shard of Dundun` = monnaie `3376`, plafond `8`
 - `Voidlight Marl` = monnaie `3316`, transferable entre personnages Warband
+- `Pouch of Mystic Grindings` = `250755`, sac de materiaux d'Enchantement vendu par le marchand d'Abondance
+- `Fused Vitality` = `245345`, vendu par le marchand d'Abondance
+- `Unalloyed Abundance` = monnaie `3377`
 - `Ny'alotha, the Waking City` map = `10522`
 
 Assauts N'Zoth :

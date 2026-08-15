@@ -144,7 +144,7 @@ def _query_ids(
     conn: sqlite3.Connection,
     expansion: dict[str, object],
     vendor_gold_ids: set[int],
-) -> list[int]:
+) -> tuple[list[int], list[int]]:
     raw_names = tuple(expansion["raw_names"])
     raw_marks = ", ".join("?" for _ in raw_names)
     raw_rows = conn.execute(
@@ -163,6 +163,7 @@ def _query_ids(
     for prefix in prefixes:
         conditions.append("TRIM(r.listview_name) LIKE ?")
         params.append(f"{prefix}%")
+    prepared_ids: set[int] = set()
     if conditions:
         rows = conn.execute(
             """
@@ -174,7 +175,19 @@ def _query_ids(
             params,
         )
         ids.update(int(row[0]) for row in rows)
-    return sorted(item_id for item_id in ids if item_id > 0 and item_id not in vendor_gold_ids)
+        rows = conn.execute(
+            """
+            SELECT DISTINCT r.output_item_id
+            FROM profession_recipes r
+            WHERE r.output_item_id IS NOT NULL AND ("""
+            + " OR ".join(conditions)
+            + ")",
+            params,
+        )
+        prepared_ids.update(int(row[0]) for row in rows)
+    raw_ids = sorted(item_id for item_id in ids if item_id > 0 and item_id not in vendor_gold_ids)
+    prepared_ids = sorted(item_id for item_id in prepared_ids if item_id > 0 and item_id not in vendor_gold_ids)
+    return raw_ids, prepared_ids
 
 
 def _lua_list(values: list[int], indent: str = "\t\t\t") -> str:
@@ -187,33 +200,34 @@ def _lua_list(values: list[int], indent: str = "\t\t\t") -> str:
     return "{\n" + "\n".join(lines) + "\n\t\t}"
 
 
-def render_catalog(catalog: dict[str, list[int]]) -> str:
-    total = sum(len(values) for values in catalog.values())
+def render_catalog(catalog: dict[str, tuple[list[int], list[int]]]) -> str:
+    total = sum(len(raw) + len(prepared) for raw, prepared in catalog.values())
     lines = [
-        f"-- Catalogue local v3, généré depuis wow-tools/data/wow.sqlite3 le {date.today().isoformat()}.",
-        "-- Périmètre : matières premières de récolte + réactifs de recettes par extension.",
+        f"-- Catalogue local v4, généré depuis wow-tools/data/wow.sqlite3 le {date.today().isoformat()}.",
+        "-- Périmètre : réactifs bruts/intermédiaires et sorties de recettes par extension.",
         "-- Les IDs sont dédoublonnés à l'intérieur de chaque extension ; YayaReagentSniper",
         "-- exclut les objets achetables au vendeur contre de l'or (jsonequip.buyprice > 0).",
         "-- Les objets achetés avec de l'honneur restent inclus lorsqu'ils n'ont pas de buyprice en or.",
-        "-- filtre ensuite les entrées qui ne sont pas des commodités via IsCommodity().",
-        f"-- Total des entrées par extension (avec recouvrements historiques) : {total}.",
+        "-- filtre ensuite les entrées qui ne sont pas des commodités/réactifs consommables via IsCommodity().",
+        f"-- Total des entrées par extension et type (avec recouvrements historiques) : {total}.",
         "YayaReagentSniperCatalog = {",
-        "\tversion = 3,",
-        '\tscope = "crafting_components",',
-        '\tsource = "wow-tools/wow.sqlite3:items:is_gatherable + profession_recipes:recipe_reagents - recipe_items:jsonequip.buyprice",',
+        "\tversion = 4,",
+        '\tscope = "crafting_components_and_consumables",',
+        '\tsource = "wow-tools/wow.sqlite3:items:is_gatherable + profession_recipes:recipe_reagents + profession_recipes:output_item_id - recipe_items:jsonequip.buyprice",',
         "\texpansions = {",
     ]
     for expansion in EXPANSIONS:
         key = str(expansion["key"])
         label = str(expansion["label"])
         source_label = str(expansion["source_label"])
-        values = catalog[key]
+        raw_ids, prepared_ids = catalog[key]
         lines.extend(
             [
                 f"\t\t{key} = {{",
                 f'\t\t\tlabel = "{label}",',
                 f'\t\t\tsourceLabel = "{source_label}",',
-                f"\t\t\titemIDs = {_lua_list(values)},",
+                f"\t\t\trawItemIDs = {_lua_list(raw_ids)},",
+                f"\t\t\tpreparedItemIDs = {_lua_list(prepared_ids)},",
                 "\t\t},",
             ]
         )
@@ -259,8 +273,11 @@ def main() -> None:
         }
     rendered = render_catalog(catalog)
     print("Catalog counts:")
-    print("\n".join(f"- {key}: {len(values)}" for key, values in catalog.items()))
-    print(f"- total with per-expansion overlap: {sum(len(values) for values in catalog.values())}")
+    print("\n".join(
+        f"- {key}: raw={len(raw)} prepared={len(prepared)}"
+        for key, (raw, prepared) in catalog.items()
+    ))
+    print(f"- total with per-expansion overlap: {sum(len(raw) + len(prepared) for raw, prepared in catalog.values())}")
     print(f"- vendor-gold IDs excluded from source: {len(vendor_gold_ids)}")
     if args.dry_run:
         return

@@ -5,13 +5,17 @@ YayaReagentSniperReset = Reset
 
 local CONSTANTS = {
 	BATCH_SIZE = 100,
-	START_SETTLE_DELAY = 0.25,
+	START_SETTLE_DELAY = 0.05,
 	QUERY_TIMEOUT = 7,
-	BETWEEN_QUERIES = 0.05,
+	BETWEEN_QUERIES = 0.10,
 	DEEP_UI_REFRESH_EVERY = 8,
+	DEEP_QUERY_LIMIT = 85,
+	DEEP_QUERY_ACTION_LIMIT = 90,
+	DEEP_QUERY_WINDOW = 60,
 	MAX_DEEP_PAGES = 40,
 	MAX_SCAN_AGE = 300,
 	PURCHASE_REFRESH_MAX_AGE = 10,
+	PURCHASE_UNCERTAIN_COOLDOWN = 300,
 	ROW_HEIGHT = 36,
 	AH_CUT = 0.05,
 	STOCK_SCORE_BONUS = 5,
@@ -39,6 +43,11 @@ local CATALOG_OPTIONS = {
 	{ key = "dragonflight", label = "Dragonflight" },
 	{ key = "the_war_within", label = "The War Within" },
 	{ key = "midnight", label = "Midnight" },
+}
+
+local CATALOG_TYPES = {
+	{ key = "raw", label = "Réactifs bruts" },
+	{ key = "prepared", label = "Consommables préparés" },
 }
 
 local RESULT_COLUMNS = {
@@ -76,9 +85,19 @@ local scan = {
 	bagCounts = {},
 	rows = {},
 	selected = nil,
+	resumeAfterPurchase = false,
 	prepareRefresh = nil,
 	purchase = nil,
 	purchaseGeneration = 0,
+	purchaseCooldowns = {},
+	purchaseUncertainUntil = 0,
+	actionCooldownUntil = 0,
+	continuousPending = false,
+	resumeContinuousAfterAction = false,
+	throttleResume = nil,
+	abandonedQuery = nil,
+	throttleDrops = 0,
+	deepQueryTimes = {},
 	completedAt = nil,
 	stats = {},
 	catalogSource = nil,
@@ -96,6 +115,7 @@ local BeginOwnAuctionCancellation
 local BeginOwnAuctionVerification
 local EnterPause
 local ValidateFreshResetPlan
+local RefreshBlacklistPanel
 
 local function GetCatalogOption(key)
 	for _, option in ipairs(CATALOG_OPTIONS) do
@@ -104,6 +124,15 @@ local function GetCatalogOption(key)
 		end
 	end
 	return CATALOG_OPTIONS[1]
+end
+
+local function GetCatalogTypeOption(key)
+	for _, option in ipairs(CATALOG_TYPES) do
+		if option.key == key then
+			return option
+		end
+	end
+	return CATALOG_TYPES[1]
 end
 
 local function Clamp(value, minimum, maximum)
@@ -171,6 +200,7 @@ local function IsCommodity(itemID)
 		classID = select(6, GetItemInfoInstant(itemID))
 	end
 	return classID == Enum.ItemClass.Tradegoods
+		or (Enum.ItemClass.Consumable and classID == Enum.ItemClass.Consumable)
 end
 
 local function CollectCatalogItemIDs(selection)
@@ -180,19 +210,37 @@ local function CollectCatalogItemIDs(selection)
 	if not expansions then
 		return itemIDs, false
 	end
+	local enabledTypes = scan.db and scan.db.catalogTypes or {}
+	local function AddIDs(ids)
+		if not ids then
+			return
+		end
+		for _, itemID in ipairs(ids) do
+			itemID = tonumber(itemID)
+			if itemID and itemID > 0 and not seen[itemID] then
+				seen[itemID] = true
+				itemIDs[#itemIDs + 1] = itemID
+			end
+		end
+	end
 	for _, option in ipairs(CATALOG_OPTIONS) do
 		if option.key ~= "all" then
 			local entry = expansions[option.key]
-			local ids = entry and type(entry.itemIDs) == "table" and entry.itemIDs or nil
-			if ids and #ids > 0 then
+			local rawIDs = entry and type(entry.rawItemIDs) == "table" and entry.rawItemIDs or nil
+			local preparedIDs = entry and type(entry.preparedItemIDs) == "table" and entry.preparedItemIDs or nil
+			local legacyIDs = entry and type(entry.itemIDs) == "table" and entry.itemIDs or nil
+			if (rawIDs and #rawIDs > 0) or (preparedIDs and #preparedIDs > 0) or (legacyIDs and #legacyIDs > 0) then
 				hasCatalog = true
 				if selection == "all" or selection == option.key then
-					for _, itemID in ipairs(ids) do
-						itemID = tonumber(itemID)
-						if itemID and itemID > 0 and not seen[itemID] then
-							seen[itemID] = true
-							itemIDs[#itemIDs + 1] = itemID
+					if rawIDs or preparedIDs then
+						if enabledTypes.raw ~= false then
+							AddIDs(rawIDs)
 						end
+						if enabledTypes.prepared ~= false then
+							AddIDs(preparedIDs)
+						end
+					else
+						AddIDs(legacyIDs)
 					end
 				end
 			end
@@ -231,6 +279,8 @@ local function CancelScanTimers()
 	for name in pairs(scan.timers) do
 		CancelTimer(name)
 	end
+	scan.continuousPending = false
+	scan.throttleResume = nil
 end
 
 local function ResetStats()
@@ -270,11 +320,59 @@ local function GetDB()
 	db.marketShare = Clamp(db.marketShare or 10, 1, 100)
 	db.maxTargetPct = Clamp(db.maxTargetPct or 140, 50, 300)
 	db.budgetGold = Clamp(db.budgetGold or 500000, 1, 100000000)
+	db.goldThreshold = Clamp(db.goldThreshold or 0, 0, 100000000)
 	db.minScore = Clamp(db.minScore or 0, 0, 100)
 	db.sound = db.sound == true
+	db.continuous = db.continuous == true
+	db.catalogTypes = type(db.catalogTypes) == "table" and db.catalogTypes or {}
+	db.catalogTypes.raw = db.catalogTypes.raw ~= false
+	db.catalogTypes.prepared = db.catalogTypes.prepared ~= false
+	db.blacklist = type(db.blacklist) == "table" and db.blacklist or {}
 	db.rotation = type(db.rotation) == "table" and db.rotation or {}
+	db.purchaseUncertainUntil = tonumber(db.purchaseUncertainUntil) or 0
+	if db.purchaseUncertainUntil <= time() then
+		db.purchaseUncertainUntil = 0
+	end
 	db.expansion = GetCatalogOption(db.expansion).key
 	return db
+end
+
+local function IsBlacklisted(itemID)
+	itemID = tonumber(itemID)
+	return itemID and scan.db and (scan.db.blacklist[tostring(itemID)] == true or scan.db.blacklist[itemID] == true) or false
+end
+
+local function GetBlacklistedItemIDs()
+	local itemIDs = {}
+	local seen = {}
+	for key, enabled in pairs(scan.db and scan.db.blacklist or {}) do
+		local itemID = enabled and tonumber(key)
+		if itemID and itemID > 0 and not seen[itemID] then
+			seen[itemID] = true
+			itemIDs[#itemIDs + 1] = itemID
+		end
+	end
+	table.sort(itemIDs)
+	return itemIDs
+end
+
+local function GetGoldThresholdCopper()
+	local gold = scan.db and tonumber(scan.db.goldThreshold) or 0
+	return math.max(0, math.floor(gold * 10000 + 0.5))
+end
+
+local function IsBelowGoldThreshold()
+	local threshold = GetGoldThresholdCopper()
+	local available = type(GetMoney) == "function" and tonumber(GetMoney()) or nil
+	return threshold > 0 and available ~= nil and available < threshold, threshold, available
+end
+
+local function GetGoldThresholdMessage()
+	local blocked, threshold, available = IsBelowGoldThreshold()
+	if not blocked then
+		return nil
+	end
+	return string.format("Seuil d’or minimum atteint : %s requis, %s disponible.", FormatPrice(threshold), FormatPrice(available))
 end
 
 local function GetRotationState()
@@ -515,6 +613,42 @@ local function SortOpportunities()
 	end)
 end
 
+local function EnsureDefaultSelection()
+	if scan.selected then
+		for _, result in ipairs(scan.opportunities) do
+			if result == scan.selected then
+				return
+			end
+		end
+	end
+	scan.selected = scan.opportunities[1]
+end
+
+local function SelectNextOpportunity(excludedItemID)
+	SortOpportunities()
+	if #scan.opportunities == 0 then
+		scan.selected = nil
+		return nil
+	end
+	local startIndex = 1
+	for index, result in ipairs(scan.opportunities) do
+		if result.itemID == excludedItemID then
+			startIndex = index + 1
+			break
+		end
+	end
+	for offset = 0, #scan.opportunities - 1 do
+		local index = ((startIndex + offset - 1) % #scan.opportunities) + 1
+		local result = scan.opportunities[index]
+		if result.itemID ~= excludedItemID then
+			scan.selected = result
+			return result
+		end
+	end
+	scan.selected = nil
+	return nil
+end
+
 local function UpdateCatalogSelector()
 	local selection = scan.db and scan.db.expansion or "all"
 	local option = GetCatalogOption(selection)
@@ -524,8 +658,29 @@ local function UpdateCatalogSelector()
 		UIDropDownMenu_SetSelectedValue(scan.frame.expansionDropdown, option.key)
 		UIDropDownMenu_SetText(scan.frame.expansionDropdown, option.label)
 		scan.frame.catalogCount:SetText(hasCatalog and string.format("%d composants", #itemIDs) or "Catalogue indisponible")
+		local types = scan.db and scan.db.catalogTypes or {}
+		if scan.frame.rawTypeCheck then
+			scan.frame.rawTypeCheck:SetChecked(types.raw ~= false)
+		end
+		if scan.frame.preparedTypeCheck then
+			scan.frame.preparedTypeCheck:SetChecked(types.prepared ~= false)
+		end
 	end
 	return hasCatalog
+end
+
+local function GetCatalogTypeSummary()
+	local types = scan.db and scan.db.catalogTypes or {}
+	local raw = types.raw ~= false
+	local prepared = types.prepared ~= false
+	if raw and prepared then
+		return "brut + préparé"
+	elseif raw then
+		return GetCatalogTypeOption("raw").label
+	elseif prepared then
+		return GetCatalogTypeOption("prepared").label
+	end
+	return "aucun type"
 end
 
 local function GetScanSummary()
@@ -552,7 +707,59 @@ local function GetScanSummary()
 		return string.format("Prêt — fallback groupes TSM • %d composants", scan.catalogSelectedCount or 0)
 	end
 	local label = GetCatalogOption(scan.db and scan.db.expansion or "all").label
-	return string.format("Catalogue récolte • %s • %d composants", label, scan.catalogSelectedCount or 0)
+	return string.format("Catalogue • %s • %s • %d composants", label, GetCatalogTypeSummary(), scan.catalogSelectedCount or 0)
+end
+
+local function RefreshGoldLock()
+	local frame = scan.frame
+	if not frame then
+		return false
+	end
+	local blocked = IsBelowGoldThreshold()
+	if blocked then
+		if frame.scanButton then
+			frame.scanButton:SetEnabled(false)
+		end
+		if frame.pauseButton then
+			frame.pauseButton:SetEnabled(false)
+		end
+		if frame.continuousButton then
+			frame.continuousButton:SetEnabled(false)
+		end
+		if frame.prepareButton then
+			frame.prepareButton:SetEnabled(false)
+		end
+		return true
+	end
+	if frame.scanButton then
+		local pending = scan.startPending or scan.purchase or scan.prepareRefresh or scan.continuousPending
+		frame.scanButton:SetEnabled(not pending)
+	end
+	return false
+end
+
+local function EnforceGoldThreshold()
+	local message = GetGoldThresholdMessage()
+	if not message then
+		return false
+	end
+	if scan.running or scan.active or scan.startPending or scan.purchase or scan.prepareRefresh or scan.ownCancelCheck or scan.continuousPending then
+		Reset:StopScan()
+	end
+	if scan.frame and scan.frame:IsShown() then
+		Reset:RefreshRows()
+		SetStatus(message, true)
+	end
+	return true
+end
+
+local function RefreshContinuousButton()
+	local button = scan.frame and scan.frame.continuousButton
+	if not button then
+		return
+	end
+	button:SetText(scan.db and scan.db.continuous and "Scan continu ✓" or "Scan continu")
+	button:SetEnabled(not IsBelowGoldThreshold() and not scan.purchase and not scan.prepareRefresh and not scan.ownCancelCheck and not scan.pauseRequested)
 end
 
 local function RefreshPauseButton()
@@ -560,10 +767,10 @@ local function RefreshPauseButton()
 	if not button then
 		return
 	end
-	local canPause = scan.running and scan.phase == "deep" and not scan.prepareRefresh and not scan.purchase
+	local canPause = scan.running and scan.phase == "deep" and not scan.prepareRefresh and not scan.purchase and not scan.ownCancelCheck
 	if scan.paused then
 		button:SetText("Reprendre")
-		button:SetEnabled(not scan.purchase)
+		button:SetEnabled(not IsBelowGoldThreshold() and not scan.purchase and not scan.prepareRefresh and not scan.ownCancelCheck)
 	elseif scan.pauseRequested then
 		button:SetText("Pause…")
 		button:SetEnabled(false)
@@ -573,17 +780,47 @@ local function RefreshPauseButton()
 	end
 end
 
-local function GetPrepareState(result)
-	if not result then
-		return "disabled", "Sélectionne une opportunité."
-	elseif scan.purchase then
+local function IsPurchaseOutcomeUncertain()
+	local expiresAt = math.max(
+		tonumber(scan.purchaseUncertainUntil) or 0,
+		scan.db and tonumber(scan.db.purchaseUncertainUntil) or 0
+	)
+	if expiresAt <= 0 then
+		return false
+	elseif time() >= expiresAt then
+		scan.purchaseUncertainUntil = 0
+		if scan.db then
+			scan.db.purchaseUncertainUntil = 0
+		end
+		return false
+	end
+	scan.purchaseUncertainUntil = expiresAt
+	return true
+end
+
+local function GetPrepareState(result, ignoreCooldown)
+	if scan.purchase then
 		return "disabled", "Un achat Reset est déjà en cours."
-	elseif scan.running and not scan.paused then
-		return "disabled", scan.prepareRefresh and "Actualisation ciblée en cours…" or "Attends la fin du scan avant l’achat."
+	elseif IsPurchaseOutcomeUncertain() then
+		return "disabled", "Résultat d’achat incertain : sécurité active pendant 5 min."
+	elseif scan.prepareRefresh then
+		return "disabled", "Actualisation ciblée en cours…"
 	elseif scan.ownCancelCheck then
-		return "disabled", scan.ownCancelCheck.phase == "cancel" and "Annulation de tes auctions en cours…" or "Vérification de tes auctions en cours…"
+		return "disabled", scan.ownCancelCheck.phase == "wait" and "Action prioritaire en attente de Blizzard…"
+			or scan.ownCancelCheck.phase == "cancel" and "Annulation de tes auctions en cours…"
+			or "Vérification de tes auctions en cours…"
+	elseif scan.pauseRequested then
+		return "disabled", "Pause du scan en cours…"
+	elseif not ignoreCooldown and GetTime() < (scan.actionCooldownUntil or 0) then
+		return "disabled", "Protection multiclic active…"
+	elseif IsBelowGoldThreshold() then
+		return "disabled", GetGoldThresholdMessage()
 	elseif scan.controller and scan.controller.isPurchaseBusy and scan.controller.isPurchaseBusy() then
 		return "disabled", "Termine l’achat Sniper en cours."
+	elseif scan.running and scan.phase ~= "browse" and scan.phase ~= "deep" then
+		return "disabled", "Attends l’analyse du marché avant l’achat."
+	elseif not result then
+		return "disabled", "Sélectionne une opportunité."
 	elseif result.complete ~= true then
 		return "disabled", "Les paliers de cette opportunité sont incomplets."
 	elseif not result.quantity or result.quantity <= 0 or not result.absorbCost or result.absorbCost <= 0 then
@@ -606,6 +843,15 @@ function Reset:RefreshSelected()
 	end
 	local result = scan.selected
 	local prepareState, prepareMessage = GetPrepareState(result)
+	local canBlacklist = result ~= nil
+		and not IsBlacklisted(result.itemID)
+		and not scan.purchase
+		and not scan.prepareRefresh
+		and not scan.ownCancelCheck
+		and not scan.continuousPending
+		and not scan.pauseRequested
+		and not IsBelowGoldThreshold()
+		and (not scan.running or scan.paused)
 	if scan.frame.prepareButton then
 		scan.frame.prepareButton:SetEnabled(prepareState ~= "disabled")
 		if scan.purchase then
@@ -613,14 +859,19 @@ function Reset:RefreshSelected()
 		elseif scan.prepareRefresh then
 			scan.frame.prepareButton:SetText("Actualisation…")
 		elseif scan.ownCancelCheck then
-			scan.frame.prepareButton:SetText(scan.ownCancelCheck.phase == "cancel" and "Annulation…" or "Vérification…")
+			scan.frame.prepareButton:SetText(scan.ownCancelCheck.phase == "wait" and "Action verrouillée…" or scan.ownCancelCheck.phase == "cancel" and "Annulation…" or "Vérification…")
 		elseif prepareState == "refresh" then
-			scan.frame.prepareButton:SetText("Actualiser puis acheter")
+			scan.frame.prepareButton:SetText("Actualiser + acheter")
 		elseif result and result.ownAuctionQuantity and result.ownAuctionQuantity > 0 then
 			scan.frame.prepareButton:SetText("Annule mes auctions")
+		elseif prepareState == "disabled" and not result then
+			scan.frame.prepareButton:SetText("Aucune sélection")
 		else
 			scan.frame.prepareButton:SetText("Acheter le reset")
 		end
+	end
+	if scan.frame.blacklistButton then
+		scan.frame.blacklistButton:SetEnabled(canBlacklist)
 	end
 	if scan.frame.prepareHint then
 		if scan.purchase then
@@ -628,15 +879,15 @@ function Reset:RefreshSelected()
 		elseif scan.prepareRefresh then
 			scan.frame.prepareHint:SetText("Lecture des paliers en cours")
 		elseif scan.ownCancelCheck then
-			scan.frame.prepareHint:SetText(scan.ownCancelCheck.phase == "cancel" and "Annulation de tes auctions" or "Vérification de tes auctions")
+			scan.frame.prepareHint:SetText(scan.ownCancelCheck.phase == "wait" and "Attente du signal Blizzard" or scan.ownCancelCheck.phase == "cancel" and "Annulation de tes auctions" or "Vérification de tes auctions")
 		elseif prepareState == "refresh" then
-			scan.frame.prepareHint:SetText("Rescan ciblé • puis clic achat")
+			scan.frame.prepareHint:SetText("1 clic • auto si inchangé")
 		elseif result and result.ownAuctionQuantity and result.ownAuctionQuantity > 0 then
 			scan.frame.prepareHint:SetText("Étape 1/2 • clic manuel pour annuler")
 		elseif prepareState == "disabled" then
 			scan.frame.prepareHint:SetText("Sélection fraîche requise")
 		else
-			scan.frame.prepareHint:SetText("1 achat • prix revalidé")
+			scan.frame.prepareHint:SetText(scan.running and "1 clic • scan interrompu" or "1 achat • prix revalidé")
 		end
 	end
 	if not result then
@@ -649,7 +900,7 @@ function Reset:RefreshSelected()
 		scan.frame.detailBody:SetText(prepareMessage .. " Aucun achat n’a été lancé.")
 		return
 	elseif prepareState == "refresh" then
-		scan.frame.detailBody:SetText((result.lifecycleReason or "Données expirées.") .. " Clique « Actualiser puis acheter » : seul cet item sera rescanné, puis un nouveau clic humain lancera l’achat.")
+		scan.frame.detailBody:SetText((result.lifecycleReason or "Données expirées.") .. " Le bouton interrompt le scan, actualise cet item et achète automatiquement seulement si le plan reste identique.")
 		return
 	end
 	scan.frame.detailBody:SetText(string.format(
@@ -690,24 +941,145 @@ local function InvalidateResetOpportunity(result, reason)
 	result.lifecycleReason = reason or "Résultat à rescanner avant tout nouvel achat."
 	result.scanAt = 0
 	scan.depthCache[result.itemID] = nil
-	if scan.selected == result or (scan.selected and scan.selected.itemID == result.itemID) then
-		scan.selected = nil
+end
+
+local function IsPurchaseCoolingDown(itemID)
+	itemID = tonumber(itemID)
+	local expiresAt = itemID and tonumber(scan.purchaseCooldowns[itemID]) or nil
+	if not expiresAt then
+		return false
+	elseif GetTime() >= expiresAt then
+		scan.purchaseCooldowns[itemID] = nil
+		return false
 	end
+	return true
+end
+
+function Reset:SuspendScanForPurchase()
+	if not scan.running or scan.paused then
+		return false
+	end
+	local active = scan.active
+	CancelScanTimers()
+	scan.pauseRequested = false
+	scan.paused = true
+	scan.pausedActive = nil
+	if active and not active.waitingForMore and not active.responseReceived then
+		scan.abandonedQuery = {
+			kind = active.kind,
+			itemID = active.candidate and active.candidate.itemID or nil,
+		}
+		Schedule("actionDrainTimeout", CONSTANTS.QUERY_TIMEOUT, function()
+			Reset:HandleDrainTimeout()
+		end)
+	else
+		scan.abandonedQuery = nil
+	end
+	-- La réponse éventuelle sera seulement drainée, jamais traitée. L'index
+	-- courant n'avance pas, donc le composant ou le lot sera repris proprement.
+	scan.active = nil
+	return true
+end
+
+function Reset:ArmActionCooldown(duration)
+	duration = math.max(0.1, tonumber(duration) or 0.5)
+	scan.actionCooldownUntil = math.max(scan.actionCooldownUntil or 0, GetTime() + duration)
+	local unlockDelay = math.max(0.1, scan.actionCooldownUntil - GetTime() + 0.02)
+	Schedule("actionUnlock", unlockDelay, function()
+		if GetTime() >= (scan.actionCooldownUntil or 0) then
+			Reset:RefreshRows()
+		end
+	end)
+end
+
+function Reset:AbortPriorityAction(message)
+	self:ArmActionCooldown(0.5)
+	self:ResumeSuspendedScan()
+	self:ResumeContinuousAfterAction()
+	self:RefreshRows()
+	SetStatus(message or "Action interrompue : reprise du scan.", true)
+end
+
+function Reset:ResumeContinuousAfterAction()
+	if not scan.resumeContinuousAfterAction then
+		return false
+	end
+	scan.resumeContinuousAfterAction = false
+	if not scan.db.continuous or scan.running or not scan.frame or not scan.frame:IsShown() then
+		return false
+	end
+	scan.continuousPending = true
+	Schedule("continuous", CONSTANTS.BETWEEN_QUERIES, function()
+		scan.continuousPending = false
+		if scan.db.continuous and not scan.purchase and not scan.running and scan.frame and scan.frame:IsShown() then
+			Reset:StartScan()
+		end
+	end)
+	return true
+end
+
+function Reset:ResumeSuspendedScan()
+	if not scan.running or not scan.paused or scan.prepareRefresh then
+		return false
+	end
+	scan.paused = false
+	scan.pauseRequested = false
+	scan.pausedActive = nil
+	Schedule("next", 0, function()
+		if not scan.running or scan.paused or scan.purchase then
+			return
+		end
+		if scan.phase == "browse" then
+			Reset:ProcessBrowse()
+		elseif scan.phase == "deep" then
+			Reset:ProcessDeep()
+		end
+	end)
+	return true
 end
 
 local function CancelResetPurchase(message, red, disposition)
 	local purchase = scan.purchase
+	if purchase and purchase.confirming and not purchase.terminal and disposition ~= "uncertain" then
+		disposition = "uncertain"
+		message = message or "Résultat de confirmation incertain : achats bloqués 5 min."
+		red = true
+	end
+	local resumeScan = purchase and purchase.resumeScan == true
 	CancelTimer("purchaseTimeout")
+	CancelTimer("purchaseWake")
+	if scan.throttleResume and scan.throttleResume.timerName == "purchaseWake" then
+		scan.throttleResume = nil
+	end
 	if purchase and purchase.started and not purchase.confirming and C_AuctionHouse.CancelCommoditiesPurchase then
 		pcall(C_AuctionHouse.CancelCommoditiesPurchase)
 	end
-	if purchase and disposition == "drop" then
+	if purchase and (disposition == "drop" or disposition == "uncertain") then
 		DropResetOpportunity(purchase.itemID)
 	elseif purchase and disposition ~= "keep" then
 		InvalidateResetOpportunity(purchase.result, message)
 	end
 	scan.purchaseGeneration = scan.purchaseGeneration + 1
 	scan.purchase = nil
+	scan.resumeAfterPurchase = false
+	Reset:ArmActionCooldown(0.5)
+	if resumeScan then
+		Reset:ResumeSuspendedScan()
+	end
+	Reset:ResumeContinuousAfterAction()
+	if purchase and disposition == "uncertain" then
+		local expiresAt = time() + CONSTANTS.PURCHASE_UNCERTAIN_COOLDOWN
+		scan.purchaseCooldowns[purchase.itemID] = GetTime() + CONSTANTS.PURCHASE_UNCERTAIN_COOLDOWN
+		scan.purchaseUncertainUntil = math.max(scan.purchaseUncertainUntil or 0, expiresAt)
+		if scan.db then
+			scan.db.purchaseUncertainUntil = math.max(tonumber(scan.db.purchaseUncertainUntil) or 0, expiresAt)
+		end
+		C_Timer.After(CONSTANTS.PURCHASE_UNCERTAIN_COOLDOWN + 0.1, function()
+			if not IsPurchaseOutcomeUncertain() then
+				Reset:RefreshRows()
+			end
+		end)
+	end
 	if scan.frame then
 		scan.frame.scanButton:SetEnabled(true)
 	end
@@ -715,6 +1087,40 @@ local function CancelResetPurchase(message, red, disposition)
 	if message then
 		SetStatus(message, red)
 	end
+end
+
+function Reset:HandleDrainTimeout()
+	if not scan.abandonedQuery then
+		return
+	end
+	scan.abandonedQuery = nil
+	scan.throttleResume = nil
+	if scan.purchase then
+		CancelResetPurchase("Requête précédente sans réponse : achat abandonné, scan repris.", true, "keep")
+		return
+	end
+	if scan.ownCancelCheck and scan.ownCancelCheck.phase == "wait" then
+		scan.ownCancelCheck = nil
+		self:AbortPriorityAction("Requête précédente sans réponse : annulation abandonnée.")
+		return
+	end
+	local context = scan.prepareRefresh
+	if context then
+		local resume = context.resume
+		scan.prepareRefresh = nil
+		scan.running = resume and resume.running or false
+		scan.phase = resume and resume.phase or "idle"
+		scan.active = nil
+		scan.deepCandidates = resume and resume.deepCandidates or scan.deepCandidates
+		scan.deepIndex = resume and resume.deepIndex or scan.deepIndex
+		scan.paused = resume and resume.paused or false
+		scan.pausedActive = nil
+	end
+	if scan.frame then
+		scan.frame.scanButton:SetText(scan.running and "Arrêter" or "Scanner le marché")
+		scan.frame.scanButton:SetEnabled(true)
+	end
+	self:AbortPriorityAction("Requête précédente sans réponse : action abandonnée, scan repris.")
 end
 
 ValidateFreshResetPlan = function(result)
@@ -763,15 +1169,14 @@ ValidateFreshResetPlan = function(result)
 end
 
 local function StartResetPurchase(result)
-	-- Start reste synchrone avec le clic humain ; aucun timer ne relance un achat.
-	if scan.controller and scan.controller.isPurchaseBusy and scan.controller.isPurchaseBusy() then
-		SetStatus("Termine l’achat Sniper en cours.", true)
+	if EnforceGoldThreshold() then
 		return
 	end
-	local throttleReady = not C_AuctionHouse.IsThrottledMessageSystemReady
-		or C_AuctionHouse.IsThrottledMessageSystemReady()
-	if not throttleReady then
-		SetStatus("Hôtel des ventes occupé : réessaie dans un instant.", true)
+	if scan.purchase or scan.prepareRefresh or scan.ownCancelCheck then
+		return
+	end
+	if scan.controller and scan.controller.isPurchaseBusy and scan.controller.isPurchaseBusy() then
+		Reset:AbortPriorityAction("Termine l’achat Sniper en cours : reprise du scan.")
 		return
 	end
 	local valid, validationMessage = ValidateFreshResetPlan(result)
@@ -781,8 +1186,7 @@ local function StartResetPurchase(result)
 		result.lifecycleReason = validationMessage
 		result.scanAt = 0
 		scan.depthCache[result.itemID] = nil
-		Reset:RefreshRows()
-		SetStatus(validationMessage .. " Aucun achat lancé.", true)
+		Reset:RefreshSelectedForPurchase(result, true)
 		return
 	end
 	local quantity = math.max(1, math.floor(tonumber(result.quantity) or 0))
@@ -793,19 +1197,17 @@ local function StartResetPurchase(result)
 		or type(C_AuctionHouse.ConfirmCommoditiesPurchase) ~= "function"
 	then
 		InvalidateResetOpportunity(result, "API d’achat indisponible : résultat à rescanner.")
-		Reset:RefreshRows()
-		SetStatus("API d’achat de commodités indisponible.", true)
+		Reset:AbortPriorityAction("API d’achat de commodités indisponible : reprise du scan.")
 		return
 	elseif quantity <= 0 or maxCost <= 0 then
 		InvalidateResetOpportunity(result, "Quantité ou coût invalide : résultat à rescanner.")
-		Reset:RefreshRows()
-		SetStatus("Quantité ou coût du reset invalide.", true)
+		Reset:AbortPriorityAction("Quantité ou coût du reset invalide : reprise du scan.")
 		return
 	elseif maxCost > budget then
-		SetStatus("Le coût du reset dépasse le budget configuré.", true)
+		Reset:AbortPriorityAction("Le coût du reset dépasse le budget : reprise du scan.")
 		return
 	elseif availableMoney and maxCost > availableMoney then
-		SetStatus("Or insuffisant : " .. FormatPrice(maxCost) .. " requis, " .. FormatPrice(availableMoney) .. " disponible.", true)
+		Reset:AbortPriorityAction("Or insuffisant : " .. FormatPrice(maxCost) .. " requis, " .. FormatPrice(availableMoney) .. " disponible. Reprise du scan.")
 		return
 	end
 	if scan.controller and scan.controller.stopSniper then
@@ -820,26 +1222,66 @@ local function StartResetPurchase(result)
 		maxCost = maxCost,
 		budget = budget,
 		result = result,
-		started = true,
+		resumeScan = scan.running and scan.paused or false,
+		confirmed = false,
+		started = false,
 		confirming = false,
 	}
-	local ok = pcall(C_AuctionHouse.StartCommoditiesPurchase, result.itemID, quantity)
-	if not ok then
-		scan.purchase.started = false
-		CancelResetPurchase("Impossible de lancer l’achat : résultat à rescanner.", true, "stale")
-		return
-	end
 	local generation = scan.purchase.generation
 	Schedule("purchaseTimeout", CONSTANTS.QUERY_TIMEOUT, function()
-		if scan.purchase and scan.purchase.generation == generation and not scan.purchase.confirming then
-			CancelResetPurchase("Achat sans réponse : résultat à rescanner.", true, "stale")
+		if scan.purchase and scan.purchase.generation == generation and not scan.purchase.started then
+			CancelResetPurchase("Hôtel des ventes resté occupé : achat abandonné.", true, "keep")
 		end
 	end)
 	if scan.frame then
 		scan.frame.scanButton:SetEnabled(false)
 	end
 	Reset:RefreshRows()
-	SetStatus(string.format("Vérification Blizzard : %s × %s…", FormatCompactNumber(quantity), result.name or "composant"))
+	SetStatus(string.format("Achat prioritaire : %s × %s…", FormatCompactNumber(quantity), result.name or "composant"))
+	Reset:StartPendingPurchase()
+end
+
+function Reset:StartPendingPurchase()
+	local purchase = scan.purchase
+	if not purchase or purchase.started or purchase.confirming then
+		return
+	end
+	if scan.abandonedQuery then
+		scan.throttleResume = {
+			timerName = "purchaseWake",
+			callback = function()
+				Reset:StartPendingPurchase()
+			end,
+		}
+		SetStatus("Achat verrouillé • abandon de la requête en cours…")
+		return
+	end
+	if C_AuctionHouse.IsThrottledMessageSystemReady and not C_AuctionHouse.IsThrottledMessageSystemReady() then
+		scan.throttleResume = {
+			timerName = "purchaseWake",
+			callback = function()
+				Reset:StartPendingPurchase()
+			end,
+		}
+		SetStatus("Achat verrouillé • attente du signal Blizzard…")
+		return
+	end
+	purchase.started = true
+	CancelTimer("purchaseTimeout")
+	local ok = pcall(C_AuctionHouse.StartCommoditiesPurchase, purchase.itemID, purchase.quantity)
+	if not ok then
+		purchase.started = false
+		CancelResetPurchase("Impossible de lancer l’achat : résultat à rescanner.", true, "stale")
+		return
+	end
+	local generation = purchase.generation
+	Schedule("purchaseTimeout", CONSTANTS.QUERY_TIMEOUT, function()
+		if scan.purchase and scan.purchase.generation == generation and not scan.purchase.confirming then
+			CancelResetPurchase("Achat sans réponse : résultat à rescanner.", true, "stale")
+		end
+	end)
+	Reset:RefreshRows()
+	SetStatus(string.format("Vérification Blizzard : %s × %s…", FormatCompactNumber(purchase.quantity), purchase.name or "composant"))
 end
 
 local function HandleResetPurchaseEvent(event, ...)
@@ -849,7 +1291,7 @@ local function HandleResetPurchaseEvent(event, ...)
 		return false
 	end
 	if event == "COMMODITY_PRICE_UPDATED" then
-		if purchase.confirming then
+		if not purchase.started or purchase.confirming then
 			return true
 		end
 		CancelTimer("purchaseTimeout")
@@ -883,35 +1325,63 @@ local function HandleResetPurchaseEvent(event, ...)
 		local generation = purchase.generation
 		Schedule("purchaseTimeout", CONSTANTS.QUERY_TIMEOUT, function()
 			if scan.purchase and scan.purchase.generation == generation and scan.purchase.confirming then
-				CancelResetPurchase("Confirmation sans réponse : résultat à rescanner.", true, "stale")
+				CancelResetPurchase("Confirmation sans réponse : item bloqué 5 min pour éviter un double achat.", true, "uncertain")
 			end
 		end)
 		Reset:RefreshRows()
 		SetStatus("Achat envoyé à Blizzard…")
 		return true
 	elseif event == "COMMODITY_PRICE_UNAVAILABLE" then
+		if not purchase.started or purchase.confirming then
+			return true
+		end
 		CancelResetPurchase("Prix indisponible : l’opportunité a été retirée.", true, "drop")
 		return true
 	elseif event == "COMMODITY_PURCHASE_SUCCEEDED" then
+		if not purchase.confirming then
+			return true
+		end
 		local quantity, totalPrice = purchase.quantity, purchase.totalPrice or purchase.maxCost
+		purchase.terminal = true
+		purchase.confirmed = true
 		CancelResetPurchase(string.format("Achat confirmé : %s unités pour %s.", FormatCompactNumber(quantity), FormatPrice(totalPrice)), false, "drop")
 		return true
 	elseif event == "COMMODITY_PURCHASE_FAILED" then
-		CancelResetPurchase("Achat refusé ou offre déjà partie : opportunité retirée.", true, "drop")
+		if not purchase.confirming then
+			return true
+		end
+		purchase.terminal = true
+		CancelResetPurchase("Achat refusé ou offre déjà partie : résultat à actualiser.", true, "stale")
 		return true
 	end
 	return false
 end
 
 function Reset:PreparePurchase()
+	if EnforceGoldThreshold() then
+		return
+	end
+	if scan.purchase or scan.prepareRefresh or scan.ownCancelCheck or scan.pauseRequested then
+		return
+	end
 	local result = scan.selected
 	local prepareState, prepareMessage = GetPrepareState(result)
-	if prepareState == "refresh" then
-		self:RefreshSelectedForPurchase(result)
-		return
-	elseif prepareState ~= "ready" then
+	if prepareState ~= "ready" and prepareState ~= "refresh" then
 		SetStatus(prepareMessage, true)
 		self:RefreshSelected()
+		return
+	end
+	-- Le clic d'achat gagne toujours contre le scan : on détache immédiatement
+	-- toute requête en vol avant d'effectuer une autre opération AH.
+	if scan.continuousPending then
+		CancelTimer("continuous")
+		scan.continuousPending = false
+		scan.resumeContinuousAfterAction = scan.db.continuous == true
+	end
+	self:SuspendScanForPurchase()
+	self:ArmActionCooldown(0.75)
+	if prepareState == "refresh" then
+		self:RefreshSelectedForPurchase(result, true)
 		return
 	end
 	if result.ownAuctionQuantity and result.ownAuctionQuantity > 0 then
@@ -921,18 +1391,17 @@ function Reset:PreparePurchase()
 	StartResetPurchase(result)
 end
 
-function Reset:RefreshSelectedForPurchase(result)
-	local prepareState, prepareMessage = GetPrepareState(result)
+function Reset:RefreshSelectedForPurchase(result, autoPurchase)
+	local prepareState, prepareMessage = GetPrepareState(result, autoPurchase == true)
 	if prepareState == "ready" then
 		self:PreparePurchase()
 		return
 	elseif prepareState ~= "refresh" then
-		SetStatus(prepareMessage, true)
-		self:RefreshSelected()
+		self:AbortPriorityAction(prepareMessage)
 		return
 	end
 	if scan.controller and scan.controller.isPurchaseBusy and scan.controller.isPurchaseBusy() then
-		SetStatus("Termine l’achat en cours avant l’actualisation ciblée.", true)
+		self:AbortPriorityAction("Termine l’achat en cours : reprise du scan.")
 		return
 	end
 	local candidate = {
@@ -942,18 +1411,16 @@ function Reset:RefreshSelectedForPurchase(result)
 	}
 	if not ResolveTSMData(candidate) then
 		result.complete = false
-		SetStatus("Liquidité ou référence TSM indisponible après actualisation.", true)
-		self:RefreshSelected()
+		self:AbortPriorityAction("Liquidité ou référence TSM indisponible : reprise du scan.")
 		return
 	end
 	if type(C_AuctionHouse.MakeItemKey) ~= "function" or type(C_AuctionHouse.SendSearchQuery) ~= "function" then
 		result.complete = false
-		SetStatus("L’API de recherche profonde Blizzard est indisponible.", true)
-		self:RefreshSelected()
+		self:AbortPriorityAction("Recherche profonde indisponible : reprise du scan.")
 		return
 	end
 	local resume = nil
-	if scan.running and scan.paused and scan.phase == "deep" then
+	if scan.running and scan.paused and (scan.phase == "browse" or scan.phase == "deep") then
 		resume = {
 			running = true,
 			phase = scan.phase,
@@ -966,10 +1433,23 @@ function Reset:RefreshSelectedForPurchase(result)
 	end
 	scan.generation = scan.generation + 1
 	CancelScanTimers()
+	if scan.abandonedQuery then
+		Schedule("actionDrainTimeout", CONSTANTS.QUERY_TIMEOUT, function()
+			Reset:HandleDrainTimeout()
+		end)
+	end
 	scan.paused = false
 	scan.pauseRequested = false
 	scan.pausedActive = nil
-	scan.prepareRefresh = { itemID = result.itemID, original = result, resume = resume }
+	scan.prepareRefresh = {
+		itemID = result.itemID,
+		original = result,
+		resume = resume,
+		autoPurchase = autoPurchase == true,
+		expectedQuantity = result.quantity,
+		expectedCost = result.absorbCost,
+		expectedTarget = result.targetPrice,
+	}
 	scan.running = true
 	scan.phase = "deep"
 	scan.active = nil
@@ -1102,16 +1582,22 @@ local function RelayoutResults()
 	if frame.empty then
 		frame.empty:SetWidth(math.max(120, math.min(520, viewportWidth - 32)))
 	end
-	if frame.prepareButton and frame.detailTitle and frame.detailBody then
+	if frame.prepareButton and frame.blacklistButton and frame.detailTitle and frame.detailBody then
 		local buttonWidth = viewportWidth < 560 and 150 or 178
+		local blacklistWidth = viewportWidth < 560 and 82 or 92
+		local actionGap = 6
 		frame.prepareButton:SetWidth(buttonWidth)
+		frame.blacklistButton:SetWidth(blacklistWidth)
+		frame.blacklistButton:ClearAllPoints()
+		frame.blacklistButton:SetPoint("RIGHT", frame.prepareButton, "LEFT", -actionGap, 0)
 		frame.prepareHint:SetWidth(buttonWidth)
+		local actionWidth = buttonWidth + blacklistWidth + actionGap + 22
 		frame.detailTitle:ClearAllPoints()
 		frame.detailTitle:SetPoint("TOPLEFT", frame.detail, "TOPLEFT", 10, -8)
-		frame.detailTitle:SetPoint("RIGHT", frame.detail, "RIGHT", -(buttonWidth + 22), 0)
+		frame.detailTitle:SetPoint("RIGHT", frame.detail, "RIGHT", -actionWidth, 0)
 		frame.detailBody:ClearAllPoints()
 		frame.detailBody:SetPoint("TOPLEFT", frame.detailTitle, "BOTTOMLEFT", 0, -5)
-		frame.detailBody:SetPoint("BOTTOMRIGHT", frame.detail, "BOTTOMRIGHT", -(buttonWidth + 22), 7)
+		frame.detailBody:SetPoint("BOTTOMRIGHT", frame.detail, "BOTTOMRIGHT", -actionWidth, 7)
 	end
 end
 
@@ -1169,7 +1655,7 @@ local function CreateRow(index)
 	row:SetScript("OnEnter", ShowRowTooltip)
 	row:SetScript("OnLeave", HideRowTooltip)
 	row:SetScript("OnClick", function(self)
-		if not self.data then
+		if not self.data or scan.purchase or scan.prepareRefresh or scan.ownCancelCheck then
 			return
 		end
 		if IsModifiedClick and IsModifiedClick("CHATLINK") and self.data.itemLink and HandleModifiedItemClick then
@@ -1189,6 +1675,7 @@ function Reset:RefreshRows()
 		return
 	end
 	SortOpportunities()
+	EnsureDefaultSelection()
 	for index = 1, #scan.opportunities do
 		local result = scan.opportunities[index]
 		local row = scan.rows[index] or CreateRow(index)
@@ -1260,8 +1747,10 @@ function Reset:RefreshRows()
 		end
 	end
 	RefreshPauseButton()
+	RefreshContinuousButton()
 	SetStatus(GetScanSummary())
 	self:RefreshSelected()
+	RefreshGoldLock()
 end
 
 local function RotateCandidates(candidates)
@@ -1288,7 +1777,7 @@ local function BuildCandidates()
 	if hasCatalog then
 		local candidates = {}
 		for _, itemID in ipairs(catalogIDs) do
-			if IsCommodity(itemID) then
+			if IsCommodity(itemID) and not IsBlacklisted(itemID) and not IsPurchaseCoolingDown(itemID) then
 				candidates[#candidates + 1] = {
 					itemID = itemID,
 					itemString = "i:" .. tostring(itemID),
@@ -1298,7 +1787,7 @@ local function BuildCandidates()
 		scan.catalogSource = "catalog"
 		scan.catalogSelectedCount = #candidates
 		if #candidates == 0 then
-			return nil, "Aucune commodité de récolte valide pour cette extension."
+			return nil, "Aucune commodité du type sélectionné pour cette extension."
 		end
 		return RotateCandidates(candidates)
 	end
@@ -1316,7 +1805,7 @@ local function BuildCandidates()
 		if pcall(TSM_API.GetGroupItems, path, true, rawItems) then
 			for _, itemString in ipairs(rawItems) do
 				local itemID = GetItemID(itemString)
-				if itemID and not seen[itemID] and IsCommodity(itemID) then
+				if itemID and not seen[itemID] and IsCommodity(itemID) and not IsBlacklisted(itemID) and not IsPurchaseCoolingDown(itemID) then
 					seen[itemID] = true
 					candidates[#candidates + 1] = {
 						itemID = itemID,
@@ -1372,11 +1861,72 @@ function Reset:SetExpansion(key)
 	wipe(scan.depthCache)
 	UpdateCatalogSelector()
 	self:RefreshRows()
-	SetStatus(string.format("Extension : %s • %d composants de récolte.", option.label, scan.catalogSelectedCount))
+	SetStatus(string.format("Extension : %s • %s • %d composants.", option.label, GetCatalogTypeSummary(), scan.catalogSelectedCount))
+end
+
+function Reset:SetCatalogType(key, enabled)
+	local option = GetCatalogTypeOption(key)
+	if scan.purchase then
+		UpdateCatalogSelector()
+		SetStatus("Termine l’achat Reset avant de changer les types.", true)
+		return
+	end
+	scan.db.catalogTypes[option.key] = enabled == true
+	if not scan.db.catalogTypes.raw and not scan.db.catalogTypes.prepared then
+		SetStatus("Sélectionne au moins un type de composant.", true)
+	end
+	if scan.running then
+		self:StopScan()
+	end
+	scan.catalogSource = nil
+	scan.selected = nil
+	scan.completedAt = nil
+	wipe(scan.candidates)
+	wipe(scan.deepCandidates)
+	wipe(scan.opportunities)
+	wipe(scan.depthCache)
+	UpdateCatalogSelector()
+	self:RefreshRows()
+	if scan.db.catalogTypes.raw or scan.db.catalogTypes.prepared then
+		SetStatus(string.format("Types : %s • %d composants.", GetCatalogTypeSummary(), scan.catalogSelectedCount))
+	end
 end
 
 local function IsThrottleReady()
 	return not C_AuctionHouse.IsThrottledMessageSystemReady or C_AuctionHouse.IsThrottledMessageSystemReady()
+end
+
+local function GetDeepQueryDelay(limit)
+	local now = GetTime()
+	while scan.deepQueryTimes[1] and now - scan.deepQueryTimes[1] >= CONSTANTS.DEEP_QUERY_WINDOW do
+		table.remove(scan.deepQueryTimes, 1)
+	end
+	if #scan.deepQueryTimes < (limit or CONSTANTS.DEEP_QUERY_LIMIT) then
+		return 0
+	end
+	return math.max(0, scan.deepQueryTimes[1] + CONSTANTS.DEEP_QUERY_WINDOW - now + 0.05)
+end
+
+local function WaitForQuerySlot(timerName, callback, deepQueryLimit)
+	if scan.abandonedQuery then
+		scan.throttleResume = { timerName = timerName, callback = callback }
+		return true
+	end
+	if not IsThrottleReady() then
+		scan.throttleResume = { timerName = timerName, callback = callback }
+		return true
+	end
+	local delay = deepQueryLimit and GetDeepQueryDelay(deepQueryLimit) or 0
+	if delay > 0 then
+		Schedule(timerName, delay, callback)
+		SetStatus(string.format("Cadence AH prudente • reprise dans %.1f s", delay))
+		return true
+	end
+	return false
+end
+
+local function MarkDeepQuerySent()
+	scan.deepQueryTimes[#scan.deepQueryTimes + 1] = GetTime()
 end
 
 local function ReadOwnedAuctions()
@@ -1424,8 +1974,24 @@ BeginOwnAuctionCancellation = function(result)
 	if scan.ownCancelCheck then
 		return
 	end
+	if scan.abandonedQuery or not IsThrottleReady() then
+		scan.ownCancelCheck = { phase = "wait", result = result, itemID = result.itemID }
+		scan.throttleResume = {
+			timerName = "ownCancelWake",
+			callback = function()
+				local check = scan.ownCancelCheck
+				if check and check.phase == "wait" then
+					scan.ownCancelCheck = nil
+					BeginOwnAuctionCancellation(check.result)
+				end
+			end,
+		}
+		Reset:RefreshRows()
+		SetStatus("Annulation verrouillée • attente du signal Blizzard…")
+		return
+	end
 	if type(C_AuctionHouse.CancelAuction) ~= "function" then
-		SetStatus("API d’annulation des auctions indisponible : aucun achat lancé.", true)
+		Reset:AbortPriorityAction("Annulation des auctions indisponible : reprise du scan.")
 		return
 	end
 	local auctionIDs = {}
@@ -1445,7 +2011,7 @@ BeginOwnAuctionCancellation = function(result)
 		end
 	end
 	if #auctionIDs == 0 then
-		SetStatus("Aucune auction annulable trouvée pour cet item : vérifie l’onglet Auctions.", true)
+		Reset:AbortPriorityAction("Aucune auction annulable trouvée : reprise du scan.")
 		return
 	end
 	local pending = {}
@@ -1491,26 +2057,23 @@ FinishOwnAuctionVerification = function(success)
 		if success then
 			BeginOwnAuctionVerification(check.result)
 		else
-			Reset:RefreshRows()
-			SetStatus("Annulation non confirmée : aucun achat lancé. Reclique pour réessayer.", true)
+			Reset:AbortPriorityAction("Annulation non confirmée : reprise du scan.")
 		end
 		return
 	end
 	scan.ownCancelCheck = nil
 	if not success then
-		Reset:RefreshRows()
-		SetStatus("Vérification impossible : aucun achat lancé. Reclique pour réessayer.", true)
+		Reset:AbortPriorityAction("Vérification impossible : reprise du scan.")
 		return
 	end
 	ReadOwnedAuctions()
 	local remaining = GetOwnedAuctionQuantity(check.itemID)
 	if remaining > 0 then
-		Reset:RefreshRows()
-		SetStatus(string.format("Il reste %s unités de tes auctions : annule-les puis reclique.", FormatCompactNumber(remaining)), true)
+		Reset:AbortPriorityAction(string.format("Il reste %s unités de tes auctions : reprise du scan.", FormatCompactNumber(remaining)))
 		return
 	end
 	if scan.selected ~= check.result then
-		Reset:RefreshRows()
+		Reset:AbortPriorityAction("La sélection a changé : reprise du scan.")
 		return
 	end
 	check.result.ownAuctionQuantity = 0
@@ -1518,7 +2081,8 @@ FinishOwnAuctionVerification = function(success)
 		scan.depthCache[check.itemID].ownAuctionQuantity = 0
 	end
 	Reset:RefreshRows()
-	SetStatus("Tes auctions sont annulées : clique maintenant sur « Acheter le reset ».")
+	SetStatus("Tes auctions sont annulées : poursuite de l’achat…")
+	StartResetPurchase(check.result)
 end
 
 BeginOwnAuctionVerification = function(result)
@@ -1529,17 +2093,31 @@ BeginOwnAuctionVerification = function(result)
 		or type(C_AuctionHouse.GetNumOwnedAuctions) ~= "function"
 		or type(C_AuctionHouse.GetOwnedAuctionInfo) ~= "function"
 	then
-		SetStatus("API des auctions personnelles indisponible : aucun achat lancé.", true)
+		Reset:AbortPriorityAction("Lecture des auctions indisponible : reprise du scan.")
 		return
 	end
 	scan.ownCancelCheck = { phase = "verify", result = result, itemID = result.itemID }
 	Reset:RefreshRows()
 	SetStatus("Vérification de l’annulation de tes auctions…")
+	Reset:SendOwnAuctionVerification()
+end
+
+function Reset:SendOwnAuctionVerification()
+	local check = scan.ownCancelCheck
+	if not check or check.phase ~= "verify" then
+		return
+	end
+	if WaitForQuerySlot("ownCancelQuery", function()
+		Reset:SendOwnAuctionVerification()
+	end) then
+		SetStatus("Vérification verrouillée • attente du signal Blizzard…")
+		return
+	end
 	Schedule("ownCancelTimeout", CONSTANTS.QUERY_TIMEOUT, function()
 		FinishOwnAuctionVerification(false)
 	end)
 	if type(YayaReagentSniperTrace) == "function" then
-		YayaReagentSniperTrace("RESET_AH_QUERY", "kind=owned-cancel-check item=%s", tostring(result.itemID))
+		YayaReagentSniperTrace("RESET_AH_QUERY", "kind=owned-cancel-check item=%s", tostring(check.itemID))
 	end
 	local ok = pcall(C_AuctionHouse.QueryOwnedAuctions, SORTS)
 	if not ok then
@@ -1571,13 +2149,15 @@ local function FinishOwnedAuctionQuery(success)
 end
 
 local function ProcessOwnedAuctions()
+	if EnforceGoldThreshold() then
+		return
+	end
 	if not scan.running or scan.phase ~= "owned" or scan.ownQuerySent then
 		return
 	end
-	if not IsThrottleReady() then
-		Schedule("owned", 0.25, function()
-			ProcessOwnedAuctions()
-		end)
+	if WaitForQuerySlot("owned", function()
+		ProcessOwnedAuctions()
+	end) then
 		return
 	end
 	scan.ownQuerySent = true
@@ -1620,7 +2200,7 @@ local function FinishBrowseBatch(timedOut)
 		for _, info in pairs(resultByID) do
 			local itemKey = info and info.itemKey
 			local candidate = itemKey and active.byID[itemKey.itemID]
-			if candidate then
+			if candidate and not IsBlacklisted(candidate.itemID) then
 				seen[candidate.itemID] = true
 				scan.stats.browsed = scan.stats.browsed + 1
 				if info.minPrice and info.minPrice > 0 and info.totalQuantity and info.totalQuantity > 0 then
@@ -1641,7 +2221,7 @@ local function FinishBrowseBatch(timedOut)
 			end
 		end
 		for _, candidate in ipairs(active.items) do
-			if not seen[candidate.itemID] then
+			if not IsBlacklisted(candidate.itemID) and not seen[candidate.itemID] then
 				scan.stats.noMarket = scan.stats.noMarket + 1
 			end
 		end
@@ -1650,11 +2230,19 @@ local function FinishBrowseBatch(timedOut)
 	scan.browseIndex = active.nextIndex
 	Reset:RefreshRows()
 	Schedule("next", 0, function()
-		Reset:ProcessBrowse()
+		if scan.deepIndex <= #scan.deepCandidates then
+			scan.phase = "deep"
+			Reset:ProcessDeep()
+		else
+			Reset:ProcessBrowse()
+		end
 	end)
 end
 
 function Reset:ProcessBrowse()
+	if EnforceGoldThreshold() then
+		return
+	end
 	if not scan.running or scan.phase ~= "browse" or scan.active then
 		return
 	end
@@ -1663,21 +2251,16 @@ function Reset:ProcessBrowse()
 		return
 	end
 	if scan.browseIndex > #scan.candidates then
-		table.sort(scan.deepCandidates, function(left, right)
-			return (left.rotationOrder or math.huge) < (right.rotationOrder or math.huge)
-		end)
 		scan.phase = "deep"
-		scan.deepIndex = 1
 		self:RefreshRows()
 		Schedule("next", 0, function()
 			Reset:ProcessDeep()
 		end)
 		return
 	end
-	if not IsThrottleReady() then
-		Schedule("next", 0.25, function()
-			Reset:ProcessBrowse()
-		end)
+	if WaitForQuerySlot("next", function()
+		Reset:ProcessBrowse()
+	end) then
 		return
 	end
 	local items = {}
@@ -1686,11 +2269,13 @@ function Reset:ProcessBrowse()
 	local nextIndex = scan.browseIndex
 	while nextIndex <= #scan.candidates and #items < CONSTANTS.BATCH_SIZE do
 		local candidate = scan.candidates[nextIndex]
-		local key = C_AuctionHouse.MakeItemKey(candidate.itemID)
-		if key then
-			items[#items + 1] = candidate
-			byID[candidate.itemID] = candidate
-			keys[#keys + 1] = key
+		if not IsBlacklisted(candidate.itemID) then
+			local key = C_AuctionHouse.MakeItemKey(candidate.itemID)
+			if key then
+				items[#items + 1] = candidate
+				byID[candidate.itemID] = candidate
+				keys[#keys + 1] = key
+			end
 		end
 		nextIndex = nextIndex + 1
 	end
@@ -1769,6 +2354,52 @@ local function RemoveOpportunityByItemID(itemID)
 	end
 end
 
+function Reset:BlacklistSelected()
+	if scan.purchase or scan.prepareRefresh or scan.ownCancelCheck or scan.continuousPending or scan.pauseRequested then
+		return
+	end
+	if IsBelowGoldThreshold() or (scan.running and not scan.paused) then
+		return
+	end
+	local result = scan.selected
+	local itemID = result and tonumber(result.itemID)
+	if not itemID or IsBlacklisted(itemID) then
+		return
+	end
+	scan.db.blacklist[tostring(itemID)] = true
+	scan.depthCache[itemID] = nil
+	RemoveOpportunityByItemID(itemID)
+	local nextResult = SelectNextOpportunity(itemID)
+	scan.resumeAfterPurchase = nextResult == nil and scan.running and scan.paused or false
+	if RefreshBlacklistPanel then
+		RefreshBlacklistPanel()
+	end
+	self:RefreshRows()
+	local message = nextResult and "Item blacklisté : prochaine opportunité sélectionnée."
+		or (scan.running and scan.paused and "Item blacklisté : le scan est en pause, clique « Reprendre le scan »." or "Item blacklisté.")
+	SetStatus(message, scan.running and scan.paused and not nextResult)
+end
+
+function Reset:RemoveBlacklistedItem(itemID)
+	if scan.purchase or scan.prepareRefresh or scan.ownCancelCheck or scan.continuousPending or scan.pauseRequested then
+		return
+	end
+	itemID = tonumber(itemID)
+	if not itemID then
+		return
+	end
+	scan.db.blacklist[tostring(itemID)] = nil
+	scan.db.blacklist[itemID] = nil
+	scan.depthCache[itemID] = nil
+	RemoveOpportunityByItemID(itemID)
+	SelectNextOpportunity(itemID)
+	if RefreshBlacklistPanel then
+		RefreshBlacklistPanel()
+	end
+	self:RefreshRows()
+	SetStatus("Item retiré de la blacklist. Il sera disponible au prochain scan.")
+end
+
 local function ReplaceOpportunity(result)
 	if not result then
 		return
@@ -1788,6 +2419,8 @@ local function ReplaceOpportunity(result)
 	end
 	if selectedItemID == result.itemID then
 		scan.selected = result
+	elseif not scan.selected or scan.selected.lifecycleState == "stale" then
+		scan.selected = result
 	end
 end
 
@@ -1801,8 +2434,14 @@ local function FinishDeepCandidate(complete)
 	scan.active = nil
 	scan.stats.deepScanned = scan.stats.deepScanned + 1
 	local prepareRefresh = scan.prepareRefresh and scan.prepareRefresh.itemID == active.candidate.itemID and scan.prepareRefresh or nil
-	if complete then
+	local opportunityChanged = false
+	if complete and not IsBlacklisted(active.candidate.itemID) then
 		local result = EvaluateDepth(active.candidate, active.tiers or {}, active.ownAuctionQuantity or 0)
+		if result then
+			-- Cette lecture vient d'être déclarée complète par Blizzard : elle est
+			-- directement achetable sans imposer un second rescan réseau.
+			result.purchaseVerifiedAt = result.scanAt
+		end
 		scan.depthCache[active.candidate.itemID] = {
 			candidate = active.candidate,
 			tiers = active.tiers or {},
@@ -1815,9 +2454,19 @@ local function FinishDeepCandidate(complete)
 		elseif result then
 			ReplaceOpportunity(result)
 			PlayNewOpportunitySound()
+			opportunityChanged = true
 		else
 			RemoveOpportunityByItemID(active.candidate.itemID)
 			scan.stats.rejected = scan.stats.rejected + 1
+			opportunityChanged = true
+		end
+	elseif IsBlacklisted(active.candidate.itemID) then
+		scan.depthCache[active.candidate.itemID] = nil
+		RemoveOpportunityByItemID(active.candidate.itemID)
+		scan.stats.incomplete = scan.stats.incomplete + 1
+		if prepareRefresh then
+			prepareRefresh.incomplete = true
+			prepareRefresh.original.complete = false
 		end
 	else
 		scan.stats.incomplete = scan.stats.incomplete + 1
@@ -1833,6 +2482,7 @@ local function FinishDeepCandidate(complete)
 		return
 	end
 	if prepareRefresh
+		or opportunityChanged
 		or scan.deepIndex > #scan.deepCandidates
 		or scan.stats.deepScanned % CONSTANTS.DEEP_UI_REFRESH_EVERY == 0
 	then
@@ -1866,11 +2516,15 @@ local function CompletePrepareRefresh()
 		return
 	end
 	if context.result then
+		scan.resumeAfterPurchase = false
 		context.result.purchaseVerifiedAt = GetTime()
 		RemoveOpportunityByItemID(context.itemID)
 		scan.opportunities[#scan.opportunities + 1] = context.result
 		PlayNewOpportunitySound()
 		scan.selected = context.result
+		local planUnchanged = context.result.quantity == context.expectedQuantity
+			and context.result.absorbCost == context.expectedCost
+			and context.result.targetPrice == context.expectedTarget
 		Reset:RefreshRows()
 		if not resume then
 			Schedule("stale", CONSTANTS.MAX_SCAN_AGE, function()
@@ -1879,16 +2533,39 @@ local function CompletePrepareRefresh()
 				end
 			end)
 		end
-		SetStatus("Paliers actualisés : clique « Acheter le reset » pour lancer l’achat.")
+		if context.autoPurchase and planUnchanged then
+			if context.result.ownAuctionQuantity and context.result.ownAuctionQuantity > 0 then
+				BeginOwnAuctionCancellation(context.result)
+			else
+				StartResetPurchase(context.result)
+			end
+		elseif context.autoPurchase and not planUnchanged then
+			Reset:ArmActionCooldown(0.5)
+			SetStatus("Plan modifié : achat bloqué. Vérifie la nouvelle quantité puis reclique.", true)
+		else
+			SetStatus("Paliers actualisés : clique « Acheter le reset » pour lancer l’achat.")
+		end
 	elseif context.incomplete then
-		scan.selected = context.original
+		local nextResult = SelectNextOpportunity(context.itemID)
+		scan.resumeAfterPurchase = nextResult == nil and resume ~= nil
+		Reset:ArmActionCooldown(0.5)
+		if not nextResult then
+			Reset:ResumeSuspendedScan()
+			Reset:ResumeContinuousAfterAction()
+		end
 		Reset:RefreshRows()
-		SetStatus("Actualisation incomplète : aucun achat n’a été lancé.", true)
+		SetStatus(nextResult and "Actualisation incomplète : prochaine opportunité sélectionnée." or (resume and "Actualisation incomplète : scan repris." or "Actualisation incomplète : aucun achat lancé."), true)
 	else
 		RemoveOpportunityByItemID(context.itemID)
-		scan.selected = nil
+		local nextResult = SelectNextOpportunity(context.itemID)
+		scan.resumeAfterPurchase = nextResult == nil and resume ~= nil
+		Reset:ArmActionCooldown(0.5)
+		if not nextResult then
+			Reset:ResumeSuspendedScan()
+			Reset:ResumeContinuousAfterAction()
+		end
 		Reset:RefreshRows()
-		SetStatus("L’opportunité ne respecte plus les garde-fous après actualisation.", true)
+		SetStatus(nextResult and "Opportunité rejetée : prochaine sélection prête." or (resume and "Opportunité rejetée : scan repris." or "L’opportunité ne respecte plus les garde-fous."), true)
 	end
 end
 
@@ -1904,10 +2581,9 @@ local function RequestMoreDepth(active)
 		Reset:StopScan()
 		return
 	end
-	if not IsThrottleReady() then
-		Schedule("page", 0.25, function()
-			RequestMoreDepth(active)
-		end)
+	if WaitForQuerySlot("page", function()
+		RequestMoreDepth(active)
+	end, scan.prepareRefresh and CONSTANTS.DEEP_QUERY_ACTION_LIMIT or CONSTANTS.DEEP_QUERY_LIMIT) then
 		return
 	end
 	if active.pages >= CONSTANTS.MAX_DEEP_PAGES then
@@ -1922,6 +2598,7 @@ local function RequestMoreDepth(active)
 	if type(YayaReagentSniperTrace) == "function" then
 		YayaReagentSniperTrace("RESET_AH_QUERY", "kind=more item=%s page=%d", tostring(active.candidate.itemID), active.pages)
 	end
+	MarkDeepQuerySent()
 	local ok = pcall(C_AuctionHouse.RequestMoreCommoditySearchResults, active.candidate.itemID)
 	if not ok then
 		FinishDeepCandidate(false)
@@ -1942,7 +2619,15 @@ EnterPause = function(active)
 end
 
 function Reset:TogglePause()
-	if not scan.running or scan.phase ~= "deep" or scan.prepareRefresh or scan.purchase then
+	if not scan.running or scan.prepareRefresh or scan.purchase then
+		return
+	end
+	if scan.paused and scan.phase ~= "deep" then
+		self:ResumeSuspendedScan()
+		self:RefreshRows()
+		SetStatus("Reprise du scan du marché…")
+		return
+	elseif scan.phase ~= "deep" then
 		return
 	end
 	if scan.paused then
@@ -1979,14 +2664,45 @@ function Reset:TogglePause()
 		EnterPause(active)
 	elseif active then
 		scan.pauseRequested = true
-		RefreshPauseButton()
+		self:RefreshRows()
 		SetStatus("Pause demandée : la requête AH en cours va se terminer…")
 	else
 		EnterPause()
 	end
 end
 
+function Reset:ToggleContinuous()
+	if EnforceGoldThreshold() then
+		return
+	end
+	if scan.purchase or scan.prepareRefresh or scan.ownCancelCheck then
+		return
+	end
+	if scan.db.continuous then
+		scan.db.continuous = false
+		CancelTimer("continuous")
+		scan.continuousPending = false
+		if scan.frame and not scan.running then
+			scan.frame.scanButton:SetText("Scanner le marché")
+			scan.frame.scanButton:SetEnabled(true)
+		end
+		RefreshContinuousButton()
+		SetStatus("Scan continu désactivé.")
+		return
+	end
+	scan.db.continuous = true
+	RefreshContinuousButton()
+	if not scan.running and not scan.continuousPending then
+		self:StartScan()
+	else
+		SetStatus("Scan continu activé : nouveau cycle à la fin du scan.")
+	end
+end
+
 function Reset:ProcessDeep()
+	if EnforceGoldThreshold() then
+		return
+	end
 	if not scan.running or scan.paused or scan.phase ~= "deep" or scan.active then
 		return
 	end
@@ -1999,11 +2715,20 @@ function Reset:ProcessDeep()
 			CompletePrepareRefresh()
 			return
 		end
+		if scan.browseIndex <= #scan.candidates then
+			scan.phase = "browse"
+			Schedule("next", CONSTANTS.BETWEEN_QUERIES, function()
+				Reset:ProcessBrowse()
+			end)
+			return
+		end
 		scan.running = false
 		scan.phase = "idle"
+		scan.continuousPending = scan.db.continuous
 		FinalizeScanFreshness()
 		if scan.frame then
-			scan.frame.scanButton:SetText("Scanner le marché")
+			scan.frame.scanButton:SetText(scan.continuousPending and "Relance…" or "Scanner le marché")
+			scan.frame.scanButton:SetEnabled(not scan.continuousPending)
 		end
 		SortOpportunities()
 		self:RefreshRows()
@@ -2012,15 +2737,37 @@ function Reset:ProcessDeep()
 				Reset:RefreshRows()
 			end
 		end)
+		if scan.db.continuous then
+			SetStatus("Scan terminé — prochain cycle…")
+			Schedule("continuous", CONSTANTS.BETWEEN_QUERIES, function()
+				scan.continuousPending = false
+				if not scan.db.continuous or scan.purchase or scan.running or not scan.frame or not scan.frame:IsShown() then
+					if scan.frame then
+						scan.frame.scanButton:SetText("Scanner le marché")
+						scan.frame.scanButton:SetEnabled(true)
+					end
+					return
+				end
+				Reset:StartScan()
+			end)
+		end
 		return
 	end
-	if not IsThrottleReady() then
-		Schedule("next", 0.25, function()
+	if WaitForQuerySlot("next", function()
+		Reset:ProcessDeep()
+	end, scan.prepareRefresh and CONSTANTS.DEEP_QUERY_ACTION_LIMIT or CONSTANTS.DEEP_QUERY_LIMIT) then
+		return
+	end
+	local candidate = scan.deepCandidates[scan.deepIndex]
+	if IsBlacklisted(candidate.itemID) then
+		scan.deepIndex = scan.deepIndex + 1
+		scan.depthCache[candidate.itemID] = nil
+		RemoveOpportunityByItemID(candidate.itemID)
+		Schedule("next", 0, function()
 			Reset:ProcessDeep()
 		end)
 		return
 	end
-	local candidate = scan.deepCandidates[scan.deepIndex]
 	local itemKey = C_AuctionHouse.MakeItemKey(candidate.itemID)
 	if not itemKey then
 		scan.stats.incomplete = scan.stats.incomplete + 1
@@ -2050,6 +2797,7 @@ function Reset:ProcessDeep()
 	if type(YayaReagentSniperTrace) == "function" then
 		YayaReagentSniperTrace("RESET_AH_QUERY", "kind=deep item=%s", tostring(candidate.itemID))
 	end
+	MarkDeepQuerySent()
 	local ok = pcall(C_AuctionHouse.SendSearchQuery, itemKey, SORTS, false)
 	if not ok then
 		FinishDeepCandidate(false)
@@ -2082,6 +2830,12 @@ function Reset:StopScan(message)
 		CancelResetPurchase(message or "Achat Reset annulé.", true)
 		message = nil
 	end
+	CancelTimer("continuous")
+	scan.continuousPending = false
+	scan.resumeContinuousAfterAction = false
+	scan.resumeAfterPurchase = false
+	scan.actionCooldownUntil = 0
+	scan.abandonedQuery = nil
 	local interrupted = scan.active or scan.pausedActive
 	if interrupted and interrupted.kind == "deep" then
 		AdvanceRotation(interrupted.candidate, false)
@@ -2092,6 +2846,12 @@ function Reset:StopScan(message)
 	scan.pauseRequested = false
 	scan.pausedActive = nil
 	if not scan.running and not scan.active then
+		CancelScanTimers()
+		if scan.frame then
+			scan.frame.scanButton:SetText("Scanner le marché")
+			scan.frame.scanButton:SetEnabled(true)
+		end
+		self:RefreshRows()
 		return
 	end
 	scan.running = false
@@ -2114,6 +2874,9 @@ function Reset:StopScan(message)
 end
 
 function Reset:StartScan()
+	if EnforceGoldThreshold() then
+		return
+	end
 	if scan.startPending then
 		SetStatus("Préparation du scan en cours…")
 		return
@@ -2161,6 +2924,9 @@ function Reset:StartScan()
 	end
 	scan.generation = scan.generation + 1
 	CancelScanTimers()
+	scan.actionCooldownUntil = 0
+	scan.abandonedQuery = nil
+	scan.resumeContinuousAfterAction = false
 	wipe(scan.depthCache)
 	wipe(scan.bagCounts)
 	wipe(scan.deepCandidates)
@@ -2173,6 +2939,7 @@ function Reset:StartScan()
 	scan.paused = false
 	scan.pauseRequested = false
 	scan.pausedActive = nil
+	scan.resumeAfterPurchase = false
 	scan.completedAt = nil
 	scan.candidates = candidates
 	scan.browseIndex = 1
@@ -2211,7 +2978,7 @@ function Reset:RebuildFromCache()
 	wipe(scan.bagCounts)
 	wipe(scan.opportunities)
 	for _, cached in pairs(scan.depthCache) do
-		if GetTime() - cached.scanAt <= CONSTANTS.MAX_SCAN_AGE then
+		if not IsBlacklisted(cached.candidate.itemID) and GetTime() - cached.scanAt <= CONSTANTS.MAX_SCAN_AGE then
 			local result = EvaluateDepth(cached.candidate, cached.tiers, cached.ownAuctionQuantity or 0)
 			if result then
 				result.scanAt = cached.scanAt
@@ -2230,6 +2997,31 @@ function Reset:RebuildFromCache()
 		end
 	end
 	self:RefreshRows()
+end
+
+function Reset:ReleaseAbandonedQuery(event, value)
+	local abandoned = scan.abandonedQuery
+	if not abandoned then
+		return false
+	end
+	local matches = abandoned.kind == "browse" and (
+		event == "AUCTION_HOUSE_BROWSE_RESULTS_UPDATED"
+		or event == "AUCTION_HOUSE_BROWSE_FAILURE"
+	) or abandoned.kind == "deep" and (
+		event == "COMMODITY_SEARCH_RESULTS_UPDATED"
+		or event == "COMMODITY_SEARCH_RESULTS_ADDED"
+	) and tonumber(value) == tonumber(abandoned.itemID)
+	if not matches then
+		return false
+	end
+	CancelTimer("actionDrainTimeout")
+	scan.abandonedQuery = nil
+	local resume = scan.throttleResume
+	scan.throttleResume = nil
+	if resume and resume.callback then
+		Schedule(resume.timerName or "next", 0, resume.callback)
+	end
+	return true
 end
 
 function Reset:OnEvent(event, ...)
@@ -2253,6 +3045,7 @@ function Reset:OnEvent(event, ...)
 	if HandleResetPurchaseEvent(event, ...) then
 		return
 	end
+	self:ReleaseAbandonedQuery(event, ...)
 	if event == "AUCTION_CANCELED" then
 		local auctionID = tonumber(...)
 		local check = scan.ownCancelCheck
@@ -2273,7 +3066,7 @@ function Reset:OnEvent(event, ...)
 					scan.ownCancelCheck.pendingCount = 0
 					FinishOwnAuctionVerification(true)
 				end
-			else
+			elseif scan.ownCancelCheck.phase == "verify" then
 				FinishOwnAuctionVerification(true)
 			end
 		elseif scan.running and scan.phase == "owned" then
@@ -2282,6 +3075,9 @@ function Reset:OnEvent(event, ...)
 		return
 	end
 	if event == "PLAYER_MONEY" then
+		if EnforceGoldThreshold() then
+			return
+		end
 		if (scan.frame and scan.frame:IsShown()) or scan.running or scan.purchase then
 			self:RefreshRows()
 		end
@@ -2296,6 +3092,36 @@ function Reset:OnEvent(event, ...)
 			self:RebuildFromCache()
 		else
 			self:RefreshRows()
+		end
+		return
+	end
+	if event == "AUCTION_HOUSE_THROTTLED_MESSAGE_DROPPED" then
+		scan.throttleDrops = scan.throttleDrops + 1
+		if type(YayaReagentSniperTrace) == "function" then
+			YayaReagentSniperTrace("RESET_AH_THROTTLE", "message dropped count=%d", scan.throttleDrops)
+		end
+		return
+	elseif event == "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" then
+		local resume = scan.throttleResume
+		scan.throttleResume = nil
+		CancelTimer("actionDrainTimeout")
+		scan.abandonedQuery = nil
+		if scan.purchase and not scan.purchase.started then
+			Schedule("purchaseWake", 0, function()
+				Reset:StartPendingPurchase()
+			end)
+		elseif resume and resume.callback then
+			Schedule(resume.timerName or "next", 0, resume.callback)
+		elseif scan.running and not scan.active and not scan.paused then
+			Schedule("next", 0, function()
+				if scan.phase == "owned" then
+					ProcessOwnedAuctions()
+				elseif scan.phase == "browse" then
+					Reset:ProcessBrowse()
+				elseif scan.phase == "deep" then
+					Reset:ProcessDeep()
+				end
+			end)
 		end
 		return
 	end
@@ -2321,18 +3147,6 @@ function Reset:OnEvent(event, ...)
 		end
 	elseif event == "COMMODITY_SEARCH_RESULTS_UPDATED" or event == "COMMODITY_SEARCH_RESULTS_ADDED" then
 		HandleCommodityResults(...)
-	elseif event == "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" then
-		if not scan.active then
-			Schedule("next", 0, function()
-				if scan.phase == "owned" then
-					ProcessOwnedAuctions()
-				elseif scan.phase == "browse" then
-					Reset:ProcessBrowse()
-				elseif scan.phase == "deep" then
-					Reset:ProcessDeep()
-				end
-			end)
-		end
 	end
 end
 
@@ -2395,7 +3209,7 @@ local function CreateUI(parent)
 	frame.subtitle:SetJustifyH("LEFT")
 	frame.subtitle:SetWordWrap(false)
 	frame.subtitle:SetMaxLines(1)
-	frame.subtitle:SetText("Catalogue récolte × profondeur réelle de l’HV × liquidité TSM")
+	frame.subtitle:SetText("Catalogue composants × profondeur réelle de l’HV × liquidité TSM")
 
 	frame.settingsButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
 	frame.settingsButton:SetSize(104, 26)
@@ -2434,6 +3248,24 @@ local function CreateUI(parent)
 			GameTooltip:Hide()
 		end
 	end)
+	frame.continuousButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+	frame.continuousButton:SetSize(112, 26)
+	frame.continuousButton:SetPoint("RIGHT", frame.pauseButton, "LEFT", -8, 0)
+	frame.continuousButton:SetText("Scan continu")
+	frame.continuousButton:SetScript("OnClick", function()
+		Reset:ToggleContinuous()
+	end)
+	frame.continuousButton:SetScript("OnEnter", function(button)
+		GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+		GameTooltip:AddLine(scan.db.continuous and "Scan continu activé" or "Activer le scan continu", 1, 0.82, 0.25)
+		GameTooltip:AddLine("À la fin du scan, relance automatiquement un nouveau cycle.", 0.85, 0.85, 0.85, true)
+		GameTooltip:Show()
+	end)
+	frame.continuousButton:SetScript("OnLeave", function(button)
+		if GameTooltip:IsOwned(button) then
+			GameTooltip:Hide()
+		end
+	end)
 
 	frame.expansionLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	frame.expansionLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -51)
@@ -2462,6 +3294,29 @@ local function CreateUI(parent)
 	frame.catalogCount:SetJustifyH("LEFT")
 	frame.catalogCount:SetWordWrap(false)
 	frame.catalogCount:SetMaxLines(1)
+	frame.typeLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	frame.typeLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -75)
+	frame.typeLabel:SetWidth(34)
+	frame.typeLabel:SetJustifyH("LEFT")
+	frame.typeLabel:SetText("Types")
+	local function CreateCatalogTypeCheck(key, label, x)
+		local check = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+		check:SetSize(24, 24)
+		check:SetPoint("TOPLEFT", frame, "TOPLEFT", x, -70)
+		check.label = check:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		check.label:SetPoint("LEFT", check, "RIGHT", 2, 0)
+		check.label:SetWidth(106)
+		check.label:SetJustifyH("LEFT")
+		check.label:SetWordWrap(false)
+		check.label:SetMaxLines(1)
+		check.label:SetText(label)
+		check:SetScript("OnClick", function(button)
+			Reset:SetCatalogType(key, button:GetChecked())
+		end)
+		return check
+	end
+	frame.rawTypeCheck = CreateCatalogTypeCheck("raw", GetCatalogTypeOption("raw").label, 54)
+	frame.preparedTypeCheck = CreateCatalogTypeCheck("prepared", GetCatalogTypeOption("prepared").label, 177)
 
 	frame.status = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	frame.status:SetPoint("TOPLEFT", frame, "TOPLEFT", 337, -52)
@@ -2476,7 +3331,7 @@ local function CreateUI(parent)
 	frame.count:SetJustifyH("RIGHT")
 
 	frame.header = CreateFrame("Frame", nil, frame)
-	frame.header:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -74)
+	frame.header:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -96)
 	frame.header:SetPoint("RIGHT", frame, "RIGHT", -34, 0)
 	frame.header:SetHeight(18)
 	if frame.header.SetClipsChildren then
@@ -2517,6 +3372,7 @@ local function CreateUI(parent)
 	frame.prepareButton:SetSize(178, 25)
 	frame.prepareButton:SetPoint("TOPRIGHT", frame.detail, "TOPRIGHT", -10, -9)
 	frame.prepareButton:SetText("Acheter le reset")
+	frame.prepareButton:RegisterForClicks("LeftButtonDown")
 	frame.prepareButton:SetScript("OnClick", function()
 		Reset:PreparePurchase()
 	end)
@@ -2531,18 +3387,36 @@ local function CreateUI(parent)
 			GameTooltip:AddLine(canceling and "Annulation des auctions" or "Vérification de l’annulation", 1, 0.82, 0.25)
 			GameTooltip:AddLine(canceling and "Attends la fin de l’annulation." or "Attends la fin de la vérification.", 0.85, 0.85, 0.85, true)
 		elseif prepareState == "refresh" then
-			GameTooltip:AddLine("Actualiser puis acheter", 1, 0.82, 0.25)
-			GameTooltip:AddLine("Rescan profond de cet item uniquement. Après validation, un nouveau clic humain lancera l’achat.", 0.85, 0.85, 0.85, true)
+			GameTooltip:AddLine("Actualiser + acheter", 1, 0.82, 0.25)
+			GameTooltip:AddLine("Un clic interrompt le scan. L’achat continue automatiquement uniquement si quantité, coût et cible restent identiques.", 0.85, 0.85, 0.85, true)
 		elseif scan.selected and scan.selected.ownAuctionQuantity and scan.selected.ownAuctionQuantity > 0 then
 			GameTooltip:AddLine("Annule mes auctions", 1, 0.82, 0.25)
 			GameTooltip:AddLine("Un clic manuel annule toutes tes auctions actives pour cet item, puis vérifie leur disparition avant l’achat.", 0.85, 0.85, 0.85, true)
 		else
 			GameTooltip:AddLine("Acheter le reset", 1, 0.82, 0.25)
-			GameTooltip:AddLine("Lance une seule quantité. Blizzard renvoie le total, contrôlé avant confirmation.", 0.85, 0.85, 0.85, true)
+			GameTooltip:AddLine("Le premier appui verrouille l’action, interrompt le scan et ignore les multiclics. Blizzard renvoie le total avant confirmation.", 0.85, 0.85, 0.85, true)
 		end
 		GameTooltip:Show()
 	end)
 	frame.prepareButton:SetScript("OnLeave", function(button)
+		if GameTooltip:IsOwned(button) then
+			GameTooltip:Hide()
+		end
+	end)
+	frame.blacklistButton = CreateFrame("Button", nil, frame.detail, "UIPanelButtonTemplate")
+	frame.blacklistButton:SetSize(92, 25)
+	frame.blacklistButton:SetPoint("RIGHT", frame.prepareButton, "LEFT", -6, 0)
+	frame.blacklistButton:SetText("Blacklist")
+	frame.blacklistButton:SetScript("OnClick", function()
+		Reset:BlacklistSelected()
+	end)
+	frame.blacklistButton:SetScript("OnEnter", function(button)
+		GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+		GameTooltip:AddLine("Blacklist l’item", 1, 0.45, 0.35)
+		GameTooltip:AddLine("Retire cette opportunité et l’exclut des prochains scans.", 0.85, 0.85, 0.85, true)
+		GameTooltip:Show()
+	end)
+	frame.blacklistButton:SetScript("OnLeave", function(button)
 		if GameTooltip:IsOwned(button) then
 			GameTooltip:Hide()
 		end
@@ -2574,20 +3448,55 @@ local function CreateUI(parent)
 	frame.settingsPanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
 	frame.settingsPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -58)
 	frame.settingsPanel:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -16, -58)
-	frame.settingsPanel:SetHeight(88)
+	frame.settingsPanel:SetHeight(160)
 	frame.settingsPanel:SetFrameLevel(frame:GetFrameLevel() + 20)
 	frame.settingsPanel:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 10 })
 	frame.settingsPanel:SetBackdropColor(0.025, 0.03, 0.04, 0.99)
-	local roi = CreateSetting(frame.settingsPanel, "ROI min (%)", 12, 70)
-	local profit = CreateSetting(frame.settingsPanel, "Profit min (po)", 90, 110)
-	local days = CreateSetting(frame.settingsPanel, "Horizon (j)", 208, 84)
-	local share = CreateSetting(frame.settingsPanel, "Part marché (%)", 300, 90)
-	local target = CreateSetting(frame.settingsPanel, "Cible/réf. (%)", 398, 105)
-	local budget = CreateSetting(frame.settingsPanel, "Budget (po)", 511, 110)
-	local score = CreateSetting(frame.settingsPanel, "Score min. (0-100)", 630, 90)
-	local sound = CreateFrame("CheckButton", nil, frame.settingsPanel, "UICheckButtonTemplate")
+	frame.settingsTab = CreateFrame("Button", nil, frame.settingsPanel, "UIPanelButtonTemplate")
+	frame.settingsTab:SetSize(92, 24)
+	frame.settingsTab:SetPoint("TOPLEFT", frame.settingsPanel, "TOPLEFT", 8, -6)
+	frame.settingsTab:SetText("Paramètres")
+	frame.blacklistTab = CreateFrame("Button", nil, frame.settingsPanel, "UIPanelButtonTemplate")
+	frame.blacklistTab:SetSize(92, 24)
+	frame.blacklistTab:SetPoint("LEFT", frame.settingsTab, "RIGHT", 6, 0)
+	frame.blacklistTab:SetText("Blacklist")
+	frame.settingsContent = CreateFrame("Frame", nil, frame.settingsPanel)
+	frame.settingsContent:SetPoint("TOPLEFT", frame.settingsPanel, "TOPLEFT", 0, -34)
+	frame.settingsContent:SetPoint("BOTTOMRIGHT", frame.settingsPanel, "BOTTOMRIGHT", 0, 0)
+	frame.blacklistContent = CreateFrame("Frame", nil, frame.settingsPanel)
+	frame.blacklistContent:SetPoint("TOPLEFT", frame.settingsPanel, "TOPLEFT", 0, -34)
+	frame.blacklistContent:SetPoint("BOTTOMRIGHT", frame.settingsPanel, "BOTTOMRIGHT", 0, 0)
+	local roi = CreateSetting(frame.settingsContent, "ROI min (%)", 10, 100)
+	local profit = CreateSetting(frame.settingsContent, "Profit min (po)", 10, 100)
+	local days = CreateSetting(frame.settingsContent, "Horizon (j)", 10, 100)
+	local share = CreateSetting(frame.settingsContent, "Part marché (%)", 10, 100)
+	local target = CreateSetting(frame.settingsContent, "Cible/réf. (%)", 10, 100)
+	local budget = CreateSetting(frame.settingsContent, "Budget (po)", 10, 100)
+	local score = CreateSetting(frame.settingsContent, "Score min. (0-100)", 10, 100)
+	local goldThreshold = CreateSetting(frame.settingsContent, "Seuil or min. (po)", 10, 100)
+	local settingRows = {
+		{ roi, profit, days, share },
+		{ target, budget, score, goldThreshold },
+	}
+	local function LayoutSettings()
+		local panelWidth = math.max(1, frame.settingsContent:GetWidth())
+		local side, gap = 10, 6
+		local columnWidth = math.max(86, math.floor((panelWidth - side * 2 - gap * 3) / 4))
+		for rowIndex, row in ipairs(settingRows) do
+			for columnIndex, holder in ipairs(row) do
+				holder:ClearAllPoints()
+				holder:SetPoint("TOPLEFT", frame.settingsContent, "TOPLEFT", side + (columnIndex - 1) * (columnWidth + gap), -8 - (rowIndex - 1) * 43)
+				holder:SetSize(columnWidth, 42)
+				holder.label:SetWidth(columnWidth)
+				holder.input:SetSize(math.max(42, columnWidth - 8), 22)
+			end
+		end
+	end
+	frame.settingsContent:SetScript("OnSizeChanged", LayoutSettings)
+	LayoutSettings()
+	local sound = CreateFrame("CheckButton", nil, frame.settingsContent, "UICheckButtonTemplate")
 	sound:SetSize(24, 24)
-	sound:SetPoint("TOPLEFT", frame.settingsPanel, "TOPLEFT", 8, -54)
+	sound:SetPoint("TOPLEFT", frame.settingsContent, "TOPLEFT", 8, -96)
 	sound.label = sound:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	sound.label:SetPoint("LEFT", sound, "RIGHT", 3, 0)
 	sound.label:SetText("Son à chaque nouvelle ligne")
@@ -2599,11 +3508,12 @@ local function CreateUI(parent)
 		target = target.input,
 		budget = budget.input,
 		score = score.input,
+		goldThreshold = goldThreshold.input,
 		sound = sound,
 	}
-	frame.applySettings = CreateFrame("Button", nil, frame.settingsPanel, "UIPanelButtonTemplate")
+	frame.applySettings = CreateFrame("Button", nil, frame.settingsContent, "UIPanelButtonTemplate")
 	frame.applySettings:SetSize(94, 24)
-	frame.applySettings:SetPoint("BOTTOMRIGHT", frame.settingsPanel, "BOTTOMRIGHT", -12, 9)
+	frame.applySettings:SetPoint("BOTTOMRIGHT", frame.settingsContent, "BOTTOMRIGHT", -10, 8)
 	frame.applySettings:SetText("Appliquer")
 	frame.applySettings:SetScript("OnClick", function()
 		scan.db.minROI = Clamp(frame.settingInputs.roi:GetText(), 1, 500)
@@ -2613,10 +3523,87 @@ local function CreateUI(parent)
 		scan.db.maxTargetPct = Clamp(frame.settingInputs.target:GetText(), 50, 300)
 		scan.db.budgetGold = Clamp(frame.settingInputs.budget:GetText(), 1, 100000000)
 		scan.db.minScore = Clamp(frame.settingInputs.score:GetText(), 0, 100)
+		scan.db.goldThreshold = Clamp(frame.settingInputs.goldThreshold:GetText(), 0, 100000000)
 		scan.db.sound = frame.settingInputs.sound:GetChecked() == true
 		frame.settingsPanel:Hide()
+		local goldBlocked = EnforceGoldThreshold()
 		Reset:RebuildFromCache()
-		SetStatus(string.format("Paramètres appliqués • score min. %d • son %s.", scan.db.minScore, scan.db.sound and "activé" or "désactivé"))
+		if goldBlocked then
+			SetStatus(GetGoldThresholdMessage(), true)
+		else
+			SetStatus(string.format("Paramètres appliqués • score min. %d • seuil gold %s.", scan.db.minScore, scan.db.goldThreshold > 0 and FormatPrice(scan.db.goldThreshold * 10000) or "désactivé"))
+		end
+	end)
+	frame.blacklistScroll = CreateFrame("ScrollFrame", nil, frame.blacklistContent, "UIPanelScrollFrameTemplate")
+	frame.blacklistScroll:SetPoint("TOPLEFT", frame.blacklistContent, "TOPLEFT", 8, -4)
+	frame.blacklistScroll:SetPoint("BOTTOMRIGHT", frame.blacklistContent, "BOTTOMRIGHT", -22, 6)
+	frame.blacklistContentFrame = CreateFrame("Frame", nil, frame.blacklistScroll)
+	frame.blacklistContentFrame:SetSize(1, 1)
+	frame.blacklistScroll:SetScrollChild(frame.blacklistContentFrame)
+	frame.blacklistEmpty = frame.blacklistContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	frame.blacklistEmpty:SetPoint("CENTER", frame.blacklistContent, "CENTER", 0, -2)
+	frame.blacklistEmpty:SetText("Aucun item blacklisté.")
+	frame.blacklistRows = {}
+	RefreshBlacklistPanel = function()
+		if not frame.blacklistContentFrame then
+			return
+		end
+		local itemIDs = GetBlacklistedItemIDs()
+		local contentWidth = math.max(1, frame.blacklistScroll:GetWidth() or 1)
+		frame.blacklistContentFrame:SetWidth(contentWidth)
+		frame.blacklistContentFrame:SetHeight(math.max(frame.blacklistScroll:GetHeight() or 1, #itemIDs * 28 + 8))
+		for _, row in ipairs(frame.blacklistRows) do
+			row:Hide()
+		end
+		for index, itemID in ipairs(itemIDs) do
+			local row = frame.blacklistRows[index]
+			if not row then
+				row = CreateFrame("Frame", nil, frame.blacklistContentFrame, "BackdropTemplate")
+				row:SetHeight(26)
+				row:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background" })
+				row:SetBackdropColor(0.08, 0.08, 0.09, 0.75)
+				row.icon = row:CreateTexture(nil, "ARTWORK")
+				row.icon:SetSize(20, 20)
+				row.icon:SetPoint("LEFT", row, "LEFT", 4, 0)
+				row.label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+				row.label:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+				row.label:SetPoint("RIGHT", row, "RIGHT", -92, 0)
+				row.label:SetJustifyH("LEFT")
+				row.label:SetWordWrap(false)
+				row.removeButton = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+				row.removeButton:SetSize(82, 22)
+				row.removeButton:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+				row.removeButton:SetText("Supprimer")
+				row.removeButton:SetScript("OnClick", function(button)
+					Reset:RemoveBlacklistedItem(button.itemID)
+				end)
+			end
+			row.itemID = itemID
+			row.removeButton.itemID = itemID
+			row.icon:SetTexture(GetItemTexture(itemID))
+			row.label:SetText(GetItemLink(itemID) or GetItemName(itemID))
+			row:ClearAllPoints()
+			row:SetPoint("TOPLEFT", frame.blacklistContentFrame, "TOPLEFT", 0, -4 - (index - 1) * 28)
+			row:SetPoint("RIGHT", frame.blacklistContentFrame, "RIGHT", 0, 0)
+			row:Show()
+		end
+		frame.blacklistEmpty:SetShown(#itemIDs == 0)
+	end
+	local function ShowOptionsPage(page)
+		local blacklistShown = page == "blacklist"
+		frame.settingsContent:SetShown(not blacklistShown)
+		frame.blacklistContent:SetShown(blacklistShown)
+		frame.settingsTab:SetEnabled(blacklistShown)
+		frame.blacklistTab:SetEnabled(not blacklistShown)
+		if blacklistShown then
+			RefreshBlacklistPanel()
+		end
+	end
+	frame.settingsTab:SetScript("OnClick", function()
+		ShowOptionsPage("settings")
+	end)
+	frame.blacklistTab:SetScript("OnClick", function()
+		ShowOptionsPage("blacklist")
 	end)
 	frame.settingsButton:SetScript("OnClick", function()
 		frame.settingInputs.roi:SetText(tostring(scan.db.minROI))
@@ -2626,16 +3613,22 @@ local function CreateUI(parent)
 		frame.settingInputs.target:SetText(tostring(scan.db.maxTargetPct))
 		frame.settingInputs.budget:SetText(tostring(scan.db.budgetGold))
 		frame.settingInputs.score:SetText(tostring(scan.db.minScore))
+		frame.settingInputs.goldThreshold:SetText(tostring(scan.db.goldThreshold))
 		frame.settingInputs.sound:SetChecked(scan.db.sound)
-		frame.settingsPanel:SetShown(not frame.settingsPanel:IsShown())
+		local shown = not frame.settingsPanel:IsShown()
+		frame.settingsPanel:SetShown(shown)
+		if shown then
+			ShowOptionsPage("settings")
+		end
 	end)
+	ShowOptionsPage("settings")
 	frame.settingsPanel:Hide()
 	scan.frame = frame
 	frame:SetScript("OnHide", function()
 		if type(YayaReagentSniperTrace) == "function" then
 			YayaReagentSniperTrace("UI", "reset tab hidden; entering strict dormant mode")
 		end
-		if scan.running or scan.active or scan.startPending or scan.purchase then
+		if scan.running or scan.active or scan.startPending or scan.purchase or scan.continuousPending then
 			Reset:StopScan("Scan Reset arrêté : onglet quitté.")
 		end
 	end)
@@ -2703,7 +3696,7 @@ function Reset:EnsureUI(parent, controller)
 end
 
 function Reset:Hide()
-	if scan.running or scan.active or scan.startPending or scan.purchase then
+	if scan.running or scan.active or scan.startPending or scan.purchase or scan.continuousPending then
 		self:StopScan("Scan Reset arrêté : onglet quitté.")
 	end
 	if scan.frame then

@@ -6,6 +6,8 @@ Addon Retail simple pour :
 - afficher sur la page de fabrication une frame de sélection de qualité YQ, avec icônes de qualité, qualité maximale atteignable, concentration optionnelle, quantité conservée entre les recettes (réinitialisation configurable dans les options WoW, désactivée par défaut) avec reset `R` et choix automatique des réactifs les moins chers
 - afficher cette frame comme une fenêtre flottante déplaçable, avec une icône par réactif et les quantités réparties par qualité
 - afficher toujours `dump conc.` sur une recette visible, puis le griser si la concentration restante après les réservations de la queue ne permet pas d'ajouter au moins un craft tout en conservant le seuil de 500
+- garder la fenêtre de queue compacte : jusqu'à 3 tâches sont détaillées, puis le reste est résumé par `+X autres`
+- ancrer le coin inférieur gauche de la fenêtre pour que ses changements de hauteur s'étendent vers le haut et la droite
 - inclure le réactif actuellement sélectionné dans les slots requis sélectionnables (par exemple Mote of Primal Energy), même si l’API de transaction l’omet
 - ajouter en une fois les first crafts connus non realises dont le cout CraftSim est strictement inferieur a 1000 po
 - garder une frame flottante a l'ecran pour suivre la queue

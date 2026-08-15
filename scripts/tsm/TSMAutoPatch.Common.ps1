@@ -1317,7 +1317,21 @@ function Restore-TSMBagTrackingFile {
 \t\tEvent.Register("BAG_UPDATE", private.HandleLogin)
 '@
     $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Inventory\\BagTracking item data event") -or $changed
-    $original = @'
+    $originals = @()
+    $originals += @'
+function BagTracking.ItemWillGoInBag(itemString, bag)
+	if bag == Container.GetBackpackContainer() or bag == Container.GetBankContainer() or Container.IsWarbankBag(bag) then
+		return true
+	end
+	local itemFamily = Item.GetFamily(ItemInfo.GetLink(itemString), ItemInfo.GetClassId(itemString))
+	local _, bagFamily = Container.GetNumFreeSlots(bag)
+	if not bagFamily then
+		return false
+	end
+	return bagFamily == 0 or bit.band(itemFamily, bagFamily) > 0
+end
+'@
+    $patched = @'
 function BagTracking.ItemWillGoInBag(itemString, bag)
 	if bag == Container.GetBackpackContainer() or bag == Container.GetBankContainer() or Container.IsWarbankBag(bag) then
 		return true
@@ -1334,20 +1348,7 @@ function BagTracking.ItemWillGoInBag(itemString, bag)
 	return bagFamily == 0 or bit.band(itemFamily, bagFamily) > 0
 end
 '@
-    $patched = @'
-function BagTracking.ItemWillGoInBag(itemString, bag)
-	if bag == Container.GetBackpackContainer() or bag == Container.GetBankContainer() or Container.IsWarbankBag(bag) then
-		return true
-	end
-	local itemFamily = Item.GetFamily(ItemInfo.GetLink(itemString), ItemInfo.GetClassId(itemString))
-	local _, bagFamily = Container.GetNumFreeSlots(bag)
-	if not bagFamily then
-		return false
-	end
-	return bagFamily == 0 or bit.band(itemFamily, bagFamily) > 0
-end
-'@
-    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Inventory\\BagTracking restore native slot selection") -or $changed
+    $changed = (Replace-ExactBlockAny -Content ([ref]$content) -Originals $originals -Patched $patched -Label "Inventory\\BagTracking restore reagent bag filtering") -or $changed
 
     $original = @'
 function private.ScanBagSlot(bag, slot)
@@ -1556,7 +1557,14 @@ function private.ScanBagSlot(bag, slot)
 '@
     $changed = (Replace-ExactBlockAny -Content ([ref]$content) -Originals $scanBagSlotOriginals -Patched $scanBagSlotPatched -Label "Inventory\\BagTracking pending item link guard") -or $changed
 
-    $original = @'
+    $cleanupOriginals = @()
+    $cleanupOriginals += @'
+	private.ClearPendingItemDataSlot(slotId)
+	local itemString = ItemString.Get(link)
+	local levelItemString = itemString and ItemString.ToLevel(itemString)
+	local slotId = SlotId.Join(bag, slot)
+'@
+    $cleanupOriginals += @'
 	private.ClearPendingItemDataSlot(slotId)
 	local levelItemString = itemString and ItemString.ToLevel(itemString)
 	local slotId = SlotId.Join(bag, slot)
@@ -1565,7 +1573,7 @@ function private.ScanBagSlot(bag, slot)
 	private.ClearPendingItemDataSlot(slotId)
 	local levelItemString = itemString and ItemString.ToLevel(itemString)
 '@
-    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Inventory\\BagTracking reuse parsed item string") -or $changed
+    $changed = (Replace-ExactBlockAny -Content ([ref]$content) -Originals $cleanupOriginals -Patched $patched -Label "Inventory\\BagTracking reuse parsed item string") -or $changed
     if ($changed) {
         Set-TSMPatchContent -FilePath $FilePath -Content $content
     }
@@ -1881,6 +1889,68 @@ for slotId in Container.GetBagSlotIterator() do
     return $changed
 }
 
+function Update-TSMBankingFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $changed = $false
+
+    $original = @'
+\t\t-- Do all the pending moves
+\t\tfor slotId, targetSlotId in pairs(slotIds) do
+\t\t\tcontext:MoveSlot(slotId, targetSlotId, slotMoveQuantity[slotId])
+\t\t\tThreading.Yield()
+\t\t\tif private.openFrame == "GUILD_BANK" then
+\t\t\t\tmovedSlotId = slotId
+\t\t\t\tbreak
+\t\t\tend
+\t\tend
+'@
+    $patched = @'
+\t\t-- Move Warbank items one at a time to avoid burst transfers.
+\t\tfor slotId, targetSlotId in pairs(slotIds) do
+\t\t\tcontext:MoveSlot(slotId, targetSlotId, slotMoveQuantity[slotId])
+\t\t\tThreading.Yield()
+\t\t\tif private.openFrame == "GUILD_BANK" or private.openFrame == "WARBANK" then
+\t\t\t\tmovedSlotId = slotId
+\t\t\t\tbreak
+\t\t\tend
+\t\tend
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Core.lua Warbank sequential move") -or $changed
+
+    $original = @'
+\t\t\t\tif private.openFrame ~= "GUILD_BANK" or slotId == movedSlotId then
+'@
+    $patched = @'
+\t\t\t\tif (private.openFrame ~= "GUILD_BANK" and private.openFrame ~= "WARBANK") or slotId == movedSlotId then
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Core.lua Warbank move confirmation") -or $changed
+
+    $original = @'
+\t\t\tif didMove then
+\t\t\t\tcallback("PROGRESS", numDone / numMoves)
+\t\t\tend
+'@
+    $patched = @'
+\t\t\tif didMove then
+\t\t\t\tcallback("PROGRESS", numDone / numMoves)
+\t\t\t\tif private.openFrame == "WARBANK" then
+\t\t\t\t\tThreading.Sleep(0.1)
+\t\t\t\tend
+\t\t\tend
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Core.lua Warbank move pacing") -or $changed
+
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
 function Update-TSMDefaultUICompatibilityFiles {
     param(
         [Parameter(Mandatory = $true)]
@@ -1916,13 +1986,19 @@ function Update-TSMDefaultUICompatibilityFiles {
 					end
 				end
 '@
-    $changed = Replace-ExactBlock -Content ([ref]$craftingContent) -Original $craftingOriginal -Patched $craftingPatched -Label "Core\\UI\\CraftingUI\\Core.lua removed UIParent_OnEvent"
+    $changed = $false
+    if (-not $craftingContent.Contains("GameEvent.HandleCraftShow")) {
+        $changed = Replace-ExactBlock -Content ([ref]$craftingContent) -Original $craftingOriginal -Patched $craftingPatched -Label "Core\\UI\\CraftingUI\\Core.lua removed UIParent_OnEvent"
+    }
     if ($changed) {
         Set-TSMPatchContent -FilePath $CraftingFilePath -Content $craftingContent
     }
 
     $auctionContent = Get-TSMPatchContent -FilePath $AuctionFilePath
     $auctionChanged = $false
+    if ($auctionContent.Contains("GameEvent.HandleAuctionHouseShow")) {
+        return $changed
+    }
     $auctionOriginal = @'
 	if private.settings.showDefault then
 		if ClientInfo.IsVanillaClassic() or ClientInfo.IsBCClassic() then
@@ -1981,6 +2057,7 @@ function Invoke-TSMMailingPatch {
     $mailingSendPath = Join-Path $resolvedAddonPath "Core\Service\Mailing\Send.lua"
     $auctionScrollTablePath = Join-Path $resolvedAddonPath "LibTSMUI\Source\AuctionHouse\AuctionScrollTable.lua"
     $bagTrackingPath = Join-Path $resolvedAddonPath "LibTSMService\Source\Inventory\BagTracking.lua"
+    $bankingCorePath = Join-Path $resolvedAddonPath "Core\Service\Banking\Core.lua"
     $postScanPath = Join-Path $resolvedAddonPath "Core\Service\Auctioning\PostScan.lua"
     $craftingUiPath = Join-Path $resolvedAddonPath "Core\UI\CraftingUI\Core.lua"
     $auctionUiPath = Join-Path $resolvedAddonPath "Core\UI\AuctionUI\Core.lua"
@@ -1997,6 +2074,7 @@ function Invoke-TSMMailingPatch {
         $mailingSendPath,
         $auctionScrollTablePath,
         $bagTrackingPath,
+        $bankingCorePath,
         $postScanPath,
         $craftingUiPath,
         $auctionUiPath,
@@ -2015,6 +2093,7 @@ function Invoke-TSMMailingPatch {
         $changed = (Update-TSMMailingSendFile -FilePath $mailingSendPath) -or $changed
         $changed = (Update-TSMAuctionScrollTableFile -FilePath $auctionScrollTablePath) -or $changed
         $changed = (Restore-TSMBagTrackingFile -FilePath $bagTrackingPath) -or $changed
+        $changed = (Update-TSMBankingFile -FilePath $bankingCorePath) -or $changed
         $changed = (Update-TSMPostScanDebugFile -FilePath $postScanPath) -or $changed
         $changed = (Update-TSMDefaultUICompatibilityFiles -CraftingFilePath $craftingUiPath -AuctionFilePath $auctionUiPath) -or $changed
         $changed = (Update-TSMShoppingOperationFile -FilePath $shoppingOperationPath) -or $changed

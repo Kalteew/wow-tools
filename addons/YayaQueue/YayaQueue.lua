@@ -5,10 +5,11 @@ local db
 
 local CONFIG = {
     MAX_QUEUE_QTY = 9999,
-    MAX_CRAFT_LINES = 8,
+    MAX_CRAFT_LINES = 4,
     MAX_AH_LINES = 10,
-    CRAFT_PANEL_EXPANDED_HEIGHT = 340,
+    CRAFT_PANEL_EXPANDED_HEIGHT = 260,
     CRAFT_PANEL_COLLAPSED_HEIGHT = 88,
+    CRAFT_PANEL_LINE_HEIGHT = 16,
     FIRST_CRAFT_COST_LIMIT = 1000 * 10000,
     FIRST_CRAFT_EXCLUDED_ITEM_IDS = {
         [245345] = true, -- Fused Vitality
@@ -522,8 +523,8 @@ state.EnsureDB = function()
     end
     if type(YayaQueueDB.panelPoint) ~= "table" then
         YayaQueueDB.panelPoint = {
-            point = "CENTER",
-            relativePoint = "CENTER",
+            point = "BOTTOMLEFT",
+            relativePoint = "BOTTOMLEFT",
             x = 430,
             y = 0,
         }
@@ -938,7 +939,6 @@ YQQuality.IsIngenuityBuffActive = function()
                 return true
             end
         end
-        return false
     end
 
     if AuraUtil and type(AuraUtil.FindAuraBySpellID) == "function" then
@@ -1705,6 +1705,29 @@ local function ApplyPanelPoint(frame)
         tonumber(point.x) or 430,
         tonumber(point.y) or 0
     )
+
+    if point.point == "BOTTOMLEFT" and point.relativePoint == "BOTTOMLEFT" then
+        return
+    end
+
+    local left = frame:GetLeft()
+    local bottom = frame:GetBottom()
+    if not left or not bottom then
+        return
+    end
+
+    local parentLeft = UIParent.GetLeft and UIParent:GetLeft() or 0
+    local parentBottom = UIParent.GetBottom and UIParent:GetBottom() or 0
+    left = left - parentLeft
+    bottom = bottom - parentBottom
+    frame:ClearAllPoints()
+    frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
+    db.panelPoint = {
+        point = "BOTTOMLEFT",
+        relativePoint = "BOTTOMLEFT",
+        x = left,
+        y = bottom,
+    }
 end
 
 local function SavePanelPoint(frame)
@@ -1723,6 +1746,30 @@ local function SavePanelPoint(frame)
         x = tonumber(x) or 0,
         y = tonumber(y) or 0,
     }
+end
+
+local function SetPanelHeightKeepingBottomLeft(frame, height)
+    if not frame then
+        return
+    end
+
+    local left = frame:GetLeft()
+    local bottom = frame:GetBottom()
+    local parentLeft = UIParent.GetLeft and UIParent:GetLeft() or 0
+    local parentBottom = UIParent.GetBottom and UIParent:GetBottom() or 0
+    frame:SetHeight(height)
+    if not left or not bottom then
+        return
+    end
+
+    frame:ClearAllPoints()
+    frame:SetPoint(
+        "BOTTOMLEFT",
+        UIParent,
+        "BOTTOMLEFT",
+        left - parentLeft,
+        bottom - parentBottom
+    )
 end
 
 local function ResolveCraftAnchor()
@@ -3865,6 +3912,7 @@ local function SetLineText(lines, maxLines, values)
         end
         lines[index]:SetText(value or "")
     end
+    return math.min(#values, maxLines)
 end
 
 local function BuyMerchantQuantity(index, quantity)
@@ -5912,7 +5960,6 @@ local function UpdateCraftPanel(summary)
         state.craft.selectedText:SetText("")
     end
 
-    state.craft.panel:SetHeight(hasTasks and CONFIG.CRAFT_PANEL_EXPANDED_HEIGHT or CONFIG.CRAFT_PANEL_COLLAPSED_HEIGHT)
     if state.craft.todoTitle then
         state.craft.todoTitle:SetShown(hasTasks)
     end
@@ -5920,7 +5967,20 @@ local function UpdateCraftPanel(summary)
         line:SetShown(hasTasks)
     end
 
-    SetLineText(state.craft.lines, CONFIG.MAX_CRAFT_LINES, BuildCraftLines(summary))
+    local displayedLineCount = SetLineText(
+        state.craft.lines,
+        CONFIG.MAX_CRAFT_LINES,
+        BuildCraftLines(summary)
+    )
+    if hasTasks then
+        local unusedLineCount = math.max(0, CONFIG.MAX_CRAFT_LINES - displayedLineCount)
+        SetPanelHeightKeepingBottomLeft(
+            state.craft.panel,
+            CONFIG.CRAFT_PANEL_EXPANDED_HEIGHT - unusedLineCount * CONFIG.CRAFT_PANEL_LINE_HEIGHT
+        )
+    else
+        SetPanelHeightKeepingBottomLeft(state.craft.panel, CONFIG.CRAFT_PANEL_COLLAPSED_HEIGHT)
+    end
     UpdateVendorButtons(summary)
 
     local nextState = GetPatronNextButtonState()

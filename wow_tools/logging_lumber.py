@@ -14,16 +14,9 @@ AH_CUT_RATE = 0.05
 SELL_RATE_MALUS_K = 0.10
 
 
-def _preferred_price(row: dict[str, Any]) -> int | None:
-    for key in (
-        "min_buyout_copper",
-        "market_value_copper",
-        "region_market_value_avg_copper",
-        "region_sale_avg_copper",
-        "historical_price_copper",
-        "region_historical_price_copper",
-    ):
-        value = row.get(key)
+def _lumber_price(summary: dict[str, Any]) -> int | None:
+    for key in ("region_sale_avg_copper", "preferred_price_copper"):
+        value = summary.get(key)
         if isinstance(value, int) and value > 0:
             return value
     return None
@@ -42,6 +35,7 @@ def _load_recipe_map(conn, product_item_ids: list[int], wood_item_id: int) -> di
         SELECT
             pr.spell_id,
             pr.output_item_id,
+            pr.profession,
             pr.recipe_name,
             rr.reagent_item_id,
             rr.quantity,
@@ -68,6 +62,7 @@ def _load_recipe_map(conn, product_item_ids: list[int], wood_item_id: int) -> di
             item_id,
             {
                 "spell_id": int(row["spell_id"]),
+                "profession": row["profession"],
                 "recipe_name": row["recipe_name"],
                 "reagents": [],
             },
@@ -135,7 +130,7 @@ def build_logging_lumber_report(region: str) -> dict[str, Any]:
             wood_item_id = int(expansion["wood_item_id"])
             product_item_ids = [int(item_id) for item_id in expansion.get("product_item_ids", [])]
             wood_summary = (price_index.get(wood_item_id) or {}).get("summary", {})
-            wood_price = wood_summary.get("preferred_price_copper")
+            wood_price = _lumber_price(wood_summary)
             wood_daily = float(wood_summary.get("sold_per_day") or 0.0)
             wood_sale_rate = float(wood_summary.get("sale_rate") or 0.0)
 
@@ -144,7 +139,7 @@ def build_logging_lumber_report(region: str) -> dict[str, Any]:
             for item_id in product_item_ids:
                 product_summary = (price_index.get(item_id) or {}).get("summary", {})
                 recipe = recipe_map.get(item_id)
-                sale_price = product_summary.get("preferred_price_copper")
+                sale_price = _lumber_price(product_summary)
                 if sale_price is None or not recipe:
                     continue
                 sell_rate = float(product_summary.get("sale_rate") or 0.0)
@@ -159,7 +154,7 @@ def build_logging_lumber_report(region: str) -> dict[str, Any]:
                     if reagent_id == wood_item_id:
                         wood_quantity += reagent_quantity
                         continue
-                    reagent_price = ((price_index.get(reagent_id) or {}).get("summary") or {}).get("preferred_price_copper")
+                    reagent_price = _lumber_price((price_index.get(reagent_id) or {}).get("summary") or {})
                     if reagent_price is None:
                         has_full_cost = False
                         break
@@ -178,6 +173,7 @@ def build_logging_lumber_report(region: str) -> dict[str, Any]:
                     {
                         "item_id": item_id,
                         "item_name": item_names.get(item_id),
+                        "profession": recipe["profession"],
                         "recipe_name": recipe["recipe_name"],
                         "wood_quantity": wood_quantity,
                         "sale_price_copper": sale_price,
@@ -211,6 +207,7 @@ def build_logging_lumber_report(region: str) -> dict[str, Any]:
             avg_value_per_wood = (
                 sum(row["adjusted_profit_per_wood"] for row in product_rows) / len(product_rows) if product_rows else 0.0
             )
+            best_product = product_rows[0] if product_rows else None
 
             rows.append(
                 {
@@ -226,6 +223,7 @@ def build_logging_lumber_report(region: str) -> dict[str, Any]:
                     "avg_product_sell_rate": avg_sell_rate,
                     "avg_liquidity_factor": avg_liquidity,
                     "estimated_value_per_wood_copper": int(round(avg_value_per_wood)),
+                    "best_profession": best_product.get("profession") if best_product else None,
                     "top_products": product_rows[:5],
                 }
             )
@@ -242,6 +240,7 @@ def build_logging_lumber_report(region: str) -> dict[str, Any]:
 
     return {
         "region": region,
+        "price_source": "avgSell (TSM regionSale), fallback preferred price",
         "formula": "avg((sale*0.95 - non_wood_cost) * (sell_rate/(sell_rate+0.10)) / wood_qty)",
         "row_count": len(rows),
         "rows": rows,

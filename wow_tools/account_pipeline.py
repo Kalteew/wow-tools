@@ -475,6 +475,8 @@ def _summarize_price_datasets(datasets: dict[str, dict[str, Any]]) -> dict[str, 
         "market_value_text": format_copper(market_value),
         "min_buyout_copper": min_buyout,
         "min_buyout_text": format_copper(min_buyout),
+        "region_sale_avg_copper": region_sale.get("regionSale"),
+        "region_sale_avg_text": format_copper(region_sale.get("regionSale")),
         "sale_rate": _decode_scaled_metric(region_sale.get("regionSalePercent")),
         "sold_per_day": _decode_scaled_metric(region_sale.get("regionSoldPerDay")),
         "dataset_scope": (
