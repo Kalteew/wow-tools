@@ -16,9 +16,12 @@ if (-not (Test-Path -LiteralPath $scriptPath)) {
 
 $argumentText = "`"$scriptPath`" --output-dir `"$outputDir`" --quiet"
 $action = New-ScheduledTaskAction -Execute $python -Argument $argumentText -WorkingDirectory $RepoRoot
-$trigger = New-ScheduledTaskTrigger -Daily -At ([datetime]::ParseExact($Time, "HH:mm", $null))
+$dailyTrigger = New-ScheduledTaskTrigger -Daily -At ([datetime]::ParseExact($Time, "HH:mm", $null))
+$logonTrigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+$triggers = @($dailyTrigger, $logonTrigger)
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
 
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Force | Out-Null
-Write-Output "Tâche planifiée : $TaskName à $Time"
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $triggers -Principal $principal -Settings $settings -Force | Out-Null
+Write-Output "Tâche planifiée : $TaskName à $Time ou à l'ouverture de session"
 Write-Output "Sorties : $outputDir"

@@ -54,8 +54,10 @@ Resume `Midnight` :
 - si TomTom est installe, un waypoint temporaire est aussi pose vers le vendeur des recettes suivies manquantes
 - l'addon n'impose pas la `CrazyArrow` de TomTom; il pose seulement les markers carte/minimap
 - un bouton `Ouvrir payout` apparait si un `Artisan's Consortium Payout` est detecte dans les sacs; chaque clic cible un payout encore present et un clic excedentaire reste sans effet
-- le meme bouton ouvre aussi les coffres de la whitelist (`263934`, `263466`, `263467` et `254677`) presents dans les sacs, en alternant les slots disponibles
+- le meme bouton ouvre aussi les coffres, les `Avid Learner's Supply Pack` (`263467`, `268487`, `269703`), `Pouch of Mystic Grindings` et `Bouquet of Herbs` (rangs 1 et 2) de la whitelist (`263934`, `263466`, `263467`, `268487`, `269703`, `254677`, `250755`, `245650` et `245651`) presents dans les sacs, en alternant les slots disponibles
 - des boutons independants `Ouvrir surplus` apparaissent pour les conteneurs de composants en surplus des 11 metiers Midnight reconnus, afin de pouvoir alterner les clics pendant leur ouverture
+- l'option `Ouvrir automatiquement les conteneurs YWT` est desactivee par defaut ; si elle est activee, elle ouvre un par un les coffres, payouts et surplus suivis, uniquement hors combat et hors interfaces sensibles ; apres chaque recuperation depuis la boite aux lettres, elle attend 0,5 s apres le dernier evenement de courrier avant de rescanner les sacs
+- les consommables KP restent volontairement manuels : WoW refuse leur utilisation automatique
 - si `Tracker les traites (inscription)` est active, un bouton par traite hebdomadaire manquant apparait a l'ouverture de la Warbank lorsqu'un stack correspondant y est present ; le clic retire le stack complet sans split
 - si YayaContainerValues est charge, ses hooks suivent l'utilisation réelle de l'item afin d'éviter les doubles signalements lors des clics rapides
 - si la weekly `Midnight Enchanting` active demande un reagent manquant, YWT ajoute automatiquement la quantite complete a la queue YayaQueue, sans bouton et sans doublon aux refreshs

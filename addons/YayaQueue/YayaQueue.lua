@@ -14,6 +14,27 @@ local CONFIG = {
     FIRST_CRAFT_EXCLUDED_ITEM_IDS = {
         [245345] = true, -- Fused Vitality
     },
+    ALCHEMY_PROFESSION_IDS = {
+        [3] = true, -- Enum.Profession.Alchemy
+        [171] = true, -- Alchemy
+        [2906] = true, -- Midnight Alchemy
+    },
+    ALCHEMY_BOUQUET_RECIPE_ID = 1230892,
+    ALCHEMY_WONDROUS_SYNERGIST_RECIPE_ID = 1230856,
+    ALCHEMY_BOUQUET_SHARED_COOLDOWN_KEY = "midnight-alchemy-material-transmutations",
+    ALCHEMY_BOUQUET_SHARED_COOLDOWN_RECIPE_IDS = {
+        [1230891] = true, -- Box of Rocks
+        [1230892] = true, -- Bouquet of Herbs
+        [1230893] = true, -- School of Gems
+    },
+    STABILIZED_DERIVATE_ITEM_ID = 242651,
+    ENTROPIC_EXTRACT_ITEM_ID = 268955,
+    RECYCLE_POTIONS_RECIPE_ID = 1233129,
+    RECYCLE_POTIONS_ITEM_ID = 242637,
+    OIL_OF_HEARTWOOD_ITEM_ID = 247811,
+    RECYCLE_BATCH_SIZE = 5,
+    RECYCLE_POTIONS_PER_CRAFT = 3,
+    RECYCLE_ESTIMATED_DERIVATES_PER_CRAFT = 2,
     GOLD_STAR_ITEM_ID = 246450,
     GOLD_STAR_MERGE_CHAIN = {
         { inputItemID = 246447, outputItemID = 246448, recipeID = 1269450, inputQuantity = 5, name = "Artisan's Ledger" },
@@ -65,6 +86,7 @@ local CONFIG = {
     [251665] = true, -- Silverleaf Thread
     [253302] = true, -- Malleable Wireframe
     [253303] = true, -- Pile of Junk
+    [247811] = true, -- Oil of Heartwood
     },
 }
 
@@ -135,6 +157,8 @@ local state = {
     itemLoadRetryAt = {},
     incomingItemCounts = {},
     observedItemCounts = {},
+    ingenuityBuffActive = false,
+    ingenuityBuffInitialized = false,
     professionsHooksInitialized = false,
     craftApiHooksInitialized = false,
     orderApiHooksInitialized = false,
@@ -166,6 +190,11 @@ local state = {
         pending = nil,
         timerQueued = false,
         tracker = nil,
+    },
+    alchemyAutoQueue = {
+        pendingProfessionID = nil,
+        attempts = 0,
+        timerQueued = false,
     },
     optionsPanel = nil,
     optionsCategory = nil,
@@ -443,9 +472,26 @@ local function NormalizeQueueEntries()
             if recipeID > 0 then
                 local outputPerCraft = math.max(1, tonumber(rawEntry.outputPerCraft) or 1)
                 local reagents = NormalizeReagents(rawEntry.reagents)
+                local salvageItemID = tonumber(rawEntry.salvageItemID) or 0
+                if rawEntry.isSalvageRecipe == true and salvageItemID > 0 then
+                    local hasSalvageReagent = false
+                    for _, reagent in ipairs(reagents) do
+                        if tonumber(reagent.itemID) == salvageItemID then
+                            hasSalvageReagent = true
+                            break
+                        end
+                    end
+                    if not hasSalvageReagent then
+                        reagents[#reagents + 1] = {
+                            itemID = salvageItemID,
+                            quantity = math.max(1, tonumber(rawEntry.salvageItemQuantity) or 1),
+                        }
+                    end
+                end
                 local mode = rawEntry.mode == "crafts" and "crafts" or "output"
                 local queueKind = rawEntry.queueKind == "patron" and "patron"
                     or rawEntry.queueKind == "merge" and "merge"
+                    or rawEntry.queueKind == "recycle" and "recycle"
                     or nil
                 local orderID = tonumber(rawEntry.orderID) or nil
                 local craftQty
@@ -493,6 +539,11 @@ local function NormalizeQueueEntries()
                         mergeDepth = tonumber(rawEntry.mergeDepth) or nil,
                         isRecraft = rawEntry.isRecraft == true,
                         isEnchantingRecipe = rawEntry.isEnchantingRecipe == true,
+                        isSalvageRecipe = rawEntry.isSalvageRecipe == true,
+                        salvageItemID = tonumber(rawEntry.salvageItemID) or nil,
+                        salvageItemQuantity = math.max(1, tonumber(rawEntry.salvageItemQuantity) or 1),
+                        salvageOutputItemID = tonumber(rawEntry.salvageOutputItemID) or nil,
+                        salvageOutputPerCraft = math.max(0, tonumber(rawEntry.salvageOutputPerCraft) or 0),
                         applyConcentration = NormalizeApplyConcentration(rawEntry.applyConcentration),
                         pendingSubmit = rawEntry.pendingSubmit == true,
                         profitValue = tonumber(rawEntry.profitValue) or nil,
@@ -906,58 +957,38 @@ YQQuality.GetIngenuityPhialCount = function(itemID, getter)
     return count
 end
 
-YQQuality.IsIngenuityBuffActive = function()
-    local names = {}
-    local spellIDs = {}
-    spellIDs[CONFIG.CONCENTRATION_PHIAL_BUFF_SPELL_ID] = true
-    for rank = 1, 2 do
-        local itemID = CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[rank]
-        local itemName = GetItemName(itemID)
-        if itemName and itemName ~= "" then
-            names[itemName] = true
-        end
-        local spellName, spellID
-        if C_Item and type(C_Item.GetItemSpell) == "function" then
-            local ok
-            ok, spellName, spellID = pcall(C_Item.GetItemSpell, itemID)
-            if not ok then
-                spellName, spellID = nil, nil
-            end
-        end
-        if type(spellName) == "string" and spellName ~= "" then
-            names[spellName] = true
-        end
-        spellID = tonumber(spellID)
-        if spellID and spellID > 0 then
-            spellIDs[spellID] = true
-        end
-    end
-
+YQQuality.RefreshIngenuityBuffState = function(reason)
+    local spellID = CONFIG.CONCENTRATION_PHIAL_BUFF_SPELL_ID
+    local auraData
     if C_UnitAuras and type(C_UnitAuras.GetPlayerAuraBySpellID) == "function" then
-        for spellID in pairs(spellIDs) do
-            if C_UnitAuras.GetPlayerAuraBySpellID(spellID) then
-                return true
-            end
-        end
+        auraData = SafeCall(C_UnitAuras.GetPlayerAuraBySpellID, spellID)
     end
 
-    if AuraUtil and type(AuraUtil.FindAuraBySpellID) == "function" then
-        for spellID in pairs(spellIDs) do
-            if AuraUtil.FindAuraBySpellID(spellID, "player", "HELPFUL") then
-                return true
-            end
-        end
+    local active = auraData ~= nil
+    if not active
+        and (not C_UnitAuras or type(C_UnitAuras.GetPlayerAuraBySpellID) ~= "function")
+        and AuraUtil
+        and type(AuraUtil.FindAuraBySpellID) == "function"
+    then
+        active = AuraUtil.FindAuraBySpellID(spellID, "player", "HELPFUL") ~= nil
     end
 
-    if AuraUtil and type(AuraUtil.FindAuraByName) == "function" then
-        for name in pairs(names) do
-            if AuraUtil.FindAuraByName(name, "player", "HELPFUL") then
-                return true
-            end
-        end
+    local changed = state.ingenuityBuffInitialized ~= true
+        or state.ingenuityBuffActive ~= active
+    state.ingenuityBuffActive = active
+    state.ingenuityBuffInitialized = true
+    if changed then
+        DebugPrint(
+            "ingenuity-buff active=" .. tostring(active)
+                .. " spellID=" .. tostring(spellID)
+                .. " reason=" .. tostring(reason or "?")
+        )
     end
+    return active
+end
 
-    return false
+YQQuality.IsIngenuityBuffActive = function()
+    return state.ingenuityBuffActive == true
 end
 
 YQQuality.IsShatterBuffActive = function()
@@ -971,6 +1002,35 @@ YQQuality.IsShatterBuffActive = function()
     end
 
     return false
+end
+
+YQQuality.IsShatterSpellKnown = function()
+    local spellID = CONFIG.SHATTER_ESSENCE_SPELL_ID
+    local known = false
+
+    if C_TradeSkillUI and type(C_TradeSkillUI.GetRecipeInfo) == "function" then
+        local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, spellID)
+        if type(recipeInfo) == "table" and recipeInfo.learned ~= nil then
+            known = recipeInfo.learned == true
+        end
+    end
+
+    if type(IsPlayerSpell) == "function" then
+        known = known or SafeCall(IsPlayerSpell, spellID) == true
+    end
+
+    if C_SpellBook and type(C_SpellBook.IsSpellInSpellBook) == "function"
+        and Enum and Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player
+    then
+        known = known or SafeCall(
+            C_SpellBook.IsSpellInSpellBook,
+            spellID,
+            Enum.SpellBookSpellBank.Player,
+            false
+        ) == true
+    end
+
+    return known
 end
 
 YQQuality.RemoveConcentrationPhialDemand = function(itemID, quantity)
@@ -1426,6 +1486,10 @@ YQQuality.GetAvailableShatterMote = function()
 end
 
 YQQuality.GetShatterMoteState = function()
+    if not YQQuality.IsShatterSpellKnown() then
+        return { active = true, known = false }
+    end
+
     if YQQuality.IsShatterBuffActive() then
         return { active = true }
     end
@@ -1498,6 +1562,13 @@ YQQuality.EnsureShatterMoteDemandForEntry = function(entry, recipeInfo)
         return
     end
 
+    if not YQQuality.IsShatterSpellKnown() then
+        if YQQuality.RemoveShatterMoteDemand() then
+            ScheduleRefresh()
+        end
+        return
+    end
+
     if YQQuality.IsShatterBuffActive() then
         YQQuality.RemoveShatterMoteDemand()
         return
@@ -1566,6 +1637,31 @@ end
 
 local function IsKnownVendorItem(itemID)
     return CONFIG.KNOWN_VENDOR_ITEMS[itemID] or state.merchantIndexByItemID[itemID] or (db and db.vendorItems and db.vendorItems[itemID]) or false
+end
+
+local function IsSoulboundReagent(itemID)
+    itemID = tonumber(itemID) or 0
+    if itemID <= 0 then
+        return false
+    end
+
+    if type(_G.CraftSimAPI) == "table" and type(_G.CraftSimAPI.GetCraftSim) == "function" then
+        local okAddon, craftSim = pcall(_G.CraftSimAPI.GetCraftSim, _G.CraftSimAPI)
+        local itemUtil = okAddon and craftSim and craftSim.GUTIL or nil
+        if itemUtil and type(itemUtil.isItemSoulbound) == "function" then
+            local okBound, isSoulbound = pcall(itemUtil.isItemSoulbound, itemUtil, itemID)
+            if okBound and isSoulbound == true then
+                return true
+            end
+        end
+    end
+
+    local bindType = select(14, GetItemInfo(itemID))
+    if bindType == nil then
+        WarmItemData(itemID)
+        return false
+    end
+    return bindType ~= 0 and bindType ~= 2 and bindType ~= 3
 end
 
 local function GetMerchantNumItemsCompat()
@@ -2054,6 +2150,7 @@ local function AddRecipeToQueue(context, quantity)
     local mode = NormalizeQueueMode(context and context.mode)
     local queueKind = context and context.queueKind == "patron" and "patron"
         or context and context.queueKind == "merge" and "merge"
+        or context and context.queueKind == "recycle" and "recycle"
         or nil
     local reagents = NormalizeReagents(context and context.reagents)
     local craftingReagents = NormalizeCraftingReagents(context and context.craftingReagents)
@@ -2113,6 +2210,11 @@ local function AddRecipeToQueue(context, quantity)
             entry.mergeDepth = tonumber(context.mergeDepth) or nil
             entry.isRecraft = context.isRecraft == true
             entry.isEnchantingRecipe = context.isEnchantingRecipe == true
+            entry.isSalvageRecipe = context.isSalvageRecipe == true
+            entry.salvageItemID = tonumber(context.salvageItemID) or nil
+            entry.salvageItemQuantity = math.max(1, tonumber(context.salvageItemQuantity) or 1)
+            entry.salvageOutputItemID = tonumber(context.salvageOutputItemID) or nil
+            entry.salvageOutputPerCraft = math.max(0, tonumber(context.salvageOutputPerCraft) or 0)
             entry.applyConcentration = NormalizeApplyConcentration(context.applyConcentration)
             entry.pendingSubmit = context.pendingSubmit == true
             entry.profitValue = tonumber(context.profitValue) or nil
@@ -2153,6 +2255,11 @@ local function AddRecipeToQueue(context, quantity)
         mergeDepth = tonumber(context.mergeDepth) or nil,
         isRecraft = context.isRecraft == true,
         isEnchantingRecipe = context.isEnchantingRecipe == true,
+        isSalvageRecipe = context.isSalvageRecipe == true,
+        salvageItemID = tonumber(context.salvageItemID) or nil,
+        salvageItemQuantity = math.max(1, tonumber(context.salvageItemQuantity) or 1),
+        salvageOutputItemID = tonumber(context.salvageOutputItemID) or nil,
+        salvageOutputPerCraft = math.max(0, tonumber(context.salvageOutputPerCraft) or 0),
         applyConcentration = NormalizeApplyConcentration(context.applyConcentration),
         pendingSubmit = context.pendingSubmit == true,
         profitValue = tonumber(context.profitValue) or nil,
@@ -2196,6 +2303,316 @@ local function GetEntryCraftsRemaining(entry)
     local remainingOutput = entry.outputItemID and math.max(0, outputQty - ownedOutput) or outputQty
     local craftsRemaining = math.ceil(remainingOutput / outputPerCraft)
     return craftsRemaining, remainingOutput
+end
+
+local alchemyAuto = {}
+
+alchemyAuto.IsAlchemyProfession = function(professionID)
+    professionID = tonumber(professionID)
+    if CONFIG.ALCHEMY_PROFESSION_IDS[professionID] then
+        return true
+    end
+
+    local info = type(C_TradeSkillUI) == "table"
+        and type(C_TradeSkillUI.GetChildProfessionInfo) == "function"
+        and SafeCall(C_TradeSkillUI.GetChildProfessionInfo)
+        or nil
+    if info and (tonumber(info.profession) == 171 or tonumber(info.parentProfession) == 171) then
+        return true
+    end
+    info = type(C_TradeSkillUI) == "table"
+        and type(C_TradeSkillUI.GetBaseProfessionInfo) == "function"
+        and SafeCall(C_TradeSkillUI.GetBaseProfessionInfo)
+        or nil
+    return info and tonumber(info.profession) == 171 or false
+end
+
+alchemyAuto.GetRecipeAvailableCharges = function(recipeID, recipeInfo)
+    if type(C_TradeSkillUI) == "table" and type(C_TradeSkillUI.GetRecipeCooldown) == "function" then
+        local ok, currentCooldown, isDayCooldown, currentCharges, maxCharges = pcall(
+            C_TradeSkillUI.GetRecipeCooldown,
+            recipeID
+        )
+        if ok then
+            currentCooldown = tonumber(currentCooldown) or 0
+            currentCharges = tonumber(currentCharges)
+            maxCharges = tonumber(maxCharges)
+            if maxCharges and maxCharges > 0 then
+                return math.min(maxCharges, math.max(0, math.floor(currentCharges or 0)))
+            end
+            if isDayCooldown == true then
+                return currentCooldown > 0 and 0 or 1
+            end
+        end
+    end
+
+    if type(C_Spell) == "table" and type(C_Spell.GetSpellCharges) == "function" then
+        local ok, currentCharges, maxCharges = pcall(C_Spell.GetSpellCharges, recipeID)
+        if ok and type(currentCharges) == "number" and type(maxCharges) == "number" and maxCharges > 0 then
+            return math.max(0, math.floor(currentCharges))
+        end
+    end
+    if type(GetSpellCharges) == "function" then
+        local ok, currentCharges, maxCharges = pcall(GetSpellCharges, recipeID)
+        if ok and type(currentCharges) == "number" and type(maxCharges) == "number" and maxCharges > 0 then
+            return math.max(0, math.floor(currentCharges))
+        end
+    end
+    local recipeCharges = recipeInfo and tonumber(recipeInfo.numAvailable)
+    if recipeCharges ~= nil then
+        return math.max(0, math.floor(recipeCharges))
+    end
+    return nil
+end
+
+alchemyAuto.GetQueuedRecipeCrafts = function(recipeID, queueKind)
+    state.EnsureDB()
+    local quantity = 0
+    for _, entry in ipairs(db.queue) do
+        if tonumber(entry.recipeID) == tonumber(recipeID)
+            and (not queueKind or entry.queueKind == queueKind)
+        then
+            quantity = quantity + select(1, GetEntryCraftsRemaining(entry))
+        end
+    end
+    return quantity
+end
+
+alchemyAuto.GetQueuedReagentDemand = function(itemID)
+    state.EnsureDB()
+    itemID = tonumber(itemID) or 0
+    local quantity = 0
+    for _, entry in ipairs(db.queue) do
+        local craftsRemaining = select(1, GetEntryCraftsRemaining(entry))
+        if craftsRemaining > 0 then
+            for _, reagent in ipairs(entry.reagents or {}) do
+                if tonumber(reagent.itemID) == itemID then
+                    quantity = quantity + craftsRemaining * math.max(0, tonumber(reagent.quantity) or 0)
+                end
+            end
+        end
+    end
+    return quantity
+end
+
+alchemyAuto.GetDerivateQueueProfessionID = function()
+    state.EnsureDB()
+    for _, entry in ipairs(db.queue) do
+        for _, reagent in ipairs(entry.reagents or {}) do
+            if tonumber(reagent.itemID) == CONFIG.STABILIZED_DERIVATE_ITEM_ID then
+                return tonumber(entry.professionID)
+            end
+        end
+    end
+    return tonumber(state.GetCurrentProfessionID and state.GetCurrentProfessionID())
+end
+
+alchemyAuto.GetCooldownKey = function(recipeID, craftSim)
+    recipeID = tonumber(recipeID) or recipeID
+    if CONFIG.ALCHEMY_BOUQUET_SHARED_COOLDOWN_RECIPE_IDS[recipeID] then
+        return "shared:" .. CONFIG.ALCHEMY_BOUQUET_SHARED_COOLDOWN_KEY
+    end
+    local sharedMap = craftSim and craftSim.CONST and craftSim.CONST.SHARED_PROFESSION_COOLDOWNS_RECIPE_ID_MAP
+    local sharedCooldown = sharedMap and sharedMap[recipeID]
+    if sharedCooldown then
+        return "shared:" .. tostring(sharedCooldown)
+    end
+    return "recipe:" .. tostring(recipeID)
+end
+
+alchemyAuto.GetQueuedCooldownReservations = function(craftSim)
+    state.EnsureDB()
+    local reservations = {}
+    for _, entry in ipairs(db.queue) do
+        local recipeID = tonumber(entry.recipeID)
+        if recipeID then
+            local key = alchemyAuto.GetCooldownKey(recipeID, craftSim)
+            reservations[key] = (reservations[key] or 0) + select(1, GetEntryCraftsRemaining(entry))
+        end
+    end
+    return reservations
+end
+
+alchemyAuto.BuildCooldownContext = function(professionID, recipeID, recipeInfo)
+    if type(C_TradeSkillUI) ~= "table"
+        or type(C_TradeSkillUI.GetRecipeSchematic) ~= "function"
+    then
+        return nil
+    end
+
+    local schematic = SafeCall(C_TradeSkillUI.GetRecipeSchematic, recipeID, false, nil)
+    local context = BuildRecipeContext(
+        recipeID,
+        recipeInfo,
+        schematic,
+        nil,
+        false
+    )
+    if not context then
+        return nil
+    end
+    context.professionID = professionID
+    context.mode = "crafts"
+    return context
+end
+
+alchemyAuto.BuildRecycleContext = function(professionID)
+    return {
+        recipeID = CONFIG.RECYCLE_POTIONS_RECIPE_ID,
+        recipeName = GetItemName(CONFIG.RECYCLE_POTIONS_ITEM_ID),
+        outputPerCraft = 1,
+        mode = "crafts",
+        reagents = {
+            { itemID = CONFIG.ENTROPIC_EXTRACT_ITEM_ID, quantity = CONFIG.RECYCLE_POTIONS_PER_CRAFT },
+            { itemID = CONFIG.OIL_OF_HEARTWOOD_ITEM_ID, quantity = 2 },
+        },
+        professionID = professionID,
+        queueKind = "recycle",
+        isSalvageRecipe = true,
+        salvageItemID = CONFIG.ENTROPIC_EXTRACT_ITEM_ID,
+        salvageItemQuantity = CONFIG.RECYCLE_POTIONS_PER_CRAFT,
+        salvageOutputItemID = CONFIG.STABILIZED_DERIVATE_ITEM_ID,
+        salvageOutputPerCraft = CONFIG.RECYCLE_ESTIMATED_DERIVATES_PER_CRAFT,
+    }
+end
+
+alchemyAuto.EnsureRecycleForDerivateShortage = function(professionID)
+    state.EnsureDB()
+    local derivateDemand = alchemyAuto.GetQueuedReagentDemand(CONFIG.STABILIZED_DERIVATE_ITEM_ID)
+    if derivateDemand <= 0 then
+        return false
+    end
+
+    local queuedRecycles = alchemyAuto.GetQueuedRecipeCrafts(CONFIG.RECYCLE_POTIONS_RECIPE_ID, "recycle")
+    if queuedRecycles > 0 then
+        return false
+    end
+
+    local ownedDerivates = GetTotalOwnedCount(CONFIG.STABILIZED_DERIVATE_ITEM_ID)
+    local shortage = math.max(0, derivateDemand - ownedDerivates)
+    if shortage <= 0 then
+        return false
+    end
+
+    local neededRecycles = math.ceil(shortage / CONFIG.RECYCLE_ESTIMATED_DERIVATES_PER_CRAFT)
+    local recycleToQueue = math.ceil(neededRecycles / CONFIG.RECYCLE_BATCH_SIZE)
+        * CONFIG.RECYCLE_BATCH_SIZE
+    local recycleProfessionID = tonumber(professionID) or alchemyAuto.GetDerivateQueueProfessionID()
+    local entry = AddRecipeToQueue(alchemyAuto.BuildRecycleContext(recycleProfessionID), recycleToQueue)
+    if entry then
+        DebugPrint(
+            "derivate-shortage demand=" .. tostring(derivateDemand)
+                .. " owned=" .. tostring(ownedDerivates)
+                .. " recycle=" .. tostring(recycleToQueue)
+        )
+        return true
+    end
+    return false
+end
+
+alchemyAuto.QueueBouquetAndRecycling = function()
+    state.EnsureDB()
+    local professionID = state.GetCurrentProfessionID()
+    if not alchemyAuto.IsAlchemyProfession(professionID) then
+        return false
+    end
+
+    if type(C_TradeSkillUI) ~= "table"
+        or type(C_TradeSkillUI.GetAllRecipeIDs) ~= "function"
+        or type(C_TradeSkillUI.GetRecipeInfo) ~= "function"
+    then
+        return nil
+    end
+
+    local knownRecipeIDs = {}
+    local recipeIDs = SafeCall(C_TradeSkillUI.GetAllRecipeIDs)
+    if type(recipeIDs) ~= "table" or #recipeIDs == 0 then
+        DebugPrint("alchemy-auto wait reason=recipe-data-not-ready")
+        return nil
+    end
+    for _, recipeID in ipairs(recipeIDs) do
+        knownRecipeIDs[tonumber(recipeID)] = true
+        if type(SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID)) ~= "table" then
+            DebugPrint("alchemy-auto wait reason=recipe-info recipe=" .. tostring(recipeID))
+            return nil
+        end
+    end
+
+    local okCraftSim, craftSim = pcall(
+        _G.CraftSimAPI and _G.CraftSimAPI.GetCraftSim,
+        _G.CraftSimAPI
+    )
+    craftSim = okCraftSim and type(craftSim) == "table" and craftSim or nil
+    local cooldownReservations = alchemyAuto.GetQueuedCooldownReservations(craftSim)
+    local pendingRecipes = {}
+    for _, recipeID in ipairs({
+        CONFIG.ALCHEMY_BOUQUET_RECIPE_ID,
+        CONFIG.ALCHEMY_WONDROUS_SYNERGIST_RECIPE_ID,
+    }) do
+        if knownRecipeIDs[recipeID] then
+            local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID)
+            if type(recipeInfo) ~= "table" then
+                return nil
+            end
+            if recipeInfo.learned ~= false then
+                local availableCharges = alchemyAuto.GetRecipeAvailableCharges(recipeID, recipeInfo)
+                if availableCharges == nil then
+                    DebugPrint("alchemy-auto wait reason=cooldown recipe=" .. tostring(recipeID))
+                    return nil
+                end
+
+                DebugPrint("alchemy-auto recipe=" .. tostring(recipeID) .. " charges=" .. tostring(availableCharges))
+
+                local cooldownKey = alchemyAuto.GetCooldownKey(recipeID, craftSim)
+                local reservedCharges = cooldownReservations[cooldownKey] or 0
+                local craftsToQueue = math.max(0, availableCharges - reservedCharges)
+                if craftsToQueue > 0 then
+                    local context = alchemyAuto.BuildCooldownContext(professionID, recipeID, recipeInfo)
+                    if not context then
+                        return nil
+                    end
+                    pendingRecipes[#pendingRecipes + 1] = {
+                        context = context,
+                        quantity = craftsToQueue,
+                    }
+                    cooldownReservations[cooldownKey] = reservedCharges + craftsToQueue
+                end
+            end
+        end
+    end
+
+    for _, pendingRecipe in ipairs(pendingRecipes) do
+        AddRecipeToQueue(pendingRecipe.context, pendingRecipe.quantity)
+    end
+    alchemyAuto.EnsureRecycleForDerivateShortage(professionID)
+    return true
+end
+
+function YQQuality.ScheduleAutoQueueAlchemy(delay)
+    local autoQueue = state.alchemyAutoQueue
+    if autoQueue.timerQueued or autoQueue.pendingProfessionID == false then
+        return
+    end
+    autoQueue.timerQueued = true
+    C_Timer.After(delay or 0, function()
+        autoQueue.timerQueued = false
+        if autoQueue.pendingProfessionID == false then
+            return
+        end
+        autoQueue.attempts = (autoQueue.attempts or 0) + 1
+        local result = alchemyAuto.QueueBouquetAndRecycling()
+        if result == nil and autoQueue.attempts < 30 then
+            YQQuality.ScheduleAutoQueueAlchemy(0.1)
+        else
+            autoQueue.pendingProfessionID = false
+        end
+    end)
+end
+
+local function StartAlchemyAutoQueue()
+    state.alchemyAutoQueue.pendingProfessionID = nil
+    state.alchemyAutoQueue.attempts = 0
+    YQQuality.ScheduleAutoQueueAlchemy(0)
 end
 
 local function GetEntryConcentrationInfo(entry)
@@ -2262,6 +2679,8 @@ local function GetNextQueueEntry()
             local bestProfessionID = bestEntry and tonumber(bestEntry.professionID) or nil
             local entryMatchesOpenProfession = currentProfessionID ~= nil and entryProfessionID == currentProfessionID
             local bestMatchesOpenProfession = currentProfessionID ~= nil and bestProfessionID == currentProfessionID
+            local entryIsRecycle = entry.queueKind == "recycle"
+            local bestIsRecycle = bestEntry and bestEntry.queueKind == "recycle"
             local entryIsMerge = entry.queueKind == "merge"
             local bestIsMerge = bestEntry and bestEntry.queueKind == "merge"
             local entryGearRank = state.craftGear.GetEntrySortRank(entry)
@@ -2272,6 +2691,8 @@ local function GetNextQueueEntry()
             local shouldReplace = false
             if not bestEntry then
                 shouldReplace = true
+            elseif entryIsRecycle ~= bestIsRecycle then
+                shouldReplace = entryIsRecycle
             elseif entryMatchesOpenProfession ~= bestMatchesOpenProfession then
                 shouldReplace = entryMatchesOpenProfession
             elseif entryIsMerge ~= bestIsMerge then
@@ -2317,6 +2738,7 @@ local function GetSortedActiveQueueEntries()
                 remainingCount = remainingCount,
                 index = index,
                 matchesOpenProfession = currentProfessionID ~= nil and (tonumber(entry.professionID) or nil) == currentProfessionID,
+                isRecycle = entry.queueKind == "recycle",
                 gearRank = state.craftGear.GetEntrySortRank(entry),
                 hasKnownProfit = entry.profitKnown == true and type(entry.profitValue) == "number",
             }
@@ -2324,6 +2746,9 @@ local function GetSortedActiveQueueEntries()
     end
 
     table.sort(candidates, function(left, right)
+        if left.isRecycle ~= right.isRecycle then
+            return left.isRecycle
+        end
         if left.matchesOpenProfession ~= right.matchesOpenProfession then
             return left.matchesOpenProfession
         end
@@ -2357,9 +2782,10 @@ local function GetEntryResourceState(entry)
     local mailboxTasks = {}
     local vendorTasks = {}
     local auctionTasks = {}
+    local acquireTasks = {}
 
     if type(entry) ~= "table" then
-        return mailboxTasks, vendorTasks, auctionTasks
+        return mailboxTasks, vendorTasks, auctionTasks, acquireTasks
     end
 
     for _, reagent in ipairs(entry.reagents or {}) do
@@ -2392,7 +2818,9 @@ local function GetEntryResourceState(entry)
                     mailbox = mailbox,
                     missing = remainingMissing,
                 }
-                if IsKnownVendorItem(itemID) then
+                if IsSoulboundReagent(itemID) then
+                    acquireTasks[#acquireTasks + 1] = task
+                elseif IsKnownVendorItem(itemID) then
                     vendorTasks[#vendorTasks + 1] = task
                 else
                     auctionTasks[#auctionTasks + 1] = task
@@ -2404,17 +2832,20 @@ local function GetEntryResourceState(entry)
     SortTaskList(mailboxTasks)
     SortTaskList(vendorTasks)
     SortTaskList(auctionTasks)
-    return mailboxTasks, vendorTasks, auctionTasks
+    SortTaskList(acquireTasks)
+    return mailboxTasks, vendorTasks, auctionTasks, acquireTasks
 end
 
 local function BuildQueueSummary()
     state.EnsureDB()
+    alchemyAuto.EnsureRecycleForDerivateShortage()
 
     local summary = {
         craftTasks = {},
         mailboxTasks = {},
         auctionTasks = {},
         vendorTasks = {},
+        acquireTasks = {},
     }
     local neededByItemID = {}
     local plannedOutputs = {}
@@ -2455,6 +2886,9 @@ local function BuildQueueSummary()
             if entry.queueKind == "merge" and entry.outputItemID then
                 plannedOutputs[entry.outputItemID] = (plannedOutputs[entry.outputItemID] or 0)
                     + craftsRemaining * math.max(1, tonumber(entry.outputPerCraft) or 1)
+            elseif entry.queueKind == "recycle" and entry.salvageOutputItemID then
+                plannedOutputs[entry.salvageOutputItemID] = (plannedOutputs[entry.salvageOutputItemID] or 0)
+                    + craftsRemaining * math.max(0, tonumber(entry.salvageOutputPerCraft) or 0)
             end
             table.insert(summary.craftTasks, {
                 recipeID = entry.recipeID,
@@ -2527,7 +2961,9 @@ local function BuildQueueSummary()
             then
                 task.missing = math.max(task.missing, YQQuality.GetConcentrationPhialPurchaseQuantity())
             end
-            if IsKnownVendorItem(itemID) then
+            if IsSoulboundReagent(itemID) then
+                table.insert(summary.acquireTasks, task)
+            elseif IsKnownVendorItem(itemID) then
                 table.insert(summary.vendorTasks, task)
             else
                 table.insert(summary.auctionTasks, task)
@@ -2538,6 +2974,7 @@ local function BuildQueueSummary()
     SortTaskList(summary.mailboxTasks)
     SortTaskList(summary.auctionTasks)
     SortTaskList(summary.vendorTasks)
+    SortTaskList(summary.acquireTasks)
     return summary
 end
 
@@ -2547,6 +2984,9 @@ local function BuildCraftLines(summary)
     for _, task in ipairs(summary.mailboxTasks) do
         table.insert(lines, "Mailbox " .. task.missing .. "x " .. task.name)
     end
+    for _, task in ipairs(summary.acquireTasks) do
+        table.insert(lines, "Acquérir " .. task.missing .. "x " .. task.name)
+    end
     for _, task in ipairs(summary.auctionTasks) do
         table.insert(lines, "HV " .. task.missing .. "x " .. task.name)
     end
@@ -2554,7 +2994,9 @@ local function BuildCraftLines(summary)
         table.insert(lines, "Marchand " .. task.missing .. "x " .. task.name)
     end
     for _, task in ipairs(summary.craftTasks) do
-        if task.queueKind == "merge" then
+        if task.queueKind == "recycle" then
+            table.insert(lines, "Recycle " .. task.remainingCount .. "x " .. task.name)
+        elseif task.queueKind == "merge" then
             table.insert(lines, "Fusion " .. task.remainingCount .. "x " .. task.name)
         else
             local qualityText = task.targetQuality and (
@@ -3039,7 +3481,7 @@ local function GetPatronNextButtonState()
         }
     end
 
-    if entry.queueKind ~= "patron" then
+    if entry.queueKind == "recycle" or entry.isSalvageRecipe == true then
         if nextActionLock then
             return {
                 entry = entry,
@@ -3047,7 +3489,8 @@ local function GetPatronNextButtonState()
                 enabled = false,
             }
         end
-        local mailboxTasks, vendorTasks, auctionTasks = GetEntryResourceState(entry)
+
+        local mailboxTasks, vendorTasks, auctionTasks, acquireTasks = GetEntryResourceState(entry)
         if #mailboxTasks > 0 then
             return {
                 entry = entry,
@@ -3056,7 +3499,65 @@ local function GetPatronNextButtonState()
                 action = "mailbox",
             }
         end
-        if #vendorTasks > 0 or #auctionTasks > 0 then
+        if #vendorTasks > 0 or #auctionTasks > 0 or #acquireTasks > 0 then
+            return {
+                entry = entry,
+                text = "Next: materiaux",
+                enabled = false,
+            }
+        end
+
+        local currentProfessionID = state.GetCurrentProfessionID()
+        if (entry.professionID and currentProfessionID and entry.professionID ~= currentProfessionID)
+            or not IsProfessionPageVisible(ProfessionsFrame and ProfessionsFrame.CraftingPage)
+        then
+            return {
+                entry = entry,
+                text = "Next: ouvre le metier",
+                enabled = false,
+            }
+        end
+
+        local itemID = tonumber(entry.salvageItemID) or 0
+        local itemQuantity = math.max(1, tonumber(entry.salvageItemQuantity) or 1)
+        local craftsRemaining = select(1, GetEntryCraftsRemaining(entry))
+        local craftAmount = math.min(craftsRemaining, math.floor(GetTotalOwnedCount(itemID) / itemQuantity))
+        if craftAmount <= 0 then
+            return {
+                entry = entry,
+                text = "Next: potions",
+                enabled = false,
+            }
+        end
+
+        return {
+            entry = entry,
+            text = craftAmount > 1 and ("Next: Recycle x" .. craftAmount) or "Next: Recycle",
+            enabled = true,
+            action = "craft_salvage",
+            craftAmount = craftAmount,
+            itemID = itemID,
+        }
+    end
+
+    if entry.queueKind ~= "patron" then
+        if nextActionLock then
+            return {
+                entry = entry,
+                text = "Next: attente",
+                enabled = false,
+            }
+        end
+        local mailboxTasks, vendorTasks, auctionTasks, acquireTasks = GetEntryResourceState(entry)
+        if #mailboxTasks > 0 then
+            return {
+                entry = entry,
+                text = "Next: Mailbox",
+                enabled = true,
+                action = "mailbox",
+            }
+        end
+        if #vendorTasks > 0 or #auctionTasks > 0 or #acquireTasks > 0 then
             return {
                 entry = entry,
                 text = "Next: materiaux",
@@ -3530,6 +4031,49 @@ state.RunPatronNextAction = function()
         BeginNextActionLock("claim", stateInfo.entry.orderID, 1.5)
         C_CraftingOrders.ClaimOrder(stateInfo.entry.orderID, stateInfo.entry.professionID)
         state.ah.statusMessage = "Action: Start"
+        C_Timer.After(0, ScheduleRefresh)
+        ScheduleRefresh()
+        return
+    end
+
+    if stateInfo.action == "craft_salvage" then
+        local itemID = tonumber(stateInfo.entry.salvageItemID) or 0
+        local recipeID = tonumber(stateInfo.entry.recipeID) or 0
+        local craftAmount = math.max(1, math.floor(tonumber(stateInfo.craftAmount) or 1))
+        local itemLocation = GetItemLocationFromItemID(itemID, true)
+        if not itemLocation then
+            state.ah.statusMessage = "Potion Entropic Extract introuvable"
+            ScheduleRefresh()
+            return
+        end
+        if type(C_TradeSkillUI) ~= "table" or type(C_TradeSkillUI.CraftSalvage) ~= "function" then
+            state.ah.statusMessage = "Recyclage indisponible"
+            ScheduleRefresh()
+            return
+        end
+
+        BeginNextActionLock("craft", 0, 30.0)
+        BeginCraftClickLock()
+        state.QueuePendingCraftEntry(stateInfo.entry, craftAmount)
+        local callOK = pcall(
+            C_TradeSkillUI.CraftSalvage,
+            recipeID,
+            craftAmount,
+            itemLocation,
+            nil,
+            false
+        )
+        if not callOK then
+            state.ClearPendingCraftEntries()
+            ClearNextActionLock("recycle-call-failed")
+            EndCraftClickLock()
+            state.ah.statusMessage = "Recyclage echoue"
+            ScheduleRefresh()
+            return
+        end
+        state.ah.statusMessage = craftAmount > 1
+            and ("Action: Recycle x" .. craftAmount)
+            or "Action: Recycle"
         C_Timer.After(0, ScheduleRefresh)
         ScheduleRefresh()
         return
@@ -5419,13 +5963,7 @@ local function RecipeUsesExcludedFirstCraftReagent(recipeData)
 end
 
 local function IsOwnedSoulboundReagent(itemID, quantity, reserved)
-    local okAddon, craftSim = pcall(_G.CraftSimAPI.GetCraftSim, _G.CraftSimAPI)
-    local itemUtil = okAddon and craftSim and craftSim.GUTIL or nil
-    local okBound, isSoulbound = false, false
-    if itemUtil and type(itemUtil.isItemSoulbound) == "function" then
-        okBound, isSoulbound = pcall(itemUtil.isItemSoulbound, itemUtil, itemID)
-    end
-    if not okBound or not isSoulbound then
+    if not IsSoulboundReagent(itemID) then
         return false
     end
 
@@ -5944,7 +6482,11 @@ local function UpdateVendorButtons(summary)
 end
 
 local function SummaryHasTasks(summary)
-    return #summary.mailboxTasks > 0 or #summary.auctionTasks > 0 or #summary.vendorTasks > 0 or #summary.craftTasks > 0
+    return #summary.mailboxTasks > 0
+        or #summary.acquireTasks > 0
+        or #summary.auctionTasks > 0
+        or #summary.vendorTasks > 0
+        or #summary.craftTasks > 0
 end
 
 local function UpdateCraftPanel(summary)
@@ -6103,6 +6645,9 @@ local function UpdateCraftPanel(summary)
     local statusParts = {}
     if #summary.mailboxTasks > 0 then
         table.insert(statusParts, #summary.mailboxTasks .. " boite")
+    end
+    if #summary.acquireTasks > 0 then
+        table.insert(statusParts, #summary.acquireTasks .. " a acquerir")
     end
     if #summary.auctionTasks > 0 then
         table.insert(statusParts, #summary.auctionTasks .. " HV")
@@ -9780,6 +10325,7 @@ local function EnsureProfessionHooks()
     for _, target in ipairs(targets) do
         HookRefreshTarget(target)
     end
+
 end
 
 local function HookCraftAPIs()
@@ -9924,6 +10470,21 @@ local function CreateCraftPanel()
     -- HookScript preserves SecureActionButtonTemplate's native item handler.
     -- SetScript would replace it and leave the phial click inert.
     nextButton:HookScript("PreClick", function()
+        local armedPhial = state.armedIngenuityPhial
+        if armedPhial and state.ingenuityBuffActive == true then
+            -- The aura may have appeared after the last panel refresh. Clear
+            -- the secure action before it can consume a now-unnecessary phial.
+            state.armedIngenuityPhial = nil
+            if not (InCombatLockdown and InCombatLockdown()) then
+                nextButton:SetAttribute("type", nil)
+                nextButton:SetAttribute("item", nil)
+            end
+            state.ah.statusMessage = "Buff d'ingeniosite deja actif"
+            DebugPrint("phial-click-skip buff-active item=" .. tostring(armedPhial.itemID))
+            ScheduleRefresh()
+            return
+        end
+
         local shatter = state.armedShatter
         if not shatter then
             return
@@ -10467,9 +11028,11 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         end
 
         state.EnsureDB()
+        YQQuality.RefreshIngenuityBuffState("addon-loaded")
         YQQuality.EnsureOptions()
         addon:RegisterEvent("PLAYER_ENTERING_WORLD")
         addon:RegisterEvent("TRADE_SKILL_SHOW")
+        addon:RegisterEvent("TRADE_SKILL_DATA_SOURCE_CHANGED")
         addon:RegisterEvent("TRADE_SKILL_CLOSE")
         addon:RegisterEvent("TRADE_SKILL_ITEM_CRAFTED_RESULT")
         addon:RegisterEvent("SPELLS_CHANGED")
@@ -10510,6 +11073,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
     end
 
     if event == "PLAYER_ENTERING_WORLD" then
+        YQQuality.RefreshIngenuityBuffState("player-entering-world")
         UpdateTSMMacroBridge()
         state.craftGear.ScheduleScan()
         ScheduleRefresh()
@@ -10525,12 +11089,25 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
                 and type(YayaQueueAPI.QueueFavoriteConcentration) == "function" then
                 YayaQueueAPI.QueueFavoriteConcentration(state.GetCurrentProfessionID())
             end
+            StartAlchemyAutoQueue()
         end)
         C_Timer.After(0, ScheduleRefresh)
         return
     end
 
+    if event == "TRADE_SKILL_DATA_SOURCE_CHANGED" then
+        if state.alchemyAutoQueue.pendingProfessionID ~= false
+            and alchemyAuto.IsAlchemyProfession(state.GetCurrentProfessionID())
+        then
+            StartAlchemyAutoQueue()
+        end
+        ScheduleRefresh()
+        return
+    end
+
     if event == "TRADE_SKILL_CLOSE" then
+        state.alchemyAutoQueue.pendingProfessionID = false
+        state.alchemyAutoQueue.attempts = 0
         state.firstCraftAvailability = {}
         state.craft.qualityTarget = nil
         YQQuality.CancelRecipeSolve()
@@ -10628,6 +11205,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
     end
 
     if event == "UNIT_AURA" and arg1 == "player" then
+        local ingenuityBuffActive = YQQuality.RefreshIngenuityBuffState("unit-aura")
         if YQQuality.IsShatterBuffActive() then
             if state.pendingShatter then
                 YQQuality.ConfirmPendingShatter()
@@ -10635,7 +11213,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
                 YQQuality.RemoveShatterMoteDemand()
             end
         end
-        if state.pendingIngenuityPhial and YQQuality.IsIngenuityBuffActive() then
+        if state.pendingIngenuityPhial and ingenuityBuffActive then
             YQQuality.RemoveConcentrationPhialDemand(state.pendingIngenuityPhial.demandItemID, 1)
             state.pendingIngenuityPhial = nil
             state.ah.statusMessage = "Phial consommee"

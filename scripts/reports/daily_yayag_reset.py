@@ -442,16 +442,25 @@ def summarize_freshness(appdata_status: dict[str, Any], saved_variables: Path, s
     }
 
 
-def load_previous_state(path: Path, signature: str) -> dict[str, Any] | None:
+def load_previous_state(path: Path, report_date: str) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    if state.get("signature") == signature:
-        return state.get("previous")
-    return state.get("current")
+    current = state.get("current") or {}
+    previous = state.get("previous")
+    if current.get("report_date") == report_date:
+        if isinstance(previous, dict) and previous.get("report_date") != report_date:
+            return previous
+        fallback_path = path.parent / f"yayag-market-reset-{(date.fromisoformat(report_date) - timedelta(days=1)).isoformat()}.json"
+        try:
+            fallback = json.loads(fallback_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        return {"report_date": fallback.get("report_date"), "capital": fallback.get("capital", {})}
+    return current
 
 
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
@@ -513,7 +522,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         ]
     )
     state_path = args.output_dir / "yayag-market-reset-state.json"
-    previous = load_previous_state(state_path, signature)
+    previous = load_previous_state(state_path, report_date.isoformat())
     previous_total = previous.get("capital", {}).get("total_gross_copper") if previous else None
 
     concentration = None

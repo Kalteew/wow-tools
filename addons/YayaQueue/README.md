@@ -13,6 +13,7 @@ Addon Retail simple pour :
 - garder une frame flottante a l'ecran pour suivre la queue
 - accepter des ajouts externes via `YayaQueueAPI.AddRecipe(...)`, des besoins supplementaires via `YayaQueueAPI.AddItem(...)`, leur lecture via `YayaQueueAPI.GetDirectItemQuantity(...)`, leur retrait via `YayaQueueAPI.RemoveItem(...)` et des cibles idempotentes via `YayaQueueAPI.SetItemTarget(...)`
 - afficher ce qu'il reste a acheter a l'HV ou au marchand
+- afficher `Acquérir X` pour les composants soulbound, sans les envoyer vers l'HV
 - afficher un bouton unique d'achat groupé chez les marchands compatibles
 - acheter automatiquement les composants manquants à l'ouverture d'un marchand compatible (désactivable avec `/yq vendor off`)
 - exposer un onglet `YayaQueue` a l'HV, le selectionner par defaut quand des achats HV sont requis, avec un bouton unique `Rechercher tout` puis `Acheter suivant`
@@ -21,6 +22,7 @@ Addon Retail simple pour :
 - afficher un bouton `Next` en bas de la queue pour avancer les crafts normaux et les patron orders, ouvrir automatiquement le bon onglet `Recipes` / `Patron Orders`, memoriser l’option concentration et proposer une etape `Mailbox` apres achat HV
 - equiper automatiquement l’outil principal Multicraft ou Resourcefulness avant les crafts YayaQueue, avec confirmation en deux clics et regroupement de la queue pour limiter les changements d’outil
 - à la première ouverture de chaque métier, ajouter le lot maximal de la recette favorite en concentration ; après le craft, réinjecter un craft si l’option est active et si un remboursement d'Ingéniosité laisse assez de concentration
+- à l’ouverture de l’Alchimie, ajouter les charges disponibles de `Bouquet of Herbs` et de `Wondrous Synergist` si les recettes sont connues ; à chaque recalcul de la queue, si les `Stabilized Derivate` manquent, ajouter le recyclage de seuls `Entropic Extract` par lots de 5, avec `Entropic Extract` pris dans les sacs/banques ou acheté à l’HV si nécessaire, `Oil of Heartwood` acheté au marchand, et exécuter ces recyclages en priorité
 - reutiliser le bind scroll de `TSMMacro` quand cette macro existe : ses actions `Shopping Buyout` / `Craft Next` sont remplacees au login par des relais YQ, qui retombent sur TSM hors contexte YQ
 - recalculer automatiquement les besoins selon l'inventaire courant
 - choisir récursivement entre achat direct et fusion des rangs Gold Star, avec les Gold Stars déjà détenues par le personnage valorisées à 0 (jamais la banque de bataillon), puis exécuter les fusions nécessaires via `Next` avant le craft final
@@ -51,7 +53,7 @@ Notes :
 - pour un patron order, `Next` applique aussi `SetApplyConcentration` à la transaction de commande avant le craft ; le flag du contexte YCO ne reste pas limité aux crafts normaux
 - une commande patron est strictement unique par `orderID`; les doublons persistés sont normalisés à un craft et les synchronisations ne retirent jamais la commande affichée, claimée ou verrouillée par `Next`
 - chaque ajout d’une entrée avec concentration ajoute une demande de Flasque d’inventivité haranir (R1 par défaut, R2 configurable via `/yq options`); le même bouton sécurisé `Next: Phial` consomme l’objet depuis les sacs avant le craft normal ou le patron order si le buff est absent, puis redevient `Next: Craft` après confirmation du buff, quelle que soit la langue du client
-- avant chaque craft normal ou patron d’enchantement, `Next` vérifie l’aura Shatter par ID (`1235733`), utilise une mote disponible dans les sacs ou la warbank sans retrait manuel via `CraftSalvage` et sa `ItemLocation`, puis achète si besoin la mote Midnight la moins chère parmi les IDs connus (`236949` à `236952`) avant de reprendre le craft après confirmation de l’aura
+- avant chaque craft normal ou patron d’enchantement, `Next` vérifie d’abord que le sort Shatter (`1235731`) est appris, puis l’aura Shatter par ID (`1235733`); si nécessaire, il utilise une mote disponible dans les sacs ou la warbank sans retrait manuel via `CraftSalvage` et sa `ItemLocation`, puis achète la mote Midnight la moins chère parmi les IDs connus (`236949` à `236952`) avant de reprendre le craft après confirmation de l’aura
 - les achats marchand de phials Haranir d’ingéniosité se font par 10 par défaut afin de conserver un buffer, avec choix par 10 ou par 1 dans l’onglet d’options WoW `YayaQueue`
 - l’utilisation automatique des phials peut être désactivée dans `/yq options`; les demandes automatiques déjà présentes sont masquées pendant la désactivation
 - la réinjection après remboursement d’Ingéniosité peut être désactivée dans l’onglet d’options WoW `YayaQueue`

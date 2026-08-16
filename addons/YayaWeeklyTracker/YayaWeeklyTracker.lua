@@ -329,9 +329,28 @@ runtimeState.surplusReagentContainers = {
 runtimeState.containerWhitelist = {
     [263934] = true, -- Chest of Gold
     [263466] = true, -- Overflowing Abundant Satchel
-    [263467] = true, -- Chest
+    [263467] = true, -- Avid Learner's Supply Pack, Season 1
+    [268487] = true, -- Avid Learner's Supply Pack, pre-season
+    [269703] = true, -- Avid Learner's Supply Pack
     [254677] = true, -- Chest
+    [250755] = true, -- Pouch of Mystic Grindings
+    [245650] = true, -- Bouquet of Herbs rank 1
+    [245651] = true, -- Bouquet of Herbs rank 2
 }
+_G.YayaWeeklyTrackerAutoOpen = _G.YayaWeeklyTrackerAutoOpen or {}
+_G.YayaWeeklyTrackerAutoOpen.GetAutoOpenContainerItemIDs = function()
+    local itemIDs = {}
+    for itemID in pairs(runtimeState.containerWhitelist or {}) do
+        itemIDs[itemID] = true
+    end
+    for itemID in pairs(ARTISAN_CONSORTIUM_PAYOUT_ITEM_IDS or {}) do
+        itemIDs[itemID] = true
+    end
+    for itemID in pairs(runtimeState.surplusReagentContainers or {}) do
+        itemIDs[itemID] = true
+    end
+    return itemIDs
+end
 runtimeState.midnightEnchantingWeeklyReagents = {
     [93697] = { itemID = 243599, itemName = "Eversinging Dust", quantity = 20 },
     [93698] = { itemID = 243602, itemName = "Radiant Shard", quantity = 10 },
@@ -768,6 +787,7 @@ local TRACKER_DEFAULTS = {
     trackProfessionDisenchants = true,
     autoBuyAbundanceEnchantingBags = false,
     autoBuyAbundanceFusedVitality = false,
+    autoOpenContainers = false,
     trackRecipePotionRecklessness = true,
     trackRecipeHaranirMulticrafting = true,
     trackRecipeHaranirGlamour = true,
@@ -794,6 +814,7 @@ runtimeState.trackingOptions = {
     { category = "Metiers Midnight", key = "trackProfessionDisenchants", label = "Dez Enchantement" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceEnchantingBags", label = "Acheter automatiquement les sacs de matériaux d'enchantement" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceFusedVitality", label = "Acheter automatiquement les Fused Vitality" },
+    { category = "Conteneurs", key = "autoOpenContainers", label = "Ouvrir automatiquement les conteneurs YWT" },
     { category = "Recettes Midnight", key = "trackRecipePotionRecklessness", label = "Potion of Recklessness" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirMulticrafting", label = "Enchant Tool - Haranir Multicrafting" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirGlamour", label = "Gleeful Glamour - Haranir" },
@@ -830,8 +851,8 @@ runtimeState.itemDataLoadCooldownSeconds = 5
 runtimeState.abundanceEnchantingBagItemID = 250755
 runtimeState.abundanceFusedVitalityItemID = 245345
 runtimeState.abundancePurchaseTargets = {
-    { itemID = 250755, optionKey = "autoBuyAbundanceEnchantingBags", requiresEnchanting = true },
-    { itemID = 245345, optionKey = "autoBuyAbundanceFusedVitality" },
+    { itemID = 250755, optionKey = "autoBuyAbundanceEnchantingBags", requiresEnchanting = true, priority = 1 },
+    { itemID = 245345, optionKey = "autoBuyAbundanceFusedVitality", priority = 2 },
 }
 runtimeState.abundanceEnchantingPurchaseGeneration = 0
 runtimeState.abundanceEnchantingPurchaseScheduled = false
@@ -1028,6 +1049,11 @@ local function DebugLog(message, ...)
     if print then
         print("YWT DEBUG " .. text)
     end
+end
+
+_G.YayaWeeklyTrackerAutoOpen = _G.YayaWeeklyTrackerAutoOpen or {}
+_G.YayaWeeklyTrackerAutoOpen.DebugLog = function(message, ...)
+    DebugLog("AutoOpen " .. tostring(message or ""), ...)
 end
 
 trackerUI.ResetBagScanRetry = function(cacheKey)
@@ -3002,15 +3028,21 @@ end
 trackerUI.FindAbundancePurchaseTarget = function(itemIndices)
     local accountDB = GetAccountDB()
     local skippedItems = runtimeState.abundancePurchaseSkippedItems or EMPTY_TABLE
+    local selectedTarget
+    local selectedPriority
     for _, target in ipairs(runtimeState.abundancePurchaseTargets or EMPTY_TABLE) do
+        local targetPriority = target.priority or 999
         if accountDB[target.optionKey] == true
             and not skippedItems[target.itemID]
             and itemIndices[target.itemID]
             and (not target.requiresEnchanting or trackerUI.HasEnchantingProfession())
+            and (not selectedTarget or targetPriority < selectedPriority)
         then
-            return target
+            selectedTarget = target
+            selectedPriority = targetPriority
         end
     end
+    return selectedTarget
 end
 
 trackerUI.ScheduleAbundanceEnchantingBagPurchase = function(delaySeconds)
@@ -5382,6 +5414,12 @@ trackerUI.RegisterOptions = function()
         trackingLabel:SetText(option.label)
         trackingCheckbox:SetScript("OnClick", function(self)
             GetAccountDB()[self.optionKey] = self:GetChecked() and true or false
+            if self.optionKey == "autoOpenContainers"
+                and _G.YayaWeeklyTrackerAutoOpen
+                and type(_G.YayaWeeklyTrackerAutoOpen.Refresh) == "function"
+            then
+                _G.YayaWeeklyTrackerAutoOpen.Refresh()
+            end
             ScheduleTrackerRefresh(0, false)
         end)
         panel.trackingCheckboxes[index] = trackingCheckbox

@@ -9,3 +9,4 @@
 ## SavedVariablesPerCharacter: YayaWeeklyTrackerDB
 
 YayaWeeklyTracker.lua
+YayaWeeklyTrackerAutoOpen.lua
