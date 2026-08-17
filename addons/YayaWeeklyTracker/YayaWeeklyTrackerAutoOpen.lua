@@ -1,14 +1,15 @@
 local addonName = ...
 
 local OPTION_KEY = "autoOpenContainers"
-local DEFAULT_OPEN_DELAY_SECONDS = 0.15
-local SCAN_DELAY_SECONDS = 0.10
+local DEFAULT_OPEN_DELAY_SECONDS = 0.05
+local SCAN_DELAY_SECONDS = 0.05
 local INITIAL_SCAN_DELAY_SECONDS = 0.30
 local MAIL_LOOT_IDLE_SECONDS = 0.50
 local MAIL_ACTIVITY_EXTRA_DELAY_SECONDS = 0.05
-local PENDING_CHECK_DELAY_SECONDS = 0.05
+local PENDING_CHECK_DELAY_SECONDS = 0.03
 local PENDING_TIMEOUT_SECONDS = 1.20
-local LOOT_SETTLE_SECONDS = 1.35
+local LOOT_SETTLE_SECONDS = 0.45
+local CONTAINER_VALUES_MAX_WAIT_SECONDS = 1.35
 local MAX_FAILURES = 3
 local BLOCKED_RETRY_SECONDS = 0.10
 local MAX_BLOCKED_RETRY_SECONDS = 2.00
@@ -210,6 +211,15 @@ local function RefreshConfiguredItems()
     state.itemIDs = ok and type(itemIDs) == "table" and itemIDs or {}
 end
 
+local function IsContainerValuesPending()
+    local api = _G.YayaContainerValuesAPI
+    if not api or type(api.IsOpeningPending) ~= "function" then
+        return false
+    end
+    local ok, pending = pcall(api.IsOpeningPending)
+    return ok and pending == true
+end
+
 local function MarkMailboxLootActivity()
     state.mailSettleUntil = math.max(
         state.mailSettleUntil or 0,
@@ -383,12 +393,17 @@ local function CheckPendingContainer()
 
     local currentItemID, currentSlotCount = ReadSlot(pending.bagID, pending.slotID)
     local currentTotal = CountItem(pending.itemID)
+    local elapsed = Now() - pending.startedAt - (pending.pausedSeconds or 0)
     local consumed = currentItemID ~= pending.itemID
         or currentSlotCount < pending.beforeSlotCount
         or currentTotal < pending.beforeTotalCount
 
     if consumed then
         pending.consumedAt = pending.consumedAt or Now()
+        if IsContainerValuesPending() and elapsed < CONTAINER_VALUES_MAX_WAIT_SECONDS then
+            Schedule("pendingTimer", PENDING_CHECK_DELAY_SECONDS, CheckPendingContainer)
+            return
+        end
         if Now() - pending.consumedAt < LOOT_SETTLE_SECONDS then
             Schedule("pendingTimer", PENDING_CHECK_DELAY_SECONDS, CheckPendingContainer)
             return
@@ -401,7 +416,6 @@ local function CheckPendingContainer()
         return
     end
 
-    local elapsed = Now() - pending.startedAt - (pending.pausedSeconds or 0)
     if elapsed < PENDING_TIMEOUT_SECONDS then
         Schedule("pendingTimer", PENDING_CHECK_DELAY_SECONDS, CheckPendingContainer)
         return

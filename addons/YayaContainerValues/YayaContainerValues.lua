@@ -360,6 +360,10 @@ local function GetFirstPending()
     return pendingOpens[1]
 end
 
+function API.IsOpeningPending()
+    return GetFirstPending() ~= nil
+end
+
 local function CaptureLootWindow()
     local pending = GetFirstPending()
     if not pending or type(GetNumLootItems) ~= "function" or type(GetLootSlotInfo) ~= "function" then

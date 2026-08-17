@@ -17,12 +17,13 @@ Addon Retail simple pour :
 - afficher un bouton unique d'achat groupé chez les marchands compatibles
 - acheter automatiquement les composants manquants à l'ouverture d'un marchand compatible (désactivable avec `/yq vendor off`)
 - exposer un onglet `YayaQueue` a l'HV, le selectionner par defaut quand des achats HV sont requis, avec un bouton unique `Rechercher tout` puis `Acheter suivant`
+- demander une confirmation avant tout achat HV dont le prix atteint 1,5x le `dbrecent` TSM
 - persister le dernier prix unitaire observe a l'HV dans `YayaQueueDB` (region pour les commodities, royaume pour les autres objets) et le reutiliser pour les prix des reactifs
-- comparer chaque achat au snapshot precedent; une hausse affiche une alerte dans le chat, joue un son configurable dans l'onglet YQ, puis laisse l'achat automatique continuer
+- comparer chaque achat au snapshot precedent; une hausse affiche une alerte dans le chat et joue un son configurable dans l'onglet YQ ; hors seuil `dbrecent`, l'achat automatique continue
 - afficher un bouton `Next` en bas de la queue pour avancer les crafts normaux et les patron orders, ouvrir automatiquement le bon onglet `Recipes` / `Patron Orders`, memoriser l’option concentration et proposer une etape `Mailbox` apres achat HV
 - equiper automatiquement l’outil principal Multicraft ou Resourcefulness avant les crafts YayaQueue, avec confirmation en deux clics et regroupement de la queue pour limiter les changements d’outil
 - à la première ouverture de chaque métier, ajouter le lot maximal de la recette favorite en concentration ; après le craft, réinjecter un craft si l’option est active et si un remboursement d'Ingéniosité laisse assez de concentration
-- à l’ouverture de l’Alchimie, ajouter les charges disponibles de `Bouquet of Herbs` et de `Wondrous Synergist` si les recettes sont connues ; à chaque recalcul de la queue, si les `Stabilized Derivate` manquent, ajouter le recyclage de seuls `Entropic Extract` par lots de 5, avec `Entropic Extract` pris dans les sacs/banques ou acheté à l’HV si nécessaire, `Oil of Heartwood` acheté au marchand, et exécuter ces recyclages en priorité
+- à l’ouverture de l’Alchimie, ajouter les charges disponibles de `Bouquet of Herbs` et de `Wondrous Synergist` si les recettes sont connues ; à chaque recalcul de la queue, si les `Stabilized Derivate` manquent, ajouter le recyclage de seuls `Entropic Extract` rang 1 (`268954`) par lots de 5, avec `Entropic Extract` pris dans les sacs, banques personnelles ou Warbank, ou acheté à l’HV si nécessaire, `Oil of Heartwood` acheté au marchand, et exécuter ces recyclages en priorité
 - reutiliser le bind scroll de `TSMMacro` quand cette macro existe : ses actions `Shopping Buyout` / `Craft Next` sont remplacees au login par des relais YQ, qui retombent sur TSM hors contexte YQ
 - recalculer automatiquement les besoins selon l'inventaire courant
 - choisir récursivement entre achat direct et fusion des rangs Gold Star, avec les Gold Stars déjà détenues par le personnage valorisées à 0 (jamais la banque de bataillon), puis exécuter les fusions nécessaires via `Next` avant le craft final
@@ -63,7 +64,7 @@ Notes :
 - `Next` reste verrouille pendant tout un lot de crafts et ne se reactive qu'au dernier craft confirme
 - la fenêtre qualité propose les réactifs optionnels de métier après les réactifs : leur difficulté, leur coût et leur allocation sont recalculés puis mémorisés dans la queue ; les missives impossibles pour la qualité choisie sont grisées
 - `/yq opttest` exécute les tests internes du solveur, dont les répartitions `41/59`, les coûts à paliers, l’affinage des seuils, les trois rangs et les rangs supérieurs moins chers
-- les items marchand sont detectes quand ils ont deja ete vus sur un marchand
+- les items marchand sont detectes quand ils ont deja ete vus sur un marchand, y compris s’ils sont lies quand ramasses ; l’ID utilise l’API moderne `C_MerchantFrame.GetItemInfo()` si l’ancienne API globale ne le fournit pas
 - l'achat automatique marchand lance une seule séquence par ouverture ; chaque item accepté n'est soumis qu'une fois, avec vérification des sacs et jusqu'à 10 relances pour les échecs
 - les items non-commodities a l'HV sont achetes une enchere a la fois
 - le choix d’outil de craft ne calcule aucune rentabilité : il applique uniquement Multicraft puis Resourcefulness selon les statistiques de la recette

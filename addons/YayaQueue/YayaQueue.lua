@@ -28,7 +28,7 @@ local CONFIG = {
         [1230893] = true, -- School of Gems
     },
     STABILIZED_DERIVATE_ITEM_ID = 242651,
-    ENTROPIC_EXTRACT_ITEM_ID = 268955,
+    ENTROPIC_EXTRACT_RANK_1_ITEM_ID = 268954,
     RECYCLE_POTIONS_RECIPE_ID = 1233129,
     RECYCLE_POTIONS_ITEM_ID = 242637,
     OIL_OF_HEARTWOOD_ITEM_ID = 247811,
@@ -56,6 +56,8 @@ local CONFIG = {
     },
     CONCENTRATION_PHIAL_BUFF_SPELL_ID = 1239755,
     CONCENTRATION_PHIAL_DEFAULT_PURCHASE = 10,
+    AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER = 1.5,
+    AUCTION_HIGH_PRICE_CONFIRM_DIALOG = "YQ_HIGH_PRICE_CONFIRM",
     SHATTER_ESSENCE_SPELL_ID = 1235731,
     SHATTER_ESSENCE_BUFF_SPELL_ID = 1235733,
     SHATTER_MOTE_ITEM_IDS = {
@@ -142,6 +144,7 @@ local state = {
         searchQueue = nil,
         pendingCommodity = nil,
         pendingItem = nil,
+        highPriceConfirmation = nil,
         soundCheckbox = nil,
         statusMessage = "",
     },
@@ -473,6 +476,16 @@ local function NormalizeQueueEntries()
                 local outputPerCraft = math.max(1, tonumber(rawEntry.outputPerCraft) or 1)
                 local reagents = NormalizeReagents(rawEntry.reagents)
                 local salvageItemID = tonumber(rawEntry.salvageItemID) or 0
+                local salvageItemQuantity = math.max(1, tonumber(rawEntry.salvageItemQuantity) or 1)
+                local isRecycleRecipe = recipeID == CONFIG.RECYCLE_POTIONS_RECIPE_ID
+                if isRecycleRecipe then
+                    reagents = {
+                        { itemID = CONFIG.ENTROPIC_EXTRACT_RANK_1_ITEM_ID, quantity = CONFIG.RECYCLE_POTIONS_PER_CRAFT },
+                        { itemID = CONFIG.OIL_OF_HEARTWOOD_ITEM_ID, quantity = 2 },
+                    }
+                    salvageItemID = CONFIG.ENTROPIC_EXTRACT_RANK_1_ITEM_ID
+                    salvageItemQuantity = CONFIG.RECYCLE_POTIONS_PER_CRAFT
+                end
                 if rawEntry.isSalvageRecipe == true and salvageItemID > 0 then
                     local hasSalvageReagent = false
                     for _, reagent in ipairs(reagents) do
@@ -484,12 +497,13 @@ local function NormalizeQueueEntries()
                     if not hasSalvageReagent then
                         reagents[#reagents + 1] = {
                             itemID = salvageItemID,
-                            quantity = math.max(1, tonumber(rawEntry.salvageItemQuantity) or 1),
+                            quantity = salvageItemQuantity,
                         }
                     end
                 end
                 local mode = rawEntry.mode == "crafts" and "crafts" or "output"
-                local queueKind = rawEntry.queueKind == "patron" and "patron"
+                local queueKind = isRecycleRecipe and "recycle"
+                    or rawEntry.queueKind == "patron" and "patron"
                     or rawEntry.queueKind == "merge" and "merge"
                     or rawEntry.queueKind == "recycle" and "recycle"
                     or nil
@@ -539,9 +553,9 @@ local function NormalizeQueueEntries()
                         mergeDepth = tonumber(rawEntry.mergeDepth) or nil,
                         isRecraft = rawEntry.isRecraft == true,
                         isEnchantingRecipe = rawEntry.isEnchantingRecipe == true,
-                        isSalvageRecipe = rawEntry.isSalvageRecipe == true,
-                        salvageItemID = tonumber(rawEntry.salvageItemID) or nil,
-                        salvageItemQuantity = math.max(1, tonumber(rawEntry.salvageItemQuantity) or 1),
+                        isSalvageRecipe = rawEntry.isSalvageRecipe == true or isRecycleRecipe,
+                        salvageItemID = salvageItemID > 0 and salvageItemID or nil,
+                        salvageItemQuantity = salvageItemQuantity,
                         salvageOutputItemID = tonumber(rawEntry.salvageOutputItemID) or nil,
                         salvageOutputPerCraft = math.max(0, tonumber(rawEntry.salvageOutputPerCraft) or 0),
                         applyConcentration = NormalizeApplyConcentration(rawEntry.applyConcentration),
@@ -1375,6 +1389,7 @@ local function FinalizePendingItemPurchase()
 end
 
 local function ClearAuctionTransientState(statusMessage)
+    YQQuality.HideHighPriceConfirmation()
     if state.ah.pendingCommodity and type(C_AuctionHouse.CancelCommoditiesPurchase) == "function" then
         pcall(C_AuctionHouse.CancelCommoditiesPurchase)
     end
@@ -1690,20 +1705,42 @@ local function GetItemLocationFromItemID(itemID, includeBank)
 
     if includeBank then
         local bagIndex = Enum and Enum.BagIndex or {}
-        local characterFirst = tonumber(bagIndex.CharacterBankTab_1)
-        local characterLast = tonumber(bagIndex.CharacterBankTab_6)
-        local accountFirst = tonumber(bagIndex.AccountBankTab_1)
-        local accountLast = tonumber(bagIndex.AccountBankTab_5)
-        if characterFirst and characterLast then
-            for bagID = characterFirst, characterLast do
+        local seenBagIDs = {}
+        for _, bagID in ipairs(bagIDs) do
+            seenBagIDs[bagID] = true
+        end
+        local function AddBagID(bagID)
+            bagID = tonumber(bagID)
+            if bagID and not seenBagIDs[bagID] then
+                seenBagIDs[bagID] = true
                 bagIDs[#bagIDs + 1] = bagID
             end
         end
-        if accountFirst and accountLast then
-            for bagID = accountFirst, accountLast do
-                bagIDs[#bagIDs + 1] = bagID
+
+        local function AddBankTabs(bankType, firstKey, lastKey)
+            if bankType ~= nil and type(C_Bank) == "table"
+                and type(C_Bank.FetchPurchasedBankTabIDs) == "function" then
+                local purchased = SafeCall(C_Bank.FetchPurchasedBankTabIDs, bankType)
+                if type(purchased) == "table" then
+                    for _, bagID in pairs(purchased) do
+                        AddBagID(bagID)
+                    end
+                    return
+                end
+            end
+
+            local first = tonumber(bagIndex[firstKey])
+            local last = tonumber(bagIndex[lastKey])
+            if first and last then
+                for bagID = first, last do
+                    AddBagID(bagID)
+                end
             end
         end
+
+        local bankType = Enum and Enum.BankType
+        AddBankTabs(bankType and bankType.Character, "CharacterBankTab_1", "CharacterBankTab_6")
+        AddBankTabs(bankType and bankType.Account, "AccountBankTab_1", "AccountBankTab_5")
     end
 
     for _, bagID in ipairs(bagIDs) do
@@ -1737,10 +1774,13 @@ end
 
 local function GetMerchantItemIDCompat(index)
     if type(GetMerchantItemID) == "function" then
-        return SafeCall(GetMerchantItemID, index)
+        local itemID = tonumber(SafeCall(GetMerchantItemID, index))
+        if itemID and itemID > 0 then
+            return itemID
+        end
     end
     local _, _, _, _, _, _, _, _, _, _, itemID = GetMerchantItemInfoCompat(index)
-    return itemID
+    return tonumber(itemID)
 end
 
 local function GetMerchantItemMaxStackCompat(index)
@@ -2135,6 +2175,10 @@ local function ResetQueue()
         ClearNextActionLock("queue-reset")
     end
     wipe(state.searchCache)
+    YQQuality.HideHighPriceConfirmation()
+    if state.ah.pendingCommodity and type(C_AuctionHouse.CancelCommoditiesPurchase) == "function" then
+        pcall(C_AuctionHouse.CancelCommoditiesPurchase)
+    end
     state.ah.searchQueue = nil
     state.ah.activeSearch = nil
     state.ah.waitingSearch = nil
@@ -2463,13 +2507,13 @@ alchemyAuto.BuildRecycleContext = function(professionID)
         outputPerCraft = 1,
         mode = "crafts",
         reagents = {
-            { itemID = CONFIG.ENTROPIC_EXTRACT_ITEM_ID, quantity = CONFIG.RECYCLE_POTIONS_PER_CRAFT },
+            { itemID = CONFIG.ENTROPIC_EXTRACT_RANK_1_ITEM_ID, quantity = CONFIG.RECYCLE_POTIONS_PER_CRAFT },
             { itemID = CONFIG.OIL_OF_HEARTWOOD_ITEM_ID, quantity = 2 },
         },
         professionID = professionID,
         queueKind = "recycle",
         isSalvageRecipe = true,
-        salvageItemID = CONFIG.ENTROPIC_EXTRACT_ITEM_ID,
+        salvageItemID = CONFIG.ENTROPIC_EXTRACT_RANK_1_ITEM_ID,
         salvageItemQuantity = CONFIG.RECYCLE_POTIONS_PER_CRAFT,
         salvageOutputItemID = CONFIG.STABILIZED_DERIVATE_ITEM_ID,
         salvageOutputPerCraft = CONFIG.RECYCLE_ESTIMATED_DERIVATES_PER_CRAFT,
@@ -2818,10 +2862,10 @@ local function GetEntryResourceState(entry)
                     mailbox = mailbox,
                     missing = remainingMissing,
                 }
-                if IsSoulboundReagent(itemID) then
-                    acquireTasks[#acquireTasks + 1] = task
-                elseif IsKnownVendorItem(itemID) then
+                if IsKnownVendorItem(itemID) then
                     vendorTasks[#vendorTasks + 1] = task
+                elseif IsSoulboundReagent(itemID) then
+                    acquireTasks[#acquireTasks + 1] = task
                 else
                     auctionTasks[#auctionTasks + 1] = task
                 end
@@ -2961,10 +3005,10 @@ local function BuildQueueSummary()
             then
                 task.missing = math.max(task.missing, YQQuality.GetConcentrationPhialPurchaseQuantity())
             end
-            if IsSoulboundReagent(itemID) then
-                table.insert(summary.acquireTasks, task)
-            elseif IsKnownVendorItem(itemID) then
+            if IsKnownVendorItem(itemID) then
                 table.insert(summary.vendorTasks, task)
+            elseif IsSoulboundReagent(itemID) then
+                table.insert(summary.acquireTasks, task)
             else
                 table.insert(summary.auctionTasks, task)
             end
@@ -6904,6 +6948,123 @@ function YQQuality.WarnIfAuctionPriceAboveExpected(name, actualPrice, expectedPr
     return message
 end
 
+function YQQuality.GetHighPriceConfirmation(itemID, actualPrice)
+    itemID = tonumber(itemID)
+    actualPrice = tonumber(actualPrice)
+    if not itemID or itemID <= 0 or not actualPrice or actualPrice <= 0 then
+        return nil
+    end
+
+    local dbrecent = YQQuality.GetTSMPrice("dbrecent", itemID)
+    local multiplier = tonumber(CONFIG.AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER) or 1.5
+    local threshold = dbrecent and dbrecent > 0
+        and dbrecent * multiplier
+        or nil
+    if not threshold or actualPrice < threshold then
+        return nil
+    end
+
+    return {
+        actualPrice = actualPrice,
+        dbrecent = dbrecent,
+        premiumPercent = ((actualPrice / dbrecent) - 1) * 100,
+        threshold = threshold,
+    }
+end
+
+function YQQuality.HideHighPriceConfirmation()
+    state.ah.highPriceConfirmation = nil
+    if type(StaticPopup_Hide) == "function" then
+        StaticPopup_Hide(CONFIG.AUCTION_HIGH_PRICE_CONFIRM_DIALOG)
+    end
+end
+
+function YQQuality.ShowHighPriceConfirmation(pending)
+    if type(pending) ~= "table"
+        or type(StaticPopupDialogs) ~= "table"
+        or type(StaticPopup_Show) ~= "function"
+    then
+        return false
+    end
+
+    local dialogName = CONFIG.AUCTION_HIGH_PRICE_CONFIRM_DIALOG
+    if not StaticPopupDialogs[dialogName] then
+        StaticPopupDialogs[dialogName] = {
+            text = "%s",
+            button1 = "Acheter",
+            button2 = "Annuler",
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+            preferredIndex = 3,
+            OnAccept = function(dialog)
+                local current = dialog.data
+                if type(current) ~= "table" or state.ah.highPriceConfirmation ~= current then
+                    return
+                end
+                state.ah.highPriceConfirmation = nil
+
+                if current.kind == "commodity" then
+                    if state.ah.pendingCommodity ~= current or current.confirmSent then
+                        return
+                    end
+                    current.confirmSent = true
+                    C_AuctionHouse.ConfirmCommoditiesPurchase(current.itemID, current.quantity)
+                    state.ah.statusMessage = "Confirmation achat " .. current.quantity .. "x " .. current.name
+                    ScheduleRefresh()
+                    return
+                end
+
+                if current.kind == "item" and state.ah.pendingItem == current then
+                    YQQuality.PlacePendingItemPurchase(current)
+                end
+            end,
+            OnCancel = function(dialog)
+                local current = dialog.data
+                if type(current) ~= "table" or state.ah.highPriceConfirmation ~= current then
+                    return
+                end
+                state.ah.highPriceConfirmation = nil
+
+                if current.kind == "commodity" then
+                    if type(C_AuctionHouse.CancelCommoditiesPurchase) == "function" then
+                        pcall(C_AuctionHouse.CancelCommoditiesPurchase)
+                    end
+                    if state.ah.pendingCommodity == current then
+                        state.ah.pendingCommodity = nil
+                    end
+                elseif current.kind == "item" and state.ah.pendingItem == current then
+                    state.ah.pendingItem = nil
+                end
+                state.ah.statusMessage = "Achat annule"
+                ScheduleRefresh()
+            end,
+        }
+    end
+
+    local quote = pending.highPrice or {}
+    local quantity = math.max(1, tonumber(pending.quantity) or 1)
+    local unitPrice = tonumber(quote.actualPrice) or 0
+    local dbrecent = tonumber(quote.dbrecent) or 0
+    local totalPrice = unitPrice * quantity
+    local message = ("Prix eleve pour %s : %s/u contre %s/u ( +%.0f%% ).\nConfirmer l'achat de %dx pour %s ?"):format(
+        tostring(pending.name or "item"),
+        GetMoneyString(math.floor(unitPrice), true),
+        GetMoneyString(math.floor(dbrecent), true),
+        tonumber(quote.premiumPercent) or 0,
+        quantity,
+        GetMoneyString(math.floor(totalPrice), true)
+    )
+
+    state.ah.highPriceConfirmation = pending
+    local dialog = StaticPopup_Show(dialogName, message, nil, pending)
+    if not dialog then
+        state.ah.highPriceConfirmation = nil
+        return false
+    end
+    return true
+end
+
 function YQQuality.GetQualityAtlas(quality, simplified)
     local prefix = simplified and "Professions-Icon-Quality-12-Tier" or "Professions-Icon-Quality-Tier"
     return prefix .. tostring(quality)
@@ -10833,6 +10994,26 @@ local function StartSearchAll(summary)
     ProcessNextQueuedSearch()
 end
 
+function YQQuality.PlacePendingItemPurchase(pending)
+    if state.ah.pendingItem ~= pending or type(pending) ~= "table" then
+        return false
+    end
+
+    local warning = YQQuality.WarnIfAuctionPriceAboveExpected(
+        pending.name,
+        pending.unitPrice,
+        pending.expectedPrice
+    )
+    state.ah.statusMessage = warning
+        and (warning .. " | Achat " .. pending.quantity .. "x " .. pending.name)
+        or ("Achat " .. pending.quantity .. "x " .. pending.name)
+    C_AuctionHouse.PlaceBid(pending.auctionID, pending.buyoutAmount)
+    state.searchCache[pending.itemID] = nil
+    C_Timer.After(0.5, ScheduleRefresh)
+    ScheduleRefresh()
+    return true
+end
+
 local function StartPurchaseFromCache(summary, itemID)
     local task = FindAuctionTask(summary, itemID)
     local cache = task and state.searchCache[itemID] or nil
@@ -10851,6 +11032,7 @@ local function StartPurchaseFromCache(summary, itemID)
         end
 
         state.ah.pendingCommodity = {
+            kind = "commodity",
             itemID = itemID,
             quantity = quantity,
             name = task.name,
@@ -10873,25 +11055,32 @@ local function StartPurchaseFromCache(summary, itemID)
     end
 
     state.ah.pendingItem = {
+        kind = "item",
         itemID = itemID,
         quantity = math.max(1, math.min(task.missing, auction.quantity or 1)),
         name = task.name,
         expectedPrice = cache.expectedPrice,
         expectedSource = cache.expectedSource,
+        auctionID = auction.auctionID,
+        buyoutAmount = auction.buyoutAmount,
+        unitPrice = auction.unitPrice,
         ownedBefore = GetImmediateOwnedCount(itemID),
     }
-    local warning = YQQuality.WarnIfAuctionPriceAboveExpected(
-        task.name,
-        auction.unitPrice,
-        state.ah.pendingItem.expectedPrice
-    )
-    state.ah.statusMessage = warning
-        and (warning .. " | Achat " .. state.ah.pendingItem.quantity .. "x " .. task.name)
-        or ("Achat " .. state.ah.pendingItem.quantity .. "x " .. task.name)
-    C_AuctionHouse.PlaceBid(auction.auctionID, auction.buyoutAmount)
-    state.searchCache[itemID] = nil
-    C_Timer.After(0.5, ScheduleRefresh)
-    ScheduleRefresh()
+    local highPrice = YQQuality.GetHighPriceConfirmation(itemID, auction.unitPrice)
+    if highPrice then
+        state.ah.pendingItem.highPrice = highPrice
+        if YQQuality.ShowHighPriceConfirmation(state.ah.pendingItem) then
+            state.ah.statusMessage = "Confirmation prix " .. task.name
+            ScheduleRefresh()
+            return
+        end
+        state.ah.pendingItem = nil
+        state.ah.statusMessage = "Confirmation prix indisponible"
+        ScheduleRefresh()
+        return
+    end
+
+    YQQuality.PlacePendingItemPurchase(state.ah.pendingItem)
 end
 
 local function BuyNext(summary)
@@ -11385,11 +11574,36 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             if (not unitPrice or unitPrice <= 0) and tonumber(arg2) and pending.quantity > 0 then
                 unitPrice = math.floor((tonumber(arg2) / pending.quantity) + 0.5)
             end
+            if pending.confirmationShown then
+                return
+            end
             local warning = YQQuality.WarnIfAuctionPriceAboveExpected(
                 pending.name,
                 unitPrice,
                 pending.expectedPrice
             )
+            local highPrice = YQQuality.GetHighPriceConfirmation(pending.itemID, unitPrice)
+            if highPrice then
+                if not pending.confirmationShown then
+                    pending.unitPrice = unitPrice
+                    pending.highPrice = highPrice
+                    pending.confirmationShown = YQQuality.ShowHighPriceConfirmation(pending)
+                    if pending.confirmationShown then
+                        state.ah.statusMessage = "Confirmation prix " .. pending.name
+                        ScheduleRefresh()
+                        return
+                    end
+                end
+                if not pending.confirmationShown then
+                    state.ah.statusMessage = "Confirmation prix indisponible"
+                    if type(C_AuctionHouse.CancelCommoditiesPurchase) == "function" then
+                        pcall(C_AuctionHouse.CancelCommoditiesPurchase)
+                    end
+                    state.ah.pendingCommodity = nil
+                    ScheduleRefresh()
+                    return
+                end
+            end
             if warning then
                 state.ah.statusMessage = warning .. " | Achat " .. pending.quantity .. "x " .. pending.name
             end
@@ -11401,6 +11615,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
 
     if event == "COMMODITY_PRICE_UNAVAILABLE" then
         state.ah.statusMessage = "Prix indisponible"
+        YQQuality.HideHighPriceConfirmation()
         if state.ah.pendingCommodity and type(C_AuctionHouse.CancelCommoditiesPurchase) == "function" then
             C_AuctionHouse.CancelCommoditiesPurchase()
         end
@@ -11426,6 +11641,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
 
     if event == "COMMODITY_PURCHASE_FAILED" then
         state.ah.statusMessage = "Achat echoue"
+        YQQuality.HideHighPriceConfirmation()
         state.ah.pendingCommodity = nil
         ScheduleRefresh()
         return

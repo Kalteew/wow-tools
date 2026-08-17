@@ -418,6 +418,42 @@ def build_item_rows(
     return sorted(rows, key=lambda row: row["gross_value_copper"] or 0, reverse=True)
 
 
+def location_rows(item_rows: list[dict[str, Any]], location: str, commission: float) -> list[dict[str, Any]]:
+    """Split total item rows by physical location for capital valuation."""
+    rows: list[dict[str, Any]] = []
+    for row in item_rows:
+        quantity = (
+            sum(row.get(key, 0) or 0 for key in ("bags_quantity", "bank_quantity", "mail_quantity"))
+            if location == "stock"
+            else row.get("auction_quantity", 0)
+        )
+        if not quantity:
+            continue
+        split = dict(row)
+        total_quantity = row.get("quantity", 0) or 0
+        split["location"] = location
+        split["quantity"] = quantity
+        market_value = row.get("market", {}).get("market_value_copper")
+        split["gross_value_copper"] = market_value * quantity if market_value is not None else None
+        split["after_fee_value_copper"] = (
+            round(split["gross_value_copper"] * (1 - commission))
+            if split["gross_value_copper"] is not None
+            else None
+        )
+        if total_quantity and row.get("known_cost_copper") is not None:
+            share = quantity / total_quantity
+            split["known_cost_copper"] = round(row["known_cost_copper"] * share)
+            split["known_cost_quantity"] = round((row.get("known_cost_quantity") or 0) * share)
+            split["unknown_cost_quantity"] = round((row.get("unknown_cost_quantity") or 0) * share)
+            split["latent_after_fee_copper"] = (
+                split["after_fee_value_copper"] - split["known_cost_copper"]
+                if split["after_fee_value_copper"] is not None
+                else None
+            )
+        rows.append(split)
+    return sorted(rows, key=lambda row: row["gross_value_copper"] or 0, reverse=True)
+
+
 def transfer_summary(database: dict[str, Any], report_date: date) -> dict[str, Any]:
     incomes = parse_money_csv(database, "csvIncome", report_date)
     expenses = parse_money_csv(database, "csvExpense", report_date)
@@ -442,6 +478,45 @@ def summarize_freshness(appdata_status: dict[str, Any], saved_variables: Path, s
     }
 
 
+def snapshot_baseline(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Return a location-corrected capital baseline from a prior report."""
+    capital = dict(snapshot.get("capital", {}))
+    items = ((snapshot.get("holdings") or {}).get("items") or [])
+    stock = 0
+    auctions = 0
+    for row in items:
+        price = (row.get("market") or {}).get("market_value_copper")
+        if price is None:
+            continue
+        stock_quantity = sum(row.get(key, 0) or 0 for key in ("bags_quantity", "bank_quantity", "mail_quantity"))
+        auction_quantity = row.get("auction_quantity", 0) or 0
+        stock += price * stock_quantity
+        auctions += price * auction_quantity
+    if items:
+        cash = parse_int(capital.get("cash_copper"))
+        holdings = stock + auctions
+        capital.update(
+            {
+                "stock_gross_copper": stock,
+                "auction_gross_copper": auctions,
+                "holdings_gross_copper": holdings,
+                "holdings_after_fee_copper": round(holdings * (1 - COMMISSION)),
+                "total_gross_copper": cash + holdings,
+                "total_after_fee_copper": cash + round(holdings * (1 - COMMISSION)),
+            }
+        )
+    return {"report_date": snapshot.get("report_date"), "capital": capital}
+
+
+def load_report_baseline(path: Path, report_date: str) -> dict[str, Any] | None:
+    report_path = path.parent / f"yayag-market-reset-{report_date}.json"
+    try:
+        snapshot = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return snapshot_baseline(snapshot)
+
+
 def load_previous_state(path: Path, report_date: str) -> dict[str, Any] | None:
     if not path.exists():
         return None
@@ -452,14 +527,12 @@ def load_previous_state(path: Path, report_date: str) -> dict[str, Any] | None:
     current = state.get("current") or {}
     previous = state.get("previous")
     if current.get("report_date") == report_date:
-        if isinstance(previous, dict) and previous.get("report_date") != report_date:
-            return previous
-        fallback_path = path.parent / f"yayag-market-reset-{(date.fromisoformat(report_date) - timedelta(days=1)).isoformat()}.json"
-        try:
-            fallback = json.loads(fallback_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return None
-        return {"report_date": fallback.get("report_date"), "capital": fallback.get("capital", {})}
+        fallback_date = (date.fromisoformat(report_date) - timedelta(days=1)).isoformat()
+        return load_report_baseline(path, fallback_date) or (
+            previous if isinstance(previous, dict) and previous.get("report_date") != report_date else None
+        )
+    if current.get("report_date"):
+        return load_report_baseline(path, current["report_date"]) or current
     return current
 
 
@@ -495,8 +568,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     cash_copper = parse_int(database.get(f"s@{PLAYER} - Horde - {REALM}@internalData@money"))
-    stock_rows = [row for row in item_rows if row["bags_quantity"] or row["bank_quantity"] or row["mail_quantity"]]
-    auction_rows = [row for row in item_rows if row["auction_quantity"]]
+    stock_rows = location_rows(item_rows, "stock", args.commission)
+    auction_rows = location_rows(item_rows, "auctions", args.commission)
     stock_gross = sum(row["gross_value_copper"] or 0 for row in stock_rows)
     auction_gross = sum(row["gross_value_copper"] or 0 for row in auction_rows)
     holdings_gross = stock_gross + auction_gross
