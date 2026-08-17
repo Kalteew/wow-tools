@@ -12,7 +12,7 @@ Fonctions:
 - ajout direct des commandes selectionnees dans `YayaQueue`
 - à la première ouverture d'un métier, uniquement à proximité de la station : ouvrir les commandes de patrons pendant 2 secondes puis revenir à la recette favorite, une fois par métier et par session
 - à la première ouverture du métier, déclencher avec YayaQueue l'ajout de la recette favorite en concentration
-- les commandes ajoutees dans `YayaQueue` gardent maintenant leur `orderID` pour le bouton `Next`
+- les commandes ajoutées dans `YayaQueue` conservent leur `orderID` et les `CraftingReagentInfo` joueur (`dataSlotIndex`) pour le flow direct de `Next` ; les réactifs client et de base restent à Blizzard
 - une liste Blizzard vide est confirmée trois fois avant de synchroniser les suppressions YQ; un retour ultérieur de la commande peut la réinjecter pendant la même session
 - bouton `TOUT` avec 4 modes:
   - tout
@@ -28,6 +28,7 @@ Notes:
 - l'ajout dans `YayaQueue` queue des crafts de work orders en mode `crafts`, sans se baser sur les outputs deja presents en inventaire
 - les commandes reçues pendant les 2 secondes sur l'onglet patrons gardent les conditions actuelles de push vers `YayaQueue` et une commande avec concentration n'est ajoutée que si la concentration disponible, après les réservations YQ, suffit
 - la queue YQ reste l’autorité de déduplication par `orderID`; le cache de session ne bloque plus une réinjection lorsque l’entrée n’existe réellement plus
+- après un échec ou un timeout de `Next`, YQ peut demander une resynchronisation headless de la commande ; l’UI des patrons reste un outil de consultation, pas une précondition du craft
 - l'auto-queue utilise une valeur nette : KP 1000g, first craft 1000g, montée en compétence 200g, moxie 5000/600g ; la concentration coûte 3g/point en alchimie et 1g ailleurs
 - `/ypo debug` active ou desactive les traces de chargement pour la session
 - `/ypo debug status` affiche un instantane de l'etat courant

@@ -3885,6 +3885,48 @@ function Pane:OrderHasAvailableMaterials(orderData)
 	return hasAllMaterials
 end
 
+function Pane:BuildYayaQueueCraftingReagents(orderData)
+	local craftingReagents = {}
+
+	for _, materialEntry in ipairs(GetMaterialPlanEntries(orderData)) do
+		local slotData = materialEntry.slotData
+		local option = materialEntry.option
+		local dataSlotIndex = tonumber(slotData and slotData.dataSlotIndex)
+		local itemID = tonumber(option and option.itemID)
+		local currencyID = tonumber(option and option.currencyID)
+		local quantity = math.max(0, tonumber(materialEntry.quantity) or 0)
+		if slotData
+			and slotData.dataSlotType == MUTABLE_SLOT_TYPE
+			and not slotData.covered
+			and dataSlotIndex and dataSlotIndex > 0
+			and quantity > 0
+			and ((itemID and itemID > 0) or (currencyID and currencyID > 0)) then
+			craftingReagents[#craftingReagents + 1] = {
+				dataSlotIndex = dataSlotIndex,
+				reagent = {
+					itemID = itemID and itemID > 0 and itemID or nil,
+					currencyID = currencyID and currencyID > 0 and currencyID or nil,
+				},
+				quantity = quantity,
+			}
+		end
+	end
+
+	table.sort(craftingReagents, function(left, right)
+		if left.dataSlotIndex ~= right.dataSlotIndex then
+			return left.dataSlotIndex < right.dataSlotIndex
+		end
+		local leftItemID = left.reagent.itemID or left.reagent.currencyID or 0
+		local rightItemID = right.reagent.itemID or right.reagent.currencyID or 0
+		if leftItemID ~= rightItemID then
+			return leftItemID < rightItemID
+		end
+		return left.quantity < right.quantity
+	end)
+
+	return craftingReagents
+end
+
 function Pane:BuildYayaQueueContext(orderData, skipDontBuyItems)
 	if not (orderData and orderData.recipeInfo and orderData.recipeInfo.recipeID) then
 		return nil, "missing recipe info"
@@ -3899,8 +3941,9 @@ function Pane:BuildYayaQueueContext(orderData, skipDontBuyItems)
 		outputPerCraft = 1,
 		mode = "crafts",
 		reagents = self:BuildOrderQueueReagents(orderData, skipDontBuyItems),
+		craftingReagents = self:BuildYayaQueueCraftingReagents(orderData),
 		orderID = orderData.orderID,
-		professionID = self.visibleProfession or self:GetCurrentProfessionID(),
+		professionID = orderData.professionID or self.visibleProfession or self:GetCurrentProfessionID(),
 		queueKind = "patron",
 		isEnchantingRecipe = recipeInfo.isEnchantingRecipe == true,
 		applyConcentration = applyConcentration,
@@ -5896,6 +5939,157 @@ function Pane:RequestOrders(reason, profession)
 	})
 end
 
+function Pane:FinishHeadlessPatronRefresh(refresh, success, context, message)
+	if not refresh or refresh.completed then
+		return
+	end
+
+	refresh.completed = true
+	if self.headlessPatronRefreshes then
+		self.headlessPatronRefreshes[refresh.key] = nil
+	end
+	if not success then
+		context = nil
+	end
+
+	ns.Debug(
+		"request",
+		"headless refresh order=%s profession=%s success=%s message=%s",
+		tostring(refresh.orderID),
+		tostring(refresh.professionID),
+		tostring(success == true),
+		tostring(message)
+	)
+
+	if success and self.root and self.root:IsShown() then
+		self:MarkDirty("headless-refresh")
+	end
+
+	for _, callback in ipairs(refresh.callbacks or EMPTY_LIST) do
+		local callbackOK, callbackError = pcall(callback, success == true, context, message)
+		if not callbackOK then
+			ns.Debug("request", "headless refresh callback failed: %s", tostring(callbackError))
+		end
+	end
+end
+
+function Pane:RefreshPatronOrder(orderID, professionID, callback)
+	orderID = tonumber(orderID) or 0
+	professionID = tonumber(professionID) or self:GetCurrentProfessionID()
+	if orderID <= 0 then
+		if type(callback) == "function" then
+			callback(false, nil, "invalid_order_id")
+		end
+		return false, "invalid_order_id"
+	end
+	if not professionID or professionID <= 0 then
+		if type(callback) == "function" then
+			callback(false, nil, "profession_unavailable")
+		end
+		return false, "profession_unavailable"
+	end
+	if self:CanOpenPatronOrders() == false then
+		if type(callback) == "function" then
+			callback(false, nil, "patron_orders_unavailable")
+		end
+		return false, "patron_orders_unavailable"
+	end
+	if type(C_CraftingOrders) ~= "table"
+		or type(C_CraftingOrders.RequestCrafterOrders) ~= "function"
+		or type(C_CraftingOrders.GetCrafterOrders) ~= "function" then
+		if type(callback) == "function" then
+			callback(false, nil, "request_unavailable")
+		end
+		return false, "request_unavailable"
+	end
+
+	self.headlessPatronRefreshes = self.headlessPatronRefreshes or {}
+	local key = tostring(professionID) .. ":" .. tostring(orderID)
+	local activeRefresh = self.headlessPatronRefreshes[key]
+	if activeRefresh then
+		if type(callback) == "function" then
+			activeRefresh.callbacks[#activeRefresh.callbacks + 1] = callback
+		end
+		return true, "refreshing"
+	end
+
+	local refresh = {
+		key = key,
+		orderID = orderID,
+		professionID = professionID,
+		callbacks = type(callback) == "function" and { callback } or {},
+	}
+	self.headlessPatronRefreshes[key] = refresh
+
+	C_Timer.After(REQUEST_TIMEOUT, function()
+		if Pane and Pane.headlessPatronRefreshes and Pane.headlessPatronRefreshes[refresh.key] == refresh then
+			Pane:FinishHeadlessPatronRefresh(refresh, false, nil, "request_timeout")
+		end
+	end)
+
+	local requestOK, requestError = pcall(C_CraftingOrders.RequestCrafterOrders, {
+		profession = professionID,
+		orderType = ns.ORDER_TYPE_NPC,
+		forCrafter = true,
+		offset = 0,
+		searchFavorites = false,
+		initialNonPublicSearch = false,
+		primarySort = { sortType = 0, reversed = false },
+		secondarySort = { sortType = 0, reversed = false },
+		callback = function(result, orderType)
+			if refresh.completed then
+				return
+			end
+			if result ~= 0 or (orderType ~= nil and orderType ~= ns.ORDER_TYPE_NPC) then
+				Pane:FinishHeadlessPatronRefresh(refresh, false, nil, "request_failed")
+				return
+			end
+
+			-- A claimed patron order is no longer necessarily in GetCrafterOrders().
+			-- It remains live and carries the full order payload needed to rebuild
+			-- the direct CraftingReagentInfo plan after a craft failure.
+			local claimedOrder = type(C_CraftingOrders.GetClaimedOrder) == "function"
+				and C_CraftingOrders.GetClaimedOrder()
+				or nil
+			local liveOrder = claimedOrder and claimedOrder.orderID == refresh.orderID and claimedOrder or nil
+			if not liveOrder then
+				for _, orderInfo in ipairs(C_CraftingOrders.GetCrafterOrders() or EMPTY_LIST) do
+					if orderInfo.orderID == refresh.orderID
+						and (orderInfo.orderType == nil or orderInfo.orderType == ns.ORDER_TYPE_NPC) then
+						liveOrder = orderInfo
+						break
+					end
+				end
+			end
+			if not liveOrder then
+				Pane:FinishHeadlessPatronRefresh(refresh, false, nil, "order_absent")
+				return
+			end
+
+			local orderData = PrepareOrder(liveOrder)
+			if not orderData then
+				Pane:FinishHeadlessPatronRefresh(refresh, false, nil, "recipe_unavailable")
+				return
+			end
+			orderData.professionID = refresh.professionID
+			local context, contextError = Pane:BuildYayaQueueContext(orderData, true)
+			if not context then
+				Pane:FinishHeadlessPatronRefresh(refresh, false, nil, contextError or "context_unavailable")
+				return
+			end
+
+			Pane:FinishHeadlessPatronRefresh(refresh, true, context, nil)
+		end,
+	})
+	if not requestOK then
+		self:FinishHeadlessPatronRefresh(refresh, false, nil, "request_failed")
+		ns.Debug("request", "headless refresh request error=%s", tostring(requestError))
+		return false, "request_failed"
+	end
+
+	return true, "refreshing"
+end
+
 function Pane:MaybeRequestOrders(reason)
 	if not self.needsRequest then
 		return false
@@ -6502,4 +6696,8 @@ end
 function YayaCraftingOrdersAPI.GetCurrentOrderID()
 	local _, order = Pane:GetCurrentOrderViewContext()
 	return order and order.orderID or nil
+end
+
+function YayaCraftingOrdersAPI.RefreshPatronOrder(orderID, professionID, callback)
+	return Pane:RefreshPatronOrder(orderID, professionID, callback)
 end

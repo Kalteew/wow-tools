@@ -167,11 +167,12 @@ local state = {
     orderApiHooksInitialized = false,
     refreshQueued = false,
     refreshDeferredByCombat = false,
-    pendingQueuedRecipeConfig = nil,
     pendingCraftBatches = {},
     pendingCraftEntries = {},
     pendingWorkOrderSubmit = {},
     pendingWorkOrderSubmitLockSeconds = 1.0,
+    pendingPatronAction = nil,
+    lastClaimedPatronOrderID = 0,
     craftClickLockUntil = 0,
     craftClickLockSeconds = 2.0,
     nextActionLock = nil,
@@ -2072,8 +2073,63 @@ local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, 
         outputItemID = outputItemID,
         outputPerCraft = math.max(1, tonumber(schematic.quantityMin) or 1),
         reagents = reagents,
+        craftingReagents = transaction and type(transaction.CreateCraftingReagentInfoTbl) == "function"
+            and NormalizeCraftingReagents(SafeCall(transaction.CreateCraftingReagentInfoTbl, transaction))
+            or {},
         applyConcentration = transaction and type(transaction.IsApplyingConcentration) == "function" and transaction:IsApplyingConcentration() or false,
     }
+end
+
+-- Queue entries created before direct Next did not persist a CraftingReagentInfo
+-- payload. Rebuild only selectable slots; Blizzard still allocates basic slots.
+local function GetDirectCraftingReagents(entry)
+    local saved = NormalizeCraftingReagents(entry and entry.craftingReagents)
+    if #saved > 0 or not entry or not entry.recipeID then
+        return saved
+    end
+
+    local schematic = type(C_TradeSkillUI) == "table"
+        and type(C_TradeSkillUI.GetRecipeSchematic) == "function"
+        and SafeCall(C_TradeSkillUI.GetRecipeSchematic, entry.recipeID, false)
+        or nil
+    if type(schematic) ~= "table" then
+        return saved
+    end
+
+    local remainingByItemID = {}
+    for _, reagent in ipairs(entry.reagents or {}) do
+        local itemID = tonumber(reagent and reagent.itemID) or 0
+        if itemID > 0 then
+            remainingByItemID[itemID] = (remainingByItemID[itemID] or 0) + math.max(0, tonumber(reagent.quantity) or 0)
+        end
+    end
+
+    for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
+        if IsRequiredSelectableReagentSlot(slot) then
+            local needed = math.max(0, tonumber(slot.quantityRequired) or 0)
+            for _, reagent in ipairs(slot.reagents or {}) do
+                local itemID = tonumber(reagent and reagent.itemID) or 0
+                local available = remainingByItemID[itemID] or 0
+                local quantity = math.min(needed, available)
+                if itemID > 0 and quantity > 0 then
+                    saved[#saved + 1] = {
+                        dataSlotIndex = tonumber(slot.dataSlotIndex),
+                        reagent = { itemID = itemID },
+                        quantity = quantity,
+                    }
+                    remainingByItemID[itemID] = available - quantity
+                    needed = needed - quantity
+                end
+                if needed <= 0 then
+                    break
+                end
+            end
+        end
+    end
+
+    saved = NormalizeCraftingReagents(saved)
+    entry.craftingReagents = saved
+    return saved
 end
 
 local function GetRecipeContextFromSchematicForm(form)
@@ -2169,6 +2225,7 @@ local function ResetQueue()
     state.pendingMerge = nil
     state.armedCraftTool = nil
     state.pendingCraftTool = nil
+    state.pendingPatronAction = nil
     if state.nextActionLock
         and (state.nextActionLock.action == "equip_tool" or state.nextActionLock.action == "shatter")
     then
@@ -3201,287 +3258,158 @@ state.GetCurrentProfessionID = function()
     return nil
 end
 
+state.GetPatronQueueEntry = function(orderID)
+    orderID = tonumber(orderID) or 0
+    if orderID <= 0 then
+        return nil
+    end
+    state.EnsureDB()
+    for _, entry in ipairs(db.queue) do
+        if entry.queueKind == "patron" and tonumber(entry.orderID) == orderID then
+            return entry
+        end
+    end
+    return nil
+end
+
+state.FinalizePatronCompletion = function(orderID, source)
+    orderID = tonumber(orderID) or 0
+    local recipeName = ConsumePatronSubmit(orderID)
+    if recipeName then
+        MarkRecentCompletedPatronOrder(orderID)
+        state.ah.statusMessage = "Commande terminee: " .. recipeName
+    end
+    local action = state.pendingPatronAction
+    if action and action.orderID == orderID then
+        state.pendingPatronAction = nil
+    end
+    if state.lastClaimedPatronOrderID == orderID then
+        state.lastClaimedPatronOrderID = 0
+    end
+    local nextActionLock = GetNextActionLock()
+    if nextActionLock and nextActionLock.orderID == orderID then
+        ClearNextActionLock("patron-complete-" .. tostring(source or "confirmed"))
+    end
+    DebugPrint("fulfill-confirmed source=" .. tostring(source or "?") .. " order=" .. tostring(orderID) .. " matched=" .. tostring(recipeName))
+    ScheduleRefresh()
+    return recipeName
+end
+
+state.BeginPatronAction = function(phase, entry, timeoutSeconds)
+    if not entry or not entry.orderID then
+        return false
+    end
+    local action = {
+        phase = phase,
+        orderID = tonumber(entry.orderID) or 0,
+        professionID = tonumber(entry.professionID) or 0,
+        entry = entry,
+    }
+    if action.orderID <= 0 then
+        return false
+    end
+    state.pendingPatronAction = action
+    BeginNextActionLock(phase, action.orderID, timeoutSeconds)
+    C_Timer.After((tonumber(timeoutSeconds) or 2.0) + 0.1, function()
+        if state.pendingPatronAction == action and state.RefreshPatronOrder then
+            state.RefreshPatronOrder(action.orderID, action.professionID, phase .. "-timeout")
+        end
+    end)
+    return true
+end
+
+state.RefreshPatronOrder = function(orderID, professionID, reason)
+    local action = state.pendingPatronAction
+    if action and action.orderID == tonumber(orderID) and action.resyncing then
+        return
+    end
+    local api = _G.YayaCraftingOrdersAPI
+    if not api or type(api.RefreshPatronOrder) ~= "function" then
+        if action and action.orderID == tonumber(orderID) then
+            state.pendingPatronAction = nil
+        end
+        ClearNextActionLock("patron-resync-api-missing")
+        state.ah.statusMessage = "Resynchronisation patron indisponible"
+        ScheduleRefresh()
+        return
+    end
+    if action and action.orderID == tonumber(orderID) then
+        action.resyncing = true
+    end
+    local callOK = pcall(api.RefreshPatronOrder, orderID, professionID, function(success, context, message)
+        local pending = state.pendingPatronAction
+        if pending and pending.orderID == tonumber(orderID) then
+            pending.resyncing = nil
+        end
+        if success and type(context) == "table" then
+            local entry = state.GetPatronQueueEntry(orderID)
+            if entry then
+                entry.recipeID = tonumber(context.recipeID) or entry.recipeID
+                entry.recipeName = context.recipeName or entry.recipeName
+                entry.outputItemID = tonumber(context.outputItemID) or entry.outputItemID
+                entry.outputPerCraft = math.max(1, tonumber(context.outputPerCraft) or entry.outputPerCraft or 1)
+                entry.reagents = NormalizeReagents(context.reagents)
+                entry.reagentSignature = BuildReagentSignature(entry.reagents)
+                entry.craftingReagents = NormalizeCraftingReagents(context.craftingReagents)
+                entry.professionID = tonumber(context.professionID) or entry.professionID
+                entry.isEnchantingRecipe = context.isEnchantingRecipe == true
+                entry.applyConcentration = NormalizeApplyConcentration(context.applyConcentration)
+                entry.concentrationCost = tonumber(context.concentrationCost) or nil
+                entry.concentrationCurrencyID = tonumber(context.concentrationCurrencyID) or nil
+                entry.isRecraft = context.isRecraft == true
+                entry.profitValue = tonumber(context.profitValue) or nil
+                entry.profitKnown = context.profitKnown == true
+            end
+            if pending and pending.orderID == tonumber(orderID) then
+                state.pendingPatronAction = nil
+            end
+            ClearNextActionLock("patron-resynced")
+            state.ah.statusMessage = "Commande patron resynchronisee"
+        elseif message == "order_absent" then
+            if pending and pending.phase == "complete" then
+                state.FinalizePatronCompletion(orderID, "resync")
+                return
+            end
+            ConsumePatronSubmit(orderID)
+            if pending and pending.orderID == tonumber(orderID) then
+                state.pendingPatronAction = nil
+            end
+            ClearNextActionLock("patron-absent")
+            state.ah.statusMessage = "Commande patron indisponible"
+        else
+            if pending and pending.orderID == tonumber(orderID) then
+                state.pendingPatronAction = nil
+            end
+            ClearNextActionLock("patron-resync-failed")
+            state.ah.statusMessage = type(message) == "string" and message or "Resynchronisation patron echouee"
+        end
+        DebugPrint("patron-resync order=" .. tostring(orderID) .. " reason=" .. tostring(reason or "?") .. " success=" .. tostring(success))
+        ScheduleRefresh()
+    end)
+    if not callOK then
+        if action and action.orderID == tonumber(orderID) then
+            state.pendingPatronAction = nil
+        end
+        ClearNextActionLock("patron-resync-call-failed")
+        state.ah.statusMessage = "Resynchronisation patron echouee"
+        ScheduleRefresh()
+    end
+end
+
 local function HandlePatronFulfill(orderID, source)
     orderID = tonumber(orderID) or 0
     if orderID <= 0 then
         return nil
     end
-
-    local recipeName = ConsumePatronSubmit(orderID)
-    local nextActionLock = GetNextActionLock()
-    if nextActionLock and nextActionLock.orderID == orderID and nextActionLock.action == "complete" then
-        ClearNextActionLock("fulfilled")
-    end
-    MarkRecentCompletedPatronOrder(orderID)
-    DebugPrint("fulfill-hook source=" .. tostring(source or "?") .. " order=" .. tostring(orderID) .. " matched=" .. tostring(recipeName))
-    if recipeName then
-        state.ah.statusMessage = "Commande terminee: " .. recipeName
-        ScheduleRefresh()
-    end
-
-    return recipeName
-end
-
-local function GetCurrentOrderViewContext()
-    local ordersPage = ProfessionsFrame and ProfessionsFrame.OrdersPage
-    local orderView = ordersPage and ordersPage.OrderView
-    return orderView, orderView and orderView.order
-end
-
-local function GetCurrentOrderSchematicContext()
-    local orderView, orderInfo = GetCurrentOrderViewContext()
-    local orderDetails = orderView and orderView.OrderDetails
-    local schematicForm = orderDetails and orderDetails.SchematicForm
-    local transaction = schematicForm and ((type(schematicForm.GetTransaction) == "function" and schematicForm:GetTransaction()) or schematicForm.transaction)
-    return orderView, orderInfo, schematicForm, transaction
-end
-
-local function GetOrderReagentItemID(reagentInfo)
-    if type(reagentInfo) ~= "table" then
-        return nil
-    end
-
-    if reagentInfo.reagent then
-        if reagentInfo.reagent.reagent and reagentInfo.reagent.reagent.itemID then
-            return reagentInfo.reagent.reagent.itemID
-        end
-        if reagentInfo.reagent.itemID then
-            return reagentInfo.reagent.itemID
+    local action = state.pendingPatronAction
+    if not (action and action.orderID == orderID and action.phase == "complete") then
+        local entry = state.GetPatronQueueEntry(orderID)
+        if entry then
+            state.BeginPatronAction("complete", entry, 3.0)
         end
     end
-
-    if reagentInfo.reagentInfo and reagentInfo.reagentInfo.reagent and reagentInfo.reagentInfo.reagent.itemID then
-        return reagentInfo.reagentInfo.reagent.itemID
-    end
-
-    return nil
-end
-
-local function FilterSuppliedOrderReagents(craftingReagentInfoTbl, orderInfo)
-    if type(craftingReagentInfoTbl) ~= "table" or type(orderInfo) ~= "table" or type(orderInfo.reagents) ~= "table" then
-        return craftingReagentInfoTbl
-    end
-
-    local suppliedIDs = {}
-    for _, reagentInfo in ipairs(orderInfo.reagents) do
-        local itemID = GetOrderReagentItemID(reagentInfo)
-        if type(itemID) == "number" and itemID > 0 then
-            suppliedIDs[itemID] = true
-        end
-    end
-
-    if not next(suppliedIDs) then
-        return craftingReagentInfoTbl
-    end
-
-    local filtered = {}
-    for _, craftingReagentInfo in ipairs(craftingReagentInfoTbl) do
-        local itemID = craftingReagentInfo and craftingReagentInfo.reagent and craftingReagentInfo.reagent.itemID or nil
-        if not suppliedIDs[itemID] then
-            filtered[#filtered + 1] = craftingReagentInfo
-        end
-    end
-    return filtered
-end
-
-local function GetCurrentCraftingSchematicContext()
-    local craftingPage = ProfessionsFrame and ProfessionsFrame.CraftingPage
-    local schematicForm = craftingPage and craftingPage.SchematicForm
-    local recipeInfo = schematicForm and type(schematicForm.GetRecipeInfo) == "function" and SafeCall(schematicForm.GetRecipeInfo, schematicForm) or nil
-    local transaction = schematicForm and ((type(schematicForm.GetTransaction) == "function" and SafeCall(schematicForm.GetTransaction, schematicForm)) or schematicForm.transaction) or nil
-    return craftingPage, recipeInfo, schematicForm, transaction
-end
-
-local function FindTransactionReagent(transaction, allocation)
-    if not (transaction and allocation and allocation.slotIndex) then
-        return nil
-    end
-    local schematic = type(transaction.GetReagentSlotSchematic) == "function"
-        and SafeCall(transaction.GetReagentSlotSchematic, transaction, allocation.slotIndex)
-        or nil
-    for _, reagent in ipairs(schematic and schematic.reagents or {}) do
-        if allocation.itemID and reagent.itemID == allocation.itemID then
-            return reagent
-        end
-        if allocation.currencyID and reagent.currencyID == allocation.currencyID then
-            return reagent
-        end
-    end
-    return nil
-end
-
-local function ApplyQueuedSlotAllocations(transaction, schematicForm, clearSlotIndices, slotAllocations)
-    if not transaction then
-        return false
-    end
-    if #(clearSlotIndices or {}) == 0 and #(slotAllocations or {}) == 0 then
-        if type(transaction.SetManuallyAllocated) == "function"
-            and not pcall(transaction.SetManuallyAllocated, transaction, false) then
-            return false
-        end
-        if type(Professions) == "table" and type(Professions.AllocateAllBasicReagents) == "function" then
-            local useBestQuality = type(Professions.ShouldAllocateBestQualityReagents) == "function"
-                and SafeCall(Professions.ShouldAllocateBestQualityReagents) == true
-            return pcall(Professions.AllocateAllBasicReagents, transaction, useBestQuality)
-        end
-        return true
-    end
-
-    local checkbox = schematicForm and schematicForm.AllocateBestQualityCheckbox
-    if checkbox and type(checkbox.SetChecked) == "function" then
-        if not pcall(checkbox.SetChecked, checkbox, false) then
-            return false
-        end
-    end
-    if type(Professions) == "table" and type(Professions.SetShouldAllocateBestQualityReagents) == "function" then
-        pcall(Professions.SetShouldAllocateBestQualityReagents, false)
-    end
-    if type(transaction.SetManuallyAllocated) == "function" then
-        if not pcall(transaction.SetManuallyAllocated, transaction, true) then
-            return false
-        end
-    end
-
-    local clearedSlots = {}
-    for _, slotIndex in ipairs(clearSlotIndices or {}) do
-        local allocations = type(transaction.GetAllocations) == "function"
-            and SafeCall(transaction.GetAllocations, transaction, slotIndex)
-            or nil
-        local cleared = false
-        if allocations and type(allocations.Clear) == "function" then
-            cleared = pcall(allocations.Clear, allocations)
-        elseif type(transaction.ClearAllocations) == "function" then
-            cleared = pcall(transaction.ClearAllocations, transaction, slotIndex)
-        end
-        if not cleared then
-            return false
-        end
-        clearedSlots[slotIndex] = true
-    end
-
-    for _, allocation in ipairs(slotAllocations or {}) do
-        local slotIndex = allocation.slotIndex
-        local allocations = type(transaction.GetAllocations) == "function"
-            and SafeCall(transaction.GetAllocations, transaction, slotIndex)
-            or nil
-        if not clearedSlots[slotIndex] then
-            if allocations and type(allocations.Clear) == "function" then
-                if not pcall(allocations.Clear, allocations) then
-                    return false
-                end
-            elseif type(transaction.ClearAllocations) == "function" then
-                if not pcall(transaction.ClearAllocations, transaction, slotIndex) then
-                    return false
-                end
-            else
-                return false
-            end
-            clearedSlots[slotIndex] = true
-        end
-
-        local reagent = FindTransactionReagent(transaction, allocation)
-        if not reagent then
-            return false
-        end
-        if allocations and type(allocations.Allocate) == "function" then
-            if not pcall(allocations.Allocate, allocations, reagent, allocation.quantity) then
-                return false
-            end
-        elseif type(transaction.OverwriteAllocation) == "function" then
-            if not pcall(transaction.OverwriteAllocation, transaction, slotIndex, reagent, allocation.quantity) then
-                return false
-            end
-        else
-            return false
-        end
-    end
-    return true
-end
-
-local function ApplyQueuedRecipeConfigNow()
-    local pending = state.pendingQueuedRecipeConfig
-    if not pending then
-        return true
-    end
-
-    local _, recipeInfo, schematicForm, transaction = GetCurrentCraftingSchematicContext()
-    if not (recipeInfo and schematicForm and transaction and recipeInfo.recipeID == pending.recipeID) then
-        return false
-    end
-    if type(transaction.GetRecipeID) == "function" and SafeCall(transaction.GetRecipeID, transaction) ~= pending.recipeID then
-        return false
-    end
-
-    if type(transaction.SetApplyConcentration) == "function" then
-        if not pcall(transaction.SetApplyConcentration, transaction, pending.applyConcentration == true) then
-            return false
-        end
-    end
-    if not ApplyQueuedSlotAllocations(transaction, schematicForm, pending.clearSlotIndices, pending.slotAllocations) then
-        return false
-    end
-    if type(schematicForm.TriggerEvent) == "function"
-        and type(ProfessionsRecipeSchematicFormMixin) == "table"
-        and ProfessionsRecipeSchematicFormMixin.Event
-        and ProfessionsRecipeSchematicFormMixin.Event.AllocationsModified then
-        pcall(schematicForm.TriggerEvent, schematicForm, ProfessionsRecipeSchematicFormMixin.Event.AllocationsModified)
-    end
-    if type(schematicForm.UpdateDetailsStats) == "function" then
-        pcall(schematicForm.UpdateDetailsStats, schematicForm)
-    end
-    if type(schematicForm.UpdateAllSlots) == "function" then
-        pcall(schematicForm.UpdateAllSlots, schematicForm)
-    end
-
-    state.pendingQueuedRecipeConfig = nil
-    return true
-end
-
-function YQQuality.ApplyPatronConcentration(entry, transaction)
-    local desired = NormalizeApplyConcentration(entry and entry.applyConcentration)
-    if not transaction then
-        return not desired
-    end
-
-    if type(transaction.SetApplyConcentration) ~= "function" then
-        return not desired
-    end
-    if not pcall(transaction.SetApplyConcentration, transaction, desired) then
-        return false
-    end
-
-    if type(transaction.IsApplyingConcentration) == "function" then
-        return SafeCall(transaction.IsApplyingConcentration, transaction) == desired
-    end
-    return true
-end
-
-local function ScheduleApplyQueuedRecipeConfig(delay)
-    if not state.pendingQueuedRecipeConfig or state.pendingQueuedRecipeConfig.timerQueued then
-        return
-    end
-
-    state.pendingQueuedRecipeConfig.timerQueued = true
-    C_Timer.After(delay or 0, function()
-        if not state.pendingQueuedRecipeConfig then
-            return
-        end
-        state.pendingQueuedRecipeConfig.timerQueued = nil
-        local applyCallOK, applied = pcall(ApplyQueuedRecipeConfigNow)
-        if applyCallOK and applied then
-            ScheduleRefresh()
-            return
-        end
-
-        state.pendingQueuedRecipeConfig.attempts = (state.pendingQueuedRecipeConfig.attempts or 0) + 1
-        if state.pendingQueuedRecipeConfig.attempts < 20 then
-            ScheduleApplyQueuedRecipeConfig(0.05)
-        else
-            state.pendingQueuedRecipeConfig.failed = true
-            state.ah.statusMessage = "Plan de composants non applique; /reload puis reouvre la recette"
-            ScheduleRefresh()
-        end
-    end)
+    DebugPrint("fulfill-hook source=" .. tostring(source or "?") .. " order=" .. tostring(orderID) .. " awaiting-removal")
+    return orderID
 end
 
 local function GetPatronNextButtonState()
@@ -3620,23 +3548,12 @@ local function GetPatronNextButtonState()
         end
 
         local currentProfessionID = state.GetCurrentProfessionID()
-        local _, currentRecipeInfo = GetCurrentCraftingSchematicContext()
-        local currentRecipeID = currentRecipeInfo and currentRecipeInfo.recipeID or nil
         local craftingPageVisible = IsProfessionPageVisible(ProfessionsFrame and ProfessionsFrame.CraftingPage)
 
-        if not craftingPageVisible or currentProfessionID ~= entry.professionID or currentRecipeID ~= entry.recipeID then
+        if not craftingPageVisible or currentProfessionID ~= entry.professionID then
             return {
                 entry = entry,
-                text = "Next: Open",
-                enabled = entry.professionID and entry.recipeID and type(C_TradeSkillUI) == "table",
-                action = "open_recipe",
-            }
-        end
-
-        if state.pendingQueuedRecipeConfig and state.pendingQueuedRecipeConfig.recipeID == entry.recipeID then
-            return {
-                entry = entry,
-                text = state.pendingQueuedRecipeConfig.failed and "Next: erreur composants" or "Next: attente",
+                text = "Next: bon metier",
                 enabled = false,
             }
         end
@@ -3649,22 +3566,17 @@ local function GetPatronNextButtonState()
             }
         end
 
-        local _, _, schematicForm, transaction = GetCurrentCraftingSchematicContext()
-        local hasCraftInfo = schematicForm
-            and transaction
-            and type(transaction.CreateCraftingReagentInfoTbl) == "function"
-            and type(C_TradeSkillUI) == "table"
+        GetDirectCraftingReagents(entry)
+        local hasCraftInfo = type(C_TradeSkillUI) == "table"
             and type(C_TradeSkillUI.CraftRecipe) == "function"
         local craftsRemaining = GetEntryCraftsRemaining(entry)
         local craftAmount = math.max(1, tonumber(craftsRemaining) or 1)
         if hasCraftInfo then
-            local toolAction = state.craftGear.GetToolAction(entry, transaction)
+            local toolAction = state.craftGear.GetToolAction(entry, nil)
             if toolAction then
                 return toolAction
             end
-            local recipeInfo = schematicForm and type(schematicForm.GetRecipeInfo) == "function"
-                and SafeCall(schematicForm.GetRecipeInfo, schematicForm)
-                or YQQuality.GetRecipeInfoForEntry(entry)
+            local recipeInfo = YQQuality.GetRecipeInfoForEntry(entry)
             if YQQuality.IsEnchantingRecipeInfo(recipeInfo, entry) then
                 YQQuality.EnsureShatterMoteDemandForEntry(entry, recipeInfo)
                 local shatterState = YQQuality.GetShatterMoteState()
@@ -3703,295 +3615,98 @@ local function GetPatronNextButtonState()
     end
 
     local currentProfessionID = state.GetCurrentProfessionID()
-    if entry.professionID and currentProfessionID and entry.professionID ~= currentProfessionID then
-        return {
-            entry = entry,
-            text = "Next: bon metier",
-            enabled = false,
-        }
+    local professionOpen = ProfessionsFrame and ProfessionsFrame:IsShown()
+    if not professionOpen or currentProfessionID ~= entry.professionID then
+        return { entry = entry, text = "Next: bon metier", enabled = false }
     end
-
-    local api = _G.YayaCraftingOrdersAPI
-    if not api or type(api.ViewOrderByID) ~= "function" then
-        return {
-            entry = entry,
-            text = "Next: YCO requis",
-            enabled = false,
-        }
+    if entry.isRecraft == true then
+        return { entry = entry, text = "Next: recraft", enabled = false }
     end
-
-    if type(api.CanOpenPatronOrders) == "function" then
-        local canOpen = api.CanOpenPatronOrders()
-        if canOpen == false then
-            return {
-                entry = entry,
-                text = "Next: pas de patrons",
-                enabled = false,
-            }
-        end
+    local pendingPatronAction = state.pendingPatronAction
+    if pendingPatronAction and pendingPatronAction.orderID == tonumber(entry.orderID) then
+        return { entry = entry, text = "Next: attente", enabled = false }
     end
-
-    local hasOrderAccess = not (type(C_TradeSkillUI) == "table" and type(C_TradeSkillUI.IsNearProfessionSpellFocus) == "function")
-        or C_TradeSkillUI.IsNearProfessionSpellFocus(entry.professionID)
-    if not hasOrderAccess then
-        return {
-            entry = entry,
-            text = "Next: focus",
-            enabled = false,
-        }
-    end
-
-    local claimedOrder = type(C_CraftingOrders) == "table"
-        and type(C_CraftingOrders.GetClaimedOrder) == "function"
-        and C_CraftingOrders.GetClaimedOrder()
-        or nil
-    local _, currentOrder = GetCurrentOrderViewContext()
-    local ordersPageVisible = IsProfessionPageVisible(ProfessionsFrame and ProfessionsFrame.OrdersPage)
-
     if nextActionLock then
-        local lockedOrderID = nextActionLock.orderID
-        local currentOrderID = currentOrder and currentOrder.orderID or 0
-        local claimedOrderID = claimedOrder and claimedOrder.orderID or 0
-
-        if nextActionLock.action == "open" then
-            local _, _, schematicForm, transaction = GetCurrentOrderSchematicContext()
-            local recipeInfo = schematicForm and type(schematicForm.GetRecipeInfo) == "function"
-                and SafeCall(schematicForm.GetRecipeInfo, schematicForm)
-                or schematicForm and schematicForm.currentRecipeInfo
-            local transactionRecipeID = transaction and type(transaction.GetRecipeID) == "function"
-                and SafeCall(transaction.GetRecipeID, transaction)
-                or nil
-            if ordersPageVisible
-                and currentOrderID == lockedOrderID
-                and recipeInfo and recipeInfo.recipeID == entry.recipeID
-                and transactionRecipeID == entry.recipeID then
-                ClearNextActionLock("opened")
-                nextActionLock = nil
-            else
-                return {
-                    entry = entry,
-                    text = "Next: attente",
-                    enabled = false,
-                }
-            end
-        elseif nextActionLock.action == "claim" then
-            if claimedOrderID == lockedOrderID then
-                ClearNextActionLock("claimed")
-                nextActionLock = nil
-            end
-        elseif nextActionLock.action == "craft" then
-            if claimedOrderID == lockedOrderID and claimedOrder and claimedOrder.isFulfillable then
-                ClearNextActionLock("craft-ready-complete")
-                nextActionLock = nil
-            elseif currentOrderID == lockedOrderID and claimedOrderID == lockedOrderID then
-                return {
-                    entry = entry,
-                    text = "Next: attente",
-                    enabled = false,
-                }
-            else
-                ClearNextActionLock("craft-state-changed")
-                nextActionLock = nil
-            end
-        elseif nextActionLock.action == "complete" then
-            if currentOrderID == lockedOrderID or claimedOrderID == lockedOrderID then
-                return {
-                    entry = entry,
-                    text = "Next: attente",
-                    enabled = false,
-                }
-            end
-            ClearNextActionLock("completed")
-            nextActionLock = nil
-        else
-            return {
-                entry = entry,
-                text = "Next: attente",
-                enabled = false,
-            }
-        end
+        return { entry = entry, text = "Next: attente", enabled = false }
+    end
+    if type(C_CraftingOrders) ~= "table" or type(C_CraftingOrders.GetClaimedOrder) ~= "function" then
+        return { entry = entry, text = "Next: patrons indisponibles", enabled = false }
+    end
+    if type(C_TradeSkillUI) == "table" and type(C_TradeSkillUI.IsNearProfessionSpellFocus) == "function"
+        and not C_TradeSkillUI.IsNearProfessionSpellFocus(entry.professionID)
+    then
+        return { entry = entry, text = "Next: focus", enabled = false }
     end
 
-    local orderIsRecraft = entry.isRecraft == true
-        or (currentOrder and currentOrder.isRecraft == true)
-        or (claimedOrder and claimedOrder.isRecraft == true)
-    if not ordersPageVisible or not (currentOrder and currentOrder.orderID == entry.orderID) then
-        DebugPrint("next-state order=" .. tostring(entry.orderID) .. " state=open currentOrder=" .. tostring(currentOrder and currentOrder.orderID) .. " claimed=" .. tostring(claimedOrder and claimedOrder.orderID))
-        return {
-            entry = entry,
-            text = "Next: Open",
-            enabled = true,
-            action = "open",
-        }
+    local claimedOrder = C_CraftingOrders.GetClaimedOrder()
+    if claimedOrder and tonumber(claimedOrder.orderID) ~= tonumber(entry.orderID) then
+        return { entry = entry, text = "Next: autre commande", enabled = false }
     end
-
-    if orderIsRecraft then
-        DebugPrint("next-state order=" .. tostring(entry.orderID) .. " state=recraft")
-        return {
-            entry = entry,
-            text = "Next: recraft",
-            enabled = false,
-        }
-    end
-
-    if claimedOrder and claimedOrder.orderID == entry.orderID then
-        if claimedOrder.isFulfillable then
-            ClearPendingWorkOrderSubmit(entry.orderID)
-            DebugPrint("next-state order=" .. tostring(entry.orderID) .. " state=complete")
-            return {
-                entry = entry,
-                text = "Next: Claim",
-                enabled = entry.professionID and type(C_CraftingOrders) == "table" and type(C_CraftingOrders.FulfillOrder) == "function",
-                action = "complete",
-            }
-        end
-
-        if IsPendingWorkOrderSubmit(entry.orderID) or IsCraftClickLocked() then
-            return {
-                entry = entry,
-                text = "Next: attente",
-                enabled = false,
-            }
-        end
-
-        local phialState = YQQuality.GetConcentrationPhialState(entry)
-        if phialState and not phialState.itemID then
-            return {
-                entry = entry,
-                text = (phialState.mailboxCount or 0) > 0 and "Next: Mailbox" or "Next: materiaux",
-                enabled = (phialState.mailboxCount or 0) > 0,
-                action = (phialState.mailboxCount or 0) > 0 and "mailbox" or nil,
-            }
-        end
-
-        local _, _, schematicForm, transaction = GetCurrentOrderSchematicContext()
-        if not YQQuality.ApplyPatronConcentration(entry, transaction) then
-            DebugPrint("next-state order=" .. tostring(entry.orderID) .. " state=concentration-pending")
-            return {
-                entry = entry,
-                text = "Next: attente concentration",
-                enabled = false,
-            }
-        end
-        local recipeID = transaction and type(transaction.GetRecipeID) == "function" and transaction:GetRecipeID() or entry.recipeID
-        local hasCraftInfo = schematicForm
-            and transaction
-            and type(transaction.CreateCraftingReagentInfoTbl) == "function"
-            and type(C_TradeSkillUI) == "table"
-            and type(C_TradeSkillUI.CraftRecipe) == "function"
-            and type(recipeID) == "number"
-            and recipeID > 0
-        if hasCraftInfo then
-            local toolAction = state.craftGear.GetToolAction(entry, transaction)
-            if toolAction then
-                return toolAction
-            end
-            local recipeInfo = schematicForm and type(schematicForm.GetRecipeInfo) == "function"
-                and SafeCall(schematicForm.GetRecipeInfo, schematicForm)
-                or YQQuality.GetRecipeInfoForEntry(entry)
-            if YQQuality.IsEnchantingRecipeInfo(recipeInfo, entry) then
-                YQQuality.EnsureShatterMoteDemandForEntry(entry, recipeInfo)
-                local shatterState = YQQuality.GetShatterMoteState()
-                if not shatterState.active then
-                    if shatterState.itemID then
-                        DebugPrint("next-state order=" .. tostring(entry.orderID) .. " state=shatter")
-                        return {
-                            entry = entry,
-                            text = "Next: Shatter",
-                            enabled = true,
-                            action = "shatter",
-                            itemID = shatterState.itemID,
-                        }
-                    end
-                    return {
-                        entry = entry,
-                        text = (shatterState.mailboxCount or 0) > 0 and "Next: Mailbox" or "Next: mote",
-                        enabled = (shatterState.mailboxCount or 0) > 0,
-                        action = (shatterState.mailboxCount or 0) > 0 and "mailbox" or nil,
-                    }
-                end
-            end
-            DebugPrint("next-state order=" .. tostring(entry.orderID) .. " state=craft recipe=" .. tostring(recipeID))
-            return {
-                entry = entry,
-                text = "Next: Craft",
-                enabled = true,
-                action = "craft",
-                recipeID = recipeID,
-            }
-        end
-    end
-
-    if claimedOrder then
-        DebugPrint("next-state order=" .. tostring(entry.orderID) .. " state=blocked claimed=" .. tostring(claimedOrder.orderID))
-        return {
-            entry = entry,
-            text = "Next: attente",
-            enabled = false,
-        }
-    end
-
-    if not (claimedOrder and claimedOrder.orderID == entry.orderID) then
-        DebugPrint("next-state order=" .. tostring(entry.orderID) .. " state=claim")
+    if not claimedOrder then
         return {
             entry = entry,
             text = "Next: Start",
-            enabled = entry.professionID and type(C_CraftingOrders) == "table" and type(C_CraftingOrders.ClaimOrder) == "function",
+            enabled = type(C_CraftingOrders.ClaimOrder) == "function",
             action = "claim",
         }
     end
-
-    return {
-        entry = entry,
-        text = "Next: attente",
-        enabled = false,
-    }
-end
-
-state.TryOpenPatronOrder = function(entry, attempt)
-    if not entry or not entry.orderID then
-        ClearNextActionLock("open-invalid")
-        return
+    if claimedOrder.isFulfillable then
+        state.lastClaimedPatronOrderID = tonumber(claimedOrder.orderID) or 0
+        ClearPendingWorkOrderSubmit(entry.orderID)
+        return {
+            entry = entry,
+            text = "Next: Claim",
+            enabled = type(C_CraftingOrders.FulfillOrder) == "function",
+            action = "complete",
+        }
+    end
+    state.lastClaimedPatronOrderID = tonumber(claimedOrder.orderID) or 0
+    if IsPendingWorkOrderSubmit(entry.orderID) or IsCraftClickLocked() then
+        return { entry = entry, text = "Next: attente", enabled = false }
     end
 
-    local lock = GetNextActionLock()
-    if not lock or lock.action ~= "open" or lock.orderID ~= entry.orderID then
-        return
+    local mailboxTasks, vendorTasks, auctionTasks, acquireTasks = GetEntryResourceState(entry)
+    if #mailboxTasks > 0 then
+        return { entry = entry, text = "Next: Mailbox", enabled = true, action = "mailbox" }
     end
-
-    attempt = (attempt or 0) + 1
-    TrySelectProfessionTab(
-        (ProfessionsFrame and ProfessionsFrame.craftingOrdersTabID) or 3,
-        ProfessionsFrame and ProfessionsFrame.OrdersPage
-    )
-
-    local api = _G.YayaCraftingOrdersAPI
-    local ok, message = false, "YPO indisponible"
-    if api and type(api.ViewOrderByID) == "function" then
-        local callOK, result, resultMessage = pcall(api.ViewOrderByID, entry.orderID)
-        if callOK then
-            ok, message = result, resultMessage
-        else
-            message = result
+    if #vendorTasks > 0 or #auctionTasks > 0 or #acquireTasks > 0 then
+        return { entry = entry, text = "Next: materiaux", enabled = false }
+    end
+    local phialState = YQQuality.GetConcentrationPhialState(entry)
+    if phialState and not phialState.itemID then
+        return {
+            entry = entry,
+            text = (phialState.mailboxCount or 0) > 0 and "Next: Mailbox" or "Next: materiaux",
+            enabled = (phialState.mailboxCount or 0) > 0,
+            action = (phialState.mailboxCount or 0) > 0 and "mailbox" or nil,
+        }
+    end
+    GetDirectCraftingReagents(entry)
+    local toolAction = state.craftGear.GetToolAction(entry, nil)
+    if toolAction then
+        return toolAction
+    end
+    local recipeInfo = YQQuality.GetRecipeInfoForEntry(entry)
+    if YQQuality.IsEnchantingRecipeInfo(recipeInfo, entry) then
+        YQQuality.EnsureShatterMoteDemandForEntry(entry, recipeInfo)
+        local shatterState = YQQuality.GetShatterMoteState()
+        if not shatterState.active then
+            return {
+                entry = entry,
+                text = shatterState.itemID and "Next: Shatter" or "Next: mote",
+                enabled = shatterState.itemID ~= nil,
+                action = shatterState.itemID and "shatter" or nil,
+                itemID = shatterState.itemID,
+            }
         end
     end
-    DebugPrint("open-order attempt=" .. tostring(attempt) .. " order=" .. tostring(entry.orderID) .. " ok=" .. tostring(ok) .. " message=" .. tostring(message))
-    if ok then
-        state.ah.statusMessage = "Order ouvert"
-        ScheduleRefresh()
-        return
-    end
-
-    if attempt < 20 then
-        C_Timer.After(0.1, function()
-            state.TryOpenPatronOrder(entry, attempt)
-        end)
-        return
-    end
-
-    ClearNextActionLock("open-failed")
-    state.ah.statusMessage = type(message) == "string" and message or "Order introuvable"
-    ScheduleRefresh()
+    return {
+        entry = entry,
+        text = "Next: Craft",
+        enabled = type(C_TradeSkillUI) == "table" and type(C_TradeSkillUI.CraftRecipe) == "function",
+        action = "craft",
+        recipeID = entry.recipeID,
+    }
 end
 
 state.RunPatronNextAction = function()
@@ -4004,57 +3719,6 @@ state.RunPatronNextAction = function()
 
     if not stateInfo.enabled then
         state.ah.statusMessage = stateInfo.text or "Action indisponible"
-        ScheduleRefresh()
-        return
-    end
-
-    if stateInfo.action == "open" then
-        BeginNextActionLock("open", stateInfo.entry.orderID, 4.0)
-        state.TryOpenPatronOrder(stateInfo.entry, 0)
-        return
-    end
-
-    if stateInfo.action == "open_recipe" then
-        local professionID = stateInfo.entry.professionID
-        local recipeID = stateInfo.entry.recipeID
-        state.pendingQueuedRecipeConfig = {
-            recipeID = recipeID,
-            applyConcentration = NormalizeApplyConcentration(stateInfo.entry.applyConcentration),
-            -- CraftSim and TSM pass CraftingReagentInfo (dataSlotIndex) directly
-            -- when crafting. Legacy YayaQueue plans confused it with the UI's
-            -- slotIndex and could allocate two different reagents to one slot.
-            slotAllocations = {},
-            clearSlotIndices = {},
-            attempts = 0,
-        }
-
-        -- Cancel the previous async recipe load before navigation. Blizzard can clear
-        -- currentRecipeInfo without cancelling it, then run its stale callback.
-        local schematicForm = GetCraftingSchematicForm()
-        if schematicForm and schematicForm.loader and type(schematicForm.loader.Cancel) == "function" then
-            pcall(schematicForm.loader.Cancel, schematicForm.loader)
-        end
-
-        local currentProfessionID = state.GetCurrentProfessionID()
-        if professionID and currentProfessionID ~= professionID and type(C_TradeSkillUI.GetProfessionSkillLineID) == "function" and type(C_TradeSkillUI.OpenTradeSkill) == "function" then
-            local skillLineID = C_TradeSkillUI.GetProfessionSkillLineID(professionID)
-            if skillLineID then
-                C_TradeSkillUI.OpenTradeSkill(skillLineID)
-            end
-        end
-        TrySelectProfessionTab(
-            (ProfessionsFrame and ProfessionsFrame.recipesTabID) or 1,
-            ProfessionsFrame and ProfessionsFrame.CraftingPage
-        )
-        if type(C_TradeSkillUI.OpenRecipe) == "function" and recipeID then
-            C_Timer.After(0, function()
-                C_TradeSkillUI.OpenRecipe(recipeID)
-                ScheduleApplyQueuedRecipeConfig(0)
-            end)
-        else
-            ScheduleApplyQueuedRecipeConfig(0)
-        end
-        state.ah.statusMessage = "Recette ouverte"
         ScheduleRefresh()
         return
     end
@@ -4072,8 +3736,16 @@ state.RunPatronNextAction = function()
     end
 
     if stateInfo.action == "claim" then
-        BeginNextActionLock("claim", stateInfo.entry.orderID, 1.5)
-        C_CraftingOrders.ClaimOrder(stateInfo.entry.orderID, stateInfo.entry.professionID)
+        if not state.BeginPatronAction("claim", stateInfo.entry, 2.0) then
+            state.ah.statusMessage = "Commande patron invalide"
+            ScheduleRefresh()
+            return
+        end
+        local callOK = pcall(C_CraftingOrders.ClaimOrder, stateInfo.entry.orderID, stateInfo.entry.professionID)
+        if not callOK then
+            state.RefreshPatronOrder(stateInfo.entry.orderID, stateInfo.entry.professionID, "claim-call-failed")
+            return
+        end
         state.ah.statusMessage = "Action: Start"
         C_Timer.After(0, ScheduleRefresh)
         ScheduleRefresh()
@@ -4124,17 +3796,8 @@ state.RunPatronNextAction = function()
     end
 
     if stateInfo.action == "craft_normal" then
-        local _, recipeInfo, _, transaction = GetCurrentCraftingSchematicContext()
-        if not (transaction and type(transaction.CreateCraftingReagentInfoTbl) == "function") then
-            state.ah.statusMessage = "Transaction indisponible"
-            ScheduleRefresh()
-            return
-        end
-
-        local reagentInfo = NormalizeCraftingReagents(stateInfo.entry.craftingReagents)
-        if #reagentInfo == 0 then
-            reagentInfo = transaction:CreateCraftingReagentInfoTbl()
-        end
+        local recipeInfo = YQQuality.GetRecipeInfoForEntry(stateInfo.entry)
+        local reagentInfo = GetDirectCraftingReagents(stateInfo.entry)
         local applyConcentration = NormalizeApplyConcentration(stateInfo.entry.applyConcentration)
         local craftAmount = math.max(1, math.floor(tonumber(stateInfo.craftAmount) or 1))
         if applyConcentration and YQQuality.IsConcentrationPhialEnabled() then
@@ -4196,13 +3859,13 @@ state.RunPatronNextAction = function()
     end
 
     if stateInfo.action == "craft" then
-        local _, currentOrder, schematicForm, transaction = GetCurrentOrderSchematicContext()
         local currentClaimedOrder = type(C_CraftingOrders) == "table"
             and type(C_CraftingOrders.GetClaimedOrder) == "function"
             and C_CraftingOrders.GetClaimedOrder()
             or nil
-        if not (currentOrder and currentOrder.orderID == stateInfo.entry.orderID and currentClaimedOrder and currentClaimedOrder.orderID == stateInfo.entry.orderID) then
+        if not (currentClaimedOrder and tonumber(currentClaimedOrder.orderID) == tonumber(stateInfo.entry.orderID)) then
             state.ah.statusMessage = "Order non pret"
+            state.RefreshPatronOrder(stateInfo.entry.orderID, stateInfo.entry.professionID, "craft-order-mismatch")
             ScheduleRefresh()
             return
         end
@@ -4210,25 +3873,9 @@ state.RunPatronNextAction = function()
             ScheduleRefresh()
             return
         end
-        if not (schematicForm and transaction and type(transaction.CreateCraftingReagentInfoTbl) == "function") then
-            state.ah.statusMessage = "Transaction indisponible"
-            ScheduleRefresh()
-            return
-        end
-
-        if not YQQuality.ApplyPatronConcentration(stateInfo.entry, transaction) then
-            state.ah.statusMessage = "Concentration indisponible"
-            ScheduleRefresh()
-            return
-        end
-
-        local recipeID = stateInfo.recipeID or (type(transaction.GetRecipeID) == "function" and transaction:GetRecipeID()) or stateInfo.entry.recipeID
-        local reagentInfo = transaction:CreateCraftingReagentInfoTbl()
-        reagentInfo = FilterSuppliedOrderReagents(reagentInfo, currentOrder)
+        local recipeID = stateInfo.recipeID or stateInfo.entry.recipeID
+        local reagentInfo = GetDirectCraftingReagents(stateInfo.entry)
         local applyConcentration = NormalizeApplyConcentration(stateInfo.entry.applyConcentration)
-        if type(transaction.IsApplyingConcentration) == "function" then
-            applyConcentration = SafeCall(transaction.IsApplyingConcentration, transaction) == true
-        end
 
         if applyConcentration and YQQuality.IsConcentrationPhialEnabled() then
             local phialID = tonumber(stateInfo.entry.concentrationPhialItemID)
@@ -4245,11 +3892,30 @@ state.RunPatronNextAction = function()
             end
         end
 
-        BeginNextActionLock("craft", stateInfo.entry.orderID, 8.0)
+        if not state.BeginPatronAction("craft", stateInfo.entry, 8.0) then
+            state.ah.statusMessage = "Commande patron invalide"
+            ScheduleRefresh()
+            return
+        end
         MarkPendingWorkOrderSubmit(stateInfo.entry.orderID)
         BeginCraftClickLock()
         state.QueuePendingCraftEntry(stateInfo.entry)
-        C_TradeSkillUI.CraftRecipe(recipeID, 1, reagentInfo, nil, stateInfo.entry.orderID, applyConcentration)
+        local callOK = pcall(
+            C_TradeSkillUI.CraftRecipe,
+            recipeID,
+            1,
+            reagentInfo,
+            nil,
+            stateInfo.entry.orderID,
+            applyConcentration
+        )
+        if not callOK then
+            ClearPendingWorkOrderSubmit(stateInfo.entry.orderID)
+            state.ClearPendingCraftEntries()
+            EndCraftClickLock()
+            state.RefreshPatronOrder(stateInfo.entry.orderID, stateInfo.entry.professionID, "craft-call-failed")
+            return
+        end
         state.ah.statusMessage = "Action: Craft"
         C_Timer.After(0, ScheduleRefresh)
         ScheduleRefresh()
@@ -4257,10 +3923,19 @@ state.RunPatronNextAction = function()
     end
 
     if stateInfo.action == "complete" then
-        BeginNextActionLock("complete", stateInfo.entry.orderID, 3.0)
+        if not state.BeginPatronAction("complete", stateInfo.entry, 3.0) then
+            state.ah.statusMessage = "Commande patron invalide"
+            ScheduleRefresh()
+            return
+        end
         BeginCraftClickLock()
         ClearPendingWorkOrderSubmit(stateInfo.entry.orderID)
-        C_CraftingOrders.FulfillOrder(stateInfo.entry.orderID, "", stateInfo.entry.professionID)
+        local callOK = pcall(C_CraftingOrders.FulfillOrder, stateInfo.entry.orderID, "", stateInfo.entry.professionID)
+        if not callOK then
+            EndCraftClickLock()
+            state.RefreshPatronOrder(stateInfo.entry.orderID, stateInfo.entry.professionID, "fulfill-call-failed")
+            return
+        end
         state.ah.statusMessage = "Action: Claim"
         C_Timer.After(0, ScheduleRefresh)
         ScheduleRefresh()
@@ -10739,8 +10414,8 @@ local function CreateCraftPanel()
     end)
     nextButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Next patron order")
-        GameTooltip:AddLine("Ouvre puis clique l'action du prochain patron order en file.", 1, 1, 1, true)
+        GameTooltip:SetText("Next YayaQueue")
+        GameTooltip:AddLine("Lance directement la prochaine action en file sans changer la recette ni l'onglet.", 1, 1, 1, true)
         GameTooltip:Show()
     end)
     nextButton:SetScript("OnLeave", GameTooltip_Hide)
@@ -11181,8 +10856,6 @@ state.RefreshAll = function()
     YQQuality.EnsureShatterMoteDemandForEntry(GetNextQueueEntry())
     local summary = BuildQueueSummary()
     PruneSearchCache(summary)
-    ApplyQueuedRecipeConfigNow()
-
     CreateCraftPanel()
     if state.craft.panel then
         if SummaryHasTasks(summary) then
@@ -11241,6 +10914,8 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         addon:RegisterEvent("UNIT_SPELLCAST_FAILED")
         addon:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
         addon:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+        addon:RegisterEvent("CRAFTINGORDERS_CLAIMED_ORDER_UPDATED")
+        addon:RegisterEvent("CRAFTINGORDERS_CLAIMED_ORDER_REMOVED")
         addon:RegisterEvent("PLAYER_REGEN_ENABLED")
         addon:RegisterEvent("UNIT_AURA")
         HookCraftAPIs()
@@ -11284,6 +10959,52 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         return
     end
 
+    if event == "CRAFTINGORDERS_CLAIMED_ORDER_UPDATED" then
+        local pending = state.pendingPatronAction
+        local claimedOrder = type(C_CraftingOrders) == "table"
+            and type(C_CraftingOrders.GetClaimedOrder) == "function"
+            and C_CraftingOrders.GetClaimedOrder()
+            or nil
+        local claimedOrderID = tonumber(claimedOrder and claimedOrder.orderID) or 0
+        if claimedOrderID > 0 then
+            state.lastClaimedPatronOrderID = claimedOrderID
+        end
+        if pending and claimedOrderID == pending.orderID then
+            if pending.phase == "claim" then
+                state.pendingPatronAction = nil
+                ClearNextActionLock("patron-claim-confirmed")
+                state.ah.statusMessage = "Commande patron demarree"
+            elseif pending.phase == "craft" and claimedOrder.isFulfillable then
+                state.pendingPatronAction = nil
+                ClearNextActionLock("patron-craft-confirmed")
+                ClearPendingWorkOrderSubmit(claimedOrderID)
+                state.ah.statusMessage = "Craft termine: Claim"
+            end
+        end
+        ScheduleRefresh()
+        return
+    end
+
+    if event == "CRAFTINGORDERS_CLAIMED_ORDER_REMOVED" then
+        local pending = state.pendingPatronAction
+        local removedOrderID = tonumber(pending and pending.orderID) or state.lastClaimedPatronOrderID or 0
+        state.lastClaimedPatronOrderID = 0
+        if pending then
+            if pending.phase == "complete" then
+                state.FinalizePatronCompletion(pending.orderID, "claimed-order-removed")
+            else
+                state.RefreshPatronOrder(pending.orderID, pending.professionID, "claimed-order-removed")
+            end
+        elseif removedOrderID > 0 then
+            local entry = state.GetPatronQueueEntry(removedOrderID)
+            if entry then
+                state.RefreshPatronOrder(removedOrderID, entry.professionID, "claimed-order-removed")
+            end
+        end
+        ScheduleRefresh()
+        return
+    end
+
     if event == "TRADE_SKILL_DATA_SOURCE_CHANGED" then
         if state.alchemyAutoQueue.pendingProfessionID ~= false
             and alchemyAuto.IsAlchemyProfession(state.GetCurrentProfessionID())
@@ -11307,6 +11028,14 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             state.ClearPendingCraftEntries()
         end
         EndCraftClickLock()
+        local pendingPatronAction = state.pendingPatronAction
+        if pendingPatronAction then
+            state.RefreshPatronOrder(
+                pendingPatronAction.orderID,
+                pendingPatronAction.professionID,
+                "trade-skill-close"
+            )
+        end
         local nextActionLock = GetNextActionLock()
         if nextActionLock and nextActionLock.action == "craft" then
             ClearNextActionLock("trade-skill-close")
@@ -11492,6 +11221,15 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             ClearPendingCraftBatches()
             state.ClearPendingCraftEntries()
             EndCraftClickLock()
+            local pendingPatronAction = state.pendingPatronAction
+            if pendingPatronAction and pendingPatronAction.phase == "craft" then
+                ClearPendingWorkOrderSubmit(pendingPatronAction.orderID)
+                state.RefreshPatronOrder(
+                    pendingPatronAction.orderID,
+                    pendingPatronAction.professionID,
+                    string.lower(tostring(event))
+                )
+            end
             local nextActionLock = GetNextActionLock()
             if nextActionLock and nextActionLock.action == "craft" then
                 ClearNextActionLock(string.lower(tostring(event)))
@@ -11670,6 +11408,15 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
 
     if event == "UI_ERROR_MESSAGE" then
         local message = arg2
+        local pendingPatronAction = state.pendingPatronAction
+        if pendingPatronAction then
+            state.RefreshPatronOrder(
+                pendingPatronAction.orderID,
+                pendingPatronAction.professionID,
+                "ui-error"
+            )
+            return
+        end
         if (state.ah.pendingItem or state.ah.pendingCommodity) and (
             message == ERR_AUCTION_DATABASE_ERROR
             or message == ERR_AUCTION_HIGHER_BID
@@ -11777,6 +11524,8 @@ function YayaQueueAPI.SyncPatronOrders(orderIDs, professionID)
     local currentOrderID = tonumber(currentOrder and currentOrder.orderID) or 0
     local nextActionLock = GetNextActionLock()
     local lockedOrderID = tonumber(nextActionLock and nextActionLock.orderID) or 0
+    local pendingPatronAction = state.pendingPatronAction
+    local pendingOrderID = tonumber(pendingPatronAction and pendingPatronAction.orderID) or 0
     for index = #db.queue, 1, -1 do
         local entry = db.queue[index]
         local sameProfession = not professionID or tonumber(entry.professionID) == professionID
@@ -11784,6 +11533,7 @@ function YayaQueueAPI.SyncPatronOrders(orderIDs, professionID)
         local isActive = (orderID > 0 and orderID == claimedOrderID)
             or (orderID > 0 and orderID == currentOrderID)
             or (orderID > 0 and orderID == lockedOrderID)
+            or (orderID > 0 and orderID == pendingOrderID)
         if entry.queueKind == "patron" and sameProfession and not availableOrderIDs[orderID] and not isActive then
             removedOrderIDs[orderID] = true
             table.remove(db.queue, index)
