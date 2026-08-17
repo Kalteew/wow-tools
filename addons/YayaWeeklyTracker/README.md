@@ -38,6 +38,10 @@ Resume `Midnight` :
 - `KP x a placer` en rouge = plus de `5` points de connaissance non depenses dans ce metier
 - `+10KP (zone)` = livre de connaissance Midnight encore non consomme ; les livres d'Abundance sont suivis a partir du niveau 90 pour Enchantement, Herboristerie, Minage et Depeçage ; si le livre est deja dans les sacs, le rappel est masque au profit du bouton `Utiliser KP`
 - `moxie x/y` et `abondance x/y` = recapitulatif du cout des livres manquants ; la valeur passe en rouge si la monnaie manque
+- les outils de metier rares ou superieurs, soulbound, equipes ou presents dans les sacs, sont verifies pour chaque metier Midnight appris ; un metier sans outil bleu/violet equipe affiche `outil non equipe`, un outil sans enchantement affiche `outil sans enchant x1`, et un outil sans le bon enchantement R2 apparait dans `One time` (`outil MC x1`, `outil RF x1`, etc.)
+- les six stats d'outil Midnight sont gerees : Perception (`243965`), Resourcefulness (`243967`), Finesse (`243993`), Multicrafting (`243995`), Ingenuity (`244025`) et Deftness (`244023`) ; l'enchantement est valide par son `enchantID`, donc un rang 1 ou une mauvaise stat reste a corriger
+- `Pull enchants Warbank` retire seulement la quantite necessaire des stacks connus de la Warbank ; le bouton reste desactive si la Warbank doit etre ouverte ou si son contenu n'est pas connu
+- `Acheter enchants YQ` ajoute uniquement les deficits non deja demandes dans YayaQueue, en tenant compte des sacs et de la Warbank ; le calcul est relance apres ajout
 - le rappel `moxie x` reste affiche meme si aucun tresor, livre ou recette ne reste dans `One time`
 - les recettes manquantes suivies sont `Potion of Recklessness`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; leur etat connu utilise le tooltip Blizzard du personnage courant, comme Yaya Vendor Filter, puis les API metier en secours ; une recette ayant un cout Abundance n'est suivie qu'a partir du niveau 90
 - une recette suivie non apprise mais deja presente dans les sacs est retiree de `One time` ; un bouton `Utiliser recette` permet de la consommer directement

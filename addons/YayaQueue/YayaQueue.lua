@@ -2070,6 +2070,7 @@ local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, 
     return {
         recipeID = recipeID,
         recipeName = (recipeInfo and recipeInfo.name) or schematic.name or ("Recette " .. recipeID),
+        isEnchantingRecipe = type(recipeInfo) == "table" and recipeInfo.isEnchantingRecipe == true,
         outputItemID = outputItemID,
         outputPerCraft = math.max(1, tonumber(schematic.quantityMin) or 1),
         reagents = reagents,
@@ -2206,6 +2207,7 @@ local function GetCurrentRecipeContext()
     return {
         recipeID = recipeID,
         recipeName = recipeInfo.name or schematic.name or ("Recette " .. recipeID),
+        isEnchantingRecipe = recipeInfo.isEnchantingRecipe == true,
         outputItemID = schematic.outputItemID,
         outputPerCraft = math.max(1, tonumber(schematic.quantityMin) or 1),
         reagents = reagents,

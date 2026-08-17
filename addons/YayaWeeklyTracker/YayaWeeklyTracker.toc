@@ -4,7 +4,7 @@
 ## Author: Codex
 ## Version: 0.1.0
 ## Dependencies: YayaFrame
-## OptionalDeps: TomTom, YayaQueue, YayaContainerValues
+## OptionalDeps: TomTom, YayaQueue, YayaContainerValues, TradeSkillMaster
 ## SavedVariables: YayaWeeklyTrackerAccountDB
 ## SavedVariablesPerCharacter: YayaWeeklyTrackerDB
 
