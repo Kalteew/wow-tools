@@ -11,7 +11,7 @@ Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suiv
 - `Containing the Helsworn` si la recompense est du gold brut
 - `Great Vault: a ouvrir` quand une recompense est disponible
 - `Abondance` a partir du niveau 90
-- `Shard of Dundun: 8/8 a depenser` quand le plafond de monnaie est atteint
+- `Shard of Dundun: 8/8 a depenser` a partir du niveau 90 quand le plafond de monnaie est atteint
 - le world boss `Midnight` actif selon les options `World boss si gold` et `World boss si ilvl`, au niveau 90 ; il reste toujours tracke si l'objectif Liadrin actif est `Midnight: World Boss`
 - le world boss de la rotation `Val`/`Naigtal` au niveau 90 ; un seul boss est affiche selon la quete active de la semaine (`Imperator Pertinax` ou `Nexus-Captain Leth'ir`)
 - `Defense des runestones` de la Soiree de Saltheril, au niveau 90

@@ -5086,7 +5086,8 @@ trackerUI.AddGeneralWeeklyEntries = function(entries, activeByQuestID)
     end
 
     local shardQuantity = GetCurrencyQuantity(runtimeState.midnightShardOfDundunCurrencyID)
-    if shardQuantity >= runtimeState.midnightShardOfDundunCap then
+    if level >= runtimeState.minimumMidnightAbundanceLevel
+        and shardQuantity >= runtimeState.midnightShardOfDundunCap then
         AddEntry(entries, "Shard of Dundun", "todo", {
             displayText = ("Shard of Dundun: |cffff6666%d/%d a depenser|r"):format(
                 shardQuantity,
