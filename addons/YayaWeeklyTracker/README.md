@@ -43,6 +43,8 @@ Resume `Midnight` :
 - les six stats d'outil Midnight sont gerees : Perception (`243965`), Resourcefulness (`243967`), Finesse (`243993`), Multicrafting (`243995`), Ingenuity (`244025`) et Deftness (`244023`) ; l'enchantement est valide par son `enchantID`, donc un rang 1 ou une mauvaise stat reste a corriger
 - `Pull enchants Warbank` retire seulement la quantite necessaire des stacks connus de la Warbank ; le bouton reste desactive si la Warbank doit etre ouverte ou si son contenu n'est pas connu
 - `Acheter enchants YQ` ajoute uniquement les deficits non deja demandes dans YayaQueue, en tenant compte des sacs et de la Warbank ; le calcul est relance apres ajout
+- `Appliquer ...` apparait quand l'enchant requis est dans les sacs et cible directement le slot de l'outil equipe correspondant
+- apres confirmation que l'outil porte bien le nouvel `enchantID`, le bouton retire une unite de cet enchantement de la demande directe YayaQueue ; un clic annule ou echoue ne retire rien
 - le rappel `moxie x` reste affiche meme si aucun tresor, livre ou recette ne reste dans `One time`
 - les recettes manquantes suivies sont `Potion of Recklessness`, `Vicious Thalassian Flask of Honor`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; leur etat connu utilise le tooltip Blizzard du personnage courant, comme Yaya Vendor Filter, puis les API metier en secours ; une recette ayant un cout Abundance n'est suivie qu'a partir du niveau 90
 - une recette suivie non apprise mais deja presente dans les sacs est retiree de `One time` ; un bouton `Utiliser recette` permet de la consommer directement
@@ -64,7 +66,7 @@ Resume `Midnight` :
 - des boutons `Fusionner` apparaissent pour les Resourceful Rebar (`247725`), Multicraft Matrix (`247719`) et Ingenious Identifier (`260630`) dès que 5 rang 1 sont dans les sacs ; un clic utilise 5 rang 1 pour créer leur version rang 2 (`247726`, `247724`, `247788`)
 - les boutons d'action d'item (KP, recette, payout, surplus, fusion et traité) invalident leur cache et rafraichissent leur valeur dès le clic, puis se verrouillent pour bloquer le multiclic jusqu'à `BAG_UPDATE_DELAYED`
 - les boutons payout et surplus n'utilisent pas de watchdog : ils itèrent sur les containers disponibles au fil des refreshs de sacs
-- l'option `Ouvrir automatiquement les conteneurs YWT` est desactivee par defaut ; si elle est activee, elle ouvre un par un les coffres, payouts et surplus suivis, uniquement hors combat et hors interfaces sensibles ; apres chaque recuperation depuis la boite aux lettres, elle attend 0,5 s apres le dernier evenement de courrier avant de rescanner les sacs
+- l'option `Ouvrir automatiquement les conteneurs YWT` est desactivee par defaut ; si elle est activee, elle ouvre un par un les coffres, payouts et surplus suivis, masque leurs boutons manuels, uniquement hors combat et hors interfaces sensibles ; apres chaque recuperation depuis la boite aux lettres, elle attend 0,5 s apres le dernier evenement de courrier avant de rescanner les sacs
 - les consommables KP restent volontairement manuels : WoW refuse leur utilisation automatique
 - si `Tracker les traites (inscription)` est active, un bouton par traite hebdomadaire manquant apparait a l'ouverture de la Warbank lorsqu'un stack correspondant y est present ; le clic retire le stack complet sans split
 - si YayaContainerValues est charge, ses hooks suivent l'utilisation réelle de l'item afin d'éviter les doubles signalements lors des clics rapides

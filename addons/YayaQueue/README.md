@@ -10,6 +10,7 @@ Addon Retail simple pour :
 - ancrer le coin inférieur gauche de la fenêtre pour que ses changements de hauteur s'étendent vers le haut et la droite
 - inclure le réactif actuellement sélectionné dans les slots requis sélectionnables (par exemple Mote of Primal Energy), même si l’API de transaction l’omet
 - ajouter en une fois les first crafts connus non realises dont le cout CraftSim est strictement inferieur a 1000 po
+- exclure automatiquement des first crafts les recettes qui consomment un Spark, de l'Artisan's Mettle/Acuity ou du Fused Vitality
 - garder une frame flottante a l'ecran pour suivre la queue
 - accepter des ajouts externes via `YayaQueueAPI.AddRecipe(...)`, des besoins supplementaires via `YayaQueueAPI.AddItem(...)`, leur lecture via `YayaQueueAPI.GetDirectItemQuantity(...)`, leur retrait via `YayaQueueAPI.RemoveItem(...)` et des cibles idempotentes via `YayaQueueAPI.SetItemTarget(...)`
 - afficher ce qu'il reste a acheter a l'HV ou au marchand

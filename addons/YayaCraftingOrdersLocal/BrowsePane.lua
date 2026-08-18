@@ -83,7 +83,7 @@ local CONCENTRATION_FILTER_ALL = "all"
 local CONCENTRATION_FILTER_NEEDS = "needs"
 local CONCENTRATION_FILTER_NONE = "none"
 local PATRON_VALUE = {
-	knowledgePointGold = 300,
+	knowledgePointGold = 1000,
 	firstCraft = 1000 * COPPER_PER_GOLD,
 	skillUp = 200 * COPPER_PER_GOLD,
 	moxiePerPointGold = 4,
@@ -167,6 +167,7 @@ Pane.orders = {}
 Pane.selectedOrderIDsByProfession = {}
 Pane.selectedOrderIDs = {}
 Pane.preparedOrderCache = {}
+Pane.knowledgeProgressCache = {}
 Pane.autoQueuedOrderIDsBySession = {}
 Pane.rebuildGeneration = 0
 Pane.ordersGeneration = 0
@@ -2039,6 +2040,76 @@ local function GetOutputPresentation(order, recipeInfo)
 	}
 end
 
+function Pane:GetKnowledgeProgressForRecipe(recipeInfo)
+	if not (recipeInfo and recipeInfo.recipeID and C_ProfSpecs and C_Traits and C_TradeSkillUI) then
+		return nil
+	end
+
+	local okProfession, professionInfo = Util.SafeCall(
+		C_TradeSkillUI.GetProfessionInfoByRecipeID,
+		recipeInfo.recipeID
+	)
+	if not okProfession or type(professionInfo) ~= "table" then
+		return nil
+	end
+
+	local skillLineID = tonumber(professionInfo.professionID or professionInfo.skillLineID)
+	if not skillLineID then
+		return nil
+	end
+
+	self.knowledgeProgressCache = self.knowledgeProgressCache or {}
+	local cached = self.knowledgeProgressCache[skillLineID]
+	if cached then
+		return cached
+	end
+
+	local okConfig, configID = Util.SafeCall(C_ProfSpecs.GetConfigIDForSkillLine, skillLineID)
+	if not okConfig or not configID or configID <= 0 then
+		return nil
+	end
+
+	local okConfigInfo, configInfo = Util.SafeCall(C_Traits.GetConfigInfo, configID)
+	if not okConfigInfo or type(configInfo) ~= "table" then
+		return nil
+	end
+
+	local allocated = 0
+	local maximum = 0
+	local seenNodes = {}
+	for _, treeID in ipairs(configInfo.treeIDs or EMPTY_LIST) do
+		local okNodes, nodeIDs = Util.SafeCall(C_Traits.GetTreeNodes, treeID)
+		if okNodes then
+			for _, nodeID in ipairs(nodeIDs or EMPTY_LIST) do
+				if not seenNodes[nodeID] then
+					seenNodes[nodeID] = true
+					local okNode, nodeInfo = Util.SafeCall(C_Traits.GetNodeInfo, configID, nodeID)
+					local maxRanks = tonumber(nodeInfo and nodeInfo.maxRanks)
+					local activeRank = tonumber(nodeInfo and nodeInfo.activeRank)
+					if maxRanks and maxRanks > 1 then
+						local maxRank = math.max(0, maxRanks - 1)
+						local currentRank = math.max(0, (activeRank or 0) - 1)
+						maximum = maximum + maxRank
+						allocated = allocated + math.min(maxRank, currentRank)
+					end
+				end
+			end
+		end
+	end
+
+	if maximum <= 0 then
+		return nil
+	end
+
+	local result = {
+		allocated = allocated,
+		maximum = maximum,
+		remainingRatio = math.max(0, math.min(1, 1 - allocated / maximum)),
+	}
+	self.knowledgeProgressCache[skillLineID] = result
+	return result
+end
+
 local function EvaluateRewardValue(order, recipeInfo)
 	local rewardGold = math.max(0, (order.tipAmount or 0) - (order.consortiumCut or 0))
 	local rewardItemValue = 0
@@ -2130,10 +2201,12 @@ local function EvaluateRewardValue(order, recipeInfo)
 	local knowledgeValueGold = ns.GetPatronValueGold
 		and ns.GetPatronValueGold("patronKnowledgeValueGold", PATRON_VALUE.knowledgePointGold)
 		or PATRON_VALUE.knowledgePointGold
+	local knowledgeProgress = Pane:GetKnowledgeProgressForRecipe(recipeInfo)
+	local knowledgeRemainingRatio = knowledgeProgress and knowledgeProgress.remainingRatio or 1
 	local moxieValueGold = ns.GetPatronValueGold
 		and ns.GetPatronValueGold("patronMoxieValueGold", PATRON_VALUE.moxiePerPointGold)
 		or PATRON_VALUE.moxiePerPointGold
-	local knowledgeValue = rewardKnowledge * knowledgeValueGold * COPPER_PER_GOLD
+	local knowledgeValue = rewardKnowledge * knowledgeValueGold * knowledgeRemainingRatio * COPPER_PER_GOLD
 	local firstCraftValue = firstCraftCount * PATRON_VALUE.firstCraft
 	local skillUpValue = skillUpCount * PATRON_VALUE.skillUp
 	local moxieValue = rewardMoxie * moxieValueGold * COPPER_PER_GOLD
@@ -2152,6 +2225,10 @@ local function EvaluateRewardValue(order, recipeInfo)
 		icons = rewardIcons,
 		knowledge = rewardKnowledge,
 		knowledgeValue = knowledgeValue,
+		knowledgeReferenceValueGold = knowledgeValueGold,
+		knowledgeRemainingRatio = knowledgeRemainingRatio,
+		knowledgeAllocated = knowledgeProgress and knowledgeProgress.allocated or nil,
+		knowledgeMaximum = knowledgeProgress and knowledgeProgress.maximum or nil,
 		firstCraft = firstCraftCount > 0,
 		firstCraftValue = firstCraftValue,
 		skillUps = skillUpCount,
@@ -6220,6 +6297,8 @@ function Pane:MarkDirty(reason)
 		end
 	elseif configKey == "pricingSource" then
 		self.needsRebuild = true
+	elseif configKey == "patronKnowledgeValueGold" or configKey == "patronMoxieValueGold" then
+		self.needsRebuild = true
 	elseif IsRenderOnlyConfigKey(configKey) then
 		self.needsRender = true
 	end
@@ -7032,6 +7111,7 @@ function Pane:InitializeEvents()
 	end)
 
 	ns.RegisterEvent("TRADE_SKILL_DATA_SOURCE_CHANGED", function()
+		Pane.knowledgeProgressCache = {}
 		local snapshot = Pane:GetProfessionSnapshot()
 		ns.Debug(
 			"event",
@@ -7048,6 +7128,16 @@ function Pane:InitializeEvents()
 				Pane:MaybeStartPatronAutoScan("trade-skill-source")
 			end
 		end)
+	end)
+
+	ns.RegisterEvent("TRAIT_CONFIG_UPDATED", function()
+		Pane.knowledgeProgressCache = {}
+		Pane:MarkDirty("trade-skill-source")
+	end)
+
+	ns.RegisterEvent("TRAIT_TREE_CURRENCY_INFO_UPDATED", function()
+		Pane.knowledgeProgressCache = {}
+		Pane:MarkDirty("trade-skill-source")
 	end)
 
 	ns.RegisterEvent("TRADE_SKILL_SHOW", function()

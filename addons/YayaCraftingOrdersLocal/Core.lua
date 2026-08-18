@@ -12,6 +12,7 @@ ns.Util = {}
 local IsAddOnLoadedAPI = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
 local GetAddOnMetadataAPI = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
 local CURSE_PROJECT_VERSION_TOKEN = "@project" .. "-version@"
+local PATRON_VALUE_DEFAULTS_VERSION = 2
 
 local defaults = {
 	pricingSource = "tsm",
@@ -21,8 +22,9 @@ local defaults = {
 	openPatronOrderBehavior = "none",
 	warnExpensiveIngredients = true,
 	expensiveIngredientThresholdPercent = 10,
-	patronKnowledgeValueGold = 300,
+	patronKnowledgeValueGold = 1000,
 	patronMoxieValueGold = 4,
+	patronValueDefaultsVersion = PATRON_VALUE_DEFAULTS_VERSION,
 	greyUnknownRecipes = true,
 	showRewardValue = true,
 	showSilverCopperInList = false,
@@ -51,6 +53,12 @@ local function MigrateDatabase(db)
 	end
 
 	db.pricingSource = "tsm"
+	if (tonumber(db.patronValueDefaultsVersion) or 0) < PATRON_VALUE_DEFAULTS_VERSION then
+		if tonumber(db.patronKnowledgeValueGold) == 300 then
+			db.patronKnowledgeValueGold = 1000
+		end
+		db.patronValueDefaultsVersion = PATRON_VALUE_DEFAULTS_VERSION
+	end
 end
 
 local function CopyBooleanMap(source, destination)

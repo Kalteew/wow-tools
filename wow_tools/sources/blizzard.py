@@ -52,6 +52,10 @@ class BlizzardClient:
         self._token_expires_at = 0.0
         self._token_lock = threading.Lock()
 
+    def validate_credentials(self) -> None:
+        """Fail before starting a multi-realm sync when OAuth is not configured."""
+        _credentials()
+
     def _get_access_token(self) -> str:
         if self._access_token and time.time() < self._token_expires_at:
             return self._access_token

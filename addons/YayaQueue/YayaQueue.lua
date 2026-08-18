@@ -12,6 +12,8 @@ local CONFIG = {
     CRAFT_PANEL_LINE_HEIGHT = 16,
     FIRST_CRAFT_COST_LIMIT = 1000 * 10000,
     FIRST_CRAFT_EXCLUDED_ITEM_IDS = {
+        [190456] = true, -- Artisan's Mettle
+        [210814] = true, -- Artisan's Acuity
         [245345] = true, -- Fused Vitality
     },
     ALCHEMY_PROFESSION_IDS = {
@@ -62,7 +64,13 @@ local CONFIG = {
         [393] = "missives", -- Midnight: Customize Secondary Stats
     },
     SPARK_ITEM_IDS = {
+        [190453] = true, -- Spark of Ingenuity
+        [204440] = true, -- Spark of Shadowflame
+        [206959] = true, -- Spark of Dreams
+        [211296] = true, -- Spark of Omens
+        [211516] = true, -- Spark of Awakening
         [232875] = true, -- Spark of Radiance
+        [274476] = true, -- Spark of Tides
     },
     GOLD_STAR_MERGE_CHAIN = {
         { inputItemID = 246447, outputItemID = 246448, recipeID = 1269450, inputQuantity = 5, name = "Artisan's Ledger" },
@@ -3158,12 +3166,16 @@ local function BuildQueueSummary()
             table.insert(summary.craftTasks, {
                 recipeID = entry.recipeID,
                 name = entry.recipeName or ("Recette " .. tostring(entry.recipeID)),
+                itemID = tonumber(entry.outputItemID)
+                    or (entry.queueKind == "recycle" and CONFIG.RECYCLE_POTIONS_ITEM_ID or nil),
                 remainingCount = remainingCount,
                 mode = mode,
                 queueKind = entry.queueKind,
                 isSalvageRecipe = entry.isSalvageRecipe == true,
                 targetQuality = entry.targetQuality,
                 targetQualitySimplified = entry.targetQualitySimplified == true,
+                quality = entry.targetQuality,
+                qualitySimplified = entry.targetQualitySimplified == true,
             })
 
             for _, reagent in ipairs(entry.reagents or {}) do
@@ -3186,6 +3198,7 @@ local function BuildQueueSummary()
 
     for itemID, task in pairs(neededByItemID) do
         task.name = GetItemName(itemID)
+        task.quality, task.qualitySimplified = YQQuality.GetProfessionItemQuality(itemID)
         task.owned = YQQuality.GetIngenuityPhialCount(
             itemID,
             (itemID == CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[1]
@@ -3213,6 +3226,8 @@ local function BuildQueueSummary()
                     owned = task.owned,
                     mailbox = task.mailbox,
                     missing = mailboxMissing,
+                    quality = task.quality,
+                    qualitySimplified = task.qualitySimplified == true,
                 })
             end
             if remainingMissing > 0 then
@@ -3248,28 +3263,26 @@ local function BuildCraftLines(summary)
     local lines = {}
 
     for _, task in ipairs(summary.mailboxTasks) do
-        table.insert(lines, "Mailbox " .. task.missing .. "x " .. task.name)
+        table.insert(lines, "Mailbox " .. task.missing .. "x " .. task.name .. YQQuality.GetTaskQualityText(task))
     end
     for _, task in ipairs(summary.acquireTasks) do
-        table.insert(lines, "Acquérir " .. task.missing .. "x " .. task.name)
+        table.insert(lines, "Acquérir " .. task.missing .. "x " .. task.name .. YQQuality.GetTaskQualityText(task))
     end
     for _, task in ipairs(summary.auctionTasks) do
-        table.insert(lines, "HV " .. task.missing .. "x " .. task.name)
+        table.insert(lines, "HV " .. task.missing .. "x " .. task.name .. YQQuality.GetTaskQualityText(task))
     end
     for _, task in ipairs(summary.vendorTasks) do
-        table.insert(lines, "Marchand " .. task.missing .. "x " .. task.name)
+        table.insert(lines, "Marchand " .. task.missing .. "x " .. task.name .. YQQuality.GetTaskQualityText(task))
     end
     for _, task in ipairs(summary.craftTasks) do
+        local qualityText = YQQuality.GetTaskQualityText(task)
         if task.queueKind == "recycle" then
-            table.insert(lines, "Recycle " .. task.remainingCount .. "x " .. task.name)
+            table.insert(lines, "Recycle " .. task.remainingCount .. "x " .. task.name .. qualityText)
         elseif task.queueKind == "merge" then
-            table.insert(lines, "Fusion " .. task.remainingCount .. "x " .. task.name)
+            table.insert(lines, "Fusion " .. task.remainingCount .. "x " .. task.name .. qualityText)
         elseif task.isSalvageRecipe and IsMidnightMillingRecipe(task.recipeID) then
-            table.insert(lines, "Milling " .. task.remainingCount .. "x " .. task.name)
+            table.insert(lines, "Milling " .. task.remainingCount .. "x " .. task.name .. qualityText)
         else
-            local qualityText = task.targetQuality and (
-                " " .. YQQuality.GetQualityIcon(task.targetQuality, 16, task.targetQualitySimplified)
-            ) or ""
             table.insert(lines, "Craft " .. task.remainingCount .. "x " .. task.name .. qualityText)
         end
     end
@@ -4504,6 +4517,8 @@ local function GetCurrentMerchantTasks(summary, excludedItems)
                 itemID = task.itemID,
                 missing = task.missing,
                 name = task.name,
+                quality = task.quality,
+                qualitySimplified = task.qualitySimplified == true,
             }
         end
     end
@@ -5964,6 +5979,7 @@ local function IsExcludedFirstCraftReagent(reagent)
         or nil
     local currencyID = tonumber(reagent and reagent.currencyID)
     return CONFIG.FIRST_CRAFT_EXCLUDED_ITEM_IDS[itemID] == true
+        or CONFIG.SPARK_ITEM_IDS[itemID] == true
         or CONFIG.FIRST_CRAFT_EXCLUDED_ITEM_IDS[currencyID] == true
 end
 
@@ -6610,7 +6626,10 @@ local function UpdateVendorButtons(summary)
     if button and #tasks > 0 then
         button.tasks = tasks
         if #tasks == 1 then
-            button:SetText("Acheter " .. tasks[1].missing .. "x " .. tasks[1].name)
+            button:SetText(
+                "Acheter " .. tasks[1].missing .. "x " .. tasks[1].name
+                    .. YQQuality.GetTaskQualityText(tasks[1])
+            )
         else
             button:SetText("Tout acheter (" .. #tasks .. " composants)")
         end
@@ -6959,7 +6978,11 @@ local function UpdateAuctionLines(summary)
         if estimateText == "?" then
             hasUnknownEstimate = true
         end
-        table.insert(lines, task.missing .. "x " .. task.name .. " [" .. suffix .. "] ~ " .. estimateText)
+        table.insert(
+            lines,
+            task.missing .. "x " .. task.name .. YQQuality.GetTaskQualityText(task)
+                .. " [" .. suffix .. "] ~ " .. estimateText
+        )
     end
 
     if #lines == 0 then
@@ -7172,6 +7195,79 @@ function YQQuality.GetQualityIcon(quality, size, simplified)
         return CreateAtlasMarkup(YQQuality.GetQualityAtlas(quality, simplified), size or 22, size or 22, 0, -2)
     end
     return "|TInterface\\Professions\\ProfessionsQualityIcons:" .. tostring(size or 22) .. "|t"
+end
+
+function YQQuality.GetProfessionItemQuality(item)
+    if not item then
+        return nil
+    end
+
+    local function ParseQualityIcon(value)
+        if type(value) ~= "string" then
+            return nil
+        end
+        local quality = tonumber(value:match("Professions%-ChatIcon%-Quality%-12%-Tier(%d+)"))
+            or tonumber(value:match("Professions%-ChatIcon%-Quality%-Tier(%d+)"))
+            or tonumber(value:match("Professions%-Icon%-Quality%-12%-Tier(%d+)"))
+            or tonumber(value:match("Professions%-Icon%-Quality%-Tier(%d+)"))
+        if quality and quality > 0 then
+            return quality, value:find("Quality%-12%-Tier") ~= nil
+        end
+    end
+
+    local quality, simplified = ParseQualityIcon(item)
+    if quality then
+        return quality, simplified
+    end
+
+    if type(C_TradeSkillUI) ~= "table" then
+        return nil
+    end
+
+    if type(C_TradeSkillUI.GetItemReagentQualityByItemInfo) == "function" then
+        quality = tonumber(SafeCall(C_TradeSkillUI.GetItemReagentQualityByItemInfo, item))
+        if quality and quality > 0 then
+            local info = type(C_TradeSkillUI.GetItemReagentQualityInfo) == "function"
+                and SafeCall(C_TradeSkillUI.GetItemReagentQualityInfo, item)
+                or nil
+            local infoQuality, infoSimplified = ParseQualityIcon(info and (info.iconChat or info.icon))
+            return quality, infoQuality and infoSimplified or false
+        end
+    end
+
+    if type(C_TradeSkillUI.GetItemReagentQualityInfo) == "function" then
+        local info = SafeCall(C_TradeSkillUI.GetItemReagentQualityInfo, item)
+        if type(info) == "table" then
+            quality, simplified = ParseQualityIcon(info.iconChat or info.icon)
+            quality = quality or tonumber(info.quality or info.qualityID)
+            if quality and quality > 0 then
+                return quality, simplified == true
+            end
+        end
+    end
+
+    if type(C_TradeSkillUI.GetItemCraftedQualityByItemInfo) == "function" then
+        quality = tonumber(SafeCall(C_TradeSkillUI.GetItemCraftedQualityByItemInfo, item))
+        if quality and quality > 0 then
+            return quality, false
+        end
+    end
+end
+
+function YQQuality.GetTaskQualityText(task)
+    if type(task) ~= "table" then
+        return ""
+    end
+
+    local quality = tonumber(task.quality)
+    local simplified = task.qualitySimplified == true
+    if not quality or quality <= 0 then
+        quality, simplified = YQQuality.GetProfessionItemQuality(task.itemID)
+    end
+    if quality and quality > 0 then
+        return " " .. YQQuality.GetQualityIcon(quality, 16, simplified)
+    end
+    return ""
 end
 
 function YQQuality.GetTSMItemString(item)

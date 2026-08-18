@@ -476,6 +476,7 @@ def sync_auction_data(
 ) -> dict[str, Any]:
     region = region.lower()
     client = BlizzardClient()
+    client.validate_credentials()
     if not conn.execute("SELECT 1 FROM auction_catalog LIMIT 1").fetchone():
         sync_auction_catalog(conn, cache, region, force=force)
     if not conn.execute("SELECT 1 FROM auction_realms WHERE region = ? LIMIT 1", (region,)).fetchone():

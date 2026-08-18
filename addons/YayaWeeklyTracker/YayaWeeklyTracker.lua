@@ -1244,6 +1244,7 @@ runtimeState.bagScanRetryQueued = {}
 runtimeState.bagScanRetryToken = {}
 runtimeState.itemActionRefreshPending = false
 runtimeState.itemActionForceBagRefresh = false
+runtimeState.toolEnchantApplicationPending = {}
 local questStateCache = {}
 local questRewardCache = {}
 local midnightCaches = {
@@ -1329,6 +1330,9 @@ trackerUI.UnlockItemActionButtons = function()
         Unlock(button)
     end
     for _, button in ipairs(frame.warbankTreatiseButtons or EMPTY_TABLE) do
+        Unlock(button)
+    end
+    for _, button in ipairs(frame.toolEnchantApplyButtons or EMPTY_TABLE) do
         Unlock(button)
     end
 end
@@ -3361,6 +3365,10 @@ trackerUI.UpdateArtisanConsortiumPayoutButton = function(state)
         return false
     end
 
+    if GetAccountDB().autoOpenContainers == true then
+        state = nil
+    end
+
     if state and state.itemID then
         if not button.itemActionLocked then
             button:SetEnabled(true)
@@ -3404,10 +3412,11 @@ end
 trackerUI.UpdateSurplusReagentButtons = function(states)
     local buttons = trackerFrame and trackerFrame.surplusReagentButtons or EMPTY_TABLE
     local visibleCount = 0
+    local autoOpenContainers = GetAccountDB().autoOpenContainers == true
 
     for index, button in ipairs(buttons) do
         local state = states and states[index] or nil
-        if state and state.itemID then
+        if state and state.itemID and not autoOpenContainers then
             if not button.itemActionLocked then
                 button:SetEnabled(true)
             end
@@ -3819,6 +3828,7 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         requiredByItemID = {},
         pullPlan = {},
         buyPlan = {},
+        applyEnchants = {},
         pullQuantity = 0,
         buyQuantity = 0,
         pending = false,
@@ -3834,6 +3844,7 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             missingEnchantTools = {},
             missingByItemID = {},
             tools = {},
+            applyEnchants = {},
             hasEquippedTool = false,
             equippedToolPending = false,
             professionID = nil,
@@ -3879,6 +3890,29 @@ trackerUI.FindToolEnchantState = function(trackedRows)
 
         local profession = result.bySkillLineID[skillLineID]
         profession.tools[#profession.tools + 1] = details
+        if source == "equipment"
+            and details.statInfo
+            and details.enchantID ~= details.statInfo.enchantID
+            and slotIndex then
+            local toolName = type(GetItemInfo) == "function"
+                and SafeCall(GetItemInfo, itemLink or itemID)
+                or nil
+            local action = {
+                skillLineID = skillLineID,
+                enchantItemID = details.statInfo.itemID,
+                expectedEnchantID = details.statInfo.enchantID,
+                enchantLink = details.statInfo.itemLink,
+                toolItemID = details.itemID,
+                toolLink = details.itemLink,
+                toolName = toolName,
+                toolSlot = slotIndex,
+                statKey = details.statKey,
+                statLabel = details.statInfo.label,
+                professionLabel = profession.label,
+            }
+            profession.applyEnchants[#profession.applyEnchants + 1] = action
+            result.applyEnchants[#result.applyEnchants + 1] = action
+        end
         local function AddRequiredEnchant(includeWrongEnchantWarning)
             if not details.statInfo then
                 return
@@ -3919,6 +3953,7 @@ trackerUI.FindToolEnchantState = function(trackedRows)
 
     for _, row in ipairs(trackedRows) do
         local profession = result.bySkillLineID[row.skillLineID]
+        profession.label = row.config and row.config.label or nil
         local professionID = trackerUI.GetProfessionIDForSkillLine(row.skillLineID)
         profession.professionID = professionID
         if not professionID
@@ -3985,13 +4020,14 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         for _, tool in pairs(profession.missingTools) do
             wrongEnchantCount = wrongEnchantCount + (tool.quantity or 0)
         end
-        debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d equipped=%s pending=%s"):format(
+        debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d apply=%d equipped=%s pending=%s"):format(
             row.skillLineID,
             tostring(profession.professionID),
             tostring(profession.toolSlot),
             #profession.tools,
             unenchantedCount,
             wrongEnchantCount,
+            #profession.applyEnchants,
             tostring(profession.hasEquippedTool),
             tostring(profession.equippedToolPending)
         )
@@ -4058,9 +4094,71 @@ trackerUI.FindToolEnchantState = function(trackedRows)
 
     table.sort(result.pullPlan, function(left, right) return left.itemID < right.itemID end)
     table.sort(result.buyPlan, function(left, right) return left.itemID < right.itemID end)
+    table.sort(result.applyEnchants, function(left, right)
+        return (left.toolSlot or 0) < (right.toolSlot or 0)
+    end)
     midnightCaches.toolEnchants = result
     midnightCaches.toolEnchantsDirty = false
     return result
+end
+
+trackerUI.MarkToolEnchantApplicationPending = function(action)
+    if not action or not action.skillLineID or not action.toolSlot or not action.enchantItemID then
+        return
+    end
+
+    local key = tostring(action.skillLineID) .. ":" .. tostring(action.toolSlot)
+    runtimeState.toolEnchantApplicationPending[key] = {
+        skillLineID = action.skillLineID,
+        toolSlot = action.toolSlot,
+        enchantItemID = action.enchantItemID,
+        expectedEnchantID = action.expectedEnchantID,
+        expiresAt = (GetTime and GetTime() or 0) + 30,
+    }
+end
+
+trackerUI.ConfirmToolEnchantApplications = function(state)
+    local pendingApplications = runtimeState.toolEnchantApplicationPending or EMPTY_TABLE
+    local now = GetTime and GetTime() or 0
+    for key, action in pairs(pendingApplications) do
+        if action.expiresAt and now > action.expiresAt then
+            pendingApplications[key] = nil
+        else
+            local profession = state and state.bySkillLineID[action.skillLineID]
+            local confirmed = false
+            for _, tool in ipairs(profession and profession.tools or EMPTY_TABLE) do
+                if tool.source == "equipment"
+                    and tool.slotIndex == action.toolSlot
+                    and tool.enchantID == action.expectedEnchantID then
+                    confirmed = true
+                    break
+                end
+            end
+            if confirmed then
+                local removedQuantity = 0
+                if YayaQueueAPI and type(YayaQueueAPI.RemoveItem) == "function" then
+                    local ok
+                    ok, removedQuantity = YayaQueueAPI.RemoveItem(action.enchantItemID, 1)
+                    if not ok then
+                        removedQuantity = 0
+                    end
+                end
+                if removedQuantity > 0 then
+                    print(("YWT: Retire 1x enchantement %s de YayaQueue (outil enchante)"):format(
+                        action.enchantItemID
+                    ))
+                end
+                DebugLog(
+                    "Tool enchant applied skillLine=%s slot=%s item=%s removed=%s",
+                    tostring(action.skillLineID),
+                    tostring(action.toolSlot),
+                    tostring(action.enchantItemID),
+                    tostring(removedQuantity)
+                )
+                pendingApplications[key] = nil
+            end
+        end
+    end
 end
 
 trackerUI.GetProfessionToolEnchantStatus = function(row)
@@ -4211,21 +4309,67 @@ trackerUI.UpdateToolEnchantButtons = function(state)
     return hasPull, hasBuy
 end
 
-trackerUI.HasEnchantingProfession = function()
-    if not GetProfessions or not GetProfessionInfo then
-        return false
+trackerUI.UpdateToolEnchantApplyButtons = function(state)
+    local buttons = trackerFrame and trackerFrame.toolEnchantApplyButtons or EMPTY_TABLE
+    local actions = state and state.applyEnchants or EMPTY_TABLE
+    local visibleCount = 0
+
+    local function HideButton(button)
+        button.actionState = nil
+        button.itemID = nil
+        button.itemLink = nil
+        button.toolLink = nil
+        if not (InCombatLockdown and InCombatLockdown()) then
+            button:SetAttribute("type", nil)
+            button:SetAttribute("item", nil)
+            button:SetAttribute("target-bag", nil)
+            button:SetAttribute("target-slot", nil)
+        end
+        button:Hide()
     end
 
-    local professionIndices = { GetProfessions() }
-    for _, professionIndex in pairs(professionIndices) do
-        if professionIndex then
-            local _, _, skillLevel, _, _, _, skillLineID = SafeCall(GetProfessionInfo, professionIndex)
-            if skillLineID == 333 and (skillLevel or 0) > 0 then
-                return true
+    for _, action in ipairs(actions) do
+        local hasItem = action
+            and action.enchantItemID
+            and trackerUI.GetOwnedItemCount(action.enchantItemID) > 0
+        if hasItem and action.toolSlot then
+            local button = buttons[visibleCount + 1]
+            if not button then
+                break
             end
+            visibleCount = visibleCount + 1
+            if not button.itemActionLocked then
+                button:SetEnabled(true)
+            end
+            button:SetText(("Appliquer %s"):format(action.statLabel or "l'enchantement"))
+            button.actionState = action
+            button.itemID = action.enchantItemID
+            button.itemLink = action.enchantLink
+            button.toolLink = action.toolLink
+            if not (InCombatLockdown and InCombatLockdown()) then
+                button:SetAttribute("type", "item")
+                button:SetAttribute("item", "item:" .. tostring(action.enchantItemID))
+                button:SetAttribute("target-bag", nil)
+                button:SetAttribute("target-slot", action.toolSlot)
+            end
+            button:Show()
         end
     end
 
+    for index = visibleCount + 1, #buttons do
+        HideButton(buttons[index])
+    end
+
+    return visibleCount
+end
+
+trackerUI.HasEnchantingProfession = function(trackedRows)
+    trackedRows = trackedRows or GetTrackedMidnightProfessions()
+    for _, row in ipairs(trackedRows) do
+        if row.skillLineID == 2909 and (row.skillLevel or 0) > 0 then
+            return true
+        end
+    end
     return false
 end
 
@@ -4261,7 +4405,7 @@ trackerUI.FindAbundancePurchaseMerchantIndices = function()
     return itemIndices
 end
 
-trackerUI.FindAbundancePurchaseTarget = function(itemIndices)
+trackerUI.FindAbundancePurchaseTarget = function(itemIndices, trackedRows)
     local accountDB = GetAccountDB()
     local skippedItems = runtimeState.abundancePurchaseSkippedItems or EMPTY_TABLE
     local selectedTarget
@@ -4271,7 +4415,7 @@ trackerUI.FindAbundancePurchaseTarget = function(itemIndices)
         if accountDB[target.optionKey] == true
             and not skippedItems[target.itemID]
             and itemIndices[target.itemID]
-            and (not target.requiresEnchanting or trackerUI.HasEnchantingProfession())
+            and (not target.requiresEnchanting or trackerUI.HasEnchantingProfession(trackedRows))
             and (not selectedTarget or targetPriority < selectedPriority)
         then
             selectedTarget = target
@@ -4341,7 +4485,10 @@ trackerUI.TryBuyAbundanceEnchantingBags = function()
     end
 
     local merchantIndices = trackerUI.FindAbundancePurchaseMerchantIndices()
-    local target = trackerUI.FindAbundancePurchaseTarget(merchantIndices)
+    local target = trackerUI.FindAbundancePurchaseTarget(
+        merchantIndices,
+        GetTrackedMidnightProfessions()
+    )
     if not target then
         local hasMerchantTarget = next(merchantIndices) ~= nil
         runtimeState.abundanceEnchantingPurchaseRetryCount = (runtimeState.abundanceEnchantingPurchaseRetryCount or 0) + 1
@@ -6808,6 +6955,13 @@ UpdateTracker = function()
         if trackProfessionTools or trackProfessionToolEnchants then
             toolEnchantState = DebugSafeCall("FindToolEnchantState", trackerUI.FindToolEnchantState, trackedRows)
         end
+        if trackProfessionToolEnchants and toolEnchantState then
+            DebugSafeCall(
+                "ConfirmToolEnchantApplications",
+                trackerUI.ConfirmToolEnchantApplications,
+                toolEnchantState
+            )
+        end
         local hasToolEnchantPullButton, hasToolEnchantBuyButton = DebugSafeCall(
             "UpdateToolEnchantButtons",
             trackerUI.UpdateToolEnchantButtons,
@@ -6815,10 +6969,15 @@ UpdateTracker = function()
         )
         hasToolEnchantPullButton = hasToolEnchantPullButton or false
         hasToolEnchantBuyButton = hasToolEnchantBuyButton or false
-        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|fm=%d|wb=%d|tt=%s|tep=%s|teb=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton))
+        local toolEnchantApplyButtonCount = DebugSafeCall(
+            "UpdateToolEnchantApplyButtons",
+            trackerUI.UpdateToolEnchantApplyButtons,
+            trackProfessionToolEnchants and toolEnchantState or nil
+        ) or 0
+        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|fm=%d|wb=%d|tt=%s|tep=%s|teb=%s|tea=%d"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton), toolEnchantApplyButtonCount)
         if trackerDebugSignature ~= debugSignatures.tracker then
             debugSignatures.tracker = trackerDebugSignature
-            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d mergeButtons=%d warbankTreatiseButtons=%d treasureButton=%s toolPull=%s toolBuy=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton))
+            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d mergeButtons=%d warbankTreatiseButtons=%d treasureButton=%s toolPull=%s toolBuy=%s toolApply=%d", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton), toolEnchantApplyButtonCount)
         end
         local hasUsefulEntry = false
         for _, entry in ipairs(entries) do
@@ -6827,7 +6986,7 @@ UpdateTracker = function()
                 break
             end
         end
-        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and finishingReagentMergeButtonCount == 0 and warbankTreatiseButtonCount == 0 and not hasTreasureButton and not hasToolEnchantPullButton and not hasToolEnchantBuyButton then
+        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and finishingReagentMergeButtonCount == 0 and warbankTreatiseButtonCount == 0 and not hasTreasureButton and not hasToolEnchantPullButton and not hasToolEnchantBuyButton and toolEnchantApplyButtonCount == 0 then
             DebugLog("UpdateTracker hide frame: all professions complete and no other actions")
             trackerFrame:Hide()
             if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
@@ -7029,6 +7188,22 @@ UpdateTracker = function()
             else
                 trackerFrame.toolEnchantBuyButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
             end
+            lastActionButton = trackerFrame.toolEnchantBuyButton
+            offsetY = offsetY + 24
+        end
+
+        local lastToolEnchantApplyButton
+        for index = 1, toolEnchantApplyButtonCount do
+            local button = trackerFrame.toolEnchantApplyButtons[index]
+            button:ClearAllPoints()
+            if lastToolEnchantApplyButton then
+                button:SetPoint("TOPLEFT", lastToolEnchantApplyButton, "BOTTOMLEFT", 0, -4)
+            elseif lastActionButton then
+                button:SetPoint("TOPLEFT", lastActionButton, "BOTTOMLEFT", 0, -4)
+            else
+                button:SetPoint("TOPLEFT", 6, -(offsetY + 2))
+            end
+            lastToolEnchantApplyButton = button
             offsetY = offsetY + 24
         end
 
@@ -7447,6 +7622,40 @@ trackerUI.CreateTrackerFrame = function()
         GameTooltip:Show()
     end)
     trackerFrame.toolEnchantBuyButton:SetScript("OnLeave", GameTooltip_Hide)
+
+    trackerFrame.toolEnchantApplyButtons = {}
+    for index = 1, 11 do
+        local button = CreateFrame("Button", addonName .. "ToolEnchantApplyButton" .. index, trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+        button:SetSize(178, 20)
+        button:RegisterForClicks("AnyUp")
+        button:SetAttribute("useOnKeyDown", false)
+        button:SetText("Appliquer enchantement")
+        button:Hide()
+        button:HookScript("PostClick", function(self, _, down)
+            if down then
+                return
+            end
+            trackerUI.MarkToolEnchantApplicationPending(self.actionState)
+            trackerUI.LockItemActionButton(self)
+            trackerUI.InvalidateToolEnchantCache()
+            trackerUI.RequestItemActionRefresh()
+        end)
+        button:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            local action = self.actionState
+            GameTooltip:SetText("Applique l'enchantement sur l'outil équipé correspondant.")
+            if action and action.statLabel then
+                GameTooltip:AddLine(("Stat : %s"):format(action.statLabel), 1, 1, 1, true)
+            end
+            if action and action.toolLink then
+                GameTooltip:AddLine(("Cible : %s"):format(action.toolLink), 0.5, 0.8, 1, true)
+            end
+            GameTooltip:AddLine("L'enchantement doit être présent dans les sacs.", 1, 0.8, 0.2, true)
+            GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", GameTooltip_Hide)
+        trackerFrame.toolEnchantApplyButtons[index] = button
+    end
 
     trackerFrame.lines = {}
     for index = 1, 6 do

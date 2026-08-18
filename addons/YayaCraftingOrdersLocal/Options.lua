@@ -471,7 +471,7 @@ function Options:BuildPanel()
 		0,
 		-10,
 		function(input)
-			CommitGoldInput(input, "patronKnowledgeValueGold", 300)
+			CommitGoldInput(input, "patronKnowledgeValueGold", 1000)
 		end
 	)
 
@@ -752,7 +752,7 @@ function Options:Refresh()
 	self.panel.preferencesHeader:SetPoint("TOPLEFT", lastPricingAnchor, "BOTTOMLEFT", 0, -18)
 	self.panel.greyUnknownRecipes:SetChecked(db.greyUnknownRecipes)
 	self.panel.showSilverCopperInList:SetChecked(db.showSilverCopperInList)
-	SetGoldInputValue(self.panel.knowledgeValueGold, db.patronKnowledgeValueGold, 300)
+	SetGoldInputValue(self.panel.knowledgeValueGold, db.patronKnowledgeValueGold, 1000)
 	SetGoldInputValue(self.panel.moxieValueGold, db.patronMoxieValueGold, 4)
 	self.panel.warnExpensiveIngredients:SetChecked(db.warnExpensiveIngredients ~= false)
 	self.panel.expensiveIngredientThreshold.suppressCallback = true

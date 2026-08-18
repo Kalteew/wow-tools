@@ -1981,8 +1981,10 @@ class ProfitabilityGui:
             conn = connect(DB_PATH)
             cache = HttpCache(CACHE_DIR)
             region = params["region"]
-            sync_auction_catalog(conn, cache, region)
-            summary = sync_auction_data(conn, cache, region)
+            # The button is an explicit refresh: bypass the long-lived static
+            # catalogue/decoder caches as well as fetching fresh AH snapshots.
+            sync_auction_catalog(conn, cache, region, force=True)
+            summary = sync_auction_data(conn, cache, region, force=True)
             report = build_auction_report(
                 conn,
                 params["query"],
@@ -2002,9 +2004,11 @@ class ProfitabilityGui:
         state.search_button.configure(state="normal")
         state.open_first_after_search = False
         self._apply_exchange_report(state, report)
+        first_failure = (summary.get("failed") or [{}])[0].get("error")
+        failure_hint = f" · {first_failure}" if first_failure else ""
         state.summary_var.set(
             f"AH synchronisée : {summary['synced']}/{summary['realms']} groupes · "
-            f"commodités EU : {summary['commodities']} · échecs : {len(summary['failed'])}"
+            f"commodités EU : {summary['commodities']} · échecs : {len(summary['failed'])}{failure_hint}"
         )
 
     def _handle_exchange_error(self, state: _ExchangeTabState, error: Exception, details: str, operation: str) -> None:

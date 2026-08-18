@@ -30,6 +30,6 @@ Notes:
 - une ouverture n'est marquée comme traitée qu'après le callback de requête et le passage d'auto-queue réussis ; les logs `/ypo debug` corrèlent les IDs enfant/base/onglet, la requête, le fallback et les quantités YQ
 - la queue YQ reste l’autorité de déduplication par `orderID`; le cache de session ne bloque plus une réinjection lorsque l’entrée n’existe réellement plus
 - après un échec ou un timeout de `Next`, YQ peut demander une resynchronisation headless de la commande ; l’UI des patrons reste un outil de consultation, pas une précondition du craft
-- l'auto-queue utilise une valeur nette : KP 300g par défaut, first craft 1000g, montée en compétence 200g, moxie 4g par défaut ; les valeurs KP/Moxie sont modifiables dans les options et partagées par le compte ; la concentration coûte 3g/point en alchimie, 0g/point en travail du cuir et 1g ailleurs
+- l'auto-queue utilise une valeur nette : KP 1000g de référence par défaut, appliquée selon `référence × (1 - KP investis / KP max)` (87 % investis = 130g/KP), first craft 1000g, montée en compétence 200g, moxie 4g par défaut ; les valeurs KP/Moxie sont modifiables dans les options et partagées par le compte ; la concentration coûte 3g/point en alchimie, 0g/point en travail du cuir et 1g ailleurs
 - `/ypo debug` active ou desactive les traces de chargement pour la session
 - `/ypo debug status` affiche un instantane de l'etat courant
