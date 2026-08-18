@@ -29,6 +29,6 @@ Notes:
 - les commandes reçues pendant les 2 secondes sur l'onglet patrons gardent les conditions actuelles de push vers `YayaQueue` et une commande avec concentration n'est ajoutée que si la concentration disponible, après les réservations YQ, suffit
 - la queue YQ reste l’autorité de déduplication par `orderID`; le cache de session ne bloque plus une réinjection lorsque l’entrée n’existe réellement plus
 - après un échec ou un timeout de `Next`, YQ peut demander une resynchronisation headless de la commande ; l’UI des patrons reste un outil de consultation, pas une précondition du craft
-- l'auto-queue utilise une valeur nette : KP 1000g, first craft 1000g, montée en compétence 200g, moxie 5000/600g ; la concentration coûte 3g/point en alchimie et 1g ailleurs
+- l'auto-queue utilise une valeur nette : KP 300g par défaut, first craft 1000g, montée en compétence 200g, moxie 4g par défaut ; les valeurs KP/Moxie sont modifiables dans les options et partagées par le compte ; la concentration coûte 3g/point en alchimie, 0g/point en travail du cuir et 1g ailleurs
 - `/ypo debug` active ou desactive les traces de chargement pour la session
 - `/ypo debug status` affiche un instantane de l'etat courant

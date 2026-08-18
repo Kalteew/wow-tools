@@ -19,6 +19,14 @@ local CONFIG = {
         [171] = true, -- Alchemy
         [2906] = true, -- Midnight Alchemy
     },
+    INSCRIPTION_PROFESSION_IDS = {
+        [13] = true, -- Enum.Profession.Inscription
+        [773] = true, -- Inscription
+        [2913] = true, -- Midnight Inscription
+    },
+    MIDNIGHT_MILLING_RECIPE_ID = 1269575,
+    ARGENTLEAF_RANK_1_ITEM_ID = 236776,
+    MIDNIGHT_MILLING_REAGENTS_PER_CRAFT = 10,
     ALCHEMY_BOUQUET_RECIPE_ID = 1230892,
     ALCHEMY_WONDROUS_SYNERGIST_RECIPE_ID = 1230856,
     ALCHEMY_BOUQUET_SHARED_COOLDOWN_KEY = "midnight-alchemy-material-transmutations",
@@ -36,6 +44,26 @@ local CONFIG = {
     RECYCLE_POTIONS_PER_CRAFT = 3,
     RECYCLE_ESTIMATED_DERIVATES_PER_CRAFT = 2,
     GOLD_STAR_ITEM_ID = 246450,
+    FINISHING_REAGENT_ROLES = {
+        [247719] = "multicraft", -- Multicraft Matrix R1
+        [247724] = "multicraft", -- Multicraft Manifold R2
+        [247725] = "resourcefulness", -- Resourceful Rebar R1
+        [247726] = "resourcefulness", -- Resourceful Routing R2
+        [260630] = "ingenuity", -- Ingenious Identifier R1
+        [247788] = "ingenuity", -- Ingenious Identity R2
+    },
+    CRAFTING_OPTIONAL_SLOT_CATEGORIES = {
+        [111] = "sparks", -- Dragonflight: Infuse with Power
+        [123] = "embellishments", -- Dragonflight: Add Embellishment
+        [125] = "missives", -- Dragonflight: Customize Secondary Stats
+        [247] = "sparks", -- Dragonflight: Spark
+        [390] = "embellishments", -- Midnight: Add Embellishment
+        [392] = "sparks", -- Midnight: Infuse with Power
+        [393] = "missives", -- Midnight: Customize Secondary Stats
+    },
+    SPARK_ITEM_IDS = {
+        [232875] = true, -- Spark of Radiance
+    },
     GOLD_STAR_MERGE_CHAIN = {
         { inputItemID = 246447, outputItemID = 246448, recipeID = 1269450, inputQuantity = 5, name = "Artisan's Ledger" },
         { inputItemID = 246448, outputItemID = 246449, recipeID = 1269451, inputQuantity = 5, name = "Mentor's Helpful Handiwork" },
@@ -160,6 +188,8 @@ local state = {
     itemLoadRetryAt = {},
     incomingItemCounts = {},
     observedItemCounts = {},
+    pendingAuctionDemandRemovals = {},
+    auctionDemandRemovalScheduled = false,
     ingenuityBuffActive = false,
     ingenuityBuffInitialized = false,
     professionsHooksInitialized = false,
@@ -1353,6 +1383,45 @@ local function SetIncomingCount(itemID, quantity)
     end
 end
 
+state.QueueDeliveredAuctionDemandRemoval = function(itemID, quantity)
+    itemID = tonumber(itemID) or 0
+    quantity = math.floor(tonumber(quantity) or 0)
+    if itemID <= 0 or quantity <= 0 then
+        return
+    end
+
+    state.pendingAuctionDemandRemovals[itemID] = (state.pendingAuctionDemandRemovals[itemID] or 0) + quantity
+    if state.auctionDemandRemovalScheduled then
+        return
+    end
+
+    state.auctionDemandRemovalScheduled = true
+    local function Flush()
+        state.auctionDemandRemovalScheduled = false
+        local removals = state.pendingAuctionDemandRemovals
+        state.pendingAuctionDemandRemovals = {}
+        if type(YayaQueueAPI) ~= "table" or type(YayaQueueAPI.RemoveItem) ~= "function" then
+            for pendingItemID, pendingQuantity in pairs(removals) do
+                state.pendingAuctionDemandRemovals[pendingItemID] = pendingQuantity
+            end
+            return
+        end
+        for pendingItemID, pendingQuantity in pairs(removals) do
+            DebugPrint(
+                "auction-delivery item=" .. tostring(pendingItemID)
+                    .. " remove-direct=" .. tostring(pendingQuantity)
+            )
+            YayaQueueAPI.RemoveItem(pendingItemID, pendingQuantity)
+        end
+    end
+
+    if C_Timer and type(C_Timer.After) == "function" then
+        C_Timer.After(0, Flush)
+    else
+        Flush()
+    end
+end
+
 local function AddIncomingPurchase(itemID, quantity, ownedBefore)
     if type(itemID) ~= "number" or itemID <= 0 then
         return
@@ -1373,6 +1442,9 @@ local function AddIncomingPurchase(itemID, quantity, ownedBefore)
 
     state.observedItemCounts[itemID] = actualOwned
     SetIncomingCount(itemID, (state.incomingItemCounts[itemID] or 0) + quantity - alreadyReceived)
+    if alreadyReceived > 0 then
+        state.QueueDeliveredAuctionDemandRemoval(itemID, alreadyReceived)
+    end
 end
 
 local function FinalizePendingItemPurchase()
@@ -1412,7 +1484,11 @@ local function GetOwnedCount(itemID)
     if type(previousOwned) == "number" and actualOwned > previousOwned then
         local incoming = state.incomingItemCounts[itemID] or 0
         if incoming > 0 then
-            SetIncomingCount(itemID, incoming - (actualOwned - previousOwned))
+            local received = math.min(incoming, actualOwned - previousOwned)
+            SetIncomingCount(itemID, incoming - received)
+            if received > 0 then
+                state.QueueDeliveredAuctionDemandRemoval(itemID, received)
+            end
         end
     end
     state.observedItemCounts[itemID] = actualOwned
@@ -1570,22 +1646,41 @@ end
 
 YQQuality.EnsureShatterMoteDemandForEntry = function(entry, recipeInfo)
     if not entry or entry.queueKind == "merge" or entry.queueKind == "direct_item" then
+        DebugPrint(
+            "shatter-skip entry=" .. tostring(entry and entry.recipeID)
+                .. " kind=" .. tostring(entry and entry.queueKind)
+                .. " reason=not-craft-entry"
+        )
         return
     end
 
     recipeInfo = recipeInfo or YQQuality.GetRecipeInfoForEntry(entry)
+    DebugPrint(
+        "shatter-check recipe=" .. tostring(entry.recipeID)
+            .. " kind=" .. tostring(entry.queueKind)
+            .. " entryEnchant=" .. tostring(entry.isEnchantingRecipe == true)
+            .. " infoEnchant=" .. tostring(type(recipeInfo) == "table" and recipeInfo.isEnchantingRecipe == true)
+    )
     if not YQQuality.IsEnchantingRecipeInfo(recipeInfo, entry) then
+        DebugPrint("shatter-skip recipe=" .. tostring(entry.recipeID) .. " reason=not-enchanting")
         return
     end
 
-    if not YQQuality.IsShatterSpellKnown() then
+    local shatterKnown = YQQuality.IsShatterSpellKnown()
+    local shatterActive = YQQuality.IsShatterBuffActive()
+    DebugPrint(
+        "shatter-state recipe=" .. tostring(entry.recipeID)
+            .. " known=" .. tostring(shatterKnown)
+            .. " active=" .. tostring(shatterActive)
+    )
+    if not shatterKnown then
         if YQQuality.RemoveShatterMoteDemand() then
             ScheduleRefresh()
         end
         return
     end
 
-    if YQQuality.IsShatterBuffActive() then
+    if shatterActive then
         YQQuality.RemoveShatterMoteDemand()
         return
     end
@@ -1690,10 +1785,12 @@ local function GetMerchantNumItemsCompat()
     return 0
 end
 
-local function GetItemLocationFromItemID(itemID, includeBank)
+local function GetItemLocationFromItemID(itemID, includeBank, minimumQuantity)
     if type(itemID) ~= "number" or itemID <= 0 or type(ItemLocation) ~= "table" then
         return nil
     end
+
+    minimumQuantity = math.max(1, math.floor(tonumber(minimumQuantity) or 1))
 
     local bagIDs = {
         Enum.BagIndex and Enum.BagIndex.Backpack or 0,
@@ -1744,6 +1841,8 @@ local function GetItemLocationFromItemID(itemID, includeBank)
         AddBankTabs(bankType and bankType.Account, "AccountBankTab_1", "AccountBankTab_5")
     end
 
+    local bestLocation
+    local bestStackCount = 0
     for _, bagID in ipairs(bagIDs) do
         local numSlots = (C_Container and C_Container.GetContainerNumSlots and C_Container.GetContainerNumSlots(bagID))
             or (GetContainerNumSlots and GetContainerNumSlots(bagID))
@@ -1751,13 +1850,23 @@ local function GetItemLocationFromItemID(itemID, includeBank)
         for slot = 1, numSlots do
             local info = C_Container and C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bagID, slot) or nil
             local slotItemID = info and info.itemID or (C_Container and C_Container.GetContainerItemID and C_Container.GetContainerItemID(bagID, slot)) or nil
-            if slotItemID == itemID then
-                return ItemLocation:CreateFromBagAndSlot(bagID, slot)
+            local stackCount = tonumber(info and info.stackCount)
+            if slotItemID == itemID
+                and (
+                    stackCount and stackCount >= minimumQuantity and stackCount > bestStackCount
+                    or stackCount == nil and minimumQuantity <= 1 and not bestLocation
+                )
+            then
+                bestLocation = ItemLocation:CreateFromBagAndSlot(bagID, slot)
+                bestStackCount = stackCount or 0
             end
         end
     end
 
-    return nil
+    if bestLocation then
+        return bestLocation, bestStackCount
+    end
+    return nil, 0
 end
 
 local function GetMerchantItemInfoCompat(index)
@@ -1942,16 +2051,20 @@ local function IsProfessionPageVisible(page)
 end
 
 local function TrySelectProfessionTab(tabIndex, page)
-    if IsProfessionPageVisible(page)
-        or not ProfessionsFrame
+    if IsProfessionPageVisible(page) then
+        return true
+    end
+    if not ProfessionsFrame
         or type(ProfessionsFrame.GetTabButton) ~= "function" then
-        return
+        return false
     end
 
     local tabButton = SafeCall(ProfessionsFrame.GetTabButton, ProfessionsFrame, tabIndex)
     if tabButton and type(tabButton.Click) == "function" then
-        SafeCall(tabButton.Click, tabButton)
+        local ok = pcall(tabButton.Click, tabButton)
+        return ok
     end
+    return false
 end
 
 local function GuardRecipeDescriptionOwner(owner)
@@ -2466,6 +2579,34 @@ alchemyAuto.GetRecipeAvailableCharges = function(recipeID, recipeInfo)
         return math.max(0, math.floor(recipeCharges))
     end
     return nil
+end
+
+local function IsInscriptionProfession(professionID)
+    professionID = tonumber(professionID)
+    if CONFIG.INSCRIPTION_PROFESSION_IDS[professionID] then
+        return true
+    end
+
+    local info = type(C_TradeSkillUI) == "table"
+        and type(C_TradeSkillUI.GetChildProfessionInfo) == "function"
+        and SafeCall(C_TradeSkillUI.GetChildProfessionInfo)
+        or nil
+    if info and (
+        CONFIG.INSCRIPTION_PROFESSION_IDS[tonumber(info.profession)]
+        or CONFIG.INSCRIPTION_PROFESSION_IDS[tonumber(info.parentProfession)]
+    ) then
+        return true
+    end
+
+    info = type(C_TradeSkillUI) == "table"
+        and type(C_TradeSkillUI.GetBaseProfessionInfo) == "function"
+        and SafeCall(C_TradeSkillUI.GetBaseProfessionInfo)
+        or nil
+    return info and CONFIG.INSCRIPTION_PROFESSION_IDS[tonumber(info.profession)] or false
+end
+
+local function IsMidnightMillingRecipe(recipeID)
+    return tonumber(recipeID) == CONFIG.MIDNIGHT_MILLING_RECIPE_ID
 end
 
 alchemyAuto.GetQueuedRecipeCrafts = function(recipeID, queueKind)
@@ -2999,6 +3140,7 @@ local function BuildQueueSummary()
                 remainingCount = remainingCount,
                 mode = mode,
                 queueKind = entry.queueKind,
+                isSalvageRecipe = entry.isSalvageRecipe == true,
                 targetQuality = entry.targetQuality,
                 targetQualitySimplified = entry.targetQualitySimplified == true,
             })
@@ -3101,6 +3243,8 @@ local function BuildCraftLines(summary)
             table.insert(lines, "Recycle " .. task.remainingCount .. "x " .. task.name)
         elseif task.queueKind == "merge" then
             table.insert(lines, "Fusion " .. task.remainingCount .. "x " .. task.name)
+        elseif task.isSalvageRecipe and IsMidnightMillingRecipe(task.recipeID) then
+            table.insert(lines, "Milling " .. task.remainingCount .. "x " .. task.name)
         else
             local qualityText = task.targetQuality and (
                 " " .. YQQuality.GetQualityIcon(task.targetQuality, 16, task.targetQualitySimplified)
@@ -3481,10 +3625,35 @@ local function GetPatronNextButtonState()
             }
         end
 
+        local phialState = YQQuality.GetConcentrationPhialState(entry)
+        if phialState and not phialState.itemID then
+            return {
+                entry = entry,
+                text = (phialState.mailboxCount or 0) > 0 and "Next: Mailbox" or "Next: materiaux",
+                enabled = (phialState.mailboxCount or 0) > 0,
+                action = (phialState.mailboxCount or 0) > 0 and "mailbox" or nil,
+            }
+        end
+
         local currentProfessionID = state.GetCurrentProfessionID()
-        if (entry.professionID and currentProfessionID and entry.professionID ~= currentProfessionID)
-            or not IsProfessionPageVisible(ProfessionsFrame and ProfessionsFrame.CraftingPage)
-        then
+        local craftingPage = ProfessionsFrame and ProfessionsFrame.CraftingPage
+        if entry.professionID and currentProfessionID and entry.professionID ~= currentProfessionID then
+            return {
+                entry = entry,
+                text = "Next: ouvre le metier",
+                enabled = false,
+            }
+        end
+        if not IsProfessionPageVisible(craftingPage) then
+            local professionFrameVisible = IsProfessionPageVisible(ProfessionsFrame)
+            if professionFrameVisible and currentProfessionID == entry.professionID then
+                return {
+                    entry = entry,
+                    text = "Next: recettes",
+                    enabled = true,
+                    action = "open_crafting",
+                }
+            end
             return {
                 entry = entry,
                 text = "Next: ouvre le metier",
@@ -3495,18 +3664,20 @@ local function GetPatronNextButtonState()
         local itemID = tonumber(entry.salvageItemID) or 0
         local itemQuantity = math.max(1, tonumber(entry.salvageItemQuantity) or 1)
         local craftsRemaining = select(1, GetEntryCraftsRemaining(entry))
-        local craftAmount = math.min(craftsRemaining, math.floor(GetTotalOwnedCount(itemID) / itemQuantity))
+        local _, stackCount = GetItemLocationFromItemID(itemID, true, itemQuantity)
+        local craftAmount = math.min(craftsRemaining, math.floor((stackCount or 0) / itemQuantity))
         if craftAmount <= 0 then
             return {
                 entry = entry,
-                text = "Next: potions",
+                text = IsMidnightMillingRecipe(entry.recipeID) and "Next: Argentleaf" or "Next: potions",
                 enabled = false,
             }
         end
 
+        local actionLabel = IsMidnightMillingRecipe(entry.recipeID) and "Milling" or "Recycle"
         return {
             entry = entry,
-            text = craftAmount > 1 and ("Next: Recycle x" .. craftAmount) or "Next: Recycle",
+            text = craftAmount > 1 and ("Next: " .. actionLabel .. " x" .. craftAmount) or ("Next: " .. actionLabel),
             enabled = true,
             action = "craft_salvage",
             craftAmount = craftAmount,
@@ -3725,6 +3896,15 @@ state.RunPatronNextAction = function()
         return
     end
 
+    if stateInfo.action == "open_crafting" then
+        local craftingTabID = ProfessionsFrame and ProfessionsFrame.craftingTabID or 1
+        local clicked = TrySelectProfessionTab(craftingTabID, ProfessionsFrame and ProfessionsFrame.CraftingPage)
+        state.ah.statusMessage = clicked and "Onglet recettes ouvert" or "Onglet recettes indisponible"
+        C_Timer.After(0, ScheduleRefresh)
+        ScheduleRefresh()
+        return
+    end
+
     if stateInfo.action == "equip_tool" then
         state.ah.statusMessage = "Clique Next pour equiper l'outil"
         ScheduleRefresh()
@@ -3758,16 +3938,52 @@ state.RunPatronNextAction = function()
         local itemID = tonumber(stateInfo.entry.salvageItemID) or 0
         local recipeID = tonumber(stateInfo.entry.recipeID) or 0
         local craftAmount = math.max(1, math.floor(tonumber(stateInfo.craftAmount) or 1))
-        local itemLocation = GetItemLocationFromItemID(itemID, true)
+        local itemQuantity = math.max(1, tonumber(stateInfo.entry.salvageItemQuantity) or 1)
+        local applyConcentration = NormalizeApplyConcentration(stateInfo.entry.applyConcentration)
+        local itemLocation = GetItemLocationFromItemID(itemID, true, itemQuantity)
         if not itemLocation then
-            state.ah.statusMessage = "Potion Entropic Extract introuvable"
+            state.ah.statusMessage = IsMidnightMillingRecipe(recipeID)
+                and "Argentleaf R1 introuvable"
+                or "Potion Entropic Extract introuvable"
             ScheduleRefresh()
             return
         end
         if type(C_TradeSkillUI) ~= "table" or type(C_TradeSkillUI.CraftSalvage) ~= "function" then
-            state.ah.statusMessage = "Recyclage indisponible"
+            state.ah.statusMessage = IsMidnightMillingRecipe(recipeID)
+                and "Milling indisponible"
+                or "Recyclage indisponible"
             ScheduleRefresh()
             return
+        end
+
+        if applyConcentration and YQQuality.IsConcentrationPhialEnabled() then
+            local phialID = tonumber(stateInfo.entry.concentrationPhialItemID)
+            if not phialID or phialID <= 0 then
+                local _, preferredItemID = YQQuality.GetPreferredIngenuityPhial()
+                phialID = preferredItemID
+            end
+            if YQQuality.IsIngenuityBuffActive() then
+                YQQuality.RemoveConcentrationPhialDemand(phialID, 1)
+            else
+                state.ah.statusMessage = "Clique Next: Phial"
+                ScheduleRefresh()
+                return
+            end
+        end
+
+        local favoriteTracker = state.autoFavoriteConcentration.tracker
+        if favoriteTracker
+            and not favoriteTracker.requeued
+            and favoriteTracker.recipeID == stateInfo.entry.recipeID
+            and stateInfo.entry.applyConcentration == true
+        then
+            favoriteTracker.beforeConcentration = state.GetCurrentConcentrationAmount()
+            favoriteTracker.awaitingCraft = favoriteTracker.beforeConcentration ~= nil
+            favoriteTracker.craftConfirmed = false
+            favoriteTracker.reservationConsumed = false
+            favoriteTracker.refundCheckAttempts = 0
+            favoriteTracker.refundCheckScheduled = false
+            favoriteTracker.currencyEventAmount = nil
         end
 
         BeginNextActionLock("craft", 0, 30.0)
@@ -3779,19 +3995,22 @@ state.RunPatronNextAction = function()
             craftAmount,
             itemLocation,
             nil,
-            false
+            applyConcentration
         )
         if not callOK then
             state.ClearPendingCraftEntries()
             ClearNextActionLock("recycle-call-failed")
             EndCraftClickLock()
-            state.ah.statusMessage = "Recyclage echoue"
+            state.ah.statusMessage = IsMidnightMillingRecipe(recipeID)
+                and "Milling echoue"
+                or "Recyclage echoue"
             ScheduleRefresh()
             return
         end
+        local actionLabel = IsMidnightMillingRecipe(recipeID) and "Milling" or "Recycle"
         state.ah.statusMessage = craftAmount > 1
-            and ("Action: Recycle x" .. craftAmount)
-            or "Action: Recycle"
+            and ("Action: " .. actionLabel .. " x" .. craftAmount)
+            or ("Action: " .. actionLabel)
         C_Timer.After(0, ScheduleRefresh)
         ScheduleRefresh()
         return
@@ -4625,6 +4844,7 @@ local function GetConcentrationDumpState(schematicForm)
         or 0
 
     if context then
+        context.professionID = tonumber(context.professionID) or state.GetCurrentProfessionID()
         context.applyConcentration = true
         context.concentrationCost = concentrationCost
         context.concentrationCurrencyID = currencyID
@@ -5230,6 +5450,12 @@ local function GetBoundBagItemCount(itemID)
 end
 
 local function GetBoundFinishingRole(itemID)
+    local knownRole = CONFIG.FINISHING_REAGENT_ROLES[tonumber(itemID)]
+    if knownRole then
+        DebugPrint("finishing-role itemID=" .. tostring(itemID) .. " role=" .. knownRole .. " source=id")
+        return knownRole
+    end
+
     local text = string.lower(tostring(GetItemName(itemID) or ""))
     if C_TooltipInfo and type(C_TooltipInfo.GetItemByID) == "function" then
         local tooltip = SafeCall(C_TooltipInfo.GetItemByID, itemID)
@@ -5259,6 +5485,31 @@ local function CopyAutoFavoriteContext(context, craftingReagents, reagents)
     copy.craftingReagents = NormalizeCraftingReagents(craftingReagents)
     copy.reagents = reagents
     return copy
+end
+
+local function BuildFavoriteMillingContext(context)
+    local professionID = context and (tonumber(context.professionID) or state.GetCurrentProfessionID())
+    if not context
+        or not IsMidnightMillingRecipe(context.recipeID)
+        or not IsInscriptionProfession(professionID)
+    then
+        return nil
+    end
+
+    local milling = CopyAutoFavoriteContext(context, {}, {
+        {
+            itemID = CONFIG.ARGENTLEAF_RANK_1_ITEM_ID,
+            quantity = CONFIG.MIDNIGHT_MILLING_REAGENTS_PER_CRAFT,
+        },
+    })
+    milling.professionID = professionID
+    milling.mode = "crafts"
+    milling.queueKind = nil
+    milling.outputPerCraft = 1
+    milling.isSalvageRecipe = true
+    milling.salvageItemID = CONFIG.ARGENTLEAF_RANK_1_ITEM_ID
+    milling.salvageItemQuantity = CONFIG.MIDNIGHT_MILLING_REAGENTS_PER_CRAFT
+    return milling
 end
 
 local function GetFinishingBatches(schematicForm, dumpState)
@@ -5388,7 +5639,13 @@ local function GetFinishingBatches(schematicForm, dumpState)
 end
 
 local function QueueConcentrationDump(schematicForm, dumpState, source)
-    local batches = GetFinishingBatches(schematicForm, dumpState)
+    local millingContext = BuildFavoriteMillingContext(dumpState and dumpState.context)
+    local batches = millingContext and {
+        {
+            quantity = dumpState.maxQuantity,
+            context = millingContext,
+        },
+    } or GetFinishingBatches(schematicForm, dumpState)
     DebugPrint(
         "concentration-dump source=" .. tostring(source or "?")
             .. " recipe=" .. tostring(dumpState and dumpState.context and dumpState.context.recipeID)
@@ -5414,7 +5671,7 @@ local function QueueConcentrationDump(schematicForm, dumpState, source)
         and queuedQuantity > 0
         and YQQuality.IsIngenuityRefundAutoQueueEnabled()
     then
-        local context = dumpState and dumpState.context
+        local context = millingContext or (dumpState and dumpState.context)
         state.autoFavoriteConcentration.tracker = {
             professionID = context and tonumber(context.professionID) or state.GetCurrentProfessionID(),
             recipeID = context and tonumber(context.recipeID),
@@ -7218,10 +7475,15 @@ function YQQuality.ReplaceReagent(reagents, slot, allocations)
     end
     for _, allocation in ipairs(allocations or {}) do
         local quantity = math.max(0, tonumber(allocation.quantity) or 0)
-        if allocation.itemID and quantity > 0 then
+        local itemID = tonumber(allocation.itemID)
+        local currencyID = tonumber(allocation.currencyID)
+        if (itemID and itemID > 0 or currencyID and currencyID > 0) and quantity > 0 then
             result[#result + 1] = {
                 dataSlotIndex = tonumber(slot.dataSlotIndex),
-                reagent = { itemID = tonumber(allocation.itemID) },
+                reagent = {
+                    itemID = itemID and itemID > 0 and itemID or nil,
+                    currencyID = currencyID and currencyID > 0 and currencyID or nil,
+                },
                 quantity = quantity,
             }
         end
@@ -7231,11 +7493,11 @@ end
 
 function YQQuality.CopyOptionalSelections(selections)
     local copy = {}
-    for slotIndex, itemID in pairs(selections or {}) do
+    for slotIndex, selectionID in pairs(selections or {}) do
         slotIndex = tonumber(slotIndex)
-        itemID = tonumber(itemID)
-        if slotIndex and slotIndex > 0 and itemID and itemID > 0 then
-            copy[slotIndex] = itemID
+        selectionID = tonumber(selectionID)
+        if slotIndex and slotIndex > 0 and selectionID and selectionID ~= 0 then
+            copy[slotIndex] = selectionID
         end
     end
     return copy
@@ -7284,14 +7546,127 @@ function YQQuality.IsOptionalSlotUnlocked(slot, recipeInfo)
     return locked ~= true
 end
 
+function YQQuality.GetOptionalSlotCategory(slot)
+    local slotType = tonumber(slot and slot.slotInfo and slot.slotInfo.mcrSlotID)
+    local reagentType = tonumber(slot and slot.reagentType)
+    -- Midnight reuses MCR #401 for its required Spark and optional Crest slot.
+    -- The API's required flag is the stable distinction; names and icons are not.
+    if slotType == 401 then
+        return slot.required == true and "sparks" or "crests"
+    end
+    local category = slotType and CONFIG.CRAFTING_OPTIONAL_SLOT_CATEGORIES[slotType]
+    if category then return category end
+    if reagentType ~= 0 then return nil end
+    for _, reagent in ipairs(slot and slot.reagents or {}) do
+        if tonumber(reagent.currencyID) and tonumber(reagent.currencyID) > 0 then
+            return "crests"
+        end
+        if CONFIG.SPARK_ITEM_IDS[tonumber(reagent.itemID)] then return "sparks" end
+    end
+    return nil
+end
+
+function YQQuality.GetOptionalSelectionID(option)
+    local itemID = tonumber(option and option.itemID)
+    if itemID and itemID > 0 then return itemID end
+    local currencyID = tonumber(option and option.currencyID)
+    return currencyID and currencyID > 0 and -currencyID or nil
+end
+
+function YQQuality.GetOptionalIcon(option)
+    if option and option.itemID then return GetItemIcon(option.itemID) end
+    local currencyID = tonumber(option and option.currencyID)
+    local info = currencyID and type(C_CurrencyInfo) == "table"
+        and type(C_CurrencyInfo.GetCurrencyInfo) == "function"
+        and SafeCall(C_CurrencyInfo.GetCurrencyInfo, currencyID) or nil
+    return info and (info.iconFileID or info.icon)
+end
+
+function YQQuality.GetOptionalOwnedCount(option)
+    if option and option.itemID then return GetImmediateOwnedCount(option.itemID) end
+    local currencyID = tonumber(option and option.currencyID)
+    local info = currencyID and type(C_CurrencyInfo) == "table"
+        and type(C_CurrencyInfo.GetCurrencyInfo) == "function"
+        and SafeCall(C_CurrencyInfo.GetCurrencyInfo, currencyID) or nil
+    return math.max(0, tonumber(info and info.quantity) or 0)
+end
+
+function YQQuality.HasMissingGameplayOptionalSelection(optionalSlots, selections)
+    for _, slotData in ipairs(optionalSlots or {}) do
+        local slot = slotData.slot
+        local selectionID = tonumber(selections and selections[tonumber(slot and slot.dataSlotIndex)])
+        local option = selectionID and YQQuality.GetSelectionOption(optionalSlots, slot.dataSlotIndex, selectionID)
+        if option and (option.isSpark or option.isCrest) then
+            local required = math.max(1, tonumber(slot.quantityRequired) or 1)
+            if YQQuality.GetOptionalOwnedCount(option) < required then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function YQQuality.GetOptionalFamilyKey(option)
+    if option and (option.category == "missives" or option.category == "embellishments"
+        or (option.isMissive and not option.category))
+    then
+        return tostring(option.itemName or option.itemID)
+    end
+    return tostring(option and YQQuality.GetOptionalSelectionID(option) or "")
+end
+
+function YQQuality.EnsureRequiredSparkSelections(recipeInfo, schematic, selections)
+    local changed = false
+    selections = selections or {}
+    for _, slotData in ipairs(YQQuality.BuildOptionalSlots(recipeInfo, schematic)) do
+        if slotData.isRequiredSpark then
+            local slotIndex = tonumber(slotData.slot and slotData.slot.dataSlotIndex)
+            if slotIndex and not selections[slotIndex] and slotData.options[1] then
+                selections[slotIndex] = YQQuality.GetOptionalSelectionID(slotData.options[1])
+                changed = true
+            end
+        end
+    end
+    return changed
+end
+
 function YQQuality.BuildOptionalSlots(recipeInfo, schematic)
     local rawSlots = {}
     local hasGatheringStat = recipeInfo and recipeInfo.isGatheringRecipe == true
     for _, slot in ipairs(schematic and schematic.reagentSlotSchematics or {}) do
         local slotIndex = tonumber(slot.dataSlotIndex)
-        local isFinishing = YQQuality.IsFinishingSlot(slot)
+        local category = YQQuality.GetOptionalSlotCategory(slot)
+        -- Blizzard's generic reagent type can overlap a modifying-slot type.
+        -- A known API category must remain visible in its own selector section.
+        local isFinishing = not category and YQQuality.IsFinishingSlot(slot)
+        local slotType = tonumber(slot.slotInfo and slot.slotInfo.mcrSlotID)
+        if CONFIG.debugNextCraft and not category and not isFinishing and slotType then
+            local debugKey = tostring(recipeInfo and recipeInfo.recipeID) .. ":" .. tostring(slotIndex)
+            state.craft.optionalSlotDebugKeys = state.craft.optionalSlotDebugKeys or {}
+            if not state.craft.optionalSlotDebugKeys[debugKey] then
+                state.craft.optionalSlotDebugKeys[debugKey] = true
+                local reagentIDs = {}
+                for _, reagent in ipairs(slot.reagents or {}) do
+                    reagentIDs[#reagentIDs + 1] = "i:" .. tostring(reagent.itemID or "")
+                        .. "/c:" .. tostring(reagent.currencyID or "")
+                end
+                DebugPrint(
+                    "quality-optional-unclassified recipe=" .. tostring(recipeInfo and recipeInfo.recipeID)
+                        .. " slot=" .. tostring(slotIndex)
+                        .. " mcr=" .. tostring(slotType)
+                        .. " type=" .. tostring(slot.reagentType)
+                        .. " required=" .. tostring(slot.required)
+                        .. " reagents=" .. table.concat(reagentIDs, ",")
+                )
+            end
+        end
+        local isRequiredSpark = category == "sparks" and slot.required == true
+        local isKnownOptional = category == "sparks"
+            or category == "crests"
+            or category == "missives"
+            or category == "embellishments"
         if slotIndex and slotIndex > 0
-            and slot.required == false
+            and (slot.required == false or isKnownOptional)
             and type(slot.reagents) == "table"
             and #slot.reagents > 0
             and (not isFinishing or YQQuality.IsOptionalSlotUnlocked(slot, recipeInfo))
@@ -7300,33 +7675,59 @@ function YQQuality.BuildOptionalSlots(recipeInfo, schematic)
             local seen = {}
             for _, reagent in ipairs(slot.reagents or {}) do
                 local itemID = tonumber(reagent.itemID)
-                if itemID and itemID > 0 and not seen[itemID] then
-                    seen[itemID] = true
-                    WarmItemData(itemID)
-                    local itemName = GetItemName(itemID)
+                local currencyID = tonumber(reagent.currencyID)
+                local selectionID = itemID and itemID > 0 and itemID
+                    or (currencyID and currencyID > 0 and -currencyID or nil)
+                if selectionID and not seen[selectionID] then
+                    seen[selectionID] = true
+                    if itemID and itemID > 0 then WarmItemData(itemID) end
+                    local currencyInfo = currencyID and type(C_CurrencyInfo) == "table"
+                        and type(C_CurrencyInfo.GetCurrencyInfo) == "function"
+                        and SafeCall(C_CurrencyInfo.GetCurrencyInfo, currencyID) or nil
+                    local itemName = itemID and GetItemName(itemID)
+                        or (currencyInfo and currencyInfo.name)
+                        or ("Currency " .. tostring(currencyID))
                     local normalPriority = YQQuality.GetOptionalReagentPriority(itemName, false)
                     local gatheringPriority = YQQuality.GetOptionalReagentPriority(itemName, true)
-                    if isFinishing or normalPriority or gatheringPriority < 90 then
-                        hasGatheringStat = hasGatheringStat or gatheringPriority < 90
-                        local quality = tonumber(reagent.reagentQuality or reagent.quality or reagent.qualityID) or 0
-                        if quality <= 0 and C_TradeSkillUI.GetItemReagentQualityByItemInfo then
-                            quality = tonumber(SafeCall(C_TradeSkillUI.GetItemReagentQualityByItemInfo, itemID)) or 0
-                        end
-                        options[#options + 1] = {
-                            itemID = itemID,
-                            itemName = itemName,
-                            quality = quality,
-                            normalPriority = normalPriority,
-                            gatheringPriority = gatheringPriority,
-                            isMissive = string.find(string.lower(tostring(itemName or "")), "missive", 1, true) ~= nil,
-                            isFinishing = isFinishing,
-                            isGoldStar = itemID == 246450,
-                        }
+                    local hasGatheringPriority = gatheringPriority and gatheringPriority < 90
+                    local isMissive = category == "missives"
+                        or string.find(string.lower(tostring(itemName or "")), "missive", 1, true) ~= nil
+                    local isEmbellishment = category == "embellishments"
+                    local isGenericOptional = not isFinishing and not category
+                        and itemID ~= CONFIG.GOLD_STAR_ITEM_ID
+                    if hasGatheringPriority then
+                        hasGatheringStat = true
                     end
+                    local quality = tonumber(reagent.reagentQuality or reagent.quality or reagent.qualityID) or 0
+                    if itemID and quality <= 0 and C_TradeSkillUI.GetItemReagentQualityByItemInfo then
+                        quality = tonumber(SafeCall(C_TradeSkillUI.GetItemReagentQualityByItemInfo, itemID)) or 0
+                    end
+                    options[#options + 1] = {
+                        itemID = itemID,
+                        currencyID = currencyID,
+                        selectionID = selectionID,
+                        itemName = itemName,
+                        quality = quality,
+                        normalPriority = normalPriority,
+                        gatheringPriority = gatheringPriority,
+                        category = category,
+                        isSpark = category == "sparks",
+                        isCrest = category == "crests",
+                        isMissive = isMissive,
+                        isEmbellishment = isEmbellishment,
+                        isFinishing = isFinishing,
+                        isGenericOptional = isGenericOptional,
+                        isGoldStar = itemID == 246450,
+                    }
                 end
             end
             if #options > 0 then
-                rawSlots[#rawSlots + 1] = { slot = slot, options = options }
+                rawSlots[#rawSlots + 1] = {
+                    slot = slot,
+                    options = options,
+                    category = category,
+                    isRequiredSpark = isRequiredSpark,
+                }
             end
         end
     end
@@ -7336,13 +7737,21 @@ function YQQuality.BuildOptionalSlots(recipeInfo, schematic)
         local options = {}
         for _, option in ipairs(slotData.options) do
             option.priority = option.isFinishing and 60
-                or (hasGatheringStat and option.gatheringPriority or option.normalPriority)
+                or (hasGatheringStat and option.gatheringPriority)
+                or option.normalPriority
+                or option.gatheringPriority
+                or 70
             if option.priority then
                 options[#options + 1] = option
             end
         end
         if #options > 0 then
-            slots[#slots + 1] = { slot = slotData.slot, options = options }
+            slots[#slots + 1] = {
+                slot = slotData.slot,
+                options = options,
+                category = slotData.category,
+                isRequiredSpark = slotData.isRequiredSpark,
+            }
         end
     end
     table.sort(slots, function(left, right)
@@ -7362,22 +7771,27 @@ function YQQuality.ApplyOptionalSelections(reagents, optionalSlots, selections)
     local result = YQQuality.CopyReagents(reagents)
     for _, slotData in ipairs(optionalSlots or {}) do
         local slot = slotData.slot
-        local itemID = tonumber(selections and selections[tonumber(slot.dataSlotIndex)])
+        local selectionID = tonumber(selections and selections[tonumber(slot.dataSlotIndex)])
+        local option = YQQuality.GetSelectionOption(optionalSlots, slot.dataSlotIndex, selectionID)
         result = YQQuality.ReplaceReagent(result, slot, nil)
-        if itemID and itemID > 0 then
+        if option then
             result = YQQuality.ReplaceReagent(result, slot, {
-                { itemID = itemID, quantity = math.max(1, tonumber(slot.quantityRequired) or 1) },
+                {
+                    itemID = option.itemID,
+                    currencyID = option.currencyID,
+                    quantity = math.max(1, tonumber(slot.quantityRequired) or 1),
+                },
             })
         end
     end
     return result
 end
 
-function YQQuality.GetSelectionOption(optionalSlots, slotIndex, itemID)
+function YQQuality.GetSelectionOption(optionalSlots, slotIndex, selectionID)
     for _, slotData in ipairs(optionalSlots or {}) do
         if tonumber(slotData.slot and slotData.slot.dataSlotIndex) == tonumber(slotIndex) then
             for _, option in ipairs(slotData.options or {}) do
-                if tonumber(option.itemID) == tonumber(itemID) then
+                if tonumber(option.selectionID or YQQuality.GetOptionalSelectionID(option)) == tonumber(selectionID) then
                     return option
                 end
             end
@@ -7449,13 +7863,13 @@ end
 function YQQuality.BuildOptionalPlans(form, recipeInfo, schematic, selections, useFinishing, useGoldStar, yieldWork)
     local optionalSlots = YQQuality.BuildOptionalSlots(recipeInfo, schematic)
     local baseSelections = YQQuality.CopyOptionalSelections(selections)
+    YQQuality.EnsureRequiredSparkSelections(recipeInfo, schematic, baseSelections)
     for _, slotData in ipairs(optionalSlots) do
         if slotData.options[1] and slotData.options[1].isFinishing then
             baseSelections[tonumber(slotData.slot.dataSlotIndex)] = nil
         end
     end
     local plans = { baseSelections }
-    if not useFinishing then return optionalSlots, plans, true end
     local complete = true
 
     local function Expand(slotIndex, choices)
@@ -7474,7 +7888,7 @@ function YQQuality.BuildOptionalPlans(form, recipeInfo, schematic, selections, u
         local slotIndex = tonumber(slotData.slot.dataSlotIndex)
         local selectedItemID = baseSelections[slotIndex]
         local selectedOption = YQQuality.GetSelectionOption(optionalSlots, slotIndex, selectedItemID)
-        if slotData.options[1] and slotData.options[1].isFinishing then
+        if slotData.options[1] and slotData.options[1].isFinishing and useFinishing then
             local choices = { false }
             for _, option in ipairs(slotData.options) do
                 local isEligible = not option.isGoldStar or useGoldStar
@@ -7492,11 +7906,15 @@ function YQQuality.BuildOptionalPlans(form, recipeInfo, schematic, selections, u
                 if yieldWork then yieldWork() end
             end
             Expand(slotIndex, choices)
-        elseif selectedOption and selectedOption.isMissive then
+        elseif selectedOption and (selectedOption.isMissive or selectedOption.isEmbellishment) then
             local choices = {}
+            local selectedFamily = YQQuality.GetOptionalFamilyKey(selectedOption)
             for _, option in ipairs(slotData.options) do
-                if option.isMissive and option.itemName == selectedOption.itemName then
-                    choices[#choices + 1] = option.itemID
+                if option.isMissive == selectedOption.isMissive
+                    and option.isEmbellishment == selectedOption.isEmbellishment
+                    and YQQuality.GetOptionalFamilyKey(option) == selectedFamily
+                then
+                    choices[#choices + 1] = YQQuality.GetOptionalSelectionID(option)
                 end
             end
             if #choices > 0 then Expand(slotIndex, choices) end
@@ -7801,6 +8219,8 @@ function YQQuality.BuildRecipeState(form, useConcentration, optionalSelections, 
     base = AddVisibleRequiredReagents(form, schematic, base, transaction)
     base = YQQuality.FilterOperationReagents(schematic, base)
     local optionalSlots = YQQuality.BuildOptionalSlots(recipeInfo, schematic)
+    optionalSelections = YQQuality.CopyOptionalSelections(optionalSelections)
+    YQQuality.EnsureRequiredSparkSelections(recipeInfo, schematic, optionalSelections)
     for _, slotData in ipairs(optionalSlots) do
         if slotData.options[1] and slotData.options[1].isFinishing then
             base = YQQuality.ReplaceReagent(base, slotData.slot, {})
@@ -8265,9 +8685,11 @@ function YQQuality.GetOptionalSelectionCost(optionalSlots, selections, priceCont
         if itemID then
             local option = YQQuality.GetSelectionOption(optionalSlots, slotIndex, itemID)
             if not option then return nil, false end
-            if option.isFinishing or option.isMissive then
-                local quantity = math.max(1, tonumber(slotData.slot and slotData.slot.quantityRequired) or 1)
-                local quote = YQQuality.GetItemPriceQuote(itemID, quantity, priceContext)
+            local quantity = math.max(1, tonumber(slotData.slot and slotData.slot.quantityRequired) or 1)
+            -- Sparks and Crests are gameplay toggles, not purchasable reagents.
+            -- A Spark therefore must never make quality simulation depend on AH data.
+            if option.itemID and not option.isSpark then
+                local quote = YQQuality.GetItemPriceQuote(option.itemID, quantity, priceContext)
                 if not quote then return nil, false end
                 cost = cost + quote.total
                 estimated = estimated or quote.estimated == true
@@ -8277,7 +8699,9 @@ function YQQuality.GetOptionalSelectionCost(optionalSlots, selections, priceCont
     return cost, estimated
 end
 
-function YQQuality.BuildFinishingOptimizedRecipeState(form, useConcentration, optionalSelections, useGoldStar, yieldWork)
+function YQQuality.BuildFinishingOptimizedRecipeState(
+    form, useConcentration, optionalSelections, useFinishing, useGoldStar, yieldWork
+)
     local recipeInfo = form and type(form.GetRecipeInfo) == "function" and SafeCall(form.GetRecipeInfo, form) or nil
     local recipeID = tonumber(recipeInfo and recipeInfo.recipeID)
     local level = form and type(form.GetCurrentRecipeLevel) == "function" and SafeCall(form.GetCurrentRecipeLevel, form) or nil
@@ -8285,7 +8709,7 @@ function YQQuality.BuildFinishingOptimizedRecipeState(form, useConcentration, op
     if not recipeInfo or type(schematic) ~= "table" then return nil end
 
     local optionalSlots, plans, plansComplete = YQQuality.BuildOptionalPlans(
-        form, recipeInfo, schematic, optionalSelections, true, useGoldStar == true, yieldWork
+        form, recipeInfo, schematic, optionalSelections, useFinishing == true, useGoldStar == true, yieldWork
     )
     local priceContext = YQQuality.CreateMaterialPriceContext()
     local combined
@@ -8358,7 +8782,7 @@ function YQQuality.BuildFinishingOptimizedRecipeState(form, useConcentration, op
         combined.reachableQuality = math.max(combined.reachableQuality, candidate.quality)
     end
     combined.optionalSelections = YQQuality.CopyOptionalSelections(optionalSelections)
-    combined.finishingOptimized = true
+    combined.finishingOptimized = useFinishing == true
     table.sort(combined.candidates, function(left, right)
         if left.quality ~= right.quality then return left.quality < right.quality end
         if left.cost ~= right.cost then return left.cost < right.cost end
@@ -8431,13 +8855,10 @@ function YQQuality.QueueRecipeStateSolve(form, recipeID, useConcentration, selec
         selections = YQQuality.CopyOptionalSelections(selections),
     }
     job.co = coroutine.create(function()
-        if job.useFinishing then
-            return YQQuality.BuildFinishingOptimizedRecipeState(
-                job.form, job.useConcentration, job.selections, job.useGoldStar,
-                function() coroutine.yield() end
-            )
-        end
-        return YQQuality.BuildRecipeState(job.form, job.useConcentration, job.selections, function() coroutine.yield() end)
+        return YQQuality.BuildFinishingOptimizedRecipeState(
+            job.form, job.useConcentration, job.selections, job.useFinishing, job.useGoldStar,
+            function() coroutine.yield() end
+        )
     end)
     state.craft.qualitySolve = job
 
@@ -8917,13 +9338,21 @@ function YQQuality.GetCandidatePricing(recipeState, candidate)
     local pricing = {
         minBuyout = nil,
         materialCost = nil,
+        knownMaterialCost = 0,
         profit = nil,
         estimated = false,
+        outputBound = false,
     }
     if not recipeState or not candidate then return pricing end
 
     local outputReference = YQQuality.GetOutputPriceReference(recipeState, candidate)
-    pricing.minBuyout = outputReference and YQQuality.GetTSMPrice("dbminbuyout", outputReference) or nil
+    local _, outputItemID = YQQuality.GetOutputInventoryReference(recipeState, candidate)
+    local outputBindType = outputItemID and select(14, GetItemInfo(outputItemID)) or nil
+    pricing.outputBound = outputBindType ~= nil
+        and outputBindType ~= 0 and outputBindType ~= 2 and outputBindType ~= 3
+    if not pricing.outputBound then
+        pricing.minBuyout = outputReference and YQQuality.GetTSMPrice("dbminbuyout", outputReference) or nil
+    end
 
     local completeReagents = BuildCompleteRecipeReagents(
         recipeState.schematic,
@@ -8931,12 +9360,20 @@ function YQQuality.GetCandidatePricing(recipeState, candidate)
         recipeState.recipeInfo
     )
     local priceContext = YQQuality.CreateMaterialPriceContext()
+    local unpricedOptionalItemIDs = {}
+    for _, slotData in ipairs(recipeState.optionalSlots or {}) do
+        for _, option in ipairs(slotData.options or {}) do
+            if option.isSpark and option.itemID then
+                unpricedOptionalItemIDs[option.itemID] = true
+            end
+        end
+    end
     local quantitiesByItemID = {}
     local itemIDs = {}
     for _, reagent in ipairs(completeReagents or {}) do
         local itemID = tonumber(reagent.itemID)
         local quantity = math.max(0, tonumber(reagent.quantity) or 0)
-        if itemID and itemID > 0 and quantity > 0 then
+        if itemID and itemID > 0 and quantity > 0 and not unpricedOptionalItemIDs[itemID] then
             if not quantitiesByItemID[itemID] then
                 itemIDs[#itemIDs + 1] = itemID
                 quantitiesByItemID[itemID] = 0
@@ -8952,6 +9389,19 @@ function YQQuality.GetCandidatePricing(recipeState, candidate)
         local quote = YQQuality.GetItemPriceQuote(itemID, quantity, priceContext)
         if not quote then
             materialCostKnown = false
+            pricing.missingMaterialItemID = itemID
+            if CONFIG.debugNextCraft then
+                local debugKey = tostring(recipeState.recipeID) .. ":" .. tostring(itemID)
+                state.craft.priceMissingDebugKeys = state.craft.priceMissingDebugKeys or {}
+                if not state.craft.priceMissingDebugKeys[debugKey] then
+                    state.craft.priceMissingDebugKeys[debugKey] = true
+                    DebugPrint(
+                        "quality-price-missing recipe=" .. tostring(recipeState.recipeID)
+                            .. " item=" .. tostring(itemID)
+                            .. " quantity=" .. tostring(quantity)
+                    )
+                end
+            end
             break
         end
         if quote.estimated then
@@ -8959,6 +9409,7 @@ function YQQuality.GetCandidatePricing(recipeState, candidate)
         end
         materialCost = materialCost + quote.total
     end
+    pricing.knownMaterialCost = materialCost
     pricing.materialCost = materialCostKnown and materialCost or nil
 
     if pricing.minBuyout and pricing.materialCost then
@@ -9162,23 +9613,31 @@ function YQQuality.EnsureOptionalRows(frame, rowCount)
         button:SetSize(36, 36)
         button:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -190 - ((rowIndex - 1) * 30))
         button.icon = button:CreateTexture(nil, "ARTWORK")
-        button.icon:SetSize(30, 30)
+        button.icon:SetSize(28, 28)
         button.icon:SetPoint("CENTER")
         button.selectionMark = button:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         button.selectionMark:SetPoint("TOPRIGHT", button, "TOPRIGHT", 4, 5)
         button.selectionMark:SetText("|cff55ff77✓|r")
         button.selectionMark:Hide()
         button:SetScript("OnEnter", function(self)
-            if not self.itemID then return end
             GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-            GameTooltip:SetItemByID(self.itemID)
+            if self.itemID then
+                GameTooltip:SetItemByID(self.itemID)
+            elseif self.currencyID and GameTooltip.SetCurrencyByID then
+                GameTooltip:SetCurrencyByID(self.currencyID)
+            else
+                GameTooltip:SetText(self.itemName or "Réactif optionnel")
+            end
+            if (self.isSpark or self.isCrest) and not self.owned then
+                GameTooltip:AddLine("Non possédé : clique pour le simuler.", 1, 0.6, 0.2, true)
+            end
             GameTooltip:Show()
         end)
         button:SetScript("OnLeave", GameTooltip_Hide)
         button:SetScript("OnClick", function(self)
             local target = state.craft.qualityTarget
             if not target or not self.slotIndex or self.lockedByOptimizer then return end
-            local selectionItemID = self.selectionItemID or self.itemID
+            local selectionItemID = self.selectionItemID
             target.optionalSelections = YQQuality.CopyOptionalSelections(target.optionalSelections)
             if self.selectedFamily or target.optionalSelections[self.slotIndex] == selectionItemID then
                 target.optionalSelections[self.slotIndex] = nil
@@ -9376,6 +9835,20 @@ function YQQuality.EnsureSelector(schematicForm)
     frame.optionalHeader:SetText("Réactifs optionnels")
     frame.optionalHeader:SetTextColor(1, 0.82, 0)
     frame.optionalHeader:Hide()
+    frame.categoryHeaders = {}
+    frame.categoryLabels = {
+        sparks = "Sparks / puissance",
+        crests = "Crests",
+        missives = "Missives",
+        embellishments = "Embellishments",
+    }
+    for _, category in ipairs({ "sparks", "crests", "missives", "embellishments" }) do
+        local header = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+        header:SetTextColor(1, 0.82, 0)
+        header:SetText(frame.categoryLabels[category])
+        header:Hide()
+        frame.categoryHeaders[category] = header
+    end
     frame.optionalRows = {}
 
     frame.finishingHeader = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
@@ -9402,6 +9875,10 @@ function YQQuality.EnsureSelector(schematicForm)
         local context = GetRecipeContextFromSchematicForm(self.schematicForm)
         if not (context and candidate) then
             Print("Qualite ou recette indisponible pour YQ.")
+            return
+        end
+        if YQQuality.HasMissingGameplayOptionalSelection(recipeState.optionalSlots, candidate.optionalSelections) then
+            Print("Spark ou Crest sélectionné non possédé pour ce lot.")
             return
         end
         local recipeInfo = self.schematicForm:GetRecipeInfo()
@@ -9498,6 +9975,12 @@ function YQQuality.UpdateSelector()
         frame.userClosed = false
     end
     target.optionalSelections = YQQuality.CopyOptionalSelections(target.optionalSelections)
+    local level = type(schematicForm.GetCurrentRecipeLevel) == "function"
+        and SafeCall(schematicForm.GetCurrentRecipeLevel, schematicForm) or nil
+    local schematic = type(C_TradeSkillUI) == "table"
+        and type(C_TradeSkillUI.GetRecipeSchematic) == "function"
+        and SafeCall(C_TradeSkillUI.GetRecipeSchematic, recipeID, false, level) or nil
+    YQQuality.EnsureRequiredSparkSelections(recipeInfo, schematic, target.optionalSelections)
     useConcentration = target.useConcentration == true
     local useFinishing = target.useFinishing == true
     local useGoldStar = useFinishing and target.useGoldStar == true
@@ -9525,6 +10008,7 @@ function YQQuality.UpdateSelector()
             for _, header in ipairs(frame.reagentQualityHeaders or {}) do header:Hide() end
             for _, row in ipairs(frame.reagentRows or {}) do row:Hide() end
             frame.optionalHeader:Hide()
+            for _, header in pairs(frame.categoryHeaders or {}) do header:Hide() end
             for _, row in ipairs(frame.optionalRows or {}) do row:Hide() end
             frame.finishingHeader:Hide()
             frame.finishingNone:Hide()
@@ -9558,6 +10042,7 @@ function YQQuality.UpdateSelector()
         for _, header in ipairs(frame.reagentQualityHeaders or {}) do header:Hide() end
         for _, row in ipairs(frame.reagentRows or {}) do row:Hide() end
         frame.optionalHeader:Hide()
+        for _, header in pairs(frame.categoryHeaders or {}) do header:Hide() end
         for _, row in ipairs(frame.optionalRows or {}) do row:Hide() end
         frame.finishingHeader:Hide()
         frame.finishingNone:Hide()
@@ -9643,16 +10128,25 @@ function YQQuality.UpdateSelector()
     local concentrationEnough = not useConcentration
         or YQQuality.HasEnoughConcentration(candidate, requestedQuantity)
     local goldStarEnough = goldStarPlan ~= nil
-    frame.addButton:SetEnabled(candidate ~= nil and concentrationEnough and goldStarEnough)
+    local missingGameplayOptional = candidate and YQQuality.HasMissingGameplayOptionalSelection(
+        recipeState.optionalSlots, candidate.optionalSelections
+    )
+    frame.addButton:SetEnabled(candidate ~= nil and concentrationEnough and goldStarEnough
+        and not missingGameplayOptional)
     local pricing = YQQuality.GetCandidatePricing(recipeState, candidate)
-    local minBuyoutText = pricing.minBuyout and GetMoneyString(math.floor(pricing.minBuyout), true) or "|cffaaaaaa?|r"
-    local profitText = YQQuality.FormatSignedMoney(pricing.profit)
+    local minBuyoutText = pricing.outputBound and "|cffaaaaaaLié|r"
+        or (pricing.minBuyout and GetMoneyString(math.floor(pricing.minBuyout), true) or "|cffaaaaaa?|r")
+    local profitText = pricing.outputBound and "—" or YQQuality.FormatSignedMoney(pricing.profit)
     local profitColor = "|cffaaaaaa"
     if type(pricing.profit) == "number" then
         profitColor = pricing.profit > 0 and "|cff55dd77" or (pricing.profit < 0 and "|cffff5555" or "|cffffffff")
     end
-    frame.lastMarketText = (pricing.estimated and "Coût estimé : " or "Coût : ")
-        .. (pricing.materialCost and GetMoneyString(math.floor(pricing.materialCost), true) or "|cffaaaaaa?|r")
+    local materialCostText = pricing.materialCost and GetMoneyString(math.floor(pricing.materialCost), true)
+        or (pricing.knownMaterialCost > 0 and GetMoneyString(math.floor(pricing.knownMaterialCost), true) .. " + ?"
+            or "|cffaaaaaa?|r")
+    local materialLabel = pricing.materialCost and (pricing.estimated and "Coût estimé : " or "Coût : ")
+        or "Coût connu : "
+    frame.lastMarketText = materialLabel .. materialCostText
         .. "   Minbuyout : " .. minBuyoutText
         .. "   Profit est. : " .. profitColor .. profitText .. "|r"
     frame.marketText:SetText(frame.lastMarketText)
@@ -9661,6 +10155,9 @@ function YQQuality.UpdateSelector()
             .. " target=" .. tostring(target.quality)
             .. " minbuyout=" .. tostring(pricing.minBuyout)
             .. " materials=" .. tostring(pricing.materialCost)
+            .. " knownMaterials=" .. tostring(pricing.knownMaterialCost)
+            .. " missingMaterial=" .. tostring(pricing.missingMaterialItemID)
+            .. " outputBound=" .. tostring(pricing.outputBound)
             .. " profit=" .. tostring(pricing.profit)
     )
 
@@ -9714,82 +10211,139 @@ function YQQuality.UpdateSelector()
     end
 
     local reagentRowCount = #(recipeState.slots or {})
-    local optionalOptions = {}
+    local categoryOrder = { "sparks", "crests", "missives", "embellishments" }
+    local categoryOptions = { sparks = {}, crests = {}, missives = {}, embellishments = {} }
     local finishingOptions = {}
-    local seenMissiveFamilies = {}
+    local seenCategoryFamilies = {}
     for _, slotData in ipairs(recipeState.optionalSlots or {}) do
         local slotIndex = tonumber(slotData.slot.dataSlotIndex)
         local selectedItemID = candidate and candidate.optionalSelections
             and candidate.optionalSelections[slotIndex] or target.optionalSelections[slotIndex]
         local selectedOption = YQQuality.GetSelectionOption(recipeState.optionalSlots, slotIndex, selectedItemID)
         for _, option in ipairs(slotData.options or {}) do
-            if useFinishing then
-                if option.isFinishing and selectedItemID == option.itemID then
-                    finishingOptions[#finishingOptions + 1] = { slot = slotData.slot, option = option, optimized = true }
-                elseif option.isMissive then
-                    local familyKey = tostring(slotIndex) .. "|" .. tostring(option.itemName)
-                    if not seenMissiveFamilies[familyKey] then
-                        seenMissiveFamilies[familyKey] = true
-                        optionalOptions[#optionalOptions + 1] = {
+            if option.isFinishing then
+                if selectedItemID == option.itemID then
+                    finishingOptions[#finishingOptions + 1] = {
+                        slot = slotData.slot,
+                        option = option,
+                        optimized = true,
+                    }
+                end
+            else
+                local category = slotData.category or option.category
+                if not category and option.isMissive then category = "missives" end
+                if categoryOptions[category] then
+                    local familyKey = YQQuality.GetOptionalFamilyKey(option)
+                    local seenKey = tostring(slotIndex) .. "|" .. category .. "|" .. familyKey
+                    if category == "sparks" then
+                        seenKey = tostring(slotIndex) .. "|sparks|" .. tostring(YQQuality.GetOptionalSelectionID(option))
+                    end
+                    if not seenCategoryFamilies[seenKey] then
+                        seenCategoryFamilies[seenKey] = true
+                        local selectedMatches = selectedOption
+                            and ((selectedOption.category or (selectedOption.isMissive and "missives")) == category)
+                            and YQQuality.GetOptionalFamilyKey(selectedOption) == familyKey
+                        local displayOption = selectedMatches and selectedOption or option
+                        categoryOptions[category][#categoryOptions[category] + 1] = {
                             slot = slotData.slot,
-                            option = option,
-                            selectionItemID = option.itemID,
-                            selected = selectedOption and selectedOption.itemName == option.itemName,
+                            option = displayOption,
+                            selectionItemID = YQQuality.GetOptionalSelectionID(displayOption),
+                            selected = selectedMatches,
+                            selectedFamily = selectedMatches and category ~= "sparks",
+                            category = category,
                         }
                     end
-                elseif selectedItemID == option.itemID then
-                    optionalOptions[#optionalOptions + 1] = { slot = slotData.slot, option = option, optimized = true }
                 end
-            elseif not option.isFinishing then
-                optionalOptions[#optionalOptions + 1] = { slot = slotData.slot, option = option }
             end
         end
     end
-    table.sort(optionalOptions, function(left, right)
-        if left.option.priority ~= right.option.priority then return left.option.priority < right.option.priority end
-        if left.option.quality ~= right.option.quality then return left.option.quality < right.option.quality end
-        return left.option.itemName < right.option.itemName
-    end)
+    for _, category in ipairs(categoryOrder) do
+        table.sort(categoryOptions[category], function(left, right)
+            if left.option.priority ~= right.option.priority then
+                return left.option.priority < right.option.priority
+            end
+            if left.option.quality ~= right.option.quality then
+                return left.option.quality < right.option.quality
+            end
+            return tostring(left.option.itemName) < tostring(right.option.itemName)
+        end)
+    end
     table.sort(finishingOptions, function(left, right)
         return tostring(left.option.itemName) < tostring(right.option.itemName)
     end)
-    YQQuality.EnsureOptionalRows(frame, #optionalOptions)
-    YQQuality.EnsureFinishingRows(frame, #finishingOptions)
-    local contentTop = -171 - (reagentRowCount * 34)
-    local finishingColumns = 8
-    local finishingLineCount = math.ceil(#finishingOptions / finishingColumns)
-    frame.finishingHeader:ClearAllPoints()
-    frame.finishingHeader:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, contentTop)
-    frame.finishingHeader:SetShown(useFinishing)
-    frame.finishingNone:ClearAllPoints()
-    frame.finishingNone:SetPoint("TOPLEFT", frame, "TOPLEFT", 132, contentTop)
-    frame.finishingNone:SetShown(useFinishing and #finishingOptions == 0)
-    for rowIndex, row in ipairs(frame.finishingRows or {}) do
-        local rowData = finishingOptions[rowIndex]
-        if rowData then
-            local column = (rowIndex - 1) % finishingColumns
-            local line = math.floor((rowIndex - 1) / finishingColumns)
-            row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", frame, "TOPLEFT", 14 + (column * 38), contentTop - 18 - (line * 38))
-            row.itemID = rowData.option.itemID
-            row.icon:SetTexture(GetItemIcon(row.itemID))
-            row.selectionMark:Show()
-            row:Show()
-        else
-            row.itemID = nil
-            row.selectionMark:Hide()
-            row:Hide()
+
+    local categoryEntries = {}
+    for _, category in ipairs(categoryOrder) do
+        for categoryIndex, rowData in ipairs(categoryOptions[category]) do
+            rowData.category = category
+            rowData.categoryIndex = categoryIndex
+            categoryEntries[#categoryEntries + 1] = rowData
         end
     end
-    local optionalTop = contentTop - (useFinishing and (24 + (finishingLineCount * 38)) or 0)
-    frame.optionalHeader:ClearAllPoints()
-    frame.optionalHeader:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, optionalTop)
-    frame.optionalHeader:SetText(useFinishing and "Missives / optionnels" or "Réactifs optionnels")
-    frame.optionalHeader:SetShown(#optionalOptions > 0)
-    local optionalColumns = 8
-    local optionalRows = math.ceil(#optionalOptions / optionalColumns)
+    YQQuality.EnsureOptionalRows(frame, #categoryEntries)
+    YQQuality.EnsureFinishingRows(frame, #finishingOptions)
+
+    local contentTop = -171 - (reagentRowCount * 34)
+    local columns = 8
+    local rowHeight = 40
+    local cursor = contentTop
+    local categoryLayouts = {}
+    frame.optionalHeader:Hide()
+    for _, header in pairs(frame.categoryHeaders or {}) do header:Hide() end
+
+    frame.finishingHeader:ClearAllPoints()
+    frame.finishingNone:ClearAllPoints()
+    if useFinishing then
+        local finishingLines = math.max(1, math.ceil(#finishingOptions / columns))
+        frame.finishingHeader:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, cursor)
+        frame.finishingHeader:Show()
+        frame.finishingNone:SetPoint("TOPLEFT", frame, "TOPLEFT", 132, cursor)
+        frame.finishingNone:SetShown(#finishingOptions == 0)
+        for rowIndex, row in ipairs(frame.finishingRows or {}) do
+            local rowData = finishingOptions[rowIndex]
+            if rowData then
+                local column = (rowIndex - 1) % columns
+                local line = math.floor((rowIndex - 1) / columns)
+                row:ClearAllPoints()
+                row:SetPoint("TOPLEFT", frame, "TOPLEFT", 14 + (column * 38), cursor - 18 - (line * rowHeight))
+                row.itemID = rowData.option.itemID
+                row.icon:SetTexture(GetItemIcon(row.itemID))
+                row:SetAlpha(1)
+                row.selectionMark:Show()
+                row:Show()
+            else
+                row.itemID = nil
+                row.selectionMark:Hide()
+                row:Hide()
+            end
+        end
+        cursor = cursor - 18 - (finishingLines * rowHeight) - 8
+    else
+        frame.finishingHeader:Hide()
+        frame.finishingNone:Hide()
+        for _, row in ipairs(frame.finishingRows or {}) do row:Hide() end
+    end
+
+    for _, category in ipairs(categoryOrder) do
+        local options = categoryOptions[category]
+        local header = frame.categoryHeaders and frame.categoryHeaders[category]
+        if header then header:Hide() end
+        if #options > 0 then
+            local lines = math.ceil(#options / columns)
+            local rowTop = cursor - 18
+            categoryLayouts[category] = { rowTop = rowTop }
+            if header then
+                header:ClearAllPoints()
+                header:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, cursor)
+                header:SetText(frame.categoryLabels[category])
+                header:Show()
+            end
+            cursor = rowTop - (lines * rowHeight) - 8
+        end
+    end
+
     for rowIndex, row in ipairs(frame.optionalRows or {}) do
-        local rowData = optionalOptions[rowIndex]
+        local rowData = categoryEntries[rowIndex]
         if rowData then
             local slotIndex = tonumber(rowData.slot.dataSlotIndex)
             local option = rowData.option
@@ -9799,8 +10353,9 @@ function YQQuality.UpdateSelector()
             local selected = rowData.selected == true or rowData.optimized
                 or target.optionalSelections[slotIndex] == selectionItemID
             local canReachTarget = true
-            if not useFinishing and option.isMissive and not selected then
-                local previewKey = selectionKey .. "|" .. tostring(slotIndex) .. ":" .. tostring(option.itemID)
+            if not useFinishing and (option.isMissive or option.isEmbellishment) and not selected then
+                local previewKey = selectionKey .. "|" .. tostring(slotIndex) .. ":"
+                    .. tostring(YQQuality.GetOptionalSelectionID(option))
                 local preview = state.craft.qualityPreviewStates[previewKey]
                 if preview then
                     canReachTarget = YQQuality.FindCandidate(preview, target.quality) ~= nil
@@ -9809,31 +10364,47 @@ function YQQuality.UpdateSelector()
                     YQQuality.QueuePreviewStateSolve(schematicForm, useConcentration, selections, previewKey)
                 end
             end
-            local column = (rowIndex - 1) % optionalColumns
-            local line = math.floor((rowIndex - 1) / optionalColumns)
+            local layout = categoryLayouts[rowData.category]
+            local column = (rowData.categoryIndex - 1) % columns
+            local line = math.floor((rowData.categoryIndex - 1) / columns)
             row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", frame, "TOPLEFT", 14 + (column * 38), optionalTop - 18 - (line * 38))
+            row:SetPoint("TOPLEFT", frame, "TOPLEFT", 14 + (column * 38), layout.rowTop - (line * rowHeight))
             row.itemID = option.itemID
+            row.currencyID = option.currencyID
+            row.itemName = option.itemName
             row.selectionItemID = selectionItemID
             row.slotIndex = slotIndex
-            row.icon:SetTexture(GetItemIcon(option.itemID))
+            row.isSpark = rowData.category == "sparks"
+            row.isCrest = rowData.category == "crests"
+            row.icon:SetTexture(YQQuality.GetOptionalIcon(option))
             row.lockedByOptimizer = rowData.optimized == true
-            row.selectedFamily = rowData.selected == true
+            row.selectedFamily = rowData.selectedFamily == true
+            local required = math.max(1, tonumber(rowData.slot.quantityRequired) or 1)
+            local owned = not (row.isSpark or row.isCrest)
+                or YQQuality.GetOptionalOwnedCount(option) >= required
+            row.owned = owned
+            row:SetAlpha(owned and 1 or 0.45)
             row:SetEnabled((canReachTarget or selected) and not row.lockedByOptimizer)
             if selected then row:LockHighlight() else row:UnlockHighlight() end
             row.selectionMark:SetShown(selected)
             row:Show()
         else
             row.itemID = nil
+            row.currencyID = nil
+            row.itemName = nil
             row.selectionItemID = nil
             row.slotIndex = nil
+            row.isSpark = false
+            row.isCrest = false
+            row.owned = true
             row.lockedByOptimizer = false
             row.selectedFamily = false
+            row:SetAlpha(1)
             row.selectionMark:Hide()
             row:Hide()
         end
     end
-    frame:SetHeight(math.max(280, 222 + (reagentRowCount * 34) + (finishingLineCount * 38) + (optionalRows * 38)))
+    frame:SetHeight(math.max(296, -cursor + 50))
 end
 
 local function AnchorQueueButton(button, target, fallbackParent)
@@ -11485,6 +12056,8 @@ function YayaQueueAPI.AddRecipe(context, quantity)
                 .. tostring(context.recipeID)
                 .. " order="
                 .. tostring(context.orderID)
+                .. " enchant="
+                .. tostring(context.isEnchantingRecipe == true)
                 .. " reagents=["
                 .. table.concat(reagentParts, ", ")
                 .. "]"

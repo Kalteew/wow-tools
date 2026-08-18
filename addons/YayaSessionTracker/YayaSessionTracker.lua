@@ -7,6 +7,7 @@ local MISSION_REWARD_CLAIM_TTL_SECONDS = 600
 local MISSION_CONTAINER_PENDING_TTL_SECONDS = 30 * 24 * 60 * 60
 local MISSION_CONTAINER_FINALIZE_DELAY_SECONDS = 1.25
 local MAX_SESSIONS = 250
+local CORROSIVE_COIN_CURRENCY_ID = 3448
 local DEFAULT_PRICE_SOURCE = "first(dbmarket, dbregionmarketavg, vendorsell)"
 local ITEM_BIND_ON_ACQUIRE = LE_ITEM_BIND_ON_ACQUIRE or (Enum and Enum.ItemBind and Enum.ItemBind.OnAcquire) or 1
 local ITEM_BIND_QUEST = LE_ITEM_BIND_QUEST or (Enum and Enum.ItemBind and Enum.ItemBind.Quest) or 4
@@ -486,6 +487,7 @@ local function NewSession()
             ignoredExpense = 0,
         },
         items = {},
+        currencyGains = {},
         itemCount = 0,
         xp = {
             gained = 0,
@@ -1049,6 +1051,10 @@ local function BuildSessionSnapshot(session)
     local gph = math.floor((totalValue * 3600 / durationSeconds) + 0.5)
     local xpGained = session.xp and session.xp.gained or 0
     local xph = math.floor((xpGained * 3600 / durationSeconds) + 0.5)
+    local corrosiveCoin = tonumber(session.currencyGains and session.currencyGains[CORROSIVE_COIN_CURRENCY_ID])
+        or tonumber(session.corrosiveCoin)
+        or 0
+    local corrosiveCoinPerHour = math.floor((corrosiveCoin * 3600 / durationSeconds) + 0.5)
     local bestItem = topItems[1]
 
     while #topItems > 5 do
@@ -1063,6 +1069,8 @@ local function BuildSessionSnapshot(session)
         gph = gph,
         xpGained = xpGained,
         xph = xph,
+        corrosiveCoin = corrosiveCoin,
+        corrosiveCoinPerHour = corrosiveCoinPerHour,
         bestItem = bestItem,
         topItems = topItems,
     }
@@ -1089,6 +1097,8 @@ local function StoreCompletedSession(session, reason, endedAt)
     session.gph = snapshot.gph
     session.xpGained = snapshot.xpGained
     session.xph = snapshot.xph
+    session.corrosiveCoin = snapshot.corrosiveCoin
+    session.corrosiveCoinPerHour = snapshot.corrosiveCoinPerHour
     session.bestItem = snapshot.bestItem
     session.topItems = snapshot.topItems
 
@@ -1165,6 +1175,23 @@ local function RecordXPUpdate()
 
     activeSession.xp.lastXP = currentXP
     activeSession.xp.lastXPMax = currentXPMax
+end
+
+local function RecordCurrencyGain(currencyID, quantityChange)
+    if not activeSession or tonumber(currencyID) ~= CORROSIVE_COIN_CURRENCY_ID then
+        return false
+    end
+
+    quantityChange = tonumber(quantityChange)
+    if not quantityChange or quantityChange <= 0 then
+        return false
+    end
+
+    activeSession.currencyGains = activeSession.currencyGains or {}
+    activeSession.currencyGains[CORROSIVE_COIN_CURRENCY_ID] =
+        (tonumber(activeSession.currencyGains[CORROSIVE_COIN_CURRENCY_ID]) or 0) + quantityChange
+    PersistActiveSession()
+    return true
 end
 
 local function RecordIgnoredGold(delta, isIncome)
@@ -1734,8 +1761,14 @@ local function BuildFrameLines()
         "",
     }
 
+    local nextLine = 6
+    if snapshot.corrosiveCoin > 0 then
+        lines[nextLine] = "Coin/h " .. BreakUpLargeNumbers(snapshot.corrosiveCoinPerHour or 0)
+        nextLine = nextLine + 1
+    end
+
     if not IsPlayerAtMaxLevel() then
-        lines[6] = "XP/h " .. BreakUpLargeNumbers(snapshot.xph or 0)
+        lines[nextLine] = "XP/h " .. BreakUpLargeNumbers(snapshot.xph or 0)
     end
 
     return lines
@@ -1764,7 +1797,7 @@ local function CreateTrackerFrame()
 
     trackerFrame = CreateFrame("Frame", addonName .. "Frame", YayaFrameAPI:GetFrame())
     trackerFrame:SetFrameStrata("MEDIUM")
-    trackerFrame:SetSize(132, 92)
+    trackerFrame:SetSize(132, 106)
     trackerFrame:SetClampedToScreen(true)
 
     trackerFrame.bg = trackerFrame:CreateTexture(nil, "BACKGROUND")
@@ -1786,7 +1819,7 @@ local function CreateTrackerFrame()
     end)
 
     trackerFrame.lines = {}
-    for index = 1, 6 do
+    for index = 1, 7 do
         local line = trackerFrame:CreateFontString(nil, "OVERLAY", index == 1 and "GameFontNormalSmall" or "GameFontHighlightSmall")
         line:SetPoint("TOPLEFT", 6, -5 - ((index - 1) * 14))
         line:SetWidth(102)
@@ -1984,6 +2017,7 @@ eventFrame:RegisterEvent("PLAYER_MONEY")
 eventFrame:RegisterEvent("PLAYER_XP_UPDATE")
 eventFrame:RegisterEvent("PLAYER_LEVEL_UP")
 eventFrame:RegisterEvent("CHAT_MSG_LOOT")
+eventFrame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
 eventFrame:RegisterEvent("MAIL_SEND_SUCCESS")
 eventFrame:RegisterEvent("MAIL_FAILED")
 eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
@@ -2026,6 +2060,11 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         local message = ...
         HandleLootMessage(message)
         UpdateFrame()
+    elseif event == "CURRENCY_DISPLAY_UPDATE" then
+        local currencyID, _, quantityChange = ...
+        if RecordCurrencyGain(currencyID, quantityChange) then
+            UpdateFrame()
+        end
     elseif event == "MAIL_SEND_SUCCESS" then
         ConfirmOutgoingMail()
     elseif event == "MAIL_FAILED" then

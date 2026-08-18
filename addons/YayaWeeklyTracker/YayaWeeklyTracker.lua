@@ -213,29 +213,54 @@ local MIDNIGHT_MOXIE_CURRENCY_IDS = {
 }
 
 local MIDNIGHT_KNOWLEDGE_BOOKS_BY_SKILL_LINE_ID = {
-    [2906] = { { label = "Voidstorm", questID = 93794, itemID = 262645, mapID = 2405, x = 52.6, y = 72.9 } },
-    [2907] = { { label = "Voidstorm", questID = 93795, itemID = 262644, mapID = 2405, x = 52.6, y = 72.9 } },
+    [2906] = {
+        { label = "Voidstorm", questID = 93794, itemID = 262645, mapID = 2405, x = 52.6, y = 72.9 },
+        { label = "Coiled Isle", questID = 96459, itemID = 274500, mapID = 2512, x = 58.8, y = 46.0 },
+    },
+    [2907] = {
+        { label = "Voidstorm", questID = 93795, itemID = 262644, mapID = 2405, x = 52.6, y = 72.9 },
+        { label = "Coiled Isle", questID = 96511, itemID = 274515, mapID = 2512, x = 58.8, y = 46.0 },
+    },
     [2909] = {
         { label = "Silvermoon", questID = 92374, itemID = 257600, mapID = 2395, x = 43.4, y = 47.4 },
         { label = "Abundance", questID = 92186, itemID = 250445, abundance = true, mapID = 2395, x = 56.78, y = 65.79 },
+        { label = "Coiled Isle", questID = 96512, itemID = 274511, mapID = 2512, x = 58.8, y = 46.0 },
     },
-    [2910] = { { label = "Voidstorm", questID = 93796, itemID = 262646, mapID = 2405, x = 52.6, y = 72.9 } },
+    [2910] = {
+        { label = "Voidstorm", questID = 93796, itemID = 262646, mapID = 2405, x = 52.6, y = 72.9 },
+        { label = "Coiled Isle", questID = 96513, itemID = 274516, mapID = 2512, x = 58.8, y = 46.0 },
+    },
     [2912] = {
         { label = "Harandar", questID = 93411, itemID = 258410, mapID = 2413, x = 51.0, y = 50.8 },
         { label = "Abundance", questID = 92174, itemID = 250443, abundance = true, mapID = 2413, x = 66.14, y = 61.69 },
+        { label = "Coiled Isle", questID = 96514, itemID = 274513, mapID = 2512, x = 58.8, y = 46.0 },
     },
-    [2913] = { { label = "Harandar", questID = 93412, itemID = 258411, mapID = 2413, x = 51.0, y = 50.8 } },
-    [2914] = { { label = "Silvermoon", questID = 93222, itemID = 257599, mapID = 2395, x = 43.4, y = 47.4 } },
-    [2915] = { { label = "Zul'Aman", questID = 92371, itemID = 250922, mapID = 2437, x = 45.8, y = 65.8 } },
+    [2913] = {
+        { label = "Harandar", questID = 93412, itemID = 258411, mapID = 2413, x = 51.0, y = 50.8 },
+        { label = "Coiled Isle", questID = 96515, itemID = 274514, mapID = 2512, x = 58.8, y = 46.0 },
+    },
+    [2914] = {
+        { label = "Silvermoon", questID = 93222, itemID = 257599, mapID = 2395, x = 43.4, y = 47.4 },
+        { label = "Coiled Isle", questID = 96516, itemID = 274510, mapID = 2512, x = 58.8, y = 46.0 },
+    },
+    [2915] = {
+        { label = "Zul'Aman", questID = 92371, itemID = 250922, mapID = 2437, x = 45.8, y = 65.8 },
+        { label = "Coiled Isle", questID = 96517, itemID = 274507, mapID = 2512, x = 58.8, y = 46.0 },
+    },
     [2916] = {
         { label = "Zul'Aman", questID = 92372, itemID = 250924, mapID = 2437, x = 45.8, y = 65.8 },
         { label = "Abundance", questID = 92187, itemID = 250444, abundance = true, mapID = 2405, x = 38.82, y = 53.31 },
+        { label = "Coiled Isle", questID = 96518, itemID = 274509, mapID = 2512, x = 58.8, y = 46.0 },
     },
     [2917] = {
         { label = "Zul'Aman", questID = 92373, itemID = 250923, mapID = 2437, x = 45.8, y = 65.8 },
         { label = "Abundance", questID = 92188, itemID = 250360, abundance = true, mapID = 2437, x = 31.62, y = 26.14 },
+        { label = "Coiled Isle", questID = 96519, itemID = 274508, mapID = 2512, x = 58.8, y = 46.0 },
     },
-    [2918] = { { label = "Silvermoon", questID = 93201, itemID = 257601, mapID = 2395, x = 43.4, y = 47.4 } },
+    [2918] = {
+        { label = "Silvermoon", questID = 93201, itemID = 257601, mapID = 2395, x = 43.4, y = 47.4 },
+        { label = "Coiled Isle", questID = 96520, itemID = 274512, mapID = 2512, x = 58.8, y = 46.0 },
+    },
 }
 
 local MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID = {
@@ -249,6 +274,16 @@ local MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID = {
             mapID = 2405,
             x = 52.6,
             y = 72.9,
+        },
+        {
+            label = "Vicious Thalassian Flask of Honor",
+            optionKey = "trackRecipeViciousThalassianFlaskHonor",
+            spellID = 1230883,
+            itemID = 257417,
+            moxieCost = 150,
+            mapID = 2395,
+            x = 34.04,
+            y = 81.20,
         },
     },
     [2909] = {
@@ -326,6 +361,11 @@ runtimeState.surplusReagentContainers = {
     [260544] = { order = 10, label = "Skin" }, -- Master Skinner's Surplus Reagents
     [260545] = { order = 11, label = "Tail" }, -- Master Tailor's Surplus Reagents
 }
+runtimeState.mergeableFinishingReagents = {
+    [247725] = { outputItemID = 247726, order = 1, label = "Resourceful" }, -- Resourceful Rebar -> Resourceful Routing
+    [247719] = { outputItemID = 247724, order = 2, label = "Multicraft" }, -- Multicraft Matrix -> Multicraft Manifold
+    [260630] = { outputItemID = 247788, order = 3, label = "Ingenuity" }, -- Ingenious Identifier -> Ingenious Identity
+}
 runtimeState.containerWhitelist = {
     [263934] = true, -- Chest of Gold
     [263466] = true, -- Overflowing Abundant Satchel
@@ -336,6 +376,276 @@ runtimeState.containerWhitelist = {
     [250755] = true, -- Pouch of Mystic Grindings
     [245650] = true, -- Bouquet of Herbs rank 1
     [245651] = true, -- Bouquet of Herbs rank 2
+    [275899] = true, -- Venom-Soaked Satchel
+    [275911] = true, -- Venom-Covered Chest
+    [277137] = true, -- Wriggling Venom-Soaked Satchel
+    [279287] = true, -- Corroded Pouch
+    [279288] = true, -- Corroded Satchel
+    [279345] = true, -- Venom-Drenched Sack
+    [279527] = true, -- Apex Cache, Midnight Season 2
+    [280458] = true, -- Delver's Corroded Pouch of Undercoin
+    [257023] = true, -- Preyseeker's Adventurer Chest
+    [257026] = true, -- Preyseeker's Veteran Chest
+    [262346] = true, -- Preyseeker's Champion Chest
+    [268545] = true, -- Aspiring Preyseeker's Chest
+    [275726] = true, -- Preyhunter's Champion Chest
+    [275822] = true, -- Preyhunter's Veteran Chest
+    [275918] = true, -- Preyhunter's Adventurer Chest
+    [276104] = true, -- Aspiring Preyhunter's Chest
+    [279574] = true, -- Preyhunter's Hero Chest
+    [250116] = true, -- Cache of Quel'Thalas Treasures
+    [250117] = true, -- Cache of Quel'Thalas Treasures, Heroic
+    [250750] = true, -- Pouch of Sprouted Clippings
+    [250753] = true, -- Bag of Cracked Orebits
+    [250754] = true, -- Bag of Wild Skinnings
+    [250975] = true, -- Hellcaller Chest
+    [251286] = true, -- Bundle of Petrified Roots
+    [251287] = true, -- Generous Bundle of Petrified Roots
+    [251322] = true, -- Thalassian Leatherworker's Duffel
+    [251326] = true, -- Thalassian Enchanter's Purse
+    [251327] = true, -- Thalassian Tailor's Tote Bag
+    [251821] = true, -- Cache of Infinite Power
+    [251970] = true, -- Overflowing Amani Trove
+    [254323] = true, -- Worldsoul Satchel
+    [254324] = true, -- Worldsoul Satchel
+    [254325] = true, -- Worldsoul Satchel, level 80
+    [255428] = true, -- Tolbani's Medicine Satchel
+    [255666] = true, -- Huge Bag of Midnight General Goods
+    [255678] = true, -- Huge Bag of Midnight Herbs
+    [255679] = true, -- Huge Bag of Midnight Minerals
+    [255682] = true, -- Huge Bag of Midnight Skins
+    [255683] = true, -- Huge Bag of Midnight Jewelcrafting Goods
+    [255684] = true, -- Huge Bag of Midnight Leatherworking Goods
+    [255686] = true, -- Huge Bag of Midnight Alchemy Goods
+    [255687] = true, -- Huge Bag of Midnight Optional Goods
+    [255689] = true, -- Huge Bag of Midnight Engineering Goods
+    [255690] = true, -- Huge Bag of Midnight Enchanting Goods
+    [255691] = true, -- Huge Bag of Midnight Tailoring Goods
+    [255703] = true, -- Huge Bag of Midnight Blacksmithing Goods
+    [255704] = true, -- Huge Bag of Midnight Inscription Goods
+    [256055] = true, -- Overflowing Hara'ti Trove
+    [256763] = true, -- Cache from the Infinite's Armory
+    [258279] = true, -- [DNT] Big Pouch of Supplies
+    [258534] = true, -- Illustrious Contender's Strongbox
+    [258620] = true, -- Field Medic's Hazard Payout
+    [259086] = true, -- Void-Touched Satchel of Cooperation
+    [259334] = true, -- Overflowing Singularity Trove
+    [260193] = true, -- Fabled Veteran's Cache
+    [260940] = true, -- Victorious Stormarion Pinnacle Cache
+    [260979] = true, -- Victorious Stormarion Cache
+    [262349] = true, -- Satchel of Compensation
+    [262432] = true, -- Weathered Lockbox
+    [262596] = true, -- Preyseeker's Satchel of Voidlight Marl
+    [262622] = true, -- Preyseeker's Satchel of Coffer Key Shards
+    [262623] = true, -- Preyseeker's Satchel of Adventurer Dawncrests
+    [262624] = true, -- Preyseeker's Satchel of Anguish
+    [262626] = true, -- Preyseeker's Box of Anguish
+    [262627] = true, -- Preyseeker's Box of Coffer Key Shards
+    [262629] = true, -- Preyseeker's Box of Veteran Dawncrests
+    [262630] = true, -- Preyseeker's Box of Voidlight Marl
+    [262631] = true, -- Preyseeker's Cache of Anguish
+    [262632] = true, -- Preyseeker's Cache of Coffer Key Shards
+    [262633] = true, -- Preyseeker's Cache of Champion Dawncrests
+    [262634] = true, -- Preyseeker's Cache of Voidlight Marl
+    [262635] = true, -- Cache of Delver's Spoils
+    [262658] = true, -- Nebulous Voidcache: Midnight Falls
+    [262928] = true, -- Preyseeker's Adventurer Sack
+    [262936] = true, -- Preyseeker's Veteran Sack
+    [262938] = true, -- Preyseeker's Champion Sack
+    [263179] = true, -- Delver's Cosmetic Surprise Bag
+    [263400] = true, -- Cache of Delver's Spoils
+    [263433] = true, -- Overflowing Silvermoon Trove
+    [263465] = true, -- Surplus Bag of Party Favors
+    [263928] = true, -- Cache of Void-Touched Armaments, Champion
+    [263929] = true, -- Cache of Void-Touched Armaments, Heroic
+    [264274] = true, -- Fabled Adventurer's Cache
+    [264314] = true, -- Cache of Void-Touched Headgear
+    [264315] = true, -- Cache of Void-Touched Shoulderwear
+    [264316] = true, -- Cache of Void-Touched Cloaks
+    [264317] = true, -- Cache of Void-Touched Chestpieces
+    [264318] = true, -- Cache of Void-Touched Bracers
+    [264319] = true, -- Cache of Void-Touched Gloves
+    [264320] = true, -- Cache of Void-Touched Belts
+    [264321] = true, -- Cache of Void-Touched Legwear
+    [264322] = true, -- Cache of Void-Touched Boots
+    [264323] = true, -- Cache of Void-Touched Weapons
+    [264470] = true, -- Ash-Tied Offering
+    [264587] = true, -- Ani's Trinket Bag
+    [264652] = true, -- Delver's Pouch of Voidlight Marl
+    [264675] = true, -- Cache from the Infinite's Armory
+    [264914] = true, -- Ranger's Cache
+    [265790] = true, -- Cache of Mistcrests
+    [265995] = true, -- Quel'Thalas Adventurer's Cache
+    [267299] = true, -- Slayer's Duellum Trove
+    [267488] = true, -- Nebulous Voidcache: Crown of the Cosmos
+    [268297] = true, -- Rattling Bag o' Gold
+    [268458] = true, -- Nebulous Voidcache: Belo'ren, Child of Al'ar
+    [268459] = true, -- Nebulous Voidcache: Imperator Averzian
+    [268460] = true, -- Nebulous Voidcache: Vorasius
+    [268461] = true, -- Nebulous Voidcache: Fallen-King Salhadaar
+    [268462] = true, -- Nebulous Voidcache: Vaelgor & Ezzorak
+    [268463] = true, -- Nebulous Voidcache: Lightblinded Vanguard
+    [268464] = true, -- Nebulous Voidcache: Chimaerus the Undreamt God
+    [268465] = true, -- Nebulous Voidcache: Algeth'ar Academy
+    [268466] = true, -- Nebulous Voidcache: Magisters' Terrace
+    [268467] = true, -- Nebulous Voidcache: Nexus-Point Xenas
+    [268468] = true, -- Nebulous Voidcache: Pit of Saron
+    [268469] = true, -- Nebulous Voidcache: Seat of the Triumvirate
+    [268470] = true, -- Nebulous Voidcache: Skyreach
+    [268471] = true, -- Nebulous Voidcache: Windrunner Spire
+    [268473] = true, -- Nebulous Voidcache: Maisara Caverns
+    [268485] = true, -- Victorious Stormarion Pinnacle Cache
+    [268488] = true, -- Overflowing Abundant Satchel
+    [268489] = true, -- Surplus Bag of Party Favors
+    [268490] = true, -- Apex Cache
+    [268969] = true, -- Nebulous Voidcache: Delver's Trove
+    [269005] = true, -- Preyseeker's Glinting Coin Pouch
+    [269006] = true, -- Preyseeker's Gleaming Coin Pouch
+    [269007] = true, -- Preyseeker's Glittering Coin Pouch
+    [269234] = true, -- Overflowing Ritual Site Cache
+    [269701] = true, -- Surplus Bag of Party Favors
+    [269702] = true, -- Overflowing Abundant Satchel
+    [269704] = true, -- Victorious Stormarion Cache
+    [269768] = true, -- Nebulous Voidcache: Prey
+    [270244] = true, -- Field Pouch
+    [270247] = true, -- Field Satchel
+    [270932] = true, -- Wriggling Field Pouch
+    [270933] = true, -- Bulging Field Pouch
+    [270934] = true, -- Recruit's Field Pouch
+    [270987] = true, -- Recruit's Field Satchel
+    [271221] = true, -- Wriggling Recruit's Field Pouch
+    [271222] = true, -- Bulging Recruit's Field Pouch
+    [272125] = true, -- Recruit's Cache
+    [273152] = true, -- Delve Gearbox, item level 220
+    [273153] = true, -- Delve Gearbox, item level 230
+    [273154] = true, -- Delve Gearbox, item level 243
+    [273155] = true, -- Delve Gearbox, item level 259
+    [273156] = true, -- Delve Gearbox, item level 263
+    [274372] = true, -- Big ol' Bag of Polished Pet Charms
+    [274421] = true, -- Crate of Community Coupons
+    [274465] = true, -- Agitated Crate of Zandalari Fury
+    [274578] = true, -- Offering of Unalloyed Abundance
+    [274708] = true, -- Nebulous Voidcache: Nymrissa Wavecaller
+    [274713] = true, -- Cache of Amani Treasures, Heroic
+    [274714] = true, -- Cache of Amani Treasures
+    [275228] = true, -- Nebulous Voidcache: Rotmire
+    [275690] = true, -- Riftstalker's Cache
+    [275691] = true, -- Riftstalker's Overflowing Cache
+    [275728] = true, -- Preyhunter's Champion Sack
+    [275917] = true, -- Preyhunter's Veteran Sack
+    [275919] = true, -- Preyhunter's Adventurer Sack
+    [275986] = true, -- Delver's Cosmetic Surprise Bag
+    [276378] = true, -- Cache of Void-Touched Armaments: Boots
+    [276379] = true, -- Cache of Void-Touched Armaments: Legs
+    [276380] = true, -- Cache of Void-Touched Armaments: Belts
+    [276381] = true, -- Cache of Void-Touched Armaments: Gloves
+    [276382] = true, -- Cache of Void-Touched Armaments: Bracers
+    [276383] = true, -- Cache of Void-Touched Armaments: Chest
+    [276384] = true, -- Cache of Void-Touched Armaments: Cloak
+    [276385] = true, -- Cache of Void-Touched Armaments: Shoulder
+    [276386] = true, -- Cache of Void-Touched Armaments: Head
+    [276624] = true, -- Overflowing Hash'ura Trove
+    [277124] = true, -- Warbound Cache of Void-Touched Armaments
+    [277125] = true, -- Cache of Void-Touched Armaments: Weapons
+    [277126] = true, -- Cache of Void-Touched Armaments: Necklaces
+    [277127] = true, -- Cache of Void-Touched Armaments: Rings
+    [277157] = true, -- Barnacle-Encrusted Chest
+    [277937] = true, -- Balanced Offering
+    [277938] = true, -- Virulent Offering
+    [277940] = true, -- Fragile Offering
+    [278004] = true, -- Warbound Cache of Void-Touched Armaments: Boots
+    [278005] = true, -- Warbound Cache of Void-Touched Armaments: Legs
+    [278006] = true, -- Warbound Cache of Void-Touched Armaments: Belts
+    [278007] = true, -- Warbound Cache of Void-Touched Armaments: Gloves
+    [278008] = true, -- Warbound Cache of Void-Touched Armaments: Bracers
+    [278009] = true, -- Warbound Cache of Void-Touched Armaments: Chest
+    [278010] = true, -- Warbound Cache of Void-Touched Armaments: Cloak
+    [278011] = true, -- Warbound Cache of Void-Touched Armaments: Shoulder
+    [278012] = true, -- Warbound Cache of Void-Touched Armaments: Head
+    [278013] = true, -- Warbound Cache of Void-Touched Armaments: Weapons
+    [278014] = true, -- Warbound Cache of Void-Touched Armaments: Necklaces
+    [278015] = true, -- Warbound Cache of Void-Touched Armaments: Rings
+    [278021] = true, -- Bulging Elven Field Pouch
+    [278022] = true, -- Bulging Amani Field Pouch
+    [278024] = true, -- Bulging Naga Field Pouch
+    [278025] = true, -- Bulging Twilight Field Pouch
+    [278026] = true, -- Bulging Ethereal Pack
+    [278027] = true, -- Bulging Winter Pack
+    [278283] = true, -- Nebulous Voidcache: Entombed Sentinels
+    [278284] = true, -- Nebulous Voidcache: Ula'tek
+    [278285] = true, -- Nebulous Voidcache: Soulcoiler Nek'zali
+    [278286] = true, -- Nebulous Voidcache: Tortollan Explorers
+    [278287] = true, -- Nebulous Voidcache: Vashnik
+    [278288] = true, -- Nebulous Voidcache: Sszorak
+    [278289] = true, -- Nebulous Voidcache: The Twin Fangs
+    [278290] = true, -- Nebulous Voidcache: The Coiled Altar
+    [279092] = true, -- Anguish-Touched Pouch
+    [279284] = true, -- Nebulous Voidcache: Delver's Trove
+    [279520] = true, -- Fabled Veteran's Cache
+    [279522] = true, -- Surplus Bag of Party Favors
+    [279523] = true, -- Overflowing Abundant Satchel
+    [279525] = true, -- Avid Learner's Supply Pack
+    [279526] = true, -- Victorious Stormarion Pinnacle Cache
+    [279610] = true, -- Dawncrest Pack
+    [279611] = true, -- Dawncrest Pack
+    [279612] = true, -- Dawncrest Satchel
+    [279613] = true, -- Dawncrest Satchel
+    [279614] = true, -- Dawncrest Pouch
+    [279615] = true, -- Dawncrest Pouch
+    [279616] = true, -- Mistcrest Pack
+    [279617] = true, -- Mistcrest Satchel
+    [279618] = true, -- Nebulous Voidcache: dungeon reward
+    [279619] = true, -- Nebulous Voidcache: dungeon reward
+    [279620] = true, -- Nebulous Voidcache: dungeon reward
+    [279621] = true, -- Nebulous Voidcache: dungeon reward
+    [279622] = true, -- Nebulous Voidcache: dungeon reward
+    [279623] = true, -- Nebulous Voidcache: Murder Row
+    [279624] = true, -- Nebulous Voidcache: dungeon reward
+    [279625] = true, -- Nebulous Voidcache: dungeon reward
+    [280131] = true, -- Nebulous Voidcache: Prey
+    [280732] = true, -- Warbound Mistcrest Pack
+    [280734] = true, -- Warbound Mistcrest Satchel
+    [280737] = true, -- Warbound Mistcrest Pouch
+    [280781] = true, -- Cache of Void-Touched Armaments
+    [280782] = true, -- Cache of Void-Touched Armaments
+    [280783] = true, -- Cache of Void-Touched Armaments
+    [280784] = true, -- Cache of Void-Touched Armaments
+    [280785] = true, -- Cache of Void-Touched Armaments
+    [280786] = true, -- Cache of Void-Touched Armaments
+    [280787] = true, -- Cache of Void-Touched Armaments
+    [280788] = true, -- Cache of Void-Touched Armaments
+    [280789] = true, -- Cache of Void-Touched Armaments
+    [280790] = true, -- Cache of Void-Touched Armaments
+    [280791] = true, -- Cache of Void-Touched Armaments
+    [280792] = true, -- Cache of Void-Touched Armaments
+    [280793] = true, -- Cache of Void-Touched Armaments
+    [281223] = true, -- Satchel of Corrosive Coins
+    [281405] = true, -- Cache of Void-Touched Armaments
+    [281406] = true, -- Cache of Void-Touched Armaments
+    [281407] = true, -- Cache of Void-Touched Armaments
+    [281408] = true, -- Cache of Void-Touched Armaments
+    [281409] = true, -- Cache of Void-Touched Armaments
+    [281410] = true, -- Cache of Void-Touched Armaments
+    [281411] = true, -- Cache of Void-Touched Armaments
+    [281412] = true, -- Cache of Void-Touched Armaments
+    [281413] = true, -- Cache of Void-Touched Armaments
+    [281414] = true, -- Cache of Void-Touched Armaments
+    [281415] = true, -- Cache of Void-Touched Armaments
+    [281416] = true, -- Cache of Void-Touched Armaments
+    [281417] = true, -- Cache of Void-Touched Armaments
+    [281418] = true, -- Cache of Void-Touched Armaments: Legs
+    [281419] = true, -- Cache of Void-Touched Armaments
+    [281420] = true, -- Cache of Void-Touched Armaments
+    [281421] = true, -- Cache of Void-Touched Armaments
+    [281422] = true, -- Cache of Void-Touched Armaments
+    [281423] = true, -- Cache of Void-Touched Armaments
+    [281424] = true, -- Cache of Void-Touched Armaments
+    [281425] = true, -- Cache of Void-Touched Armaments
+    [281426] = true, -- Cache of Void-Touched Armaments
+    [281427] = true, -- Cache of Void-Touched Armaments
+    [281428] = true, -- Cache of Void-Touched Armaments
+    [281429] = true, -- Cache of Void-Touched Armaments
+    [282183] = true, -- Fabled Coiled Isle Veteran's Cache
 }
 _G.YayaWeeklyTrackerAutoOpen = _G.YayaWeeklyTrackerAutoOpen or {}
 _G.YayaWeeklyTrackerAutoOpen.GetAutoOpenContainerItemIDs = function()
@@ -434,37 +744,37 @@ local function AddMidnightKnowledgeItemRange(skillLineID, firstItemID, lastItemI
 end
 
 AddMidnightKnowledgeItemRange(2906, 238532, 238539)
-AddMidnightKnowledgeItems(2906, { 245755, 246320, 246321, 259188, 259189, 262645, 263454 })
+AddMidnightKnowledgeItems(2906, { 245755, 246320, 246321, 259188, 259189, 262645, 263454, 274500 })
 
 AddMidnightKnowledgeItemRange(2907, 238540, 238547)
-AddMidnightKnowledgeItems(2907, { 245763, 246322, 246323, 259190, 259191, 262644, 263455 })
+AddMidnightKnowledgeItems(2907, { 245763, 246322, 246323, 259190, 259191, 262644, 263455, 274515 })
 
 AddMidnightKnowledgeItemRange(2909, 238548, 238555)
-AddMidnightKnowledgeItems(2909, { 227659, 245759, 246324, 246325, 250445, 257600, 259192, 259193, 263464, 267653, 267654, 267655 })
+AddMidnightKnowledgeItems(2909, { 227659, 245759, 246324, 246325, 250445, 257600, 259192, 259193, 263464, 267653, 267654, 267655, 274511 })
 
 AddMidnightKnowledgeItemRange(2910, 238556, 238563)
-AddMidnightKnowledgeItems(2910, { 245754, 246326, 246327, 259194, 259195, 262646, 263456 })
+AddMidnightKnowledgeItems(2910, { 245754, 246326, 246327, 259194, 259195, 262646, 263456, 274516 })
 
 AddMidnightKnowledgeItemRange(2912, 238468, 238475)
-AddMidnightKnowledgeItems(2912, { 238465, 238466, 250443, 258410, 263462 })
+AddMidnightKnowledgeItems(2912, { 238465, 238466, 250443, 258410, 263462, 274513 })
 
 AddMidnightKnowledgeItemRange(2913, 238572, 238579)
-AddMidnightKnowledgeItems(2913, { 245757, 246328, 246329, 258411, 259196, 259197, 263457 })
+AddMidnightKnowledgeItems(2913, { 245757, 246328, 246329, 258411, 259196, 259197, 263457, 274514 })
 
 AddMidnightKnowledgeItemRange(2914, 238580, 238587)
-AddMidnightKnowledgeItems(2914, { 245760, 246330, 246331, 257599, 259198, 259199, 263458 })
+AddMidnightKnowledgeItems(2914, { 245760, 246330, 246331, 257599, 259198, 259199, 263458, 274510 })
 
 AddMidnightKnowledgeItemRange(2915, 238588, 238595)
-AddMidnightKnowledgeItems(2915, { 245758, 246332, 246333, 250922, 259200, 259201, 263459 })
+AddMidnightKnowledgeItems(2915, { 245758, 246332, 246333, 250922, 259200, 259201, 263459, 274507 })
 
 AddMidnightKnowledgeItemRange(2916, 238596, 238603)
-AddMidnightKnowledgeItems(2916, { 237496, 237506, 245762, 250444, 250924, 263463 })
+AddMidnightKnowledgeItems(2916, { 237496, 237506, 245762, 250444, 250924, 263463, 274509 })
 
 AddMidnightKnowledgeItemRange(2917, 238628, 238635)
-AddMidnightKnowledgeItems(2917, { 238625, 238626, 245764, 250360, 250923, 263461 })
+AddMidnightKnowledgeItems(2917, { 238625, 238626, 245764, 250360, 250923, 263461, 274508 })
 
 AddMidnightKnowledgeItemRange(2918, 238612, 238619)
-AddMidnightKnowledgeItems(2918, { 245756, 246334, 246335, 257601, 259202, 259203, 263460 })
+AddMidnightKnowledgeItems(2918, { 245756, 246334, 246335, 257601, 259202, 259203, 263460, 274512 })
 
 for skillLineID, treatiseInfo in pairs(MIDNIGHT_TREATISES_BY_SKILL_LINE_ID) do
     MIDNIGHT_KNOWLEDGE_ITEM_SKILL_LINE_IDS[treatiseInfo.itemID] = skillLineID
@@ -785,10 +1095,13 @@ local TRACKER_DEFAULTS = {
     trackProfessionDarkmoon = true,
     trackProfessionLoots = true,
     trackProfessionDisenchants = true,
+    trackProfessionTools = true,
+    trackProfessionToolEnchants = true,
     autoBuyAbundanceEnchantingBags = false,
     autoBuyAbundanceFusedVitality = false,
     autoOpenContainers = false,
     trackRecipePotionRecklessness = true,
+    trackRecipeViciousThalassianFlaskHonor = true,
     trackRecipeHaranirMulticrafting = true,
     trackRecipeHaranirGlamour = true,
     trackHaranirLegends = true,
@@ -812,10 +1125,13 @@ runtimeState.trackingOptions = {
     { category = "Metiers Midnight", key = "trackProfessionDarkmoon", label = "DMF metiers" },
     { category = "Metiers Midnight", key = "trackProfessionLoots", label = "Loots metiers" },
     { category = "Metiers Midnight", key = "trackProfessionDisenchants", label = "Dez Enchantement" },
+    { category = "Metiers Midnight", key = "trackProfessionTools", label = "Outils metiers" },
+    { category = "Metiers Midnight", key = "trackProfessionToolEnchants", label = "Enchantements des outils" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceEnchantingBags", label = "Acheter automatiquement les sacs de matériaux d'enchantement" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceFusedVitality", label = "Acheter automatiquement les Fused Vitality" },
     { category = "Conteneurs", key = "autoOpenContainers", label = "Ouvrir automatiquement les conteneurs YWT" },
     { category = "Recettes Midnight", key = "trackRecipePotionRecklessness", label = "Potion of Recklessness" },
+    { category = "Recettes Midnight", key = "trackRecipeViciousThalassianFlaskHonor", label = "Vicious Thalassian Flask of Honor" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirMulticrafting", label = "Enchant Tool - Haranir Multicrafting" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirGlamour", label = "Gleeful Glamour - Haranir" },
     { category = "Quetes Midnight", key = "trackHaranirLegends", label = "Lost Legends" },
@@ -857,6 +1173,7 @@ runtimeState.professionToolEnchantments = {
             itemID = 243965,
             enchantID = 7975,
             statKeys = { "ITEM_MOD_PERCEPTION_RATING_SHORT", "ITEM_MOD_PERCEPTION_RATING" },
+            tooltipAliases = { "perception" },
         },
         resourcefulness = {
             label = "Resourcefulness",
@@ -864,6 +1181,7 @@ runtimeState.professionToolEnchantments = {
             itemID = 243967,
             enchantID = 7977,
             statKeys = { "ITEM_MOD_RESOURCEFULNESS_RATING_SHORT", "ITEM_MOD_RESOURCEFULNESS_RATING" },
+            tooltipAliases = { "resourcefulness", "débrouillardise" },
         },
         finesse = {
             label = "Finesse",
@@ -871,6 +1189,7 @@ runtimeState.professionToolEnchantments = {
             itemID = 243993,
             enchantID = 8003,
             statKeys = { "ITEM_MOD_FINESSE_RATING_SHORT", "ITEM_MOD_FINESSE_RATING" },
+            tooltipAliases = { "finesse" },
         },
         multicrafting = {
             label = "Multicrafting",
@@ -878,6 +1197,7 @@ runtimeState.professionToolEnchantments = {
             itemID = 243995,
             enchantID = 8005,
             statKeys = { "ITEM_MOD_MULTICRAFT_RATING_SHORT", "ITEM_MOD_MULTICRAFT_RATING" },
+            tooltipAliases = { "multicrafting", "multicraft", "fabrication multiple" },
         },
         ingenuity = {
             label = "Ingenuity",
@@ -885,6 +1205,7 @@ runtimeState.professionToolEnchantments = {
             itemID = 244025,
             enchantID = 8035,
             statKeys = { "ITEM_MOD_INGENUITY_RATING_SHORT", "ITEM_MOD_INGENUITY_RATING" },
+            tooltipAliases = { "ingenuity", "ingéniosité" },
         },
         deftness = {
             label = "Deftness",
@@ -897,6 +1218,7 @@ runtimeState.professionToolEnchantments = {
                 "ITEM_MOD_CRAFTING_SPEED_RATING_SHORT",
                 "ITEM_MOD_CRAFTING_SPEED_RATING",
             },
+            tooltipAliases = { "deftness", "dextérité", "crafting speed", "vitesse de fabrication" },
         },
     },
 }
@@ -920,6 +1242,8 @@ runtimeState.bagScanRetryDelaySeconds = 0.25
 runtimeState.bagScanRetryCount = {}
 runtimeState.bagScanRetryQueued = {}
 runtimeState.bagScanRetryToken = {}
+runtimeState.itemActionRefreshPending = false
+runtimeState.itemActionForceBagRefresh = false
 local questStateCache = {}
 local questRewardCache = {}
 local midnightCaches = {
@@ -933,6 +1257,8 @@ local midnightCaches = {
     payoutDirty = true,
     surplusReagents = nil,
     surplusReagentsDirty = true,
+    finishingReagentMerges = nil,
+    finishingReagentMergesDirty = true,
     warbankTreatises = nil,
     warbankTreatisesDirty = true,
     toolEnchants = nil,
@@ -947,6 +1273,7 @@ local debugSignatures = {
     recipeItems = nil,
     payout = nil,
     surplusReagents = nil,
+    finishingReagentMerges = nil,
     trackedProfessions = nil,
     tracker = nil,
     treasure = nil,
@@ -961,6 +1288,55 @@ local AddEntry
 local UpdateTracker
 local ScheduleTrackerRefresh
 local trackerUI = {}
+
+trackerUI.LockItemActionButton = function(button)
+    if not button then
+        return false
+    end
+    if button.itemActionLocked then
+        return false
+    end
+
+    button.itemActionLocked = true
+    if button.SetEnabled then
+        button:SetEnabled(false)
+    end
+    return true
+end
+
+trackerUI.UnlockItemActionButtons = function()
+    local frame = trackerFrame
+    if not frame then
+        return
+    end
+
+    local function Unlock(button)
+        if button and button.itemActionLocked then
+            button.itemActionLocked = false
+            if button.SetEnabled then
+                button:SetEnabled(true)
+            end
+        end
+    end
+
+    Unlock(frame.recipeButton)
+    Unlock(frame.knowledgeButton)
+    Unlock(frame.payoutButton)
+    for _, button in ipairs(frame.surplusReagentButtons or EMPTY_TABLE) do
+        Unlock(button)
+    end
+    for _, button in ipairs(frame.finishingReagentMergeButtons or EMPTY_TABLE) do
+        Unlock(button)
+    end
+    for _, button in ipairs(frame.warbankTreatiseButtons or EMPTY_TABLE) do
+        Unlock(button)
+    end
+end
+
+trackerUI.RequestItemActionRefresh = function()
+    runtimeState.itemActionForceBagRefresh = true
+    ScheduleTrackerRefresh(0, false)
+end
 
 for _, details in pairs(NZOTH_ASSAULT_DETAILS) do
     TRACKED_ASSAULT_CACHE_ITEM_IDS[details.cacheItemID] = true
@@ -1018,6 +1394,7 @@ local function GetAccountDB()
     if YayaWeeklyTrackerAccountDB.trackMidnightRecipes == false then
         for _, key in ipairs({
             "trackRecipePotionRecklessness",
+            "trackRecipeViciousThalassianFlaskHonor",
             "trackRecipeHaranirMulticrafting",
             "trackRecipeHaranirGlamour",
         }) do
@@ -1123,6 +1500,16 @@ end
 trackerUI.UsePreviousBagCacheOnTransientEmpty = function(cacheKey, previousCount, currentCount, previousState)
     runtimeState.bagScanRetryCount = runtimeState.bagScanRetryCount or {}
 
+    if runtimeState.itemActionForceBagRefresh
+        and (cacheKey == "recipeItems"
+            or cacheKey == "payout"
+            or cacheKey == "surplusReagents"
+            or cacheKey == "finishingReagentMerges")
+    then
+        trackerUI.ResetBagScanRetry(cacheKey)
+        return false
+    end
+
     -- A partial result is authoritative: only protect a completely empty scan.
     if currentCount ~= 0 or previousCount <= 0 then
         trackerUI.ResetBagScanRetry(cacheKey)
@@ -1201,6 +1588,8 @@ trackerUI.UsePreviousBagCacheOnTransientEmpty = function(cacheKey, previousCount
                 midnightCaches.payoutDirty = true
             elseif cacheKey == "surplusReagents" then
                 midnightCaches.surplusReagentsDirty = true
+            elseif cacheKey == "finishingReagentMerges" then
+                midnightCaches.finishingReagentMergesDirty = true
             end
 
             if ScheduleTrackerRefresh then
@@ -1290,6 +1679,10 @@ end
 
 trackerUI.InvalidateSurplusReagentContainerCache = function()
     midnightCaches.surplusReagentsDirty = true
+end
+
+trackerUI.InvalidateFinishingReagentMergeCache = function()
+    midnightCaches.finishingReagentMergesDirty = true
 end
 
 local function GetLocalizedMapName(mapID, fallback)
@@ -2495,6 +2888,66 @@ trackerUI.FindSurplusReagentContainersInBags = function()
     return results
 end
 
+trackerUI.FindMergeableFinishingReagentsInBags = function()
+    if not midnightCaches.finishingReagentMergesDirty and midnightCaches.finishingReagentMerges then
+        return midnightCaches.finishingReagentMerges
+    end
+
+    local previous = midnightCaches.finishingReagentMerges
+    local byItemID = {}
+    local maxBagIndex = math.max(NUM_TOTAL_EQUIPPED_BAG_SLOTS or 0, NUM_BAG_SLOTS or 0, 5)
+
+    for bagID = 0, maxBagIndex do
+        local slotCount = GetContainerNumSlotsCompat(bagID)
+        for slotIndex = 1, slotCount do
+            local itemID = GetContainerItemIDCompat(bagID, slotIndex)
+            local config = itemID and runtimeState.mergeableFinishingReagents[itemID] or nil
+            if config then
+                local state = byItemID[itemID]
+                if not state then
+                    state = {
+                        itemID = itemID,
+                        outputItemID = config.outputItemID,
+                        itemLink = GetContainerItemLinkCompat(bagID, slotIndex),
+                        itemName = GetItemInfo and GetItemInfo(itemID) or nil,
+                        label = config.label,
+                        order = config.order,
+                        totalCount = 0,
+                    }
+                    byItemID[itemID] = state
+                end
+                state.totalCount = state.totalCount + math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
+            end
+        end
+    end
+
+    local results = {}
+    for _, state in pairs(byItemID) do
+        if state.totalCount >= 5 then
+            state.mergeCount = math.floor(state.totalCount / 5)
+            results[#results + 1] = state
+        end
+    end
+    table.sort(results, function(left, right)
+        return (left.order or 99) < (right.order or 99)
+    end)
+
+    if previous and trackerUI.UsePreviousBagCacheOnTransientEmpty(
+        "finishingReagentMerges",
+        #previous,
+        #results,
+        previous
+    ) then
+        midnightCaches.finishingReagentMerges = previous
+        midnightCaches.finishingReagentMergesDirty = false
+        return previous
+    end
+
+    midnightCaches.finishingReagentMerges = results
+    midnightCaches.finishingReagentMergesDirty = false
+    return results
+end
+
 trackerUI.UpdateMidnightKnowledgeButton = function(state)
     local button = trackerFrame and trackerFrame.knowledgeButton or nil
     if not button then
@@ -2502,6 +2955,9 @@ trackerUI.UpdateMidnightKnowledgeButton = function(state)
     end
 
     if state and state.itemID then
+        if not button.itemActionLocked then
+            button:SetEnabled(true)
+        end
         button:SetText(("Utiliser KP x%d"):format(state.totalCount or 1))
         button.bagID = state.bagID
         button.slotIndex = state.slotIndex
@@ -2546,6 +3002,9 @@ trackerUI.UpdateMidnightRecipeButton = function(state)
     end
 
     if state and state.itemID then
+        if not button.itemActionLocked then
+            button:SetEnabled(true)
+        end
         button:SetText(("Utiliser recette x%d"):format(state.totalCount or 1))
         button.bagID = state.bagID
         button.slotIndex = state.slotIndex
@@ -2903,6 +3362,9 @@ trackerUI.UpdateArtisanConsortiumPayoutButton = function(state)
     end
 
     if state and state.itemID then
+        if not button.itemActionLocked then
+            button:SetEnabled(true)
+        end
         local label = state.isPayout and "Ouvrir payout" or "Ouvrir coffre"
         button:SetText(("%s x%d"):format(label, state.totalCount or 1))
         button.bagID = state.bagID
@@ -2946,6 +3408,9 @@ trackerUI.UpdateSurplusReagentButtons = function(states)
     for index, button in ipairs(buttons) do
         local state = states and states[index] or nil
         if state and state.itemID then
+            if not button.itemActionLocked then
+                button:SetEnabled(true)
+            end
             button:SetText(("Ouvrir surplus %s x%d"):format(state.label or "", state.totalCount or 1))
             button.itemID = state.itemID
             button.itemLink = state.itemLink
@@ -2971,6 +3436,45 @@ trackerUI.UpdateSurplusReagentButtons = function(states)
     return visibleCount
 end
 
+trackerUI.UpdateFinishingReagentMergeButtons = function(states)
+    local buttons = trackerFrame and trackerFrame.finishingReagentMergeButtons or EMPTY_TABLE
+    local visibleCount = 0
+
+    for index, button in ipairs(buttons) do
+        local state = states and states[index] or nil
+        if state and state.itemID and state.mergeCount and state.mergeCount > 0 then
+            if not button.itemActionLocked then
+                button:SetEnabled(true)
+            end
+            button:SetText(("Fusionner %s x%d"):format(state.label or "item", state.mergeCount))
+            button.itemID = state.itemID
+            button.outputItemID = state.outputItemID
+            button.itemLink = state.itemLink
+            button.itemName = state.itemName
+            button.mergeCount = state.mergeCount
+            if not (InCombatLockdown and InCombatLockdown()) then
+                button:SetAttribute("type", "item")
+                button:SetAttribute("item", "item:" .. tostring(state.itemID))
+            end
+            button:Show()
+            visibleCount = visibleCount + 1
+        else
+            button.itemID = nil
+            button.outputItemID = nil
+            button.itemLink = nil
+            button.itemName = nil
+            button.mergeCount = nil
+            if not (InCombatLockdown and InCombatLockdown()) then
+                button:SetAttribute("type", nil)
+                button:SetAttribute("item", nil)
+            end
+            button:Hide()
+        end
+    end
+
+    return visibleCount
+end
+
 trackerUI.UpdateWarbankTreatiseButtons = function(state)
     local buttons = trackerFrame and trackerFrame.warbankTreatiseButtons or EMPTY_TABLE
     local matches = state and state.bankOpen and state.matches or EMPTY_TABLE
@@ -2979,6 +3483,9 @@ trackerUI.UpdateWarbankTreatiseButtons = function(state)
     for index, button in ipairs(buttons) do
         local match = matches[index]
         if match and match.bagID and match.slotIndex then
+            if not button.itemActionLocked then
+                button:SetEnabled(true)
+            end
             button.skillLineID = match.skillLineID
             button.itemID = match.itemID
             button.itemLink = match.itemLink
@@ -3060,25 +3567,41 @@ trackerUI.GetToolEnchantStat = function(itemLink)
         return nil
     end
 
-    local stats
-    if C_Item and type(C_Item.GetItemStats) == "function" then
-        stats = SafeCall(C_Item.GetItemStats, itemLink)
-    elseif type(GetItemStats) == "function" then
-        stats = SafeCall(GetItemStats, itemLink)
-    end
-    if type(stats) ~= "table" then
-        return nil, true
-    end
-
-    for _, statKey in ipairs(runtimeState.professionToolEnchantments.statOrder) do
-        local statInfo = runtimeState.professionToolEnchantments.byStat[statKey]
-        local keys = statInfo and statInfo.statKeys or EMPTY_TABLE
-        for _, key in ipairs(keys) do
-            local value = tonumber(stats[key] or stats[_G[key]])
-            if value and value > 0 then
-                return statKey
+    -- The profession tool stat is rolled per item. It is present in the tooltip
+    -- of the unique item link. GetItemStats() can describe the base item and
+    -- must not override the random stat of the owned tool.
+    if C_TooltipInfo and type(C_TooltipInfo.GetHyperlink) == "function" then
+        local tooltipData = SafeCall(C_TooltipInfo.GetHyperlink, itemLink)
+        if type(tooltipData) == "table" and type(tooltipData.lines) == "table" then
+            local function Normalize(text)
+                if type(text) ~= "string" then
+                    return ""
+                end
+                text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+                text = text:gsub("%s+", " ")
+                return string.lower(text)
             end
+
+            for _, line in ipairs(tooltipData.lines) do
+                local text = Normalize(line.leftText) .. " " .. Normalize(line.rightText)
+                for _, statKey in ipairs(runtimeState.professionToolEnchantments.statOrder) do
+                    local statInfo = runtimeState.professionToolEnchantments.byStat[statKey]
+                    for _, key in ipairs(statInfo.statKeys or EMPTY_TABLE) do
+                        local localizedName = Normalize(_G[key])
+                        if localizedName ~= "" and text:find(localizedName, 1, true) then
+                            return statKey
+                        end
+                    end
+                    for _, alias in ipairs(statInfo.tooltipAliases or EMPTY_TABLE) do
+                        if text:find(Normalize(alias), 1, true) then
+                            return statKey
+                        end
+                    end
+                end
+            end
+            return nil, false
         end
+        return nil, true
     end
 
     return nil, false
@@ -3095,7 +3618,7 @@ trackerUI.GetToolEnchantID = function(itemLink)
     end
 
     local _, enchantID = strsplit(":", payload)
-    return tonumber(enchantID)
+    return tonumber(enchantID) or 0
 end
 
 trackerUI.GetToolItemLocation = function(source, bagID, slotIndex)
@@ -3177,6 +3700,8 @@ trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotInd
         return nil, false, false
     end
 
+    -- Never replace a missing unique link with GetItemInfo(itemID): the tool's
+    -- profession stat is randomized on the owned item, not on the base item.
     if type(itemLink) ~= "string" or not itemLink:find("item:", 1, true) then
         return ReturnPending()
     end
@@ -3184,17 +3709,6 @@ trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotInd
     local enchantID = trackerUI.GetToolEnchantID(itemLink)
     if enchantID == nil then
         return ReturnPending()
-    end
-    if enchantID == 0 then
-        return {
-            itemID = itemID,
-            itemLink = itemLink,
-            enchantID = enchantID,
-            missingEnchant = true,
-            source = source,
-            bagID = bagID,
-            slotIndex = slotIndex,
-        }, false, true
     end
 
     local statKey, statsPending = trackerUI.GetToolEnchantStat(itemLink)
@@ -3212,6 +3726,7 @@ trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotInd
         statKey = statKey,
         statInfo = statInfo,
         enchantID = enchantID,
+        missingEnchant = enchantID == 0,
         source = source,
         bagID = bagID,
         slotIndex = slotIndex,
@@ -3309,6 +3824,7 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         pending = false,
         bankOpen = false,
         bankKnown = false,
+        debugItems = {},
     }
     local trackedSkillLineIDs = {}
     for _, row in ipairs(trackedRows) do
@@ -3320,6 +3836,8 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             tools = {},
             hasEquippedTool = false,
             equippedToolPending = false,
+            professionID = nil,
+            toolSlot = nil,
         }
     end
 
@@ -3338,40 +3856,71 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         if pending then
             result.pending = true
         end
+        if details then
+            result.debugItems[#result.debugItems + 1] = ("item=%s source=%s enchant=%s state=%s"):format(
+                tostring(itemID),
+                tostring(source),
+                tostring(details.enchantID),
+                details.missingEnchant
+                    and ("missing:" .. tostring(details.statKey or "unknown"))
+                    or tostring(details.statKey or "unknown")
+            )
+        else
+            result.debugItems[#result.debugItems + 1] = ("item=%s source=%s details=nil pending=%s eligible=%s"):format(
+                tostring(itemID),
+                tostring(source),
+                tostring(pending),
+                tostring(eligible)
+            )
+        end
         if not details then
             return nil, pending, eligible
         end
 
         local profession = result.bySkillLineID[skillLineID]
         profession.tools[#profession.tools + 1] = details
+        local function AddRequiredEnchant(includeWrongEnchantWarning)
+            if not details.statInfo then
+                return
+            end
+            local requiredItemID = details.statInfo.itemID
+            if includeWrongEnchantWarning then
+                profession.missingByItemID[requiredItemID] = (profession.missingByItemID[requiredItemID] or 0) + 1
+                profession.missingTools[requiredItemID] = profession.missingTools[requiredItemID] or {
+                    itemID = requiredItemID,
+                    label = details.statInfo.shortLabel,
+                    statLabel = details.statInfo.label,
+                    quantity = 0,
+                }
+                profession.missingTools[requiredItemID].quantity = profession.missingTools[requiredItemID].quantity + 1
+            end
+            result.requiredByItemID[requiredItemID] = (result.requiredByItemID[requiredItemID] or 0) + 1
+        end
         if details.missingEnchant then
-            profession.missingEnchantTools[details.itemID] = profession.missingEnchantTools[details.itemID] or {
+            local missingEnchantKey = details.statInfo and details.statInfo.itemID or details.itemID
+            profession.missingEnchantTools[missingEnchantKey] = profession.missingEnchantTools[missingEnchantKey] or {
                 itemID = details.itemID,
+                requiredItemID = details.statInfo and details.statInfo.itemID or nil,
+                label = details.statInfo and details.statInfo.shortLabel or nil,
+                statLabel = details.statInfo and details.statInfo.label or nil,
                 quantity = 0,
             }
-            profession.missingEnchantTools[details.itemID].quantity = profession.missingEnchantTools[details.itemID].quantity + 1
+            profession.missingEnchantTools[missingEnchantKey].quantity = profession.missingEnchantTools[missingEnchantKey].quantity + 1
+            AddRequiredEnchant(false)
             return details, pending, eligible
         end
         if details.enchantID == details.statInfo.enchantID then
             return details, pending, eligible
         end
 
-        local requiredItemID = details.statInfo.itemID
-        profession.missingByItemID[requiredItemID] = (profession.missingByItemID[requiredItemID] or 0) + 1
-        profession.missingTools[requiredItemID] = profession.missingTools[requiredItemID] or {
-            itemID = requiredItemID,
-            label = details.statInfo.shortLabel,
-            statLabel = details.statInfo.label,
-            quantity = 0,
-        }
-        profession.missingTools[requiredItemID].quantity = profession.missingTools[requiredItemID].quantity + 1
-        result.requiredByItemID[requiredItemID] = (result.requiredByItemID[requiredItemID] or 0) + 1
+        AddRequiredEnchant(true)
         return details, pending, eligible
     end
 
     for _, row in ipairs(trackedRows) do
         local profession = result.bySkillLineID[row.skillLineID]
         local professionID = trackerUI.GetProfessionIDForSkillLine(row.skillLineID)
+        profession.professionID = professionID
         if not professionID
             or not C_TradeSkillUI
             or type(C_TradeSkillUI.GetProfessionSlots) ~= "function" then
@@ -3382,6 +3931,7 @@ trackerUI.FindToolEnchantState = function(trackedRows)
                 profession.equippedToolPending = true
             else
                 local toolSlot = slots[1] or slots[0]
+                profession.toolSlot = toolSlot
                 if toolSlot and type(GetInventoryItemLink) == "function" then
                     local itemLink = SafeCall(GetInventoryItemLink, "player", toolSlot)
                     local itemID = type(GetInventoryItemID) == "function"
@@ -3412,16 +3962,55 @@ trackerUI.FindToolEnchantState = function(trackedRows)
                     and select(4, SafeCall(C_Item.GetItemInfoInstant, itemID)) == "INVTYPE_PROFESSION_TOOL" then
                     result.pending = trackerUI.RequestToolItemData(itemID) or result.pending
                 end
-                local skillLineID = itemLink
+                local skillLineID = (itemLink or itemID)
                     and C_TradeSkillUI
                     and type(C_TradeSkillUI.GetSkillLineForGear) == "function"
-                    and tonumber(SafeCall(C_TradeSkillUI.GetSkillLineForGear, itemLink))
+                    and tonumber(SafeCall(C_TradeSkillUI.GetSkillLineForGear, itemLink or itemID))
                     or nil
                 skillLineID = trackedSkillLineIDs[skillLineID] and skillLineID
                     or runtimeState.baseProfessionToMidnightSkillLineID[skillLineID]
                 AddTool("bag", skillLineID, itemID, itemLink, bagID, slotIndex)
             end
         end
+    end
+
+    local debugParts = {}
+    for _, row in ipairs(trackedRows) do
+        local profession = result.bySkillLineID[row.skillLineID]
+        local unenchantedCount = 0
+        local wrongEnchantCount = 0
+        for _, tool in pairs(profession.missingEnchantTools) do
+            unenchantedCount = unenchantedCount + (tool.quantity or 0)
+        end
+        for _, tool in pairs(profession.missingTools) do
+            wrongEnchantCount = wrongEnchantCount + (tool.quantity or 0)
+        end
+        debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d equipped=%s pending=%s"):format(
+            row.skillLineID,
+            tostring(profession.professionID),
+            tostring(profession.toolSlot),
+            #profession.tools,
+            unenchantedCount,
+            wrongEnchantCount,
+            tostring(profession.hasEquippedTool),
+            tostring(profession.equippedToolPending)
+        )
+    end
+    local debugSummary = #debugParts > 0 and table.concat(debugParts, " | ") or "none"
+    local debugItems = #result.debugItems > 0 and " items=" .. table.concat(result.debugItems, ",") or ""
+    local requiredParts = {}
+    for itemID, quantity in pairs(result.requiredByItemID) do
+        requiredParts[#requiredParts + 1] = tostring(itemID) .. "x" .. tostring(quantity)
+    end
+    table.sort(requiredParts)
+    local requiredSummary = #requiredParts > 0 and table.concat(requiredParts, ",") or "none"
+    local debugSignature = debugSummary
+        .. "|need=" .. requiredSummary
+        .. "|scanPending=" .. tostring(result.pending)
+        .. debugItems
+    if debugSignature ~= debugSignatures.toolEnchants then
+        debugSignatures.toolEnchants = debugSignature
+        DebugLog("Tool enchant scan = %s", debugSignature)
     end
 
     if result.pending and previous then
@@ -4323,6 +4912,8 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     local trackProfessionWeeklies = accountDB.trackProfessionWeeklies ~= false
     local trackProfessionLoots = accountDB.trackProfessionLoots ~= false
     local trackProfessionDisenchants = accountDB.trackProfessionDisenchants ~= false
+    local trackProfessionTools = accountDB.trackProfessionTools ~= false
+    local trackProfessionToolEnchants = accountDB.trackProfessionToolEnchants ~= false
     local remainingTreasures, totalTreasures = CountRemainingTrackedQuests(config.treasureQuestIDs)
     if remainingTreasures > 0 then
         oneTimeTokens[#oneTimeTokens + 1] = ("T%d/%d"):format(remainingTreasures, totalTreasures)
@@ -4383,15 +4974,24 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         oneTimeTokens[#oneTimeTokens + 1] = ("recette (%s)"):format(recipe.label)
     end
 
-    local toolStatus = trackerUI.GetProfessionToolEnchantStatus(row)
-    if toolStatus.hasEquippedTool == false and not toolStatus.equippedToolPending then
+    local toolStatus = (trackProfessionTools or trackProfessionToolEnchants)
+        and trackerUI.GetProfessionToolEnchantStatus(row)
+        or EMPTY_TABLE
+    if trackProfessionTools
+        and toolStatus.hasEquippedTool == false
+        and not toolStatus.equippedToolPending then
         oneTimeTokens[#oneTimeTokens + 1] = "outil non equipe"
     end
-    for _, tool in pairs(toolStatus.missingTools or EMPTY_TABLE) do
-        oneTimeTokens[#oneTimeTokens + 1] = ("outil %s x%d"):format(tool.label or "?", tool.quantity or 0)
-    end
-    for _, tool in pairs(toolStatus.missingEnchantTools or EMPTY_TABLE) do
-        oneTimeTokens[#oneTimeTokens + 1] = ("outil sans enchant x%d"):format(tool.quantity or 0)
+    if trackProfessionToolEnchants then
+        for _, tool in pairs(toolStatus.missingTools or EMPTY_TABLE) do
+            oneTimeTokens[#oneTimeTokens + 1] = ("outil %s x%d"):format(tool.label or "?", tool.quantity or 0)
+        end
+        for _, tool in pairs(toolStatus.missingEnchantTools or EMPTY_TABLE) do
+            oneTimeTokens[#oneTimeTokens + 1] = ("outil sans enchant %s x%d"):format(
+                tool.label or "?",
+                tool.quantity or 0
+            )
+        end
     end
 
     return tokens, oneTimeTokens
@@ -5460,6 +6060,11 @@ local function RefreshTrackerNow()
     end
 
     UpdateTracker()
+    runtimeState.itemActionForceBagRefresh = false
+    if runtimeState.itemActionRefreshPending then
+        runtimeState.itemActionRefreshPending = false
+        trackerUI.UnlockItemActionButtons()
+    end
     trackerUI.SyncMidnightTreasureWaypoints()
     if runtimeState.midnightRecipeStatePending and C_Timer and C_Timer.After then
         ScheduleTrackerRefresh(10, false)
@@ -6185,27 +6790,35 @@ UpdateTracker = function()
         local recipeItemState = DebugSafeCall("FindMidnightRecipeInBags", trackerUI.FindMidnightRecipeInBags, trackedRows)
         local payoutItemState = DebugSafeCall("FindArtisanConsortiumPayoutInBags", FindArtisanConsortiumPayoutInBags)
         local surplusReagentStates = DebugSafeCall("FindSurplusReagentContainersInBags", trackerUI.FindSurplusReagentContainersInBags)
+        local finishingReagentMergeStates = DebugSafeCall("FindMergeableFinishingReagentsInBags", trackerUI.FindMergeableFinishingReagentsInBags)
         local warbankTreatiseState = DebugSafeCall("FindMissingMidnightTreatisesInWarbank", trackerUI.FindMissingMidnightTreatisesInWarbank, trackedRows)
         local hasKnowledgeButton = DebugSafeCall("UpdateMidnightKnowledgeButton", trackerUI.UpdateMidnightKnowledgeButton, knowledgeItemState) or false
         local hasRecipeButton = DebugSafeCall("UpdateMidnightRecipeButton", trackerUI.UpdateMidnightRecipeButton, recipeItemState) or false
         local hasRecipeMarlButton = DebugSafeCall("UpdateMidnightRecipeTransferButton", trackerUI.UpdateMidnightRecipeTransferButton, trackedRows) or false
         local hasPayoutButton = DebugSafeCall("UpdateArtisanConsortiumPayoutButton", trackerUI.UpdateArtisanConsortiumPayoutButton, payoutItemState) or false
         local surplusButtonCount = DebugSafeCall("UpdateSurplusReagentButtons", trackerUI.UpdateSurplusReagentButtons, surplusReagentStates) or 0
+        local finishingReagentMergeButtonCount = DebugSafeCall("UpdateFinishingReagentMergeButtons", trackerUI.UpdateFinishingReagentMergeButtons, finishingReagentMergeStates) or 0
         local warbankTreatiseButtonCount = DebugSafeCall("UpdateWarbankTreatiseButtons", trackerUI.UpdateWarbankTreatiseButtons, warbankTreatiseState) or 0
         DebugSafeCall("EnsureEnchantingWeeklyQueueItem", trackerUI.EnsureEnchantingWeeklyQueueItem, trackedRows)
         local hasTreasureButton = DebugSafeCall("UpdateMidnightTreasureButton", trackerUI.UpdateMidnightTreasureButton, trackedRows) or false
-        local toolEnchantState = DebugSafeCall("FindToolEnchantState", trackerUI.FindToolEnchantState, trackedRows)
+        local accountDB = GetAccountDB()
+        local trackProfessionTools = accountDB.trackProfessionTools ~= false
+        local trackProfessionToolEnchants = accountDB.trackProfessionToolEnchants ~= false
+        local toolEnchantState
+        if trackProfessionTools or trackProfessionToolEnchants then
+            toolEnchantState = DebugSafeCall("FindToolEnchantState", trackerUI.FindToolEnchantState, trackedRows)
+        end
         local hasToolEnchantPullButton, hasToolEnchantBuyButton = DebugSafeCall(
             "UpdateToolEnchantButtons",
             trackerUI.UpdateToolEnchantButtons,
-            toolEnchantState
+            trackProfessionToolEnchants and toolEnchantState or nil
         )
         hasToolEnchantPullButton = hasToolEnchantPullButton or false
         hasToolEnchantBuyButton = hasToolEnchantBuyButton or false
-        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|wb=%d|tt=%s|tep=%s|teb=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton))
+        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|fm=%d|wb=%d|tt=%s|tep=%s|teb=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton))
         if trackerDebugSignature ~= debugSignatures.tracker then
             debugSignatures.tracker = trackerDebugSignature
-            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d warbankTreatiseButtons=%d treasureButton=%s toolPull=%s toolBuy=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton))
+            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d mergeButtons=%d warbankTreatiseButtons=%d treasureButton=%s toolPull=%s toolBuy=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton))
         end
         local hasUsefulEntry = false
         for _, entry in ipairs(entries) do
@@ -6214,7 +6827,7 @@ UpdateTracker = function()
                 break
             end
         end
-        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and warbankTreatiseButtonCount == 0 and not hasTreasureButton and not hasToolEnchantPullButton and not hasToolEnchantBuyButton then
+        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and finishingReagentMergeButtonCount == 0 and warbankTreatiseButtonCount == 0 and not hasTreasureButton and not hasToolEnchantPullButton and not hasToolEnchantBuyButton then
             DebugLog("UpdateTracker hide frame: all professions complete and no other actions")
             trackerFrame:Hide()
             if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
@@ -6309,12 +6922,37 @@ UpdateTracker = function()
             offsetY = offsetY + 24
         end
 
+        local lastFinishingReagentMergeButton
+        for index = 1, finishingReagentMergeButtonCount do
+            local button = trackerFrame.finishingReagentMergeButtons[index]
+            button:ClearAllPoints()
+            if lastFinishingReagentMergeButton then
+                button:SetPoint("TOPLEFT", lastFinishingReagentMergeButton, "BOTTOMLEFT", 0, -4)
+            elseif lastSurplusButton then
+                button:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
+            elseif hasRecipeMarlButton then
+                button:SetPoint("TOPLEFT", trackerFrame.recipeMarlButton, "BOTTOMLEFT", 0, -4)
+            elseif hasRecipeButton then
+                button:SetPoint("TOPLEFT", trackerFrame.recipeButton, "BOTTOMLEFT", 0, -4)
+            elseif hasKnowledgeButton then
+                button:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
+            elseif hasPayoutButton then
+                button:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
+            else
+                button:SetPoint("TOPLEFT", 6, -(offsetY + 2))
+            end
+            lastFinishingReagentMergeButton = button
+            offsetY = offsetY + 24
+        end
+
         local lastWarbankTreatiseButton
         for index = 1, warbankTreatiseButtonCount do
             local button = trackerFrame.warbankTreatiseButtons[index]
             button:ClearAllPoints()
             if lastWarbankTreatiseButton then
                 button:SetPoint("TOPLEFT", lastWarbankTreatiseButton, "BOTTOMLEFT", 0, -4)
+            elseif lastFinishingReagentMergeButton then
+                button:SetPoint("TOPLEFT", lastFinishingReagentMergeButton, "BOTTOMLEFT", 0, -4)
             elseif lastSurplusButton then
                 button:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
             elseif hasRecipeMarlButton then
@@ -6336,6 +6974,8 @@ UpdateTracker = function()
             trackerFrame.treasureButton:ClearAllPoints()
             if lastWarbankTreatiseButton then
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", lastWarbankTreatiseButton, "BOTTOMLEFT", 0, -4)
+            elseif lastFinishingReagentMergeButton then
+                trackerFrame.treasureButton:SetPoint("TOPLEFT", lastFinishingReagentMergeButton, "BOTTOMLEFT", 0, -4)
             elseif lastSurplusButton then
                 trackerFrame.treasureButton:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
             elseif hasRecipeMarlButton then
@@ -6357,6 +6997,8 @@ UpdateTracker = function()
             lastActionButton = trackerFrame.treasureButton
         elseif lastWarbankTreatiseButton then
             lastActionButton = lastWarbankTreatiseButton
+        elseif lastFinishingReagentMergeButton then
+            lastActionButton = lastFinishingReagentMergeButton
         elseif lastSurplusButton then
             lastActionButton = lastSurplusButton
         elseif hasRecipeMarlButton then
@@ -6446,6 +7088,14 @@ trackerUI.CreateTrackerFrame = function()
             tostring(self:GetAttribute("item") or "none")
         )
     end)
+    trackerFrame.knowledgeButton:SetScript("PostClick", function(self, _, down)
+        if down then
+            return
+        end
+        trackerUI.LockItemActionButton(self)
+        InvalidateMidnightKnowledgeConsumableCache()
+        trackerUI.RequestItemActionRefresh()
+    end)
     trackerFrame.knowledgeButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:SetText("Utilise le prochain consommable de connaissance Midnight.")
@@ -6467,8 +7117,9 @@ trackerUI.CreateTrackerFrame = function()
         if down then
             return
         end
+        trackerUI.LockItemActionButton(self)
         trackerUI.InvalidateMidnightRecipeItemCache()
-        ScheduleTrackerRefresh(0.05, false)
+        trackerUI.RequestItemActionRefresh()
     end)
     trackerFrame.recipeButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -6613,6 +7264,8 @@ trackerUI.CreateTrackerFrame = function()
             return
         end
 
+        trackerUI.LockItemActionButton(self)
+
         if InCombatLockdown and InCombatLockdown() then
             runtimeState.trackerRefreshDeferredByCombat = true
             return
@@ -6624,6 +7277,7 @@ trackerUI.CreateTrackerFrame = function()
             runtimeState.attemptedPayoutTargetKeys[self.payoutTargetKey] = true
         end
         InvalidateArtisanConsortiumPayoutCache()
+        trackerUI.RequestItemActionRefresh()
         trackerUI.UpdateArtisanConsortiumPayoutButton(FindArtisanConsortiumPayoutInBags())
     end)
     trackerFrame.payoutButton:SetScript("OnEnter", function(self)
@@ -6645,6 +7299,14 @@ trackerUI.CreateTrackerFrame = function()
         button:SetText("Ouvrir surplus")
         button:Hide()
         button:HookScript("PreClick", trackerUI.NotifyContainerOpening)
+        button:HookScript("PostClick", function(self, _, down)
+            if down then
+                return
+            end
+            trackerUI.LockItemActionButton(self)
+            trackerUI.InvalidateSurplusReagentContainerCache()
+            trackerUI.RequestItemActionRefresh()
+        end)
         button:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
             GameTooltip:SetText("Ouvre ce type de conteneur de composants en surplus.")
@@ -6655,6 +7317,37 @@ trackerUI.CreateTrackerFrame = function()
         end)
         button:SetScript("OnLeave", GameTooltip_Hide)
         trackerFrame.surplusReagentButtons[index] = button
+    end
+
+    trackerFrame.finishingReagentMergeButtons = {}
+    for index = 1, 3 do
+        local button = CreateFrame("Button", addonName .. "FinishingReagentMergeButton" .. index, trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+        button:SetSize(178, 20)
+        button:RegisterForClicks("AnyUp", "AnyDown")
+        button:SetAttribute("useOnKeyDown", false)
+        button:SetText("Fusionner")
+        button:Hide()
+        button:HookScript("PostClick", function(self, _, down)
+            if down then
+                return
+            end
+            trackerUI.LockItemActionButton(self)
+            trackerUI.InvalidateFinishingReagentMergeCache()
+            trackerUI.RequestItemActionRefresh()
+        end)
+        button:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText("Fusionne 5 exemplaires de rang 1 en 1 exemplaire de rang 2.")
+            if self.itemLink then
+                GameTooltip:AddLine(self.itemLink, 0.5, 0.8, 1, true)
+            end
+            if self.mergeCount then
+                GameTooltip:AddLine(("Fusions possibles : %d"):format(self.mergeCount), 1, 1, 1, true)
+            end
+            GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", GameTooltip_Hide)
+        trackerFrame.finishingReagentMergeButtons[index] = button
     end
 
     trackerFrame.warbankTreatiseButtons = {}
@@ -6669,8 +7362,9 @@ trackerUI.CreateTrackerFrame = function()
             if down then
                 return
             end
+            trackerUI.LockItemActionButton(self)
             trackerUI.InvalidateWarbankTreatiseCache()
-            ScheduleTrackerRefresh(0.05, false)
+            trackerUI.RequestItemActionRefresh()
         end)
         button:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -6840,6 +7534,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
                 trackerUI.InvalidateMidnightRecipeItemCache()
                 InvalidateArtisanConsortiumPayoutCache()
                 trackerUI.InvalidateSurplusReagentContainerCache()
+                trackerUI.InvalidateFinishingReagentMergeCache()
                 trackerUI.InvalidateWarbankTreatiseCache()
                 trackerUI.InvalidateToolEnchantCache()
                 debugSignatures.knowledge = nil
@@ -6909,15 +7604,18 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         trackerUI.InvalidateWarbankTreatiseCache()
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "BAG_UPDATE_DELAYED" then
+        runtimeState.itemActionRefreshPending = true
+        runtimeState.itemActionForceBagRefresh = true
         runtimeState.attemptedPayoutTargetKeys = runtimeState.attemptedPayoutTargetKeys or {}
         wipe(runtimeState.attemptedPayoutTargetKeys)
         InvalidateMidnightKnowledgeConsumableCache()
         trackerUI.InvalidateMidnightRecipeItemCache()
         InvalidateArtisanConsortiumPayoutCache()
         trackerUI.InvalidateSurplusReagentContainerCache()
+        trackerUI.InvalidateFinishingReagentMergeCache()
         trackerUI.InvalidateWarbankTreatiseCache()
         trackerUI.InvalidateToolEnchantCache()
-        ScheduleTrackerRefresh(0.05, false)
+        ScheduleTrackerRefresh(0, false)
         if runtimeState.abundanceEnchantingPurchasePending then
             trackerUI.ScheduleAbundanceEnchantingBagPurchase(0)
         end
@@ -6959,7 +7657,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "PLAYER_EQUIPMENT_CHANGED" or event == "PLAYER_AVG_ITEM_LEVEL_UPDATE" then
         trackerUI.InvalidateToolEnchantCache()
-        ScheduleTrackerRefresh(0.05, false)
+        ScheduleTrackerRefresh(0, false)
     elseif event == "ITEM_DATA_LOAD_RESULT" then
         local rawItemID, success = ...
         local itemID = tonumber(rawItemID)

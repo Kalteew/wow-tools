@@ -81,11 +81,12 @@ local CONCENTRATION_FILTER_ALL = "all"
 local CONCENTRATION_FILTER_NEEDS = "needs"
 local CONCENTRATION_FILTER_NONE = "none"
 local PATRON_VALUE = {
-	knowledgePoint = 1000 * COPPER_PER_GOLD,
+	knowledgePointGold = 300,
 	firstCraft = 1000 * COPPER_PER_GOLD,
 	skillUp = 200 * COPPER_PER_GOLD,
-	moxiePerPoint = (5000 * COPPER_PER_GOLD) / 600,
+	moxiePerPointGold = 4,
 	concentrationAlchemy = 3 * COPPER_PER_GOLD,
+	concentrationLeatherworking = 0,
 	concentrationDefault = 1 * COPPER_PER_GOLD,
 }
 local BORDER_BY_ITEM_QUALITY = {
@@ -2121,10 +2122,16 @@ local function EvaluateRewardValue(order, recipeInfo)
 	local skillUpCount = recipeInfo and recipeInfo.canSkillUp
 		and math.max(0, tonumber(recipeInfo.numSkillUps) or 0)
 		or 0
-	local knowledgeValue = rewardKnowledge * PATRON_VALUE.knowledgePoint
+	local knowledgeValueGold = ns.GetPatronValueGold
+		and ns.GetPatronValueGold("patronKnowledgeValueGold", PATRON_VALUE.knowledgePointGold)
+		or PATRON_VALUE.knowledgePointGold
+	local moxieValueGold = ns.GetPatronValueGold
+		and ns.GetPatronValueGold("patronMoxieValueGold", PATRON_VALUE.moxiePerPointGold)
+		or PATRON_VALUE.moxiePerPointGold
+	local knowledgeValue = rewardKnowledge * knowledgeValueGold * COPPER_PER_GOLD
 	local firstCraftValue = firstCraftCount * PATRON_VALUE.firstCraft
 	local skillUpValue = skillUpCount * PATRON_VALUE.skillUp
-	local moxieValue = rewardMoxie * PATRON_VALUE.moxiePerPoint
+	local moxieValue = rewardMoxie * moxieValueGold * COPPER_PER_GOLD
 	local deterministicValue = knowledgeValue + firstCraftValue + skillUpValue + moxieValue
 
 	return {
@@ -2204,9 +2211,16 @@ local function GetConcentrationGoldCost(orderData)
 		return 0
 	end
 
-	local goldPerPoint = IsAlchemyProfession(orderData.professionID)
-		and PATRON_VALUE.concentrationAlchemy
-		or PATRON_VALUE.concentrationDefault
+	local professionID = tonumber(orderData and orderData.professionID)
+	local isLeatherworking = professionID == 2 or professionID == 165 or professionID == 2915
+	local goldPerPoint
+	if isLeatherworking then
+		goldPerPoint = PATRON_VALUE.concentrationLeatherworking
+	elseif IsAlchemyProfession(professionID) then
+		goldPerPoint = PATRON_VALUE.concentrationAlchemy
+	else
+		goldPerPoint = PATRON_VALUE.concentrationDefault
+	end
 	return points * goldPerPoint
 end
 

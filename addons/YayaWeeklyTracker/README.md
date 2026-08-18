@@ -38,12 +38,13 @@ Resume `Midnight` :
 - `KP x a placer` en rouge = plus de `5` points de connaissance non depenses dans ce metier
 - `+10KP (zone)` = livre de connaissance Midnight encore non consomme ; les livres d'Abundance sont suivis a partir du niveau 90 pour Enchantement, Herboristerie, Minage et Depeçage ; si le livre est deja dans les sacs, le rappel est masque au profit du bouton `Utiliser KP`
 - `moxie x/y` et `abondance x/y` = recapitulatif du cout des livres manquants ; la valeur passe en rouge si la monnaie manque
-- les outils de metier rares ou superieurs, soulbound, equipes ou presents dans les sacs, sont verifies pour chaque metier Midnight appris ; un metier sans outil bleu/violet equipe affiche `outil non equipe`, un outil sans enchantement affiche `outil sans enchant x1`, et un outil sans le bon enchantement R2 apparait dans `One time` (`outil MC x1`, `outil RF x1`, etc.)
+- si `Outils metiers` est active, les outils de metier rares ou superieurs, soulbound, equipes ou presents dans les sacs, sont verifies pour chaque metier Midnight appris ; un metier sans outil bleu/violet equipe affiche `outil non equipe`
+- si `Enchantements des outils` est active, YWT lit la stat aleatoire du tooltip du lien unique de chaque outil possede (jamais la stat generique de l'item de base) : un outil Multicrafting demande l'enchantement Multicrafting, un outil sans enchantement affiche `outil sans enchant MC x1`, et un outil avec une mauvaise stat apparait dans `One time` (`outil MC x1`, `outil RF x1`, etc.) ; les boutons Warbank/YayaQueue utilisent ce meme enchantement cible ; les deux options sont actives par defaut
 - les six stats d'outil Midnight sont gerees : Perception (`243965`), Resourcefulness (`243967`), Finesse (`243993`), Multicrafting (`243995`), Ingenuity (`244025`) et Deftness (`244023`) ; l'enchantement est valide par son `enchantID`, donc un rang 1 ou une mauvaise stat reste a corriger
 - `Pull enchants Warbank` retire seulement la quantite necessaire des stacks connus de la Warbank ; le bouton reste desactive si la Warbank doit etre ouverte ou si son contenu n'est pas connu
 - `Acheter enchants YQ` ajoute uniquement les deficits non deja demandes dans YayaQueue, en tenant compte des sacs et de la Warbank ; le calcul est relance apres ajout
 - le rappel `moxie x` reste affiche meme si aucun tresor, livre ou recette ne reste dans `One time`
-- les recettes manquantes suivies sont `Potion of Recklessness`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; leur etat connu utilise le tooltip Blizzard du personnage courant, comme Yaya Vendor Filter, puis les API metier en secours ; une recette ayant un cout Abundance n'est suivie qu'a partir du niveau 90
+- les recettes manquantes suivies sont `Potion of Recklessness`, `Vicious Thalassian Flask of Honor`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; leur etat connu utilise le tooltip Blizzard du personnage courant, comme Yaya Vendor Filter, puis les API metier en secours ; une recette ayant un cout Abundance n'est suivie qu'a partir du niveau 90
 - une recette suivie non apprise mais deja presente dans les sacs est retiree de `One time` ; un bouton `Utiliser recette` permet de la consommer directement
 - le transfert de `Voidlight Marl` depuis les autres personnages est temporairement desactive ; son bouton reste masque pendant la stabilisation du flux Blizzard
 - `Lost Legends` est suivie comme weekly par personnage des legendes Haranir
@@ -54,12 +55,15 @@ Resume `Midnight` :
 - le bloc couvre surtout la partie actionable des guides `Midnight` : tresors, repeatable loot, trainer, traite, Darkmoon
 - si `TomTom` est installe, l'addon ajoute automatiquement au login les waypoints des tresors `Midnight` encore non recuperes pour les metiers du personnage courant
 - les waypoints sont refresh quand un tresor passe en `fait`
-- si TomTom est installe, un waypoint temporaire est aussi pose vers chaque vendeur de livre KP manquant (`Voidstorm`, `Silvermoon`, `Harandar`, `Zul'Aman` ou `Abundance`)
+- si TomTom est installe, un waypoint temporaire est aussi pose vers chaque vendeur de livre KP manquant (`Voidstorm`, `Silvermoon`, `Harandar`, `Zul'Aman`, `Coiled Isle` ou `Abundance`)
 - si TomTom est installe, un waypoint temporaire est aussi pose vers le vendeur des recettes suivies manquantes
 - l'addon n'impose pas la `CrazyArrow` de TomTom; il pose seulement les markers carte/minimap
 - un bouton `Ouvrir payout` apparait si un `Artisan's Consortium Payout` est detecte dans les sacs; chaque clic cible un payout encore present et un clic excedentaire reste sans effet
-- le meme bouton ouvre aussi les coffres, les `Avid Learner's Supply Pack` (`263467`, `268487`, `269703`), `Pouch of Mystic Grindings` et `Bouquet of Herbs` (rangs 1 et 2) de la whitelist (`263934`, `263466`, `263467`, `268487`, `269703`, `254677`, `250755`, `245650` et `245651`) presents dans les sacs, en alternant les slots disponibles
+- le meme bouton ouvre aussi tous les conteneurs Midnight ouvrables recenses dans la whitelist : caches, coffres, sacs, pochettes, satchels, offres, boites Prey et conteneurs de la Coiled Isle / Vaults of Atal'Utek, en alternant les slots disponibles
 - des boutons independants `Ouvrir surplus` apparaissent pour les conteneurs de composants en surplus des 11 metiers Midnight reconnus, afin de pouvoir alterner les clics pendant leur ouverture
+- des boutons `Fusionner` apparaissent pour les Resourceful Rebar (`247725`), Multicraft Matrix (`247719`) et Ingenious Identifier (`260630`) dès que 5 rang 1 sont dans les sacs ; un clic utilise 5 rang 1 pour créer leur version rang 2 (`247726`, `247724`, `247788`)
+- les boutons d'action d'item (KP, recette, payout, surplus, fusion et traité) invalident leur cache et rafraichissent leur valeur dès le clic, puis se verrouillent pour bloquer le multiclic jusqu'à `BAG_UPDATE_DELAYED`
+- les boutons payout et surplus n'utilisent pas de watchdog : ils itèrent sur les containers disponibles au fil des refreshs de sacs
 - l'option `Ouvrir automatiquement les conteneurs YWT` est desactivee par defaut ; si elle est activee, elle ouvre un par un les coffres, payouts et surplus suivis, uniquement hors combat et hors interfaces sensibles ; apres chaque recuperation depuis la boite aux lettres, elle attend 0,5 s apres le dernier evenement de courrier avant de rescanner les sacs
 - les consommables KP restent volontairement manuels : WoW refuse leur utilisation automatique
 - si `Tracker les traites (inscription)` est active, un bouton par traite hebdomadaire manquant apparait a l'ouverture de la Warbank lorsqu'un stack correspondant y est present ; le clic retire le stack complet sans split
@@ -90,7 +94,7 @@ La frame est ancree par son coin haut gauche et s'etend vers le bas droite. Sa p
 Dans `Echap > Options > AddOns > Yaya Weekly Tracker`, les options account-wide permettent de :
 
 - cacher integralement la frame en combat (desactive par defaut)
-- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des world bosses Val/Naigtal, du world boss selon gold ou ilvl, des traites, des weeklies metiers trainer, du DMF metiers, des loots metiers, du dez Enchantement, de chaque recette Midnight, de `Lost Legends` et de `Research Console: Exploring the Void` (tous actives par defaut)
+- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des world bosses Val/Naigtal, du world boss selon gold ou ilvl, des traites, des weeklies metiers trainer, du DMF metiers, des loots metiers, du dez Enchantement, des outils metiers, des enchantements des outils, de chaque recette Midnight, de `Lost Legends` et de `Research Console: Exploring the Void` (tous actives par defaut)
 - activer l'achat automatique des sacs de materiaux d'enchantement du marchand d'Abondance (desactive par defaut)
 - activer l'achat automatique des `Fused Vitality` du marchand d'Abondance (desactive par defaut)
 

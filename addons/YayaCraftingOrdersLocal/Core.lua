@@ -21,6 +21,8 @@ local defaults = {
 	openPatronOrderBehavior = "none",
 	warnExpensiveIngredients = true,
 	expensiveIngredientThresholdPercent = 10,
+	patronKnowledgeValueGold = 300,
+	patronMoxieValueGold = 4,
 	greyUnknownRecipes = true,
 	showRewardValue = true,
 	showSilverCopperInList = false,
@@ -332,6 +334,15 @@ end
 
 function ns.GetConfig(key)
 	return YayaCraftingOrdersDB and YayaCraftingOrdersDB[key]
+end
+
+function ns.GetPatronValueGold(key, fallback)
+	local value = tonumber(ns.GetConfig(key))
+	if value == nil or value < 0 then
+		value = fallback
+	end
+
+	return math.max(0, math.floor(value + 0.5))
 end
 
 function ns.GetIgnoredConcentrationOrdersProfessions()

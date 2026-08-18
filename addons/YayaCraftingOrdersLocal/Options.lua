@@ -102,6 +102,63 @@ local function UpdatePercentSliderText(slider, prefix, value)
 	slider.Text:SetText(LF("OPTION_PERCENT_THRESHOLD_FORMAT", prefix, percentValue))
 end
 
+local function NormalizeGoldInputValue(value, fallback)
+	value = tonumber(value)
+	if value == nil or value < 0 then
+		value = fallback
+	end
+
+	return math.max(0, math.floor(value + 0.5))
+end
+
+local function CreateGoldInput(parent, name, text, anchor, relativeTo, relativePoint, xOffset, yOffset, onCommit)
+	local label = CreateLabel(parent, "GameFontHighlight", text, anchor, relativeTo, relativePoint, xOffset, yOffset, 250)
+	local input = CreateFrame("EditBox", name, parent, "InputBoxTemplate")
+	input:SetSize(90, 24)
+	input:SetPoint("LEFT", label, "RIGHT", 12, 0)
+	input:SetAutoFocus(false)
+	input:SetNumeric(true)
+	input:SetMaxLetters(8)
+	input:SetJustifyH("RIGHT")
+	input.label = label
+	input:SetScript("OnEnterPressed", function(self)
+		self.skipFocusLost = true
+		onCommit(self)
+		self:ClearFocus()
+		self.skipFocusLost = nil
+	end)
+	input:SetScript("OnEditFocusLost", function(self)
+		if not self.skipFocusLost then
+			onCommit(self)
+		end
+	end)
+	input:SetScript("OnEscapePressed", function(self)
+		self:ClearFocus()
+		Options:Refresh()
+	end)
+	return input
+end
+
+local function SetGoldInputValue(input, value, fallback)
+	if not input then
+		return
+	end
+
+	input.suppressCallback = true
+	input:SetText(tostring(NormalizeGoldInputValue(value, fallback)))
+	input.suppressCallback = nil
+end
+
+local function CommitGoldInput(input, configKey, fallback)
+	if not input or input.suppressCallback then
+		return
+	end
+
+	local value = NormalizeGoldInputValue(input:GetText(), fallback)
+	input:SetText(tostring(value))
+	ns.SetConfig(configKey, value)
+end
+
 local function GetProfessionChoice(skillLineID)
 	skillLineID = tonumber(skillLineID)
 	if not skillLineID then
@@ -381,12 +438,63 @@ function Options:BuildPanel()
 		end
 	)
 
+	panel.patronValueHeader = CreateLabel(
+		panel,
+		"GameFontNormal",
+		L.OPTION_PATRON_VALUE_HEADER,
+		"TOPLEFT",
+		panel.showSilverCopperInList,
+		"BOTTOMLEFT",
+		0,
+		-18
+	)
+
+	panel.patronValueHint = CreateLabel(
+		panel,
+		"GameFontHighlightSmall",
+		L.OPTION_PATRON_VALUE_HINT,
+		"TOPLEFT",
+		panel.patronValueHeader,
+		"BOTTOMLEFT",
+		0,
+		-6,
+		620
+	)
+
+	panel.knowledgeValueGold = CreateGoldInput(
+		panel,
+		"YayaCraftingOrdersKnowledgeValueGoldInput",
+		L.OPTION_KNOWLEDGE_VALUE_GOLD,
+		"TOPLEFT",
+		panel.patronValueHint,
+		"BOTTOMLEFT",
+		0,
+		-10,
+		function(input)
+			CommitGoldInput(input, "patronKnowledgeValueGold", 300)
+		end
+	)
+
+	panel.moxieValueGold = CreateGoldInput(
+		panel,
+		"YayaCraftingOrdersMoxieValueGoldInput",
+		L.OPTION_MOXIE_VALUE_GOLD,
+		"TOPLEFT",
+		panel.knowledgeValueGold,
+		"BOTTOMLEFT",
+		0,
+		-8,
+		function(input)
+			CommitGoldInput(input, "patronMoxieValueGold", 4)
+		end
+	)
+
 	panel.warningHeader = CreateLabel(
 		panel,
 		"GameFontNormal",
 		L.OPTION_INGREDIENT_WARNINGS_HEADER,
 		"TOPLEFT",
-		panel.showSilverCopperInList,
+		panel.moxieValueGold,
 		"BOTTOMLEFT",
 		0,
 		-18
@@ -563,6 +671,12 @@ function Options:BuildPanel()
 		panel.preferencesHeader,
 		panel.greyUnknownRecipes,
 		panel.showSilverCopperInList,
+		panel.patronValueHeader,
+		panel.patronValueHint,
+		panel.knowledgeValueGold.label,
+		panel.knowledgeValueGold,
+		panel.moxieValueGold.label,
+		panel.moxieValueGold,
 		panel.warningHeader,
 		panel.warnExpensiveIngredients,
 		panel.expensiveIngredientThreshold,
@@ -638,6 +752,8 @@ function Options:Refresh()
 	self.panel.preferencesHeader:SetPoint("TOPLEFT", lastPricingAnchor, "BOTTOMLEFT", 0, -18)
 	self.panel.greyUnknownRecipes:SetChecked(db.greyUnknownRecipes)
 	self.panel.showSilverCopperInList:SetChecked(db.showSilverCopperInList)
+	SetGoldInputValue(self.panel.knowledgeValueGold, db.patronKnowledgeValueGold, 300)
+	SetGoldInputValue(self.panel.moxieValueGold, db.patronMoxieValueGold, 4)
 	self.panel.warnExpensiveIngredients:SetChecked(db.warnExpensiveIngredients ~= false)
 	self.panel.expensiveIngredientThreshold.suppressCallback = true
 	self.panel.expensiveIngredientThreshold:SetValue(math.max(0, math.min(100, tonumber(db.expensiveIngredientThresholdPercent) or 10)))

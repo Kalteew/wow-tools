@@ -8,8 +8,10 @@ Ce que suit le MVP :
 - nouvelle session a chaque reconnexion
 - frame compacte mise a jour toutes les `15s`
 - `XP/h` affiche si le perso n'est pas au niveau max
+- `Coin/h` affiche les gains de Corrosive Coin (ID devise `3448`) si la session en contient
 - gold net de session via `PLAYER_MONEY`
 - items recuperes via `CHAT_MSG_LOOT`
+- Corrosive Coin recupere via `CURRENCY_DISPLAY_UPDATE`
 - valorisation via `TSM_API.GetCustomPriceValue(...)`
 - utilise aussi la moyenne de `YayaContainerValues` quand l'item est un container suivi
 - les items gris sont valorises au prix vendeur

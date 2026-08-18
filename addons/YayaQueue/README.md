@@ -63,12 +63,15 @@ Notes :
 - une recette sans plan CraftSim repasse explicitement en allocation automatique Blizzard afin qu'un ancien plan manuel ne bloque pas le craft
 - la queue se decremente a chaque craft reussi de la recette correspondante
 - `Next` reste verrouille pendant tout un lot de crafts et ne se reactive qu'au dernier craft confirme
-- la fenêtre qualité propose les réactifs optionnels de métier après les réactifs : leur difficulté, leur coût et leur allocation sont recalculés puis mémorisés dans la queue ; les missives impossibles pour la qualité choisie sont grisées
+- la fenêtre qualité propose les réactifs optionnels de métier après les réactifs, en catégories `Sparks / puissance`, `Crests`, `Missives` et `Embellishments` ; Sparks et Crests sont des interrupteurs simulables sans coût, cliquables même absents mais grisés, tandis que les rangs de Missives/Embellishments sont comparés par difficulté et prix, avec ou sans finishing
+- pour une sortie liée, le sélecteur affiche le coût des réactifs mais masque explicitement Minbuyout et profit ; si une cotation d’entrée manque, il affiche le sous-total connu suivi de `+ ?`
 - `/yq opttest` exécute les tests internes du solveur, dont les répartitions `41/59`, les coûts à paliers, l’affinage des seuils, les trois rangs et les rangs supérieurs moins chers
 - les items marchand sont detectes quand ils ont deja ete vus sur un marchand, y compris s’ils sont lies quand ramasses ; l’ID utilise l’API moderne `C_MerchantFrame.GetItemInfo()` si l’ancienne API globale ne le fournit pas
 - l'achat automatique marchand lance une seule séquence par ouverture ; chaque item accepté n'est soumis qu'une fois, avec vérification des sacs et jusqu'à 10 relances pour les échecs
 - les items non-commodities a l'HV sont achetes une enchere a la fois
+- lorsqu'un achat HV suivi par YQ arrive dans les sacs, sa quantite est retiree de la demande directe YQ ; elle ne reapparait donc pas apres consommation de l'item
 - le choix d’outil de craft ne calcule aucune rentabilité : il applique uniquement Multicraft puis Resourcefulness selon les statistiques de la recette
+- les six variantes de finition Midnight sont reconnues par ID : Resourceful Rebar/Routing (`247725`/`247726`), Multicraft Matrix/Manifold (`247719`/`247724`) et Ingenious Identifier/Identity (`260630`/`247788`), dans les crafts normaux et les lots de concentration
 - les resultats de recherche provenant d'autres addons AH ne remplacent pas le cache de recherche `YayaQueue`
 - la fermeture de l'HV invalide le cache de recherche afin que le retour dans l'onglet relance une recherche propre
 - un achat deja recu dans les sacs n'est pas recompte comme un faux envoi `Mailbox`
