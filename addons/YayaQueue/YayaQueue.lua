@@ -4816,25 +4816,71 @@ local function AddVisibleRequiredReagents(schematicForm, schematic, craftingReag
     return craftingReagents
 end
 
-local function GetConcentrationDumpState(schematicForm)
-    if not schematicForm or type(C_TradeSkillUI) ~= "table" then
-        return nil
-    end
+local function GetConcentrationDumpState(schematicForm, headlessRecipeID)
+	if type(C_TradeSkillUI) ~= "table" then
+		return nil
+	end
 
-    local transaction = (type(schematicForm.GetTransaction) == "function"
-        and SafeCall(schematicForm.GetTransaction, schematicForm)) or schematicForm.transaction
-    local context = GetRecipeContextFromSchematicForm(schematicForm)
-    local recipeID = context and context.recipeID or nil
-    local recipeInfo = recipeID and SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID) or nil
-    local recipeLevel = type(schematicForm.GetCurrentRecipeLevel) == "function"
-        and SafeCall(schematicForm.GetCurrentRecipeLevel, schematicForm) or nil
-    local schematic = recipeID and SafeCall(C_TradeSkillUI.GetRecipeSchematic, recipeID, false, recipeLevel) or nil
-    local craftingReagents = transaction and type(transaction.CreateCraftingReagentInfoTbl) == "function"
-        and SafeCall(transaction.CreateCraftingReagentInfoTbl, transaction) or {}
-    if type(craftingReagents) ~= "table" then
-        craftingReagents = {}
-    end
-    craftingReagents = AddVisibleRequiredReagents(schematicForm, schematic, craftingReagents, transaction)
+	local transaction
+	local context
+	local recipeID
+	local recipeInfo
+	local schematic
+	local craftingReagents
+	if schematicForm then
+		transaction = (type(schematicForm.GetTransaction) == "function"
+			and SafeCall(schematicForm.GetTransaction, schematicForm)) or schematicForm.transaction
+		context = GetRecipeContextFromSchematicForm(schematicForm)
+		recipeID = context and context.recipeID or nil
+		recipeInfo = recipeID and SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID) or nil
+		local recipeLevel = type(schematicForm.GetCurrentRecipeLevel) == "function"
+			and SafeCall(schematicForm.GetCurrentRecipeLevel, schematicForm) or nil
+		schematic = recipeID and SafeCall(C_TradeSkillUI.GetRecipeSchematic, recipeID, false, recipeLevel) or nil
+		craftingReagents = transaction and type(transaction.CreateCraftingReagentInfoTbl) == "function"
+			and SafeCall(transaction.CreateCraftingReagentInfoTbl, transaction) or {}
+	else
+		recipeID = tonumber(headlessRecipeID)
+		recipeInfo = recipeID and type(C_TradeSkillUI.GetRecipeInfo) == "function"
+			and SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID) or nil
+		schematic = recipeID and type(C_TradeSkillUI.GetRecipeSchematic) == "function"
+			and SafeCall(C_TradeSkillUI.GetRecipeSchematic, recipeID, false, nil) or nil
+		if type(recipeInfo) ~= "table" or type(schematic) ~= "table" then
+			DebugPrint(
+				"auto-favorite wait profession=" .. tostring(state.GetCurrentProfessionID())
+					.. " reason=headless-recipe-data recipe=" .. tostring(recipeID)
+			)
+			return nil
+		end
+		context = BuildRecipeContext(recipeID, recipeInfo, schematic, nil, false)
+		craftingReagents = {}
+		for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
+			if IsRequiredSelectableReagentSlot(slot) then
+				local reagent = slot.reagents and slot.reagents[1]
+				local itemID = tonumber(reagent and reagent.itemID)
+				local currencyID = tonumber(reagent and reagent.currencyID)
+				local quantity = math.max(0, tonumber(slot.quantityRequired) or 0)
+				if quantity > 0 and ((itemID and itemID > 0) or (currencyID and currencyID > 0)) then
+					craftingReagents[#craftingReagents + 1] = {
+						dataSlotIndex = tonumber(slot.dataSlotIndex),
+						reagent = { itemID = itemID, currencyID = currencyID },
+						quantity = quantity,
+					}
+				end
+			end
+		end
+		craftingReagents = NormalizeCraftingReagents(craftingReagents)
+		DebugPrint(
+			"auto-favorite headless recipe=" .. tostring(recipeID)
+				.. " requiredReagents=" .. tostring(#craftingReagents)
+		)
+	end
+
+	if type(craftingReagents) ~= "table" then
+		craftingReagents = {}
+	end
+	if schematicForm then
+		craftingReagents = AddVisibleRequiredReagents(schematicForm, schematic, craftingReagents, transaction)
+	end
 
     local allocationItemGUID = transaction and type(transaction.GetAllocationItemGUID) == "function"
         and SafeCall(transaction.GetAllocationItemGUID, transaction) or nil
@@ -4888,10 +4934,10 @@ function YQQuality.GetFirstFavoriteRecipeID()
         return nil, false
     end
 
-    local recipeIDs = SafeCall(C_TradeSkillUI.GetAllRecipeIDs)
-    if type(recipeIDs) ~= "table" then
-        return nil, false
-    end
+	local recipeIDs = SafeCall(C_TradeSkillUI.GetAllRecipeIDs)
+	if type(recipeIDs) ~= "table" or #recipeIDs == 0 then
+		return nil, false
+	end
 
     local dataReady = true
     for _, recipeID in ipairs(recipeIDs) do
@@ -5752,36 +5798,11 @@ YQQuality.TryAutoQueueFavoriteConcentration = function()
         return
     end
 
-    local craftingPage = ProfessionsFrame and ProfessionsFrame.CraftingPage
-    if not craftingPage or not craftingPage:IsShown() then
-        if request.attempts == 1 or request.attempts % 10 == 0 then
-            DebugPrint("auto-favorite wait profession=" .. tostring(professionID) .. " reason=crafting-page attempt=" .. tostring(request.attempts))
-        end
-        YQQuality.ScheduleAutoQueueFavoriteConcentration(0.1)
-        return
-    end
-
-    local schematicForm = GetCraftingSchematicForm()
-    local recipeInfo = schematicForm and type(schematicForm.GetRecipeInfo) == "function"
-        and SafeCall(schematicForm.GetRecipeInfo, schematicForm) or nil
-    local currentRecipeID = recipeInfo and tonumber(recipeInfo.recipeID)
-    if currentRecipeID ~= favoriteRecipeID then
-        if not request.openRequested and type(C_TradeSkillUI.OpenRecipe) == "function" then
-            request.openRequested = true
-            if schematicForm and schematicForm.loader and type(schematicForm.loader.Cancel) == "function" then
-                pcall(schematicForm.loader.Cancel, schematicForm.loader)
-            end
-            SafeCall(C_TradeSkillUI.OpenRecipe, favoriteRecipeID)
-        end
-        YQQuality.ScheduleAutoQueueFavoriteConcentration(0.1)
-        return
-    end
-
-    local dumpState = GetConcentrationDumpState(schematicForm)
-    if not dumpState or not dumpState.context or dumpState.cost <= 0 then
-        if request.attempts == 1 or request.attempts % 10 == 0 then
-            DebugPrint("auto-favorite wait profession=" .. tostring(professionID) .. " reason=concentration-data attempt=" .. tostring(request.attempts))
-        end
+	local dumpState = GetConcentrationDumpState(nil, favoriteRecipeID)
+	if not dumpState or not dumpState.context or dumpState.cost <= 0 then
+		if request.attempts == 1 or request.attempts % 10 == 0 then
+			DebugPrint("auto-favorite wait profession=" .. tostring(professionID) .. " reason=headless-concentration-data attempt=" .. tostring(request.attempts))
+		end
         YQQuality.ScheduleAutoQueueFavoriteConcentration(0.1)
         return
     end
@@ -5799,7 +5820,7 @@ YQQuality.TryAutoQueueFavoriteConcentration = function()
     end
 
     if not alreadyQueued and dumpState.maxQuantity > 0 then
-        local batches, queuedQuantity = QueueConcentrationDump(schematicForm, dumpState, "auto-favorite")
+		local batches, queuedQuantity = QueueConcentrationDump(nil, dumpState, "auto-favorite")
         DebugPrint("auto-favorite queued profession=" .. tostring(professionID) .. " recipe=" .. tostring(favoriteRecipeID) .. " quantity=" .. tostring(queuedQuantity) .. " batches=" .. tostring(batches and #batches or 0) .. " reserved=" .. tostring(dumpState.queuedReservation))
     else
         DebugPrint("auto-favorite skip profession=" .. tostring(professionID) .. " recipe=" .. tostring(favoriteRecipeID) .. " queued=" .. tostring(alreadyQueued) .. " max=" .. tostring(dumpState.maxQuantity) .. " reserved=" .. tostring(dumpState.queuedReservation))
