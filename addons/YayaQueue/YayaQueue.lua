@@ -3742,15 +3742,19 @@ local function GetPatronNextButtonState()
         end
 
         local currentProfessionID = state.GetCurrentProfessionID()
-        local craftingPageVisible = IsProfessionPageVisible(ProfessionsFrame and ProfessionsFrame.CraftingPage)
-
-        if not craftingPageVisible or currentProfessionID ~= entry.professionID then
+        if currentProfessionID ~= entry.professionID then
             return {
                 entry = entry,
                 text = "Next: bon metier",
                 enabled = false,
             }
         end
+
+        DebugPrint(
+            "next-normal headless profession=" .. tostring(currentProfessionID)
+                .. " recipe=" .. tostring(entry.recipeID)
+                .. " craftingPageVisible=" .. tostring(IsProfessionPageVisible(ProfessionsFrame and ProfessionsFrame.CraftingPage))
+        )
 
         if IsCraftClickLocked() then
             return {
