@@ -59,6 +59,7 @@ Notes :
 - les achats marchand de phials Haranir d’ingéniosité se font par 10 par défaut afin de conserver un buffer, avec choix par 10 ou par 1 dans l’onglet d’options WoW `YayaQueue`
 - l’utilisation automatique des phials peut être désactivée dans `/yq options`; les demandes automatiques déjà présentes sont masquées pendant la désactivation
 - la réinjection après remboursement d’Ingéniosité peut être désactivée dans l’onglet d’options WoW `YayaQueue`
+- les traces `/yq debug` corrèlent l’ouverture du métier, le métier courant, l’attente des données, les favoris, les transmutations/alchimie et les quantités finalement ajoutées
 - une session YQ ne crée qu’une seule demande automatique de phial, même si plusieurs entrées concentration sont ajoutées
 - une recette sans plan CraftSim repasse explicitement en allocation automatique Blizzard afin qu'un ancien plan manuel ne bloque pas le craft
 - la queue se decremente a chaque craft reussi de la recette correspondante

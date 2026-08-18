@@ -2826,9 +2826,19 @@ alchemyAuto.QueueBouquetAndRecycling = function()
     end
 
     for _, pendingRecipe in ipairs(pendingRecipes) do
-        AddRecipeToQueue(pendingRecipe.context, pendingRecipe.quantity)
+        local queuedEntry = AddRecipeToQueue(pendingRecipe.context, pendingRecipe.quantity)
+        DebugPrint(
+            "alchemy-auto queued profession=" .. tostring(professionID)
+                .. " recipe=" .. tostring(pendingRecipe.context and pendingRecipe.context.recipeID)
+                .. " quantity=" .. tostring(pendingRecipe.quantity)
+                .. " added=" .. tostring(queuedEntry ~= nil)
+        )
     end
     alchemyAuto.EnsureRecycleForDerivateShortage(professionID)
+    DebugPrint(
+        "alchemy-auto prepared profession=" .. tostring(professionID)
+            .. " pendingRecipes=" .. tostring(#pendingRecipes)
+    )
     return true
 end
 
@@ -2849,11 +2859,17 @@ function YQQuality.ScheduleAutoQueueAlchemy(delay)
             YQQuality.ScheduleAutoQueueAlchemy(0.1)
         else
             autoQueue.pendingProfessionID = false
+            DebugPrint(
+                "alchemy-auto complete profession=" .. tostring(state.GetCurrentProfessionID())
+                    .. " attempts=" .. tostring(autoQueue.attempts)
+                    .. " result=" .. tostring(result)
+            )
         end
     end)
 end
 
 local function StartAlchemyAutoQueue()
+    DebugPrint("alchemy-auto start profession=" .. tostring(state.GetCurrentProfessionID()))
     state.alchemyAutoQueue.pendingProfessionID = nil
     state.alchemyAutoQueue.attempts = 0
     YQQuality.ScheduleAutoQueueAlchemy(0)
@@ -5723,6 +5739,9 @@ YQQuality.TryAutoQueueFavoriteConcentration = function()
 
     local favoriteRecipeID, recipeDataReady = YQQuality.GetFirstFavoriteRecipeID()
     if not recipeDataReady then
+        if request.attempts == 1 or request.attempts % 10 == 0 then
+            DebugPrint("auto-favorite wait profession=" .. tostring(professionID) .. " reason=recipe-data attempt=" .. tostring(request.attempts))
+        end
         YQQuality.ScheduleAutoQueueFavoriteConcentration(0.1)
         return
     end
@@ -5735,6 +5754,9 @@ YQQuality.TryAutoQueueFavoriteConcentration = function()
 
     local craftingPage = ProfessionsFrame and ProfessionsFrame.CraftingPage
     if not craftingPage or not craftingPage:IsShown() then
+        if request.attempts == 1 or request.attempts % 10 == 0 then
+            DebugPrint("auto-favorite wait profession=" .. tostring(professionID) .. " reason=crafting-page attempt=" .. tostring(request.attempts))
+        end
         YQQuality.ScheduleAutoQueueFavoriteConcentration(0.1)
         return
     end
@@ -5757,6 +5779,9 @@ YQQuality.TryAutoQueueFavoriteConcentration = function()
 
     local dumpState = GetConcentrationDumpState(schematicForm)
     if not dumpState or not dumpState.context or dumpState.cost <= 0 then
+        if request.attempts == 1 or request.attempts % 10 == 0 then
+            DebugPrint("auto-favorite wait profession=" .. tostring(professionID) .. " reason=concentration-data attempt=" .. tostring(request.attempts))
+        end
         YQQuality.ScheduleAutoQueueFavoriteConcentration(0.1)
         return
     end
@@ -11521,12 +11546,24 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         if state.craft.qualityFrame then state.craft.qualityFrame.userClosed = false end
         state.craftGear.ScheduleScan()
         C_Timer.After(0, function()
-            if type(_G.YayaCraftingOrdersAPI) ~= "table"
+            local professionID = state.GetCurrentProfessionID()
+            local ycoAvailable = type(_G.YayaCraftingOrdersAPI) == "table"
+            DebugPrint(
+                "event=TRADE_SKILL_SHOW profession=" .. tostring(professionID)
+                    .. " yco=" .. tostring(ycoAvailable)
+            )
+            if not ycoAvailable
                 and type(YayaQueueAPI) == "table"
                 and type(YayaQueueAPI.QueueFavoriteConcentration) == "function" then
-                YayaQueueAPI.QueueFavoriteConcentration(state.GetCurrentProfessionID())
+                local favoriteOK, favoriteMessage = YayaQueueAPI.QueueFavoriteConcentration(professionID)
+                DebugPrint(
+                    "event=TRADE_SKILL_SHOW favorite profession=" .. tostring(professionID)
+                        .. " ok=" .. tostring(favoriteOK)
+                        .. " message=" .. tostring(favoriteMessage)
+                )
             end
             StartAlchemyAutoQueue()
+            DebugPrint("event=TRADE_SKILL_SHOW alchemy-scheduled profession=" .. tostring(professionID))
         end)
         C_Timer.After(0, ScheduleRefresh)
         return
@@ -11579,8 +11616,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
     end
 
     if event == "TRADE_SKILL_DATA_SOURCE_CHANGED" then
+        local professionID = state.GetCurrentProfessionID()
+        DebugPrint(
+            "event=TRADE_SKILL_DATA_SOURCE_CHANGED profession=" .. tostring(professionID)
+                .. " alchemyPending=" .. tostring(state.alchemyAutoQueue.pendingProfessionID)
+        )
         if state.alchemyAutoQueue.pendingProfessionID ~= false
-            and alchemyAuto.IsAlchemyProfession(state.GetCurrentProfessionID())
+            and alchemyAuto.IsAlchemyProfession(professionID)
         then
             StartAlchemyAutoQueue()
         end
@@ -12286,7 +12328,9 @@ end
 function YayaQueueAPI.QueueFavoriteConcentration(professionID)
     state.EnsureDB()
     professionID = tonumber(professionID) or state.GetCurrentProfessionID()
+    DebugPrint("auto-favorite request profession=" .. tostring(professionID))
     if not professionID then
+        DebugPrint("auto-favorite skip profession=nil reason=profession-unavailable")
         return false, "Profession unavailable"
     end
 
@@ -12303,6 +12347,7 @@ function YayaQueueAPI.QueueFavoriteConcentration(professionID)
 
     local autoQueue = state.autoFavoriteConcentration
     if autoQueue.queuedByProfession[professionID] then
+        DebugPrint("auto-favorite skip profession=" .. tostring(professionID) .. " reason=already-handled")
         return false, "Already handled"
     end
     if not autoQueue.pending or autoQueue.pending.professionID ~= professionID then
@@ -12312,6 +12357,7 @@ function YayaQueueAPI.QueueFavoriteConcentration(professionID)
             openRequested = false,
         }
     end
+    DebugPrint("auto-favorite pending profession=" .. tostring(professionID))
     YQQuality.ScheduleAutoQueueFavoriteConcentration(0)
     return true
 end

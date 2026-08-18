@@ -62,10 +62,12 @@ local REQUEST_READINESS_RETRY_LIMIT = 20
 Pane.retryConfig = {
 	requestFailureDelay = 0.5,
 	requestFailureLimit = 3,
+	headlessRequestDelay = 0.5,
+	headlessRequestLimit = 3,
 	orderTypeDelay = 0.15,
 	orderTypeLimit = 20,
 	autoScanDelay = 0.1,
-	autoScanDuration = 2.5,
+	autoScanDuration = 3.0,
 	emptySyncDelay = 0.5,
 	emptySyncLimit = 3,
 }
@@ -175,6 +177,8 @@ Pane.needsRebuild = false
 Pane.needsRender = false
 Pane.autoScanCompletedByProfession = {}
 Pane.autoScanFlow = nil
+Pane.autoScanSerial = 0
+Pane.headlessRequestSerial = 0
 Pane.pendingReason = nil
 Pane.pendingDueAt = nil
 Pane.visibleSessionId = 0
@@ -2587,7 +2591,7 @@ local function OrderHasUnresolvedItemData(orderData)
 	return next(orderData.unresolvedItemIDs or EMPTY_LIST) ~= nil
 end
 
-local function PrepareOrder(rawOrder)
+local function PrepareOrder(rawOrder, professionID)
 	local recipeInfo = GetRecipeInfo(rawOrder)
 	local recipeSchematic = recipeInfo and GetRecipeSchematic(recipeInfo)
 	if not (recipeInfo and recipeSchematic) then
@@ -2612,7 +2616,7 @@ local function PrepareOrder(rawOrder)
 		canSkillUp = recipeInfo.canSkillUp,
 		relativeDifficulty = recipeInfo.relativeDifficulty,
 		skillUps = recipeInfo.numSkillUps or 0,
-		professionID = Pane.visibleProfession or Pane:GetCurrentProfessionID(),
+		professionID = professionID or Pane.visibleProfession or Pane:GetCurrentProfessionID(),
 		unknownRecipeTooltip = isKnown and nil or BuildUnknownRecipeTooltip(recipeInfo),
 		reward = rewardData,
 	}
@@ -4039,14 +4043,14 @@ function Pane:IsAutoQueueablePatronOrder(orderData, queueApi, bucket)
 	return not (bucket and bucket[orderData.orderID])
 end
 
-function Pane:GetAutoQueueSessionBucket()
-	local professionID = self.visibleProfession or self:GetCurrentProfessionID()
+function Pane:GetAutoQueueSessionBucket(professionID, sessionKey)
+	professionID = professionID or self.visibleProfession or self:GetCurrentProfessionID()
 	if not professionID then
 		return nil
 	end
 
 	self.autoQueuedOrderIDsBySession = self.autoQueuedOrderIDsBySession or {}
-	local sessionKey = ("%s:%s"):format(tostring(self.visibleSessionId or 0), tostring(professionID))
+	sessionKey = ("%s:%s"):format(tostring(sessionKey or self.visibleSessionId or 0), tostring(professionID))
 	local bucket = self.autoQueuedOrderIDsBySession[sessionKey]
 	if not bucket then
 		bucket = {}
@@ -4145,12 +4149,20 @@ end
 
 function Pane:SelectProfessionTab(tabID, page)
 	if self:IsProfessionPageVisible(page) then
+		ns.Debug("ui", "tab already-visible tab=%s", tostring(tabID))
 		return true
 	end
 
 	if tabID == ((ProfessionsFrame and ProfessionsFrame.craftingOrdersTabID) or 3) then
 		local canOpen = self:CanOpenPatronOrders()
 		if not canOpen or (ProfessionsFrame and ProfessionsFrame.isCraftingOrdersTabEnabled == false) then
+			ns.Debug(
+				"ui",
+				"tab blocked tab=%s canOpen=%s enabled=%s",
+				tostring(tabID),
+				tostring(canOpen),
+				tostring(ProfessionsFrame and ProfessionsFrame.isCraftingOrdersTabEnabled)
+			)
 			return false
 		end
 	end
@@ -4164,16 +4176,36 @@ function Pane:SelectProfessionTab(tabID, page)
 	-- initial profession load it can still be nil; wait for the next retry
 	-- instead of entering Blizzard_ProfessionsFrame:SetTab too early.
 	if ProfessionsFrame.changingTabs or type(ProfessionsFrame.recipesFilters) ~= "table" then
-		ns.Debug("ui", "profession tab not ready tab=%s recipesFilters=%s changingTabs=%s", tostring(tabID), tostring(type(ProfessionsFrame.recipesFilters)), tostring(ProfessionsFrame.changingTabs))
+		ns.Debug(
+			"ui",
+			"tab not-ready tab=%s recipesFilters=%s changingTabs=%s",
+			tostring(tabID),
+			tostring(type(ProfessionsFrame.recipesFilters)),
+			tostring(ProfessionsFrame.changingTabs)
+		)
 		return false
 	end
 
 	local ok, tabButton = Util.SafeCall(ProfessionsFrame.GetTabButton, ProfessionsFrame, tabID)
 	if ok and tabButton and type(tabButton.Click) == "function" then
+		local enabled = true
+		if type(tabButton.IsEnabled) == "function" then
+			local enabledOK, enabledValue = Util.SafeCall(tabButton.IsEnabled, tabButton)
+			enabled = enabledOK and enabledValue == true
+		end
+		ns.Debug("ui", "tab click tab=%s button=%s enabled=%s", tostring(tabID), tostring(tabButton), tostring(enabled))
 		local clicked = Util.SafeCall(tabButton.Click, tabButton)
+		ns.Debug(
+			"ui",
+			"tab click-result tab=%s ok=%s page-visible=%s",
+			tostring(tabID),
+			tostring(clicked == true),
+			tostring(self:IsProfessionPageVisible(page))
+		)
 		return clicked == true
 	end
 
+	ns.Debug("ui", "tab unavailable tab=%s get-button-ok=%s", tostring(tabID), tostring(ok))
 	return false
 end
 
@@ -4186,15 +4218,23 @@ function Pane:SelectPatronOrderType(ordersPage)
 	end
 
 	if type(ordersPage.SetCraftingOrderType) == "function" then
-		Util.SafeCall(ordersPage.SetCraftingOrderType, ordersPage, ns.ORDER_TYPE_NPC)
-		return true
+		local ok = Util.SafeCall(ordersPage.SetCraftingOrderType, ordersPage, ns.ORDER_TYPE_NPC)
+		ns.Debug(
+			"ui",
+			"order-type set requested=%s ok=%s current=%s",
+			tostring(ns.ORDER_TYPE_NPC),
+			tostring(ok),
+			tostring(self:GetCurrentOrderType())
+		)
+		return ok == true
 	end
 
 	for _, buttonName in ipairs({ "NpcOrdersButton", "PatronOrdersButton" }) do
 		local button = ordersPage[buttonName]
 		if button and type(button.Click) == "function" then
-			Util.SafeCall(button.Click, button)
-			return true
+			local ok = Util.SafeCall(button.Click, button)
+			ns.Debug("ui", "order-type button=%s ok=%s current=%s", buttonName, tostring(ok), tostring(self:GetCurrentOrderType()))
+			return ok == true
 		end
 	end
 
@@ -4263,6 +4303,281 @@ function Pane:SchedulePatronAutoScanStep(flow, delay)
 	end)
 end
 
+function Pane:FallbackToVisiblePatronAutoScan(flow, reason)
+	if self.autoScanFlow ~= flow then
+		return
+	end
+
+	flow.mode = "visible"
+	flow.stage = "open-orders"
+	flow.requesting = nil
+	flow.restoreAt = nil
+	ns.Debug(
+		"auto-scan",
+		"fallback-visible profession=%s reason=%s attempts=%s",
+		tostring(flow.profession),
+		tostring(reason),
+		tostring(flow.requestAttempts or 0)
+	)
+	self:SchedulePatronAutoScanStep(flow, 0)
+end
+
+function Pane:CompleteHeadlessPatronAutoScan(flow, stats)
+	if self.autoScanFlow ~= flow then
+		return
+	end
+
+	self.autoScanCompletedByProfession[flow.profession] = true
+	local queueApi = self:GetYayaQueueAPI()
+	local favoriteOK, favoriteMessage
+	if queueApi and type(queueApi.QueueFavoriteConcentration) == "function" then
+		favoriteOK, favoriteMessage = queueApi.QueueFavoriteConcentration(flow.profession)
+	end
+	ns.Debug(
+		"headless",
+		"complete profession=%s raw=%s prepared=%s candidates=%s added=%s skipped=%s failed=%s favorite=%s message=%s",
+		tostring(flow.profession),
+		tostring(stats and stats.rawCount or 0),
+		tostring(stats and stats.preparedCount or 0),
+		tostring(stats and stats.candidateCount or 0),
+		tostring(stats and stats.addedCount or 0),
+		tostring(stats and stats.skippedCount or 0),
+		tostring(stats and stats.failedCount or 0),
+		tostring(favoriteOK),
+		tostring(favoriteMessage)
+	)
+	self.autoScanFlow = nil
+end
+
+function Pane:ProcessHeadlessPatronOrders(flow)
+	local rawOrders = self:GetVisibleRawOrders()
+	local stats = {
+		rawCount = #rawOrders,
+		preparedCount = 0,
+		candidateCount = 0,
+		addedCount = 0,
+		skippedCount = 0,
+		failedCount = 0,
+		deferredCount = 0,
+	}
+
+	if #rawOrders == 0 then
+		flow.emptyAttempts = (flow.emptyAttempts or 0) + 1
+		if flow.emptyAttempts < self.retryConfig.emptySyncLimit then
+			return "retry", "empty-orders", stats
+		end
+	end
+
+	local preparedOrders = {}
+	for _, rawOrder in ipairs(rawOrders) do
+		local ok, orderData = pcall(PrepareOrder, rawOrder, flow.profession)
+		if ok and orderData then
+			preparedOrders[#preparedOrders + 1] = orderData
+			stats.preparedCount = stats.preparedCount + 1
+		else
+			stats.deferredCount = stats.deferredCount + 1
+		end
+	end
+
+	if stats.deferredCount > 0 then
+		flow.prepareAttempts = (flow.prepareAttempts or 0) + 1
+		if flow.prepareAttempts < self.retryConfig.headlessRequestLimit then
+			return "retry", "recipe-data", stats
+		end
+		return "fallback", "recipe-data", stats
+	end
+
+	local queueApi = self:GetYayaQueueAPI()
+	if not queueApi then
+		return "fallback", "queue-unavailable", stats
+	end
+
+	local bucket = self:GetAutoQueueSessionBucket(flow.profession, flow.sessionKey)
+	if not bucket then
+		return "fallback", "session-unavailable", stats
+	end
+
+	local availableOrderIDs = {}
+	for _, rawOrder in ipairs(rawOrders) do
+		local orderID = tonumber(rawOrder.orderID) or 0
+		if orderID > 0 then
+			availableOrderIDs[orderID] = true
+		end
+	end
+	if type(queueApi.SyncPatronOrders) == "function" then
+		queueApi.SyncPatronOrders(availableOrderIDs, flow.profession)
+	end
+
+	for _, orderData in ipairs(preparedOrders) do
+		if self:IsAutoQueueablePatronOrder(orderData, queueApi, bucket) then
+			stats.candidateCount = stats.candidateCount + 1
+			local ok = self:AddOrderToYayaQueue(orderData, true)
+			if ok then
+				bucket[orderData.orderID] = true
+				stats.addedCount = stats.addedCount + 1
+			else
+				stats.failedCount = stats.failedCount + 1
+			end
+		else
+			stats.skippedCount = stats.skippedCount + 1
+		end
+	end
+
+	if stats.failedCount > 0 then
+		return "fallback", "queue-add-failed", stats
+	end
+
+	return "success", nil, stats
+end
+
+function Pane:RequestHeadlessPatronOrders(flow)
+	if self.autoScanFlow ~= flow or flow.requesting then
+		return
+	end
+
+	local snapshot = self:GetProfessionSnapshot()
+	if snapshot.selected ~= flow.profession then
+		if not snapshot.selected then
+			self:FallbackToVisiblePatronAutoScan(flow, "profession-not-ready")
+		else
+			ns.Debug(
+				"headless",
+				"cancel profession-changed flow=%s current=%s child=%s base=%s orders=%s",
+				tostring(flow.profession),
+				tostring(snapshot.selected),
+				tostring(snapshot.child),
+				tostring(snapshot.base),
+				tostring(snapshot.ordersPage)
+			)
+			self.autoScanFlow = nil
+		end
+		return
+	end
+
+	if not self:IsNearProfessionFocus(flow.profession) then
+		ns.Debug("headless", "cancel focus-unavailable profession=%s", tostring(flow.profession))
+		self.autoScanFlow = nil
+		return
+	end
+
+	if type(C_CraftingOrders) ~= "table"
+		or type(C_CraftingOrders.RequestCrafterOrders) ~= "function"
+	then
+		self:FallbackToVisiblePatronAutoScan(flow, "request-unavailable")
+		return
+	end
+
+	flow.requestAttempts = (flow.requestAttempts or 0) + 1
+	if flow.requestAttempts > self.retryConfig.headlessRequestLimit then
+		self:FallbackToVisiblePatronAutoScan(flow, "request-retries-exhausted")
+		return
+	end
+
+	self.headlessRequestSerial = (self.headlessRequestSerial or 0) + 1
+	local requestID = self.headlessRequestSerial
+	flow.requestID = requestID
+	flow.requesting = true
+	ns.Debug(
+		"headless",
+		"request start id=%s attempt=%s profession=%s child=%s base=%s orders=%s",
+		tostring(requestID),
+		tostring(flow.requestAttempts),
+		tostring(flow.profession),
+		tostring(snapshot.child),
+		tostring(snapshot.base),
+		tostring(snapshot.ordersPage)
+	)
+
+	C_Timer.After(REQUEST_TIMEOUT, function()
+		if Pane and Pane.autoScanFlow == flow and flow.requestID == requestID and flow.requesting then
+			flow.requesting = nil
+			Pane:FallbackToVisiblePatronAutoScan(flow, "request-timeout")
+		end
+	end)
+
+	local requestOK, requestError = pcall(C_CraftingOrders.RequestCrafterOrders, {
+		profession = flow.profession,
+		orderType = ns.ORDER_TYPE_NPC,
+		forCrafter = true,
+		offset = 0,
+		searchFavorites = false,
+		initialNonPublicSearch = false,
+		primarySort = { sortType = 0, reversed = false },
+		secondarySort = { sortType = 0, reversed = false },
+		callback = function(result, orderType)
+			if Pane.autoScanFlow ~= flow or flow.requestID ~= requestID or not flow.requesting then
+				ns.Debug("headless", "ignore stale callback id=%s request-active=%s", tostring(requestID), tostring(flow.requesting == true))
+				return
+			end
+
+			flow.requesting = nil
+			local currentProfession = Pane:GetCurrentProfessionID()
+			local requestSucceeded = result == 0
+				and (orderType == nil or orderType == ns.ORDER_TYPE_NPC)
+			local rawCount = 0
+			if type(C_CraftingOrders) == "table"
+				and type(C_CraftingOrders.GetCrafterOrders) == "function"
+			then
+				local rawOK, callbackOrders = pcall(C_CraftingOrders.GetCrafterOrders)
+				if rawOK and type(callbackOrders) == "table" then
+					rawCount = #callbackOrders
+				end
+			end
+			ns.Debug(
+				"headless",
+				"request callback id=%s result=%s type=%s current=%s success=%s raw=%s",
+				tostring(requestID),
+				tostring(result),
+				tostring(orderType),
+				tostring(currentProfession),
+				tostring(requestSucceeded),
+				tostring(rawCount)
+			)
+
+			if not requestSucceeded then
+				Pane:FallbackToVisiblePatronAutoScan(flow, "request-failed")
+				return
+			end
+			if currentProfession ~= flow.profession then
+				Pane:FallbackToVisiblePatronAutoScan(flow, "profession-changed-callback")
+				return
+			end
+
+			local processOK, status, reason, stats = pcall(Pane.ProcessHeadlessPatronOrders, Pane, flow)
+			if not processOK then
+				ns.Debug("headless", "process error=%s", tostring(status))
+				Pane:FallbackToVisiblePatronAutoScan(flow, "process-error")
+				return
+			end
+			ns.Debug(
+				"headless",
+				"process status=%s reason=%s raw=%s prepared=%s deferred=%s candidates=%s added=%s skipped=%s failed=%s",
+				tostring(status),
+				tostring(reason),
+				tostring(stats and stats.rawCount),
+				tostring(stats and stats.preparedCount),
+				tostring(stats and stats.deferredCount),
+				tostring(stats and stats.candidateCount),
+				tostring(stats and stats.addedCount),
+				tostring(stats and stats.skippedCount),
+				tostring(stats and stats.failedCount)
+			)
+			if status == "success" then
+				Pane:CompleteHeadlessPatronAutoScan(flow, stats)
+			elseif status == "retry" then
+				Pane:SchedulePatronAutoScanStep(flow, Pane.retryConfig.headlessRequestDelay)
+			else
+				Pane:FallbackToVisiblePatronAutoScan(flow, reason or "headless-failed")
+			end
+		end,
+	})
+	if not requestOK then
+		flow.requesting = nil
+		ns.Debug("headless", "request error=%s", tostring(requestError))
+		self:FallbackToVisiblePatronAutoScan(flow, "request-error")
+	end
+end
+
 function Pane:RestoreAfterPatronAutoScan(flow)
 	local craftingPage = ProfessionsFrame and ProfessionsFrame.CraftingPage
 	if not self:IsProfessionPageVisible(craftingPage) then
@@ -4289,12 +4604,50 @@ function Pane:RestoreAfterPatronAutoScan(flow)
 		queueApi.QueueFavoriteConcentration(flow.profession)
 	end
 
+	if flow.mode == "visible" and flow.visibleRequestSucceeded and flow.visibleQueueProcessed then
+		self.autoScanCompletedByProfession[flow.profession] = true
+		ns.Debug(
+			"auto-scan",
+			"visible fallback completed profession=%s request=%s queue=%s",
+			tostring(flow.profession),
+			tostring(flow.visibleRequestSucceeded),
+			tostring(flow.visibleQueueProcessed)
+		)
+	else
+		ns.Debug(
+			"auto-scan",
+			"visible fallback incomplete profession=%s request=%s queue=%s",
+			tostring(flow.profession),
+			tostring(flow.visibleRequestSucceeded),
+			tostring(flow.visibleQueueProcessed)
+		)
+	end
+
 	self.autoScanFlow = nil
 end
 
 function Pane:RunPatronAutoScanStep(flow)
-	if self:GetCurrentProfessionID() ~= flow.profession then
-		self.autoScanFlow = nil
+	local snapshot = self:GetProfessionSnapshot()
+	if snapshot.selected ~= flow.profession then
+		if not snapshot.selected then
+			self:FallbackToVisiblePatronAutoScan(flow, "profession-not-ready-step")
+		else
+			ns.Debug(
+				"auto-scan",
+				"cancel profession-changed flow=%s current=%s child=%s base=%s orders=%s",
+				tostring(flow.profession),
+				tostring(snapshot.selected),
+				tostring(snapshot.child),
+				tostring(snapshot.base),
+				tostring(snapshot.ordersPage)
+			)
+			self.autoScanFlow = nil
+		end
+		return
+	end
+
+	if flow.mode == "headless" then
+		self:RequestHeadlessPatronOrders(flow)
 		return
 	end
 
@@ -4334,14 +4687,39 @@ function Pane:RunPatronAutoScanStep(flow)
 	flow.stage = "wait-orders"
 	if not flow.restoreAt then
 		flow.restoreAt = GetTime() + self.retryConfig.autoScanDuration
-		self.autoScanCompletedByProfession[flow.profession] = true
 		ns.Debug("auto-scan", "opened profession=%s; restoring in %ss", tostring(flow.profession), tostring(self.retryConfig.autoScanDuration))
 	end
 	self:SchedulePatronAutoScanStep(flow, self.retryConfig.autoScanDelay)
 end
 
 function Pane:MaybeStartPatronAutoScan(reason)
-	local profession = self:GetCurrentProfessionID()
+	local snapshot = self:GetProfessionSnapshot()
+	local profession = snapshot.selected
+	if not profession then
+		self.autoScanStartAttempts = (self.autoScanStartAttempts or 0) + 1
+		if not self.autoScanStartRetryQueued
+			and self.autoScanStartAttempts <= REQUEST_READINESS_RETRY_LIMIT
+		then
+			self.autoScanStartRetryQueued = true
+			C_Timer.After(REQUEST_READINESS_RETRY_DELAY, function()
+				if Pane then
+					Pane.autoScanStartRetryQueued = nil
+					Pane:MaybeStartPatronAutoScan("profession-readiness")
+				end
+			end)
+		end
+		ns.Debug(
+			"auto-scan",
+			"wait profession reason=%s attempts=%s child=%s base=%s orders=%s",
+			tostring(reason),
+			tostring(self.autoScanStartAttempts),
+			tostring(snapshot.child),
+			tostring(snapshot.base),
+			tostring(snapshot.ordersPage)
+		)
+		return
+	end
+	self.autoScanStartAttempts = 0
 	if not profession or self.autoScanCompletedByProfession[profession] then
 		return
 	end
@@ -4368,13 +4746,24 @@ function Pane:MaybeStartPatronAutoScan(reason)
 	end
 
 	local rootShown = self.root and self.root:IsShown() == true
+	self.autoScanSerial = (self.autoScanSerial or 0) + 1
 	local flow = {
 		profession = profession,
-		stage = "open-orders",
+		mode = "headless",
+		stage = "headless",
+		sessionKey = "headless:" .. tostring(self.autoScanSerial),
 		sessionInitialized = rootShown,
 	}
 	self.autoScanFlow = flow
-	ns.Debug("auto-scan", "start profession=%s reason=%s", tostring(profession), tostring(reason))
+	ns.Debug(
+		"auto-scan",
+		"start profession=%s reason=%s child=%s base=%s orders=%s mode=headless",
+		tostring(profession),
+		tostring(reason),
+		tostring(snapshot.child),
+		tostring(snapshot.base),
+		tostring(snapshot.ordersPage)
+	)
 	self:SchedulePatronAutoScanStep(flow, 0)
 end
 
@@ -4869,33 +5258,52 @@ function Pane:CanOpenPatronOrders()
 	return true, false
 end
 
-function Pane:GetCurrentProfessionID()
-	local ordersPage = ProfessionsFrame and ProfessionsFrame.OrdersPage
-	local professionInfo = ordersPage and ordersPage.professionInfo
-	if professionInfo and professionInfo.profession then
-		return professionInfo.profession
-	end
+function Pane:GetProfessionSnapshot()
+	local snapshot = {
+		child = nil,
+		base = nil,
+		ordersPage = nil,
+		apiAvailable = false,
+	}
+	local professionInfo
 
 	if type(C_TradeSkillUI) == "table" and type(C_TradeSkillUI.GetChildProfessionInfo) == "function" then
-		professionInfo = C_TradeSkillUI.GetChildProfessionInfo()
-		if professionInfo and professionInfo.profession then
-			return professionInfo.profession
-		end
+		snapshot.apiAvailable = true
+		local ok, info = Util.SafeCall(C_TradeSkillUI.GetChildProfessionInfo)
+		professionInfo = ok and info or nil
+		snapshot.child = professionInfo and tonumber(professionInfo.profession) or nil
 	end
 
 	if type(C_TradeSkillUI) == "table" and type(C_TradeSkillUI.GetBaseProfessionInfo) == "function" then
-		professionInfo = C_TradeSkillUI.GetBaseProfessionInfo()
-		if professionInfo and professionInfo.profession then
-			return professionInfo.profession
-		end
+		snapshot.apiAvailable = true
+		local ok, info = Util.SafeCall(C_TradeSkillUI.GetBaseProfessionInfo)
+		professionInfo = ok and info or nil
+		snapshot.base = professionInfo and tonumber(professionInfo.profession) or nil
 	end
 
-	return nil
+	local ordersPage = ProfessionsFrame and ProfessionsFrame.OrdersPage
+	professionInfo = ordersPage and ordersPage.professionInfo
+	snapshot.ordersPage = professionInfo and tonumber(professionInfo.profession) or nil
+
+	-- OrdersPage.professionInfo can still describe the previous profession while
+	-- the C_TradeSkillUI source already describes the profession being opened.
+	-- Only use the UI field when the authoritative APIs are unavailable.
+	snapshot.selected = snapshot.child or snapshot.base
+	if not snapshot.selected and not snapshot.apiAvailable then
+		snapshot.selected = snapshot.ordersPage
+	end
+
+	return snapshot
+end
+
+function Pane:GetCurrentProfessionID()
+	return self:GetProfessionSnapshot().selected
 end
 
 function Pane:DebugState(reason)
 	local ordersPage = ProfessionsFrame and ProfessionsFrame.OrdersPage
-	local profession = self:GetCurrentProfessionID()
+	local professionSnapshot = self:GetProfessionSnapshot()
+	local profession = professionSnapshot.selected
 	local canOpenPatronOrders = self:CanOpenPatronOrders()
 	local nearFocus = false
 	if profession
@@ -4915,7 +5323,7 @@ function Pane:DebugState(reason)
 
 	ns.Debug(
 		"state",
-		"reason=%s init=%s ready=%s pageShown=%s rootShown=%s rootVisible=%s type=%s patrons=%s profession=%s focus=%s session=%s request=%s id=%s requestProfession=%s requestSession=%s needs=%s/%s/%s retry=%s/%s pending=%s raw=%s prepared=%s visible=%s",
+		"reason=%s init=%s ready=%s pageShown=%s rootShown=%s rootVisible=%s type=%s patrons=%s profession=%s child=%s base=%s orders=%s focus=%s session=%s request=%s id=%s requestProfession=%s requestSession=%s needs=%s/%s/%s retry=%s/%s pending=%s raw=%s prepared=%s visible=%s",
 		tostring(reason),
 		tostring(self.initialized == true),
 		tostring(ns.IsProfessionsReady()),
@@ -4925,6 +5333,9 @@ function Pane:DebugState(reason)
 		tostring(self:GetCurrentOrderType()),
 		tostring(canOpenPatronOrders == true),
 		tostring(profession),
+		tostring(professionSnapshot.child),
+		tostring(professionSnapshot.base),
+		tostring(professionSnapshot.ordersPage),
 		tostring(nearFocus),
 		tostring(self.visibleSessionId),
 		tostring(self.requesting == true),
@@ -5914,6 +6325,13 @@ function Pane:RequestOrders(reason, profession)
 				and profession == currentProfession
 				and self.root
 				and self.root:IsShown() then
+				if self.autoScanFlow
+					and self.autoScanFlow.mode == "visible"
+					and self.autoScanFlow.profession == profession
+				then
+					self.autoScanFlow.visibleRequestSucceeded = true
+					ns.Debug("auto-scan", "visible request succeeded profession=%s id=%s", tostring(profession), tostring(requestID))
+				end
 				self.requestFailureRetryCount = 0
 				if isCurrentSession then
 					self.lastSuccessfulRequest = {
@@ -6224,7 +6642,25 @@ function Pane:RebuildPreparedOrders()
 
 	self.preparedOrderCache = preparedOrderCache
 	self.allOrders = preparedOrders
-	self:MaybeAutoQueuePatronOrders()
+	if self.autoScanFlow
+		and self.autoScanFlow.mode == "visible"
+		and self.autoScanFlow.profession == currentProfession
+	then
+		local candidateCount, addedCount, firstError = self:QueueAutoQueueablePatronOrders()
+		self.autoScanFlow.visibleQueueProcessed = candidateCount == addedCount
+		ns.Debug(
+			"auto-scan",
+			"visible queue processed profession=%s prepared=%s candidates=%s added=%s error=%s success=%s",
+			tostring(currentProfession),
+			tostring(#preparedOrders),
+			tostring(candidateCount),
+			tostring(addedCount),
+			tostring(firstError),
+			tostring(self.autoScanFlow.visibleQueueProcessed)
+		)
+	else
+		self:MaybeAutoQueuePatronOrders()
+	end
 	self:ApplyOrderFilters()
 	self.ordersProfession = currentProfession
 	self.ordersGeneration = self.rebuildGeneration
@@ -6584,7 +7020,15 @@ function Pane:InitializeEvents()
 	end)
 
 	ns.RegisterEvent("TRADE_SKILL_DATA_SOURCE_CHANGED", function()
-		ns.Debug("event", "TRADE_SKILL_DATA_SOURCE_CHANGED profession=%s", tostring(Pane:GetCurrentProfessionID()))
+		local snapshot = Pane:GetProfessionSnapshot()
+		ns.Debug(
+			"event",
+			"TRADE_SKILL_DATA_SOURCE_CHANGED selected=%s child=%s base=%s orders=%s",
+			tostring(snapshot.selected),
+			tostring(snapshot.child),
+			tostring(snapshot.base),
+			tostring(snapshot.ordersPage)
+		)
 		Pane:MarkDirty("trade-skill-source")
 		Pane:MarkDetailWarningDirty()
 		C_Timer.After(0, function()
@@ -6597,12 +7041,24 @@ function Pane:InitializeEvents()
 	ns.RegisterEvent("TRADE_SKILL_SHOW", function()
 		C_Timer.After(0, function()
 			if Pane then
+				local snapshot = Pane:GetProfessionSnapshot()
+				ns.Debug(
+					"event",
+					"TRADE_SKILL_SHOW selected=%s child=%s base=%s orders=%s focus=%s",
+					tostring(snapshot.selected),
+					tostring(snapshot.child),
+					tostring(snapshot.base),
+					tostring(snapshot.ordersPage),
+					tostring(Pane:IsNearProfessionFocus(snapshot.selected))
+				)
 				Pane:MaybeStartPatronAutoScan("trade-skill-show")
 				local canOpenPatronOrders = Pane:CanOpenPatronOrders()
+				ns.Debug("event", "TRADE_SKILL_SHOW patron-tab-available=%s flow=%s", tostring(canOpenPatronOrders), tostring(Pane.autoScanFlow ~= nil))
 				if canOpenPatronOrders and not Pane.autoScanFlow then
 					local queueApi = Pane:GetYayaQueueAPI()
 					if queueApi and type(queueApi.QueueFavoriteConcentration) == "function" then
-						queueApi.QueueFavoriteConcentration(Pane:GetCurrentProfessionID())
+						local favoriteOK, favoriteMessage = queueApi.QueueFavoriteConcentration(snapshot.selected)
+						ns.Debug("event", "TRADE_SKILL_SHOW favorite profession=%s ok=%s message=%s", tostring(snapshot.selected), tostring(favoriteOK), tostring(favoriteMessage))
 					end
 				end
 			end
@@ -6612,10 +7068,21 @@ function Pane:InitializeEvents()
 	ns.RegisterEvent("TRADE_SKILL_CLOSE", function()
 		C_Timer.After(0, function()
 			local flow = Pane and Pane.autoScanFlow
-			local currentProfession = Pane and Pane:GetCurrentProfessionID()
+			local snapshot = Pane and Pane:GetProfessionSnapshot()
+			local currentProfession = snapshot and snapshot.selected
 			local professionFrameShown = ProfessionsFrame and ProfessionsFrame:IsShown()
 			if flow and (not professionFrameShown or (currentProfession and currentProfession ~= flow.profession)) then
-				ns.Debug("auto-scan", "cancelled on profession close")
+				ns.Debug(
+					"auto-scan",
+					"cancelled on profession close flow=%s mode=%s current=%s child=%s base=%s orders=%s frame=%s",
+					tostring(flow.profession),
+					tostring(flow.mode),
+					tostring(currentProfession),
+					tostring(snapshot and snapshot.child),
+					tostring(snapshot and snapshot.base),
+					tostring(snapshot and snapshot.ordersPage),
+					tostring(professionFrameShown)
+				)
 				Pane.autoScanFlow = nil
 			end
 		end)
