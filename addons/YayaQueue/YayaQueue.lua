@@ -210,6 +210,11 @@ local state = {
     recentCompletedPatronOrderTTL = 30.0,
     firstCraftScanRunning = false,
     firstCraftAvailability = {},
+    firstCraftAutoQueue = {
+        pending = false,
+        timerQueued = false,
+        attempts = 0,
+    },
     pendingIngenuityPhial = nil,
     armedShatter = nil,
     pendingShatter = nil,
@@ -6363,17 +6368,26 @@ local function HasAddableFirstCraft()
     return false
 end
 
-local function QueueAllAffordableFirstCrafts(button)
+local function QueueAllAffordableFirstCrafts(button, source)
+    source = source or (button and "button" or "automatic")
     if state.firstCraftScanRunning then
-        return
+        return false, "already-running"
     end
     if type(_G.CraftSimAPI) ~= "table" or type(_G.CraftSimAPI.GetRecipeData) ~= "function" then
-        Print("CraftSim est requis pour chiffrer les first crafts.")
-        return
+        if button then
+            Print("CraftSim est requis pour chiffrer les first crafts.")
+        else
+            DebugPrint("first-craft skip source=" .. tostring(source) .. " reason=craftsim-unavailable")
+        end
+        return false, "craftsim-unavailable"
     end
     if type(C_TradeSkillUI) ~= "table" or type(C_TradeSkillUI.GetAllRecipeIDs) ~= "function" then
-        Print("La liste des recettes est indisponible.")
-        return
+        if button then
+            Print("La liste des recettes est indisponible.")
+        else
+            DebugPrint("first-craft skip source=" .. tostring(source) .. " reason=recipe-list-unavailable")
+        end
+        return false, "recipe-list-unavailable"
     end
 
     local recipeIDs = {}
@@ -6390,24 +6404,39 @@ local function QueueAllAffordableFirstCrafts(button)
     local reservedSoulboundReagents = {}
     local okCraftSim, craftSim = pcall(_G.CraftSimAPI.GetCraftSim, _G.CraftSimAPI)
     if not okCraftSim or type(craftSim) ~= "table" then
-        Print("CraftSim est indisponible pour verifier les cooldowns.")
-        return
+        if button then
+            Print("CraftSim est indisponible pour verifier les cooldowns.")
+        else
+            DebugPrint("first-craft skip source=" .. tostring(source) .. " reason=craftsim-state-unavailable")
+        end
+        return false, "craftsim-state-unavailable"
     end
     local reservedCooldownCharges = BuildQueuedCooldownReservations(craftSim)
     local currentSkillLineID = type(C_TradeSkillUI.GetProfessionChildSkillLineID) == "function"
         and SafeCall(C_TradeSkillUI.GetProfessionChildSkillLineID)
         or nil
     state.firstCraftScanRunning = true
-    button:Disable()
+    if button then
+        button:Disable()
+    end
 
     local function FinishFirstCraftScan()
         state.firstCraftScanRunning = false
-        button:SetText("first craft")
-        button:Enable()
+        if button then
+            button:SetText("first craft")
+            button:Enable()
+        end
         state.ah.statusMessage = stats.added .. " first craft(s) ajoute(s)"
-        Print(("First crafts: %d ajoutes, %d deja en file, %d sans charge CD, %d trop chers, %d sans prix, %d incompatibles."):format(
+        local summary = ("added=%d queued=%d cooldown=%d expensive=%d unknown=%d incompatible=%d"):format(
             stats.added, stats.queued, stats.cooldown, stats.expensive, stats.unknown, stats.incompatible
-        ))
+        )
+        if button then
+            Print(("First crafts: %d ajoutes, %d deja en file, %d sans charge CD, %d trop chers, %d sans prix, %d incompatibles."):format(
+                stats.added, stats.queued, stats.cooldown, stats.expensive, stats.unknown, stats.incompatible
+            ))
+        else
+            DebugPrint("first-craft complete source=" .. tostring(source) .. " profession=" .. tostring(professionID) .. " " .. summary)
+        end
         ScheduleRefresh()
     end
 
@@ -6416,7 +6445,9 @@ local function QueueAllAffordableFirstCrafts(button)
             FinishFirstCraftScan()
             return
         end
-        button:SetText(index .. "/" .. #recipeIDs)
+        if button then
+            button:SetText(index .. "/" .. #recipeIDs)
+        end
         C_Timer.After(0, function()
             local activeSkillLineID = type(C_TradeSkillUI.GetProfessionChildSkillLineID) == "function"
                 and SafeCall(C_TradeSkillUI.GetProfessionChildSkillLineID)
@@ -6469,6 +6500,88 @@ local function QueueAllAffordableFirstCrafts(button)
     else
         ProcessRecipe(1)
     end
+    return true, "started"
+end
+
+YQQuality.ScheduleAutoQueueFirstCrafts = function(delay)
+    local autoQueue = state.firstCraftAutoQueue
+    if autoQueue.timerQueued then
+        return true, "scheduled"
+    end
+
+    autoQueue.pending = true
+    autoQueue.timerQueued = true
+    C_Timer.After(delay or 0.1, function()
+        autoQueue.timerQueued = false
+        if not autoQueue.pending then
+            return
+        end
+
+        autoQueue.attempts = (autoQueue.attempts or 0) + 1
+        local professionID = state.GetCurrentProfessionID()
+        local isAlchemy = alchemyAuto.IsAlchemyProfession(professionID)
+        if isAlchemy
+            and state.alchemyAutoQueue.pendingProfessionID == nil
+            and not state.alchemyAutoQueue.timerQueued
+        then
+            StartAlchemyAutoQueue()
+        end
+
+        local favoriteBusy = state.autoFavoriteConcentration.pending ~= nil
+            or state.autoFavoriteConcentration.timerQueued
+        local alchemyBusy = isAlchemy and (
+            state.alchemyAutoQueue.pendingProfessionID ~= false
+            or state.alchemyAutoQueue.timerQueued
+        )
+        local recipeIDs = type(C_TradeSkillUI) == "table"
+            and type(C_TradeSkillUI.GetAllRecipeIDs) == "function"
+            and SafeCall(C_TradeSkillUI.GetAllRecipeIDs)
+            or nil
+        local recipeDataUnavailable = type(recipeIDs) ~= "table" or #recipeIDs == 0
+
+        if favoriteBusy or alchemyBusy or state.firstCraftScanRunning or recipeDataUnavailable then
+            if autoQueue.attempts < 100 then
+                if autoQueue.attempts == 1 or autoQueue.attempts % 10 == 0 then
+                    DebugPrint(
+                        "first-craft wait profession=" .. tostring(professionID)
+                            .. " favoriteBusy=" .. tostring(favoriteBusy)
+                            .. " alchemyBusy=" .. tostring(alchemyBusy)
+                            .. " scanRunning=" .. tostring(state.firstCraftScanRunning)
+                            .. " recipeDataUnavailable=" .. tostring(recipeDataUnavailable)
+                            .. " attempt=" .. tostring(autoQueue.attempts)
+                    )
+                end
+                YQQuality.ScheduleAutoQueueFirstCrafts(0.1)
+            else
+                autoQueue.pending = false
+                autoQueue.attempts = 0
+                DebugPrint("first-craft timeout profession=" .. tostring(professionID) .. " reason=opening-flows-or-recipe-data")
+            end
+            return
+        end
+
+        local started, message = QueueAllAffordableFirstCrafts(nil, "profession-open")
+        DebugPrint(
+            "first-craft start profession=" .. tostring(professionID)
+                .. " started=" .. tostring(started)
+                .. " message=" .. tostring(message)
+        )
+        if started or message == "already-running" then
+            autoQueue.pending = false
+            autoQueue.attempts = 0
+        elseif autoQueue.attempts < 100 then
+            autoQueue.pending = true
+            YQQuality.ScheduleAutoQueueFirstCrafts(0.1)
+        else
+            autoQueue.pending = false
+            autoQueue.attempts = 0
+            DebugPrint(
+                "first-craft timeout profession=" .. tostring(professionID)
+                    .. " reason=" .. tostring(message)
+            )
+        end
+    end)
+    return true, "scheduled"
 end
 
 local function UpdateVendorButtons(summary)
@@ -12381,6 +12494,11 @@ function YayaQueueAPI.QueueFavoriteConcentration(professionID)
     DebugPrint("auto-favorite pending profession=" .. tostring(professionID))
     YQQuality.ScheduleAutoQueueFavoriteConcentration(0)
     return true
+end
+
+function YayaQueueAPI.QueueFirstCraftsAfterProfessionOpen()
+    DebugPrint("first-craft request source=profession-open")
+    return YQQuality.ScheduleAutoQueueFirstCrafts()
 end
 
 function YayaQueueAPI.HasPatronOrder(orderID)

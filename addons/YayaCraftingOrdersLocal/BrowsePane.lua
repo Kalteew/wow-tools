@@ -4334,9 +4334,13 @@ function Pane:CompleteHeadlessPatronAutoScan(flow, stats)
 	if queueApi and type(queueApi.QueueFavoriteConcentration) == "function" then
 		favoriteOK, favoriteMessage = queueApi.QueueFavoriteConcentration(flow.profession)
 	end
+	local firstCraftOK, firstCraftMessage
+	if queueApi and type(queueApi.QueueFirstCraftsAfterProfessionOpen) == "function" then
+		firstCraftOK, firstCraftMessage = queueApi.QueueFirstCraftsAfterProfessionOpen()
+	end
 	ns.Debug(
 		"headless",
-		"complete profession=%s raw=%s prepared=%s candidates=%s added=%s skipped=%s failed=%s favorite=%s message=%s",
+		"complete profession=%s raw=%s prepared=%s candidates=%s added=%s skipped=%s failed=%s favorite=%s message=%s firstCraft=%s firstCraftMessage=%s",
 		tostring(flow.profession),
 		tostring(stats and stats.rawCount or 0),
 		tostring(stats and stats.preparedCount or 0),
@@ -4345,7 +4349,9 @@ function Pane:CompleteHeadlessPatronAutoScan(flow, stats)
 		tostring(stats and stats.skippedCount or 0),
 		tostring(stats and stats.failedCount or 0),
 		tostring(favoriteOK),
-		tostring(favoriteMessage)
+		tostring(favoriteMessage),
+		tostring(firstCraftOK),
+		tostring(firstCraftMessage)
 	)
 	self.autoScanFlow = nil
 end
