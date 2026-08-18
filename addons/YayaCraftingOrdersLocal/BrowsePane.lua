@@ -179,6 +179,7 @@ Pane.autoScanCompletedByProfession = {}
 Pane.autoScanFlow = nil
 Pane.autoScanSerial = 0
 Pane.headlessRequestSerial = 0
+Pane.autoScanOpeningProfession = nil
 Pane.pendingReason = nil
 Pane.pendingDueAt = nil
 Pane.visibleSessionId = 0
@@ -4720,6 +4721,11 @@ function Pane:MaybeStartPatronAutoScan(reason)
 		return
 	end
 	self.autoScanStartAttempts = 0
+	if self.autoScanOpeningProfession ~= profession then
+		self.autoScanOpeningProfession = profession
+		self.autoScanCompletedByProfession[profession] = nil
+		ns.Debug("auto-scan", "new profession opening profession=%s", tostring(profession))
+	end
 	if not profession or self.autoScanCompletedByProfession[profession] then
 		return
 	end
@@ -7067,6 +7073,9 @@ function Pane:InitializeEvents()
 
 	ns.RegisterEvent("TRADE_SKILL_CLOSE", function()
 		C_Timer.After(0, function()
+			if Pane then
+				Pane.autoScanOpeningProfession = nil
+			end
 			local flow = Pane and Pane.autoScanFlow
 			local snapshot = Pane and Pane:GetProfessionSnapshot()
 			local currentProfession = snapshot and snapshot.selected
