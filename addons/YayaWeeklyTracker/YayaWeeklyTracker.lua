@@ -2845,7 +2845,7 @@ trackerUI.GetAccountBankBagIDs = function()
     return bagIDs
 end
 
-trackerUI.FindMissingMidnightTreatisesInWarbank = function(trackedRows, knowledgeItemState)
+trackerUI.FindMissingMidnightTreatisesInWarbank = function(trackedRows)
     if GetAccountDB().trackTreatises == false or not trackerUI.IsAccountBankOpen() then
         local closedResult = { bankOpen = false, matches = EMPTY_TABLE }
         midnightCaches.warbankTreatises = closedResult
@@ -2857,7 +2857,6 @@ trackerUI.FindMissingMidnightTreatisesInWarbank = function(trackedRows, knowledg
     end
 
     trackedRows = trackedRows or GetTrackedMidnightProfessions()
-    local bagCountsByItemID = knowledgeItemState and knowledgeItemState.countsByItemID or EMPTY_TABLE
     local missingBySkillLineID = {}
     for _, row in ipairs(trackedRows) do
         local config = MIDNIGHT_PROFESSION_CONFIGS[row.skillLineID]
@@ -2865,7 +2864,7 @@ trackerUI.FindMissingMidnightTreatisesInWarbank = function(trackedRows, knowledg
         if config and treatiseInfo
             and row.skillLevel >= (config.treatiseMinSkill or math.huge)
             and not IsQuestDone(treatiseInfo.weeklyQuestID)
-            and (bagCountsByItemID[treatiseInfo.itemID] or 0) <= 0 then
+            and trackerUI.GetOwnedItemCount(treatiseInfo.itemID) <= 0 then
             missingBySkillLineID[row.skillLineID] = {
                 label = config.label or tostring(row.skillLineID),
                 itemID = treatiseInfo.itemID,
@@ -7149,7 +7148,7 @@ UpdateTracker = function()
         local payoutItemState = DebugSafeCall("FindArtisanConsortiumPayoutInBags", FindArtisanConsortiumPayoutInBags)
         local surplusReagentStates = DebugSafeCall("FindSurplusReagentContainersInBags", trackerUI.FindSurplusReagentContainersInBags)
         local finishingReagentMergeStates = DebugSafeCall("FindMergeableFinishingReagentsInBags", trackerUI.FindMergeableFinishingReagentsInBags)
-        local warbankTreatiseState = DebugSafeCall("FindMissingMidnightTreatisesInWarbank", trackerUI.FindMissingMidnightTreatisesInWarbank, trackedRows, knowledgeItemState)
+        local warbankTreatiseState = DebugSafeCall("FindMissingMidnightTreatisesInWarbank", trackerUI.FindMissingMidnightTreatisesInWarbank, trackedRows)
         local hasKnowledgeButton = DebugSafeCall("UpdateMidnightKnowledgeButton", trackerUI.UpdateMidnightKnowledgeButton, knowledgeItemState) or false
         local hasRecipeButton = DebugSafeCall("UpdateMidnightRecipeButton", trackerUI.UpdateMidnightRecipeButton, recipeItemState) or false
         local hasRecipeMarlButton = DebugSafeCall("UpdateMidnightRecipeTransferButton", trackerUI.UpdateMidnightRecipeTransferButton, trackedRows) or false
