@@ -10,8 +10,9 @@ Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suiv
 - `Jard`
 - `Containing the Helsworn` si la recompense est du gold brut
 - `Great Vault: a ouvrir` quand une recompense est disponible
-- `Abondance` a partir du niveau 90
+- `Abondance` a partir du niveau 80
 - `Shard of Dundun: 8/8 a depenser` a partir du niveau 90 quand le plafond de monnaie est atteint
+- `Sparks of Tides: N/X` via `Tidal Spark Dust`, qui conserve les Sparks obtenus y compris les catch-ups; le suivi s'active au niveau 90 avec un ilvl equipe d'au moins 270; la ligne devient `X/X` verte tant qu'un `Spark of Tides` reste a depenser, puis disparait
 - le world boss `Midnight` actif selon les options `World boss si gold` et `World boss si ilvl`, au niveau 90 ; il reste toujours tracke si l'objectif Liadrin actif est `Midnight: World Boss`
 - le world boss de la rotation `Val`/`Naigtal` au niveau 90 ; un seul boss est affiche selon la quete active de la semaine (`Imperator Pertinax` ou `Nexus-Captain Leth'ir`)
 - `Defense des runestones` de la Soiree de Saltheril, au niveau 90
@@ -66,9 +67,9 @@ Resume `Midnight` :
 - des boutons `Fusionner` apparaissent pour les Resourceful Rebar (`247725`), Multicraft Matrix (`247719`) et Ingenious Identifier (`260630`) dès que 5 rang 1 sont dans les sacs ; un clic utilise 5 rang 1 pour créer leur version rang 2 (`247726`, `247724`, `247788`)
 - les boutons d'action d'item (KP, recette, payout, surplus, fusion et traité) invalident leur cache et rafraichissent leur valeur dès le clic, puis se verrouillent pour bloquer le multiclic jusqu'à `BAG_UPDATE_DELAYED`
 - les boutons payout et surplus n'utilisent pas de watchdog : ils itèrent sur les containers disponibles au fil des refreshs de sacs
-- l'option `Ouvrir automatiquement les conteneurs YWT` est desactivee par defaut ; si elle est activee, elle ouvre un par un les coffres, payouts et surplus suivis, masque leurs boutons manuels, uniquement hors combat et hors interfaces sensibles ; apres chaque recuperation depuis la boite aux lettres, elle attend 0,5 s apres le dernier evenement de courrier avant de rescanner les sacs
+- l'option `Proposer l'ouverture sécurisée des conteneurs YWT` est desactivee par defaut ; si elle est activee, un bouton securise ouvre un conteneur suivi par clic, un par un, sans appel automatique protege ; les boutons payout et surplus sont alors regroupes dans cette action ; apres chaque recuperation depuis la boite aux lettres, elle attend 0,5 s apres le dernier evenement de courrier avant de rescanner les sacs
 - les consommables KP restent volontairement manuels : WoW refuse leur utilisation automatique
-- si `Tracker les traites (inscription)` est active, un bouton par traite hebdomadaire manquant apparait a l'ouverture de la Warbank lorsqu'un stack correspondant y est present ; le clic retire le stack complet sans split
+- si `Tracker les traites (inscription)` est active, un bouton par traite hebdomadaire manquant apparait a l'ouverture de la Warbank lorsqu'un stack correspondant y est present ; il disparait si ce traite est deja dans les sacs ; le clic retire un seul traite et laisse le reste du stack dans la Warbank
 - si YayaContainerValues est charge, ses hooks suivent l'utilisation réelle de l'item afin d'éviter les doubles signalements lors des clics rapides
 - si la weekly `Midnight Enchanting` active demande un reagent manquant, YWT ajoute automatiquement la quantite complete a la queue YayaQueue, sans bouton et sans doublon aux refreshs
 - quand cette weekly est rendue, YWT retire uniquement la quantite qu'il a automatiquement ajoutee, sans toucher aux besoins des recettes ni a une demande deja existante
@@ -96,7 +97,7 @@ La frame est ancree par son coin haut gauche et s'etend vers le bas droite. Sa p
 Dans `Echap > Options > AddOns > Yaya Weekly Tracker`, les options account-wide permettent de :
 
 - cacher integralement la frame en combat (desactive par defaut)
-- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des world bosses Val/Naigtal, du world boss selon gold ou ilvl, des traites, des weeklies metiers trainer, du DMF metiers, des loots metiers, du dez Enchantement, des outils metiers, des enchantements des outils, de chaque recette Midnight, de `Lost Legends` et de `Research Console: Exploring the Void` (tous actives par defaut)
+- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des world bosses Val/Naigtal, du world boss selon gold ou ilvl, des `Sparks of Tides`, des traites, des weeklies metiers trainer, du DMF metiers, des loots metiers, du dez Enchantement, des outils metiers, des enchantements des outils, de chaque recette Midnight, de `Lost Legends` et de `Research Console: Exploring the Void` (tous actives par defaut)
 - activer l'achat automatique des sacs de materiaux d'enchantement du marchand d'Abondance (desactive par defaut)
 - activer l'achat automatique des `Fused Vitality` du marchand d'Abondance (desactive par defaut)
 
@@ -176,6 +177,7 @@ IDs utilises :
 - `Corrupted Mementos` = `1719`
 - `Coalescing Visions` = `1755`
 - `Shard of Dundun` = monnaie `3376`, plafond `8`
+- `Tidal Spark Dust` = monnaie `3509`; `Spark of Tides` = item `274476`
 - `Voidlight Marl` = monnaie `3316`, transferable entre personnages Warband
 - `Pouch of Mystic Grindings` = `250755`, sac de materiaux d'Enchantement vendu par le marchand d'Abondance
 - `Fused Vitality` = `245345`, vendu par le marchand d'Abondance

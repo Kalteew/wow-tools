@@ -6,12 +6,12 @@ Ajoute l’onglet `YRS` à l’hôtel des ventes.
 
 L’onglet `Reset` analyse un catalogue local versionné de composants et permet d’acheter une seule recommandation sélectionnée par clic humain. Il ne lance aucune boucle d’achat et ne dépose rien automatiquement.
 
-- sélecteur compact `Toutes extensions` ou extension précise, avec nombre de composants avant le scan ;
+- sélecteur compact `Toutes extensions` ou extension précise, avec nombre d’IDs du catalogue avant filtrage ; le statut de lancement affiche ensuite le nombre réel de candidats au pré-scan ;
 - catalogue v4 séparé en `Réactifs bruts` et `Consommables préparés`, avec une checkbox persistante par type ; les deux sont activés par défaut et les anciennes versions du catalogue restent compatibles ;
 - catalogue issu de `wow-tools/data/wow.sqlite3`, combinant matières/réactifs et sorties de recettes, puis retirant les objets achetables au vendeur contre de l’or (`jsonequip.buyprice > 0`) ; les objets achetés avec de l’honneur restent conservés ;
-- pipeline progressif : chaque lot de 100 composants est filtré puis analysé en profondeur avant de charger le lot suivant, afin d’afficher les premiers deals sans attendre tout le catalogue ;
+- pipeline progressif : chaque lot de 100 composants est filtré puis analysé en profondeur avant de charger le lot suivant ; les résultats Blizzard à index discontinu sont tous conservés et un scan sans candidat deep s’arrête avec le détail des rejets ;
 - bouton `Pause` / `Reprendre` pendant l’analyse des paliers : les opportunités déjà calculées restent achetables sans interrompre la progression sauvegardée ;
-- première opportunité sélectionnée automatiquement et affichée dès son calcul ; un appui sur le bouton d’action unique interrompt immédiatement la requête de scan courante, verrouille la cible, lance l’actualisation/achat, ignore les multiclics, puis reprend le scan après succès ou échec ;
+- chaque opportunité détectée suspend automatiquement le scan cinq secondes afin de réserver immédiatement l’HV à l’achat ; sans action, l’analyse reprend seule ; un appui sur le bouton d’action unique verrouille la cible, lance l’actualisation/achat et ignore les multiclics ;
 - bouton `Scan continu` optionnel : relance automatiquement un nouveau cycle à chaque fin de scan ;
 - seuil `Seuil gold min. (po)` configurable : sous ce montant, les actions sont grisées, le scan est arrêté et aucune opération n’est lancée ; `0` désactive le seuil ;
 - bouton `Blacklist` à côté de l’achat : l’item est retiré des opportunités et exclu des prochains scans ; l’onglet `Blacklist` des options permet de supprimer chaque exclusion ;

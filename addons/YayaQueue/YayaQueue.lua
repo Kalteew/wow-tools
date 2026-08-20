@@ -60,6 +60,7 @@ local CONFIG = {
         [125] = "missives", -- Dragonflight: Customize Secondary Stats
         [247] = "sparks", -- Dragonflight: Spark
         [390] = "embellishments", -- Midnight: Add Embellishment
+        [391] = "embellishments", -- Midnight: armor/shield Add Embellishment
         [392] = "sparks", -- Midnight: Infuse with Power
         [393] = "missives", -- Midnight: Customize Secondary Stats
     },

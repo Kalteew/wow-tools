@@ -1,0 +1,13 @@
+## Interface: 120007
+## Title: Yaya Addon Profiles
+## Notes: Reapplies Simple Addon Manager profiles assigned to characters.
+## Author: Codex
+## Version: 1.2.0
+## RequiredDeps: SimpleAddonManager
+## SavedVariables: YayaAddonProfilesDB
+## Category-enUS: Addon Manager
+## Category-frFR: Gestionnaire de modules complementaires
+## IconTexture: 133742
+## AddonCompartmentFunc: YayaAddonProfiles_OnAddonCompartmentClick
+
+YayaAddonProfiles.lua

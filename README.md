@@ -143,7 +143,7 @@ Notes:
 - `YayaTSMMailingFix` refreshes TSM bag tracking before group mailing and uses the live bag-slot lock state so items are not silently skipped.
 - `YayaCompanionTargeter` auto-targets known Shadowlands companion XP items to the lowest-level eligible companion, with an optional tracked-only shortlist mode.
 - `YayaCovenantWormhole` auto-selects the Shadowlands wormhole destination that matches the active covenant, unless `Shift` is held.
-- `YayaAddonProfiles` manages addon profiles including `Jouer`, `Gold`, and `Flipping`, with per-character assignments and quick capture/apply commands.
+- `YayaAddonProfiles` attribue les profils et heritages de Simple Addon Manager aux personnages, puis les reapplique automatiquement a leur connexion.
 - `YayaPremadeAssistant` automatically invites solo premade applicants by name and accepts invitations from groups you applied to; grouped applicants use a manual button.
 - `scripts/wow-addon-profiles.ps1` writes Blizzard `WTF/.../AddOns.txt` per character, so a low profile is active before first login.
 - On Windows you can also launch [wow_tools_gui.pyw](wow_tools_gui.pyw) directly to open the GUI without using the CLI.

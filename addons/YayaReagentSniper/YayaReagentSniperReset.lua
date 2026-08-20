@@ -12,6 +12,7 @@ local CONSTANTS = {
 	DEEP_QUERY_LIMIT = 85,
 	DEEP_QUERY_ACTION_LIMIT = 90,
 	DEEP_QUERY_WINDOW = 60,
+	OPPORTUNITY_PAUSE = 5,
 	MAX_DEEP_PAGES = 40,
 	MAX_SCAN_AGE = 300,
 	PURCHASE_REFRESH_MAX_AGE = 10,
@@ -71,6 +72,7 @@ local scan = {
 	running = false,
 	paused = false,
 	pauseRequested = false,
+	opportunityPauseUntil = nil,
 	pausedActive = nil,
 	startPending = false,
 	generation = 0,
@@ -286,6 +288,7 @@ end
 local function ResetStats()
 	scan.stats = {
 		browsed = 0,
+		deepQueued = 0,
 		deepScanned = 0,
 		noMarket = 0,
 		missingData = 0,
@@ -657,7 +660,7 @@ local function UpdateCatalogSelector()
 	if scan.frame and scan.frame.expansionDropdown then
 		UIDropDownMenu_SetSelectedValue(scan.frame.expansionDropdown, option.key)
 		UIDropDownMenu_SetText(scan.frame.expansionDropdown, option.label)
-		scan.frame.catalogCount:SetText(hasCatalog and string.format("%d composants", #itemIDs) or "Catalogue indisponible")
+		scan.frame.catalogCount:SetText(hasCatalog and string.format("%d catalogue", #itemIDs) or "Catalogue indisponible")
 		local types = scan.db and scan.db.catalogTypes or {}
 		if scan.frame.rawTypeCheck then
 			scan.frame.rawTypeCheck:SetChecked(types.raw ~= false)
@@ -1378,6 +1381,8 @@ function Reset:PreparePurchase()
 		scan.continuousPending = false
 		scan.resumeContinuousAfterAction = scan.db.continuous == true
 	end
+	CancelTimer("opportunityPause")
+	scan.opportunityPauseUntil = nil
 	self:SuspendScanForPurchase()
 	self:ArmActionCooldown(0.75)
 	if prepareState == "refresh" then
@@ -2190,7 +2195,9 @@ local function FinishBrowseBatch(timedOut)
 			active.addedResults or {},
 		}
 		for _, results in ipairs(resultSets) do
-			for _, info in ipairs(results) do
+			-- Blizzard ne garantit pas un tableau dense ici : ipairs peut ignorer
+			-- tous les résultats si le premier index est absent.
+			for _, info in pairs(results) do
 				local itemKey = info and info.itemKey
 				if itemKey and active.byID[itemKey.itemID] then
 					resultByID[itemKey.itemID] = info
@@ -2209,6 +2216,7 @@ local function FinishBrowseBatch(timedOut)
 					if ResolveTSMData(candidate) then
 						if candidate.minPrice < candidate.referencePrice * scan.db.maxTargetPct / 100 then
 							scan.deepCandidates[#scan.deepCandidates + 1] = candidate
+							scan.stats.deepQueued = scan.stats.deepQueued + 1
 						else
 							scan.stats.rejected = scan.stats.rejected + 1
 						end
@@ -2228,6 +2236,9 @@ local function FinishBrowseBatch(timedOut)
 	end
 	scan.active = nil
 	scan.browseIndex = active.nextIndex
+	if type(YayaReagentSniperTrace) == "function" then
+		YayaReagentSniperTrace("RESET_BROWSE_BATCH", "items=%d browsed=%d deep=%d no-market=%d missing-tsm=%d above-target=%d", #active.items, scan.stats.browsed, scan.stats.deepQueued, scan.stats.noMarket, scan.stats.missingData, scan.stats.rejected)
+	end
 	Reset:RefreshRows()
 	Schedule("next", 0, function()
 		if scan.deepIndex <= #scan.deepCandidates then
@@ -2435,6 +2446,7 @@ local function FinishDeepCandidate(complete)
 	scan.stats.deepScanned = scan.stats.deepScanned + 1
 	local prepareRefresh = scan.prepareRefresh and scan.prepareRefresh.itemID == active.candidate.itemID and scan.prepareRefresh or nil
 	local opportunityChanged = false
+	local pauseForOpportunity = false
 	if complete and not IsBlacklisted(active.candidate.itemID) then
 		local result = EvaluateDepth(active.candidate, active.tiers or {}, active.ownAuctionQuantity or 0)
 		if result then
@@ -2455,6 +2467,7 @@ local function FinishDeepCandidate(complete)
 			ReplaceOpportunity(result)
 			PlayNewOpportunitySound()
 			opportunityChanged = true
+			pauseForOpportunity = true
 		else
 			RemoveOpportunityByItemID(active.candidate.itemID)
 			scan.stats.rejected = scan.stats.rejected + 1
@@ -2477,6 +2490,22 @@ local function FinishDeepCandidate(complete)
 	end
 	AdvanceRotation(active.candidate, complete)
 	scan.deepIndex = scan.deepIndex + 1
+	if pauseForOpportunity and not scan.pauseRequested then
+		local pauseEndsAt = GetTime() + CONSTANTS.OPPORTUNITY_PAUSE
+		scan.opportunityPauseUntil = pauseEndsAt
+		scan.pauseRequested = true
+		Schedule("opportunityPause", CONSTANTS.OPPORTUNITY_PAUSE, function()
+			if scan.opportunityPauseUntil ~= pauseEndsAt then
+				return
+			end
+			scan.opportunityPauseUntil = nil
+			if scan.running and scan.paused and not scan.purchase and not scan.prepareRefresh then
+				Reset:ResumeSuspendedScan()
+				Reset:RefreshRows()
+				SetStatus("Reprise du scan après la fenêtre d’achat.")
+			end
+		end)
+	end
 	if scan.pauseRequested then
 		EnterPause()
 		return
@@ -2615,13 +2644,19 @@ EnterPause = function(active)
 	scan.pausedActive = active
 	scan.active = nil
 	Reset:RefreshRows()
-	SetStatus("Analyse en pause : tu peux acheter une opportunité déjà analysée.")
+	if (scan.opportunityPauseUntil or 0) > GetTime() then
+		SetStatus("Deal détecté : scan en pause 5 s pour achat prioritaire.")
+	else
+		SetStatus("Analyse en pause : tu peux acheter une opportunité déjà analysée.")
+	end
 end
 
 function Reset:TogglePause()
 	if not scan.running or scan.prepareRefresh or scan.purchase then
 		return
 	end
+	CancelTimer("opportunityPause")
+	scan.opportunityPauseUntil = nil
 	if scan.paused and scan.phase ~= "deep" then
 		self:ResumeSuspendedScan()
 		self:RefreshRows()
@@ -2722,8 +2757,12 @@ function Reset:ProcessDeep()
 			end)
 			return
 		end
+		local noDeepCandidates = scan.stats.deepQueued == 0
 		scan.running = false
 		scan.phase = "idle"
+		if noDeepCandidates then
+			scan.db.continuous = false
+		end
 		scan.continuousPending = scan.db.continuous
 		FinalizeScanFreshness()
 		if scan.frame then
@@ -2732,6 +2771,10 @@ function Reset:ProcessDeep()
 		end
 		SortOpportunities()
 		self:RefreshRows()
+		if noDeepCandidates then
+			SetStatus(string.format("Aucun candidat deep : %d sans marché • %d sans données TSM • %d au-dessus du seuil.", scan.stats.noMarket, scan.stats.missingData, scan.stats.rejected), true)
+			return
+		end
 		Schedule("stale", CONSTANTS.MAX_SCAN_AGE, function()
 			if not scan.running and not IsFresh() then
 				Reset:RefreshRows()
@@ -2844,6 +2887,7 @@ function Reset:StopScan(message)
 	scan.ownCancelCheck = nil
 	scan.paused = false
 	scan.pauseRequested = false
+	scan.opportunityPauseUntil = nil
 	scan.pausedActive = nil
 	if not scan.running and not scan.active then
 		CancelScanTimers()
@@ -2938,6 +2982,7 @@ function Reset:StartScan()
 	scan.ownCancelCheck = nil
 	scan.paused = false
 	scan.pauseRequested = false
+	scan.opportunityPauseUntil = nil
 	scan.pausedActive = nil
 	scan.resumeAfterPurchase = false
 	scan.completedAt = nil
@@ -2958,7 +3003,7 @@ function Reset:StartScan()
 		result.purchaseVerifiedAt = nil
 	end
 	self:RefreshRows()
-	SetStatus(string.format("Préparation du scan • %d composants…", #candidates))
+	SetStatus(string.format("Préparation du scan • %d candidats au pré-scan…", #candidates))
 	local generation = scan.generation
 	Schedule("start", CONSTANTS.START_SETTLE_DELAY, function()
 		if not scan.startPending or not scan.running or scan.generation ~= generation then

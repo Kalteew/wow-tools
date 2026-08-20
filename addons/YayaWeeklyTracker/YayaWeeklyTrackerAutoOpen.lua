@@ -31,9 +31,12 @@ local state = {
     reportNextScan = false,
     mailSettleUntil = 0,
     mailHooksInitialized = false,
+    actionButton = nil,
+    armedCandidate = nil,
 }
 local OpenNextContainer
 local ScheduleScan
+local CheckPendingContainer
 
 local eventFrame = CreateFrame("Frame", addonName .. "AutoOpenFrame")
 
@@ -270,12 +273,109 @@ local function QueueCandidate(bagID, slotID, itemID)
     }
 end
 
+local function GetActionButton()
+    local api = _G.YayaWeeklyTrackerAutoOpen
+    if not api or type(api.GetActionButton) ~= "function" then
+        return nil
+    end
+    local ok, button = pcall(api.GetActionButton)
+    return ok and button or nil
+end
+
+local function RequestTrackerRefresh()
+    local api = _G.YayaWeeklyTrackerAutoOpen
+    if api and type(api.RequestTrackerRefresh) == "function" then
+        pcall(api.RequestTrackerRefresh)
+    end
+end
+
+local function UpdateActionButton(candidate)
+    local button = GetActionButton()
+    if not button then
+        return false
+    end
+
+    if state.actionButton ~= button then
+        state.actionButton = button
+        button:HookScript("PreClick", function(self, _, down)
+            if down then
+                return
+            end
+
+            local queued = state.armedCandidate
+            if not queued or not IsEnabled() or IsBlocked() then
+                return
+            end
+
+            local currentItemID, currentSlotCount = ReadSlot(queued.bagID, queued.slotID)
+            if currentItemID ~= queued.itemID or currentSlotCount <= 0 then
+                state.armedCandidate = nil
+                UpdateActionButton(nil)
+                ScheduleScan(0)
+                return
+            end
+
+            state.pending = {
+                bagID = queued.bagID,
+                slotID = queued.slotID,
+                itemID = queued.itemID,
+                beforeSlotCount = currentSlotCount,
+                beforeTotalCount = CountItem(queued.itemID),
+                startedAt = Now(),
+                pausedSeconds = 0,
+            }
+            state.armedCandidate = nil
+            state.phase = "opening"
+            Log(("ouverture securisee itemID=%d bag=%d slot=%d"):format(
+                queued.itemID,
+                queued.bagID,
+                queued.slotID
+            ))
+        end)
+        button:HookScript("PostClick", function(_, _, down)
+            if down then
+                return
+            end
+            if state.pending then
+                UpdateActionButton(nil)
+                state.phase = "loot pending"
+                Schedule("pendingTimer", PENDING_CHECK_DELAY_SECONDS, CheckPendingContainer)
+            else
+                ScheduleScan(SCAN_DELAY_SECONDS)
+            end
+        end)
+    end
+
+    if not candidate or not IsEnabled() or IsBlocked()
+        or (InCombatLockdown and InCombatLockdown()) then
+        state.armedCandidate = nil
+        if not (InCombatLockdown and InCombatLockdown()) then
+            button:SetAttribute("type", nil)
+            button:SetAttribute("item", nil)
+        end
+        button:Hide()
+        RequestTrackerRefresh()
+        return false
+    end
+
+    state.armedCandidate = candidate
+    button.itemID = candidate.itemID
+    button.itemLink = candidate.itemLink
+    button:SetText(("Ouvrir conteneur x%d"):format(candidate.totalCount or 1))
+    button:SetAttribute("type", "item")
+    button:SetAttribute("item", "item:" .. tostring(candidate.itemID))
+    button:Show()
+    RequestTrackerRefresh()
+    return true
+end
+
 local function ScanBags()
     state.scanTimer = nil
     if not IsEnabled() then
         StopTimers()
         ClearQueue()
         state.pending = nil
+        UpdateActionButton(nil)
         state.phase = "idle"
         state.halted = false
         state.wasEnabled = false
@@ -289,10 +389,12 @@ local function ScanBags()
         if state.reportNextScan then
             Log("scan suspendu: combat, cast ou interface sensible")
         end
+        UpdateActionButton(nil)
         state.phase = "paused"
         return
     end
     if state.pending then
+        UpdateActionButton(nil)
         state.phase = "paused"
         return
     end
@@ -311,6 +413,7 @@ local function ScanBags()
     end
 
     if #state.queue == 0 then
+        UpdateActionButton(nil)
         state.phase = "idle"
         if state.reportNextScan then
             Log(("scan: 0 candidat, %d IDs suivis"):format(CountConfiguredItems()))
@@ -362,7 +465,7 @@ local function StopAutoOpen(reason, halt)
     end
 end
 
-local function CheckPendingContainer()
+CheckPendingContainer = function()
     StopTimer("pendingTimer")
     local pending = state.pending
     if not pending then
@@ -446,12 +549,12 @@ OpenNextContainer = function()
         return
     end
 
-    local candidate = table.remove(state.queue, 1)
+    local candidate = state.queue[1]
     if not candidate then
+        UpdateActionButton(nil)
         state.phase = "idle"
         return
     end
-    state.queueKeys[("%d:%d:%d"):format(candidate.bagID, candidate.slotID, candidate.itemID)] = nil
 
     local currentItemID, currentSlotCount = ReadSlot(candidate.bagID, candidate.slotID)
     if currentItemID ~= candidate.itemID or currentSlotCount <= 0 then
@@ -460,36 +563,9 @@ OpenNextContainer = function()
         return
     end
 
-    if not (C_Container and type(C_Container.UseContainerItem) == "function") then
-        StopAutoOpen("C_Container.UseContainerItem indisponible", true)
-        return
-    end
-
-    local beforeTotalCount = CountItem(candidate.itemID)
-    state.pending = {
-        bagID = candidate.bagID,
-        slotID = candidate.slotID,
-        itemID = candidate.itemID,
-        beforeSlotCount = currentSlotCount,
-        beforeTotalCount = beforeTotalCount,
-        startedAt = Now(),
-        pausedSeconds = 0,
-    }
-    state.phase = "opening"
-    Log(("tentative ouverture itemID=%d bag=%d slot=%d"):format(
-        candidate.itemID,
-        candidate.bagID,
-        candidate.slotID
-    ))
-    local ok, result = pcall(C_Container.UseContainerItem, candidate.bagID, candidate.slotID)
-    if not ok or result == false then
-        state.pending = nil
-        StopAutoOpen("échec de C_Container.UseContainerItem", true)
-        return
-    end
-
-    state.phase = "loot pending"
-    Schedule("pendingTimer", PENDING_CHECK_DELAY_SECONDS, CheckPendingContainer)
+    candidate.totalCount = CountItem(candidate.itemID)
+    state.phase = "ready"
+    UpdateActionButton(candidate)
 end
 
 local function PauseForBlockedUI()
@@ -500,6 +576,7 @@ local function PauseForBlockedUI()
     if state.pending then
         state.pending.pausedAt = state.pending.pausedAt or Now()
     end
+    UpdateActionButton(nil)
     state.phase = "paused"
 end
 
@@ -579,6 +656,7 @@ eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("BAG_UPDATE")
 eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("UNIT_SPELLCAST_START")
 eventFrame:RegisterEvent("UNIT_SPELLCAST_STOP")
@@ -651,7 +729,8 @@ eventFrame:SetScript("OnEvent", function(_, event, unit)
         or event == "TRADE_CLOSED"
     then
         ResumeAfterBlockedUI()
-    elseif event == "MERCHANT_SHOW"
+    elseif event == "PLAYER_REGEN_DISABLED"
+        or event == "MERCHANT_SHOW"
         or event == "UNIT_SPELLCAST_START"
         or event == "UNIT_SPELLCAST_CHANNEL_START"
         or event == "BANKFRAME_OPENED"
