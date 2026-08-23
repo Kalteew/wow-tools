@@ -13,6 +13,8 @@ local IsAddOnLoadedAPI = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
 local GetAddOnMetadataAPI = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
 local CURSE_PROJECT_VERSION_TOKEN = "@project" .. "-version@"
 local PATRON_VALUE_DEFAULTS_VERSION = 2
+local DEBUG_BUFFER_LIMIT = 400
+local DEBUG_PREFIX = "YPODEBUG"
 
 local defaults = {
 	pricingSource = "tsm",
@@ -277,11 +279,33 @@ function ns.Debug(category, message, ...)
 		text = ok and formatted or (text .. " [format error]")
 	end
 
-	Print(("DEBUG [%s] %s"):format(tostring(category or "state"), text))
+	local categoryText = tostring(category or "state")
+	local timestamp = date("%H:%M:%S")
+	local record = ("[%s] [%s] %s"):format(timestamp, categoryText, text)
+	YayaCraftingOrdersDebug = type(YayaCraftingOrdersDebug) == "table" and YayaCraftingOrdersDebug or {}
+	local buffer = YayaCraftingOrdersDebug
+	buffer.limit = DEBUG_BUFFER_LIMIT
+	buffer.records = type(buffer.records) == "table" and buffer.records or {}
+	buffer.sessionID = buffer.sessionID or ("%s-%s"):format(date("%Y%m%d-%H%M%S"), tostring(GetServerTime and GetServerTime() or 0))
+	buffer.nextIndex = tonumber(buffer.nextIndex) or 1
+	buffer.count = math.min(tonumber(buffer.count) or 0, DEBUG_BUFFER_LIMIT)
+	buffer.records[buffer.nextIndex] = record
+	buffer.nextIndex = (buffer.nextIndex % DEBUG_BUFFER_LIMIT) + 1
+	buffer.count = math.min(buffer.count + 1, DEBUG_BUFFER_LIMIT)
+
+	Print(("%s [%s] %s"):format(DEBUG_PREFIX, categoryText, text))
 end
 
 function ns.SetDebugEnabled(enabled)
 	ns.debugEnabled = not not enabled
+	if ns.debugEnabled then
+		YayaCraftingOrdersDebug = type(YayaCraftingOrdersDebug) == "table" and YayaCraftingOrdersDebug or {}
+		YayaCraftingOrdersDebug.sessionID = ("%s-%s"):format(date("%Y%m%d-%H%M%S"), tostring(GetServerTime and GetServerTime() or 0))
+		YayaCraftingOrdersDebug.limit = DEBUG_BUFFER_LIMIT
+		YayaCraftingOrdersDebug.records = {}
+		YayaCraftingOrdersDebug.nextIndex = 1
+		YayaCraftingOrdersDebug.count = 0
+	end
 	Print(ns.debugEnabled and "Debug activé." or "Debug désactivé.")
 	if ns.debugEnabled and ns.BrowsePane and ns.BrowsePane.DebugState then
 		ns.BrowsePane:DebugState("debug-enabled")

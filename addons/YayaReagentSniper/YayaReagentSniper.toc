@@ -1,8 +1,8 @@
-## Interface: 120007
+## Interface: 120100
 ## Title: Yaya Reagent Sniper
 ## Notes: Sniper de réactifs et analyse de resets par catalogue de récolte.
 ## Author: Yaya
-## Version: 0.5.5
+## Version: 0.6.7
 ## OptionalDeps: TradeSkillMaster, Auctionator, LibAHTab
 ## SavedVariables: YayaReagentSniperDB
 

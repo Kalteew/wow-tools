@@ -32,6 +32,7 @@ tmp-*.html
 .agents/
 .codex/
 .codex-backups/
+sources/wow-ui-source/
 
 # OS and editor files
 .DS_Store

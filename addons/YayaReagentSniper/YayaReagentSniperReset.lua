@@ -7,16 +7,19 @@ local CONSTANTS = {
 	BATCH_SIZE = 100,
 	START_SETTLE_DELAY = 0.05,
 	QUERY_TIMEOUT = 7,
+	THROTTLE_WAIT_TIMEOUT = 8,
 	BETWEEN_QUERIES = 0.10,
 	DEEP_UI_REFRESH_EVERY = 8,
 	DEEP_QUERY_LIMIT = 85,
 	DEEP_QUERY_ACTION_LIMIT = 90,
 	DEEP_QUERY_WINDOW = 60,
-	OPPORTUNITY_PAUSE = 5,
+	OPPORTUNITY_PAUSE = 10,
+	ACTION_LOCK = 0.5,
 	MAX_DEEP_PAGES = 40,
 	MAX_SCAN_AGE = 300,
 	PURCHASE_REFRESH_MAX_AGE = 10,
 	PURCHASE_UNCERTAIN_COOLDOWN = 300,
+	QUOTE_QUARANTINE_SECONDS = 8,
 	ROW_HEIGHT = 36,
 	AH_CUT = 0.05,
 	STOCK_SCORE_BONUS = 5,
@@ -73,9 +76,11 @@ local scan = {
 	paused = false,
 	pauseRequested = false,
 	opportunityPauseUntil = nil,
+	opportunityPauseExpired = false,
 	pausedActive = nil,
 	startPending = false,
 	generation = 0,
+	operationGeneration = 0,
 	candidates = {},
 	browseIndex = 1,
 	deepCandidates = {},
@@ -97,6 +102,7 @@ local scan = {
 	continuousPending = false,
 	resumeContinuousAfterAction = false,
 	throttleResume = nil,
+	throttleWaitSince = nil,
 	abandonedQuery = nil,
 	throttleDrops = 0,
 	deepQueryTimes = {},
@@ -118,6 +124,7 @@ local BeginOwnAuctionVerification
 local EnterPause
 local ValidateFreshResetPlan
 local RefreshBlacklistPanel
+local HandleCommodityResults
 
 local function GetCatalogOption(key)
 	for _, option in ipairs(CATALOG_OPTIONS) do
@@ -364,6 +371,12 @@ local function GetGoldThresholdCopper()
 	return math.max(0, math.floor(gold * 10000 + 0.5))
 end
 
+function Reset:GetEffectiveBudgetCopper()
+	local configuredBudget = math.max(0, math.floor((tonumber(scan.db and scan.db.budgetGold) or 0) * 10000))
+	local currentGold = type(GetMoney) == "function" and tonumber(GetMoney()) or configuredBudget
+	return math.min(configuredBudget, math.max(0, math.floor(currentGold or 0)))
+end
+
 local function IsBelowGoldThreshold()
 	local threshold = GetGoldThresholdCopper()
 	local available = type(GetMoney) == "function" and tonumber(GetMoney()) or nil
@@ -461,7 +474,7 @@ local function RiskFor(result)
 end
 
 local function ComputeScore(result)
-	local budget = math.max(1, scan.db.budgetGold * 10000)
+	local budget = math.max(1, Reset:GetEffectiveBudgetCopper())
 	local profitPivot = math.max(5000 * 10000, scan.db.minProfitGold * 10000 * 5)
 	local roiFloor = scan.db.minROI / 100
 	local profitComponent = result.profit / (result.profit + profitPivot)
@@ -518,6 +531,9 @@ local function LoadOpportunityItem(result)
 		YayaReagentSniperTrace("RESET_ITEM_LOAD", "request item=%s generation=%s", tostring(result.itemID), tostring(generation))
 	end
 	itemObject:ContinueOnItemLoad(function()
+		if not scan.frame or not scan.frame:IsShown() then
+			return
+		end
 		if type(YayaReagentSniperTrace) == "function" then
 			YayaReagentSniperTrace("RESET_ITEM_LOAD", "callback item=%s cached=%s generation=%s current=%s", tostring(result.itemID), tostring(itemObject:IsItemDataCached()), tostring(generation), tostring(scan.generation))
 		end
@@ -536,7 +552,7 @@ local function EvaluateDepth(candidate, tiers, ownAuctionQuantity)
 		return nil
 	end
 	local maxTarget = candidate.referencePrice * scan.db.maxTargetPct / 100
-	local budget = scan.db.budgetGold * 10000
+	local budget = Reset:GetEffectiveBudgetCopper()
 	local minProfit = scan.db.minProfitGold * 10000
 	local dailyCapacity = candidate.soldPerDay * scan.db.marketShare / 100
 	if dailyCapacity <= 0 then
@@ -558,11 +574,12 @@ local function EvaluateDepth(candidate, tiers, ownAuctionQuantity)
 			local profit = math.floor(revenue - cumulativeCost)
 			local roi = cumulativeCost > 0 and profit / cumulativeCost or 0
 			if cumulativeCost <= budget and profit >= minProfit and roi >= scan.db.minROI / 100 and days <= scan.db.maxDays then
-				local option = {
+					local option = {
 						itemID = candidate.itemID,
 						itemString = candidate.itemString,
 						quantity = cumulativeQuantity,
 						absorbCost = cumulativeCost,
+						maxUnitPrice = tier.price,
 						targetPrice = targetPrice,
 						profit = profit,
 						roi = roi,
@@ -820,6 +837,8 @@ local function GetPrepareState(result, ignoreCooldown)
 		return "disabled", GetGoldThresholdMessage()
 	elseif scan.controller and scan.controller.isPurchaseBusy and scan.controller.isPurchaseBusy() then
 		return "disabled", "Termine l’achat Sniper en cours."
+	elseif C_AuctionHouse.IsThrottledMessageSystemReady and not C_AuctionHouse.IsThrottledMessageSystemReady() then
+		return "disabled", "Transport Blizzard occupé : le bouton sera réactivé au signal de disponibilité."
 	elseif scan.running and scan.phase ~= "browse" and scan.phase ~= "deep" then
 		return "disabled", "Attends l’analyse du marché avant l’achat."
 	elseif not result then
@@ -832,10 +851,8 @@ local function GetPrepareState(result, ignoreCooldown)
 		return "refresh", result.lifecycleReason or "Les données ont expiré : un rescan profond ciblé est requis."
 	elseif not result.purchaseVerifiedAt or GetTime() - result.purchaseVerifiedAt > CONSTANTS.PURCHASE_REFRESH_MAX_AGE then
 		return "refresh", "Une vérification profonde ciblée est requise juste avant chaque achat."
-	elseif result.absorbCost > (tonumber(scan.db.budgetGold) or 0) * 10000 then
-		return "disabled", "Le coût dépasse le budget Reset configuré."
-	elseif type(GetMoney) == "function" and result.absorbCost > GetMoney() then
-		return "disabled", "L’or disponible ne couvre pas ce reset."
+	elseif result.absorbCost > Reset:GetEffectiveBudgetCopper() then
+		return "disabled", "Le coût dépasse le budget effectif (budget configuré ou or disponible)."
 	end
 	return "ready", nil
 end
@@ -863,8 +880,10 @@ function Reset:RefreshSelected()
 			scan.frame.prepareButton:SetText("Actualisation…")
 		elseif scan.ownCancelCheck then
 			scan.frame.prepareButton:SetText(scan.ownCancelCheck.phase == "wait" and "Action verrouillée…" or scan.ownCancelCheck.phase == "cancel" and "Annulation…" or "Vérification…")
+		elseif GetTime() < (scan.actionCooldownUntil or 0) then
+			scan.frame.prepareButton:SetText("Verrouillé…")
 		elseif prepareState == "refresh" then
-			scan.frame.prepareButton:SetText("Actualiser + acheter")
+			scan.frame.prepareButton:SetText("Actualiser")
 		elseif result and result.ownAuctionQuantity and result.ownAuctionQuantity > 0 then
 			scan.frame.prepareButton:SetText("Annule mes auctions")
 		elseif prepareState == "disabled" and not result then
@@ -883,8 +902,10 @@ function Reset:RefreshSelected()
 			scan.frame.prepareHint:SetText("Lecture des paliers en cours")
 		elseif scan.ownCancelCheck then
 			scan.frame.prepareHint:SetText(scan.ownCancelCheck.phase == "wait" and "Attente du signal Blizzard" or scan.ownCancelCheck.phase == "cancel" and "Annulation de tes auctions" or "Vérification de tes auctions")
+		elseif GetTime() < (scan.actionCooldownUntil or 0) then
+			scan.frame.prepareHint:SetText("Action disponible dans 0,5 seconde")
 		elseif prepareState == "refresh" then
-			scan.frame.prepareHint:SetText("1 clic • auto si inchangé")
+			scan.frame.prepareHint:SetText("1 clic • aucun achat automatique")
 		elseif result and result.ownAuctionQuantity and result.ownAuctionQuantity > 0 then
 			scan.frame.prepareHint:SetText("Étape 1/2 • clic manuel pour annuler")
 		elseif prepareState == "disabled" then
@@ -903,7 +924,7 @@ function Reset:RefreshSelected()
 		scan.frame.detailBody:SetText(prepareMessage .. " Aucun achat n’a été lancé.")
 		return
 	elseif prepareState == "refresh" then
-		scan.frame.detailBody:SetText((result.lifecycleReason or "Données expirées.") .. " Le bouton interrompt le scan, actualise cet item et achète automatiquement seulement si le plan reste identique.")
+		scan.frame.detailBody:SetText((result.lifecycleReason or "Données expirées.") .. " Le bouton actualise uniquement cet item. Un nouveau clic sera requis pour acheter.")
 		return
 	end
 	scan.frame.detailBody:SetText(string.format(
@@ -968,12 +989,15 @@ function Reset:SuspendScanForPurchase()
 	scan.paused = true
 	scan.pausedActive = nil
 	if active and not active.waitingForMore and not active.responseReceived then
-		scan.abandonedQuery = {
+		local abandoned = {
 			kind = active.kind,
 			itemID = active.candidate and active.candidate.itemID or nil,
+			generation = active.generation,
+			operationGeneration = active.operationGeneration,
 		}
+		scan.abandonedQuery = abandoned
 		Schedule("actionDrainTimeout", CONSTANTS.QUERY_TIMEOUT, function()
-			Reset:HandleDrainTimeout()
+			Reset:HandleDrainTimeout(abandoned)
 		end)
 	else
 		scan.abandonedQuery = nil
@@ -991,12 +1015,15 @@ function Reset:ArmActionCooldown(duration)
 	Schedule("actionUnlock", unlockDelay, function()
 		if GetTime() >= (scan.actionCooldownUntil or 0) then
 			Reset:RefreshRows()
+			if scan.controller and scan.controller.updateSniperView then
+				scan.controller.updateSniperView()
+			end
 		end
 	end)
 end
 
 function Reset:AbortPriorityAction(message)
-	self:ArmActionCooldown(0.5)
+	self:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
 	self:ResumeSuspendedScan()
 	self:ResumeContinuousAfterAction()
 	self:RefreshRows()
@@ -1041,6 +1068,88 @@ function Reset:ResumeSuspendedScan()
 	return true
 end
 
+function Reset:ResumeAfterSuccessfulPurchase()
+	if scan.purchase or not scan.frame or not scan.frame:IsShown() then
+		return false
+	end
+	if C_AuctionHouse.IsThrottledMessageSystemReady
+		and not C_AuctionHouse.IsThrottledMessageSystemReady()
+	then
+		scan.throttleResume = {
+			timerName = "purchaseReady",
+			callback = function()
+				Reset:ResumeAfterSuccessfulPurchase()
+			end,
+		}
+		Schedule("purchaseReady", 0.5, function()
+			Reset:ResumeAfterSuccessfulPurchase()
+		end)
+		SetStatus("Achat réussi • attente du transport Blizzard avant reprise…")
+		return false
+	end
+	CancelTimer("opportunityPause")
+	scan.opportunityPauseUntil = nil
+	scan.opportunityPauseExpired = false
+	scan.resumeContinuousAfterAction = false
+	if scan.running then
+		if scan.paused then
+			self:ResumeSuspendedScan()
+		end
+	else
+		local actionLockRemaining = math.max(0, (scan.actionCooldownUntil or 0) - GetTime())
+		self:StartScan(true)
+		if actionLockRemaining > 0 then
+			self:ArmActionCooldown(actionLockRemaining)
+		end
+	end
+	self:RefreshRows()
+	SetStatus("Achat réussi • reprise du scan.")
+	return true
+end
+
+function Reset:FinishOpportunityPause(success)
+	if not scan.opportunityPauseUntil and not scan.opportunityPauseExpired then
+		return false
+	end
+	local remaining = (scan.opportunityPauseUntil or 0) - GetTime()
+	if not success and remaining > 0 then
+		Schedule("opportunityPause", remaining, function()
+			scan.opportunityPauseUntil = nil
+			scan.opportunityPauseExpired = true
+			if not scan.purchase and not scan.prepareRefresh and not scan.ownCancelCheck then
+				Reset:FinishOpportunityPause(false)
+			end
+		end)
+		return false
+	end
+	if scan.purchase or scan.prepareRefresh or scan.ownCancelCheck then
+		scan.opportunityPauseExpired = true
+		return false
+	end
+	if success and C_AuctionHouse.IsThrottledMessageSystemReady
+		and not C_AuctionHouse.IsThrottledMessageSystemReady()
+	then
+		scan.opportunityPauseExpired = true
+		scan.throttleResume = {
+			timerName = "opportunityReady",
+			callback = function()
+				Reset:FinishOpportunityPause(true)
+			end,
+		}
+		SetStatus("Achat réussi • attente du transport Blizzard avant reprise…")
+		return false
+	end
+	CancelTimer("opportunityPause")
+	scan.opportunityPauseUntil = nil
+	scan.opportunityPauseExpired = false
+	if scan.running and scan.paused then
+		self:ResumeSuspendedScan()
+		self:RefreshRows()
+		SetStatus(success and "Achat réussi • reprise du scan." or "Fenêtre d’achat terminée • reprise du scan.")
+	end
+	return true
+end
+
 local function CancelResetPurchase(message, red, disposition)
 	local purchase = scan.purchase
 	if purchase and purchase.confirming and not purchase.terminal and disposition ~= "uncertain" then
@@ -1048,52 +1157,126 @@ local function CancelResetPurchase(message, red, disposition)
 		message = message or "Résultat de confirmation incertain : achats bloqués 5 min."
 		red = true
 	end
+	if purchase and disposition == "quote-uncertain" then
+		CancelTimer("purchaseTimeout")
+		CancelTimer("purchaseWake")
+		if purchase.started and not purchase.cancelRequested and C_AuctionHouse.CancelCommoditiesPurchase then
+			pcall(C_AuctionHouse.CancelCommoditiesPurchase)
+			purchase.cancelRequested = true
+		end
+		purchase.mode = "quote-quarantine"
+		purchase.phase = "ambiguous-before-confirm"
+		InvalidateResetOpportunity(purchase.result, message)
+		C_Timer.After(CONSTANTS.QUOTE_QUARANTINE_SECONDS, function()
+			if scan.purchase == purchase and purchase.mode == "quote-quarantine" then
+				purchase.terminal = true
+				CancelResetPurchase("Ancienne cotation abandonnée : nouveau scan requis.", true, "stale")
+			end
+		end)
+		Reset:RefreshRows()
+		if scan.controller and scan.controller.updateEventSubscription then
+			scan.controller.updateEventSubscription()
+		end
+		SetStatus(message or "Cotation incertaine : achats bloqués pendant 8 secondes.", true)
+		return
+	end
+	if purchase and disposition == "uncertain" then
+		CancelTimer("purchaseTimeout")
+		CancelTimer("purchaseWake")
+		if scan.throttleResume and scan.throttleResume.timerName == "purchaseWake" then
+			scan.throttleResume = nil
+		end
+		purchase.mode = "quarantine"
+		purchase.phase = "ambiguous-after-confirm"
+		purchase.confirming = false
+		purchase.confirmed = true
+		purchase.resumeScan = false
+		scan.resumeAfterPurchase = false
+		scan.resumeContinuousAfterAction = false
+		local expiresAt = time() + CONSTANTS.PURCHASE_UNCERTAIN_COOLDOWN
+		purchase.quarantineUntil = expiresAt
+		scan.purchaseCooldowns[purchase.itemID] = GetTime() + CONSTANTS.PURCHASE_UNCERTAIN_COOLDOWN
+		scan.purchaseUncertainUntil = math.max(scan.purchaseUncertainUntil or 0, expiresAt)
+		if scan.db then
+			scan.db.purchaseUncertainUntil = math.max(tonumber(scan.db.purchaseUncertainUntil) or 0, expiresAt)
+		end
+		DropResetOpportunity(purchase.itemID)
+		C_Timer.After(CONSTANTS.PURCHASE_UNCERTAIN_COOLDOWN + 0.1, function()
+			if scan.purchase == purchase and purchase.mode == "quarantine" then
+				scan.purchaseGeneration = scan.purchaseGeneration + 1
+				scan.purchase = nil
+				IsPurchaseOutcomeUncertain()
+				Reset:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
+				Reset:RefreshRows()
+				if scan.controller and scan.controller.updateEventSubscription then
+					scan.controller.updateEventSubscription()
+				end
+				if scan.controller and scan.controller.updateSniperView then
+					scan.controller.updateSniperView()
+				end
+				SetStatus("Quarantaine terminée sans réponse : nouveau scan requis.", true)
+			end
+		end)
+		Reset:RefreshRows()
+		if scan.controller and scan.controller.updateEventSubscription then
+			scan.controller.updateEventSubscription()
+		end
+		SetStatus(message or "Résultat de confirmation incertain : achats bloqués 5 min.", true)
+		return
+	end
 	local resumeScan = purchase and purchase.resumeScan == true
 	CancelTimer("purchaseTimeout")
 	CancelTimer("purchaseWake")
 	if scan.throttleResume and scan.throttleResume.timerName == "purchaseWake" then
 		scan.throttleResume = nil
 	end
-	if purchase and purchase.started and not purchase.confirming and C_AuctionHouse.CancelCommoditiesPurchase then
+	if purchase and purchase.started and not purchase.confirmed and not purchase.cancelRequested and C_AuctionHouse.CancelCommoditiesPurchase then
 		pcall(C_AuctionHouse.CancelCommoditiesPurchase)
 	end
-	if purchase and (disposition == "drop" or disposition == "uncertain") then
+	if purchase and (disposition == "drop" or disposition == "success" or disposition == "uncertain") then
 		DropResetOpportunity(purchase.itemID)
 	elseif purchase and disposition ~= "keep" then
 		InvalidateResetOpportunity(purchase.result, message)
 	end
+	if purchase and purchase.terminal then
+		scan.purchaseCooldowns[purchase.itemID] = nil
+		scan.purchaseUncertainUntil = 0
+		if scan.db then
+			scan.db.purchaseUncertainUntil = 0
+		end
+	end
 	scan.purchaseGeneration = scan.purchaseGeneration + 1
 	scan.purchase = nil
+	scan.throttleWaitSince = nil
 	scan.resumeAfterPurchase = false
-	Reset:ArmActionCooldown(0.5)
-	if resumeScan then
-		Reset:ResumeSuspendedScan()
+	Reset:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
+	if disposition == "success" then
+		Reset:ResumeAfterSuccessfulPurchase()
+	elseif resumeScan then
+		if purchase and purchase.opportunityPause then
+			Reset:FinishOpportunityPause(false)
+		else
+			Reset:ResumeSuspendedScan()
+		end
 	end
 	Reset:ResumeContinuousAfterAction()
-	if purchase and disposition == "uncertain" then
-		local expiresAt = time() + CONSTANTS.PURCHASE_UNCERTAIN_COOLDOWN
-		scan.purchaseCooldowns[purchase.itemID] = GetTime() + CONSTANTS.PURCHASE_UNCERTAIN_COOLDOWN
-		scan.purchaseUncertainUntil = math.max(scan.purchaseUncertainUntil or 0, expiresAt)
-		if scan.db then
-			scan.db.purchaseUncertainUntil = math.max(tonumber(scan.db.purchaseUncertainUntil) or 0, expiresAt)
-		end
-		C_Timer.After(CONSTANTS.PURCHASE_UNCERTAIN_COOLDOWN + 0.1, function()
-			if not IsPurchaseOutcomeUncertain() then
-				Reset:RefreshRows()
-			end
-		end)
-	end
 	if scan.frame then
 		scan.frame.scanButton:SetEnabled(true)
 	end
 	Reset:RefreshRows()
+	if scan.controller and scan.controller.updateEventSubscription then
+		scan.controller.updateEventSubscription()
+	end
+	if scan.controller and scan.controller.updateSniperView then
+		scan.controller.updateSniperView()
+	end
 	if message then
 		SetStatus(message, red)
 	end
 end
 
-function Reset:HandleDrainTimeout()
-	if not scan.abandonedQuery then
+function Reset:HandleDrainTimeout(abandoned)
+	if not scan.abandonedQuery or (abandoned and scan.abandonedQuery ~= abandoned) then
 		return
 	end
 	scan.abandonedQuery = nil
@@ -1163,6 +1346,7 @@ ValidateFreshResetPlan = function(result)
 	if not fresh
 		or fresh.quantity ~= result.quantity
 		or fresh.absorbCost ~= result.absorbCost
+		or fresh.maxUnitPrice ~= result.maxUnitPrice
 		or fresh.targetPrice ~= result.targetPrice
 		or fresh.tiersAbsorbed ~= result.tiersAbsorbed
 	then
@@ -1189,12 +1373,15 @@ local function StartResetPurchase(result)
 		result.lifecycleReason = validationMessage
 		result.scanAt = 0
 		scan.depthCache[result.itemID] = nil
-		Reset:RefreshSelectedForPurchase(result, true)
+		Reset:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
+		Reset:RefreshRows()
+		SetStatus((validationMessage or "Offre devenue obsolète.") .. " Clique « Actualiser » après le verrou.", true)
 		return
 	end
 	local quantity = math.max(1, math.floor(tonumber(result.quantity) or 0))
 	local maxCost = math.max(0, math.floor(tonumber(result.absorbCost) or 0))
-	local budget = math.max(0, math.floor((tonumber(scan.db.budgetGold) or 0) * 10000))
+	local maxUnitPrice = math.max(0, math.floor(tonumber(result.maxUnitPrice) or 0))
+	local budget = Reset:GetEffectiveBudgetCopper()
 	local availableMoney = type(GetMoney) == "function" and tonumber(GetMoney()) or nil
 	if type(C_AuctionHouse.StartCommoditiesPurchase) ~= "function"
 		or type(C_AuctionHouse.ConfirmCommoditiesPurchase) ~= "function"
@@ -1202,7 +1389,7 @@ local function StartResetPurchase(result)
 		InvalidateResetOpportunity(result, "API d’achat indisponible : résultat à rescanner.")
 		Reset:AbortPriorityAction("API d’achat de commodités indisponible : reprise du scan.")
 		return
-	elseif quantity <= 0 or maxCost <= 0 then
+	elseif quantity <= 0 or maxCost <= 0 or maxUnitPrice <= 0 then
 		InvalidateResetOpportunity(result, "Quantité ou coût invalide : résultat à rescanner.")
 		Reset:AbortPriorityAction("Quantité ou coût du reset invalide : reprise du scan.")
 		return
@@ -1211,6 +1398,16 @@ local function StartResetPurchase(result)
 		return
 	elseif availableMoney and maxCost > availableMoney then
 		Reset:AbortPriorityAction("Or insuffisant : " .. FormatPrice(maxCost) .. " requis, " .. FormatPrice(availableMoney) .. " disponible. Reprise du scan.")
+		return
+	end
+	if scan.abandonedQuery then
+		Reset:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
+		Reset:RefreshRows()
+		SetStatus("Ancienne requête AH en cours de vidage : reclique quand le bouton se réactive.", true)
+		return
+	elseif C_AuctionHouse.IsThrottledMessageSystemReady and not C_AuctionHouse.IsThrottledMessageSystemReady() then
+		Reset:RefreshRows()
+		SetStatus("Transport Blizzard occupé : reclique dès que le bouton se réactive.", true)
 		return
 	end
 	if scan.controller and scan.controller.stopSniper then
@@ -1223,68 +1420,46 @@ local function StartResetPurchase(result)
 		name = result.name or GetItemName(result.itemID),
 		quantity = quantity,
 		maxCost = maxCost,
+		authorizedQuantity = quantity,
+		authorizedMaxUnitPrice = maxUnitPrice,
+		authorizedMaxTotal = maxCost,
 		budget = budget,
 		result = result,
 		resumeScan = scan.running and scan.paused or false,
+		opportunityPause = scan.opportunityPauseUntil ~= nil or scan.opportunityPauseExpired,
+		phase = "quote",
 		confirmed = false,
-		started = false,
+		started = true,
 		confirming = false,
 	}
-	local generation = scan.purchase.generation
-	Schedule("purchaseTimeout", CONSTANTS.QUERY_TIMEOUT, function()
-		if scan.purchase and scan.purchase.generation == generation and not scan.purchase.started then
-			CancelResetPurchase("Hôtel des ventes resté occupé : achat abandonné.", true, "keep")
-		end
-	end)
 	if scan.frame then
 		scan.frame.scanButton:SetEnabled(false)
 	end
 	Reset:RefreshRows()
-	SetStatus(string.format("Achat prioritaire : %s × %s…", FormatCompactNumber(quantity), result.name or "composant"))
-	Reset:StartPendingPurchase()
-end
-
-function Reset:StartPendingPurchase()
 	local purchase = scan.purchase
-	if not purchase or purchase.started or purchase.confirming then
-		return
+	if type(YayaReagentSniperTrace) == "function" then
+		YayaReagentSniperTrace("RESET_PURCHASE", "click start item=%s generation=%s quantity=%s", tostring(purchase.itemID), tostring(purchase.generation), tostring(purchase.quantity))
 	end
-	if scan.abandonedQuery then
-		scan.throttleResume = {
-			timerName = "purchaseWake",
-			callback = function()
-				Reset:StartPendingPurchase()
-			end,
-		}
-		SetStatus("Achat verrouillé • abandon de la requête en cours…")
-		return
-	end
-	if C_AuctionHouse.IsThrottledMessageSystemReady and not C_AuctionHouse.IsThrottledMessageSystemReady() then
-		scan.throttleResume = {
-			timerName = "purchaseWake",
-			callback = function()
-				Reset:StartPendingPurchase()
-			end,
-		}
-		SetStatus("Achat verrouillé • attente du signal Blizzard…")
-		return
-	end
-	purchase.started = true
-	CancelTimer("purchaseTimeout")
 	local ok = pcall(C_AuctionHouse.StartCommoditiesPurchase, purchase.itemID, purchase.quantity)
 	if not ok then
 		purchase.started = false
+		purchase.phase = "start-failed"
 		CancelResetPurchase("Impossible de lancer l’achat : résultat à rescanner.", true, "stale")
 		return
 	end
 	local generation = purchase.generation
-	Schedule("purchaseTimeout", CONSTANTS.QUERY_TIMEOUT, function()
-		if scan.purchase and scan.purchase.generation == generation and not scan.purchase.confirming then
-			CancelResetPurchase("Achat sans réponse : résultat à rescanner.", true, "stale")
+	if scan.purchase == purchase and not purchase.confirming then
+		Schedule("purchaseTimeout", CONSTANTS.QUERY_TIMEOUT, function()
+			if scan.purchase == purchase and purchase.generation == generation and not purchase.confirming then
+				CancelResetPurchase("Achat sans réponse : cotation tardive mise en quarantaine.", true, "quote-uncertain")
+			end
+		end)
+		Reset:RefreshRows()
+		if scan.controller and scan.controller.updateEventSubscription then
+			scan.controller.updateEventSubscription()
 		end
-	end)
-	Reset:RefreshRows()
-	SetStatus(string.format("Vérification Blizzard : %s × %s…", FormatCompactNumber(purchase.quantity), purchase.name or "composant"))
+		SetStatus(string.format("Vérification Blizzard : %s × %s…", FormatCompactNumber(purchase.quantity), purchase.name or "composant"))
+	end
 end
 
 local function HandleResetPurchaseEvent(event, ...)
@@ -1292,6 +1467,13 @@ local function HandleResetPurchaseEvent(event, ...)
 	local purchase = scan.purchase
 	if not purchase then
 		return false
+	end
+	if purchase.mode == "quote-quarantine"
+		and (event == "COMMODITY_PRICE_UPDATED" or event == "COMMODITY_PRICE_UNAVAILABLE")
+	then
+		purchase.terminal = true
+		CancelResetPurchase("Cotation tardive drainée : nouveau scan requis.", true, "stale")
+		return true
 	end
 	if event == "COMMODITY_PRICE_UPDATED" then
 		if not purchase.started or purchase.confirming then
@@ -1301,56 +1483,66 @@ local function HandleResetPurchaseEvent(event, ...)
 		local unitPrice, totalPrice = ...
 		unitPrice = tonumber(unitPrice)
 		totalPrice = tonumber(totalPrice)
-		if (not totalPrice or totalPrice <= 0) and unitPrice and unitPrice > 0 then
-			totalPrice = unitPrice * purchase.quantity
-		end
-		if not totalPrice or totalPrice <= 0 or totalPrice > purchase.maxCost then
-			CancelResetPurchase("Prix remonté au-dessus des paliers recommandés : opportunité retirée.", true, "drop")
+		local planValid = ValidateFreshResetPlan(purchase.result)
+		if not planValid
+			or not unitPrice or unitPrice <= 0
+			or not totalPrice or totalPrice <= 0
+			or unitPrice > purchase.authorizedMaxUnitPrice
+			or totalPrice > purchase.authorizedMaxTotal
+		then
+			CancelResetPurchase("Prix ou profondeur modifié : clique « Actualiser » après le verrou.", true, "stale")
 			return true
 		end
 		local availableMoney = type(GetMoney) == "function" and tonumber(GetMoney()) or nil
+		local currentBudget = Reset:GetEffectiveBudgetCopper()
 		if availableMoney and totalPrice > availableMoney then
 			CancelResetPurchase("Or insuffisant : " .. FormatPrice(totalPrice) .. " requis, " .. FormatPrice(availableMoney) .. " disponible.", true, "keep")
 			return true
-		elseif totalPrice > purchase.budget then
+		elseif totalPrice > math.min(purchase.budget, currentBudget) then
 			CancelResetPurchase("Le prix Blizzard dépasse le budget Reset.", true, "keep")
 			return true
 		end
-		purchase.unitPrice = unitPrice or math.ceil(totalPrice / purchase.quantity)
+		purchase.unitPrice = unitPrice
 		purchase.totalPrice = totalPrice
 		purchase.confirming = true
-		local ok = pcall(C_AuctionHouse.ConfirmCommoditiesPurchase, purchase.itemID, purchase.quantity)
+		purchase.confirmed = true
+		purchase.phase = "confirming"
+		local ok = pcall(C_AuctionHouse.ConfirmCommoditiesPurchase, purchase.itemID, purchase.authorizedQuantity)
 		if not ok then
 			purchase.confirming = false
+			purchase.confirmed = false
+			purchase.phase = "confirm-api-failed"
 			CancelResetPurchase("Confirmation impossible : résultat à rescanner.", true, "stale")
 			return true
 		end
 		local generation = purchase.generation
-		Schedule("purchaseTimeout", CONSTANTS.QUERY_TIMEOUT, function()
-			if scan.purchase and scan.purchase.generation == generation and scan.purchase.confirming then
-				CancelResetPurchase("Confirmation sans réponse : item bloqué 5 min pour éviter un double achat.", true, "uncertain")
-			end
-		end)
-		Reset:RefreshRows()
-		SetStatus("Achat envoyé à Blizzard…")
+		if scan.purchase == purchase and purchase.confirming then
+			Schedule("purchaseTimeout", CONSTANTS.QUERY_TIMEOUT, function()
+				if scan.purchase == purchase and purchase.generation == generation and purchase.confirming then
+					CancelResetPurchase("Confirmation sans réponse : item bloqué 5 min pour éviter un double achat.", true, "uncertain")
+				end
+			end)
+			Reset:RefreshRows()
+			SetStatus("Achat envoyé à Blizzard…")
+		end
 		return true
 	elseif event == "COMMODITY_PRICE_UNAVAILABLE" then
 		if not purchase.started or purchase.confirming then
 			return true
 		end
-		CancelResetPurchase("Prix indisponible : l’opportunité a été retirée.", true, "drop")
+		CancelResetPurchase("Prix indisponible : clique « Actualiser » après le verrou.", true, "stale")
 		return true
 	elseif event == "COMMODITY_PURCHASE_SUCCEEDED" then
-		if not purchase.confirming then
+		if not purchase.confirmed or purchase.terminal then
 			return true
 		end
 		local quantity, totalPrice = purchase.quantity, purchase.totalPrice or purchase.maxCost
 		purchase.terminal = true
 		purchase.confirmed = true
-		CancelResetPurchase(string.format("Achat confirmé : %s unités pour %s.", FormatCompactNumber(quantity), FormatPrice(totalPrice)), false, "drop")
+		CancelResetPurchase(string.format("Achat confirmé : %s unités pour %s.", FormatCompactNumber(quantity), FormatPrice(totalPrice)), false, "success")
 		return true
 	elseif event == "COMMODITY_PURCHASE_FAILED" then
-		if not purchase.confirming then
+		if not purchase.confirmed or purchase.terminal then
 			return true
 		end
 		purchase.terminal = true
@@ -1381,10 +1573,8 @@ function Reset:PreparePurchase()
 		scan.continuousPending = false
 		scan.resumeContinuousAfterAction = scan.db.continuous == true
 	end
-	CancelTimer("opportunityPause")
-	scan.opportunityPauseUntil = nil
 	self:SuspendScanForPurchase()
-	self:ArmActionCooldown(0.75)
+	self:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
 	if prepareState == "refresh" then
 		self:RefreshSelectedForPurchase(result, true)
 		return
@@ -1396,8 +1586,8 @@ function Reset:PreparePurchase()
 	StartResetPurchase(result)
 end
 
-function Reset:RefreshSelectedForPurchase(result, autoPurchase)
-	local prepareState, prepareMessage = GetPrepareState(result, autoPurchase == true)
+function Reset:RefreshSelectedForPurchase(result, acceptedClick)
+	local prepareState, prepareMessage = GetPrepareState(result, acceptedClick == true)
 	if prepareState == "ready" then
 		self:PreparePurchase()
 		return
@@ -1450,7 +1640,6 @@ function Reset:RefreshSelectedForPurchase(result, autoPurchase)
 		itemID = result.itemID,
 		original = result,
 		resume = resume,
-		autoPurchase = autoPurchase == true,
 		expectedQuantity = result.quantity,
 		expectedCost = result.absorbCost,
 		expectedTarget = result.targetPrice,
@@ -1493,10 +1682,8 @@ local function ShowRowTooltip(row)
 	if result.lifecycleState == "stale" then
 		GameTooltip:AddLine("État : à rescanner", 1, 0.62, 0.2)
 		GameTooltip:AddLine(result.lifecycleReason or "Cette donnée ne peut plus être réutilisée pour acheter.", 0.85, 0.85, 0.85, true)
-	elseif result.absorbCost > (tonumber(scan.db.budgetGold) or 0) * 10000 then
-		GameTooltip:AddLine("Achat bloqué : budget Reset insuffisant", 1, 0.35, 0.25)
-	elseif type(GetMoney) == "function" and result.absorbCost > GetMoney() then
-		GameTooltip:AddLine("Achat bloqué : or insuffisant", 1, 0.35, 0.25)
+	elseif result.absorbCost > Reset:GetEffectiveBudgetCopper() then
+		GameTooltip:AddLine("Achat bloqué : budget effectif insuffisant", 1, 0.35, 0.25)
 	end
 	GameTooltip:AddDoubleLine("Coût à absorber", FormatPrice(result.absorbCost), 0.8, 0.8, 0.8, 1, 1, 1)
 	GameTooltip:AddDoubleLine("Quantité", FormatCompactNumber(result.quantity), 0.8, 0.8, 0.8, 1, 1, 1)
@@ -1702,9 +1889,7 @@ function Reset:RefreshRows()
 		if result.lifecycleState == "stale" then
 			row.risk:SetText("Périmé")
 			row.risk:SetTextColor(1, 0.62, 0.2, 1)
-		elseif result.absorbCost > (tonumber(scan.db.budgetGold) or 0) * 10000
-			or (type(GetMoney) == "function" and result.absorbCost > GetMoney())
-		then
+		elseif result.absorbCost > Reset:GetEffectiveBudgetCopper() then
 			row.risk:SetText("Bloqué")
 			row.risk:SetTextColor(1, 0.35, 0.25, 1)
 		else
@@ -1901,6 +2086,18 @@ local function IsThrottleReady()
 	return not C_AuctionHouse.IsThrottledMessageSystemReady or C_AuctionHouse.IsThrottledMessageSystemReady()
 end
 
+local function IsKnownAuctionError(errorCode)
+	if errorCode == nil then
+		return false
+	end
+	return (LE_GAME_ERR_AUCTION_DATABASE_ERROR and errorCode == LE_GAME_ERR_AUCTION_DATABASE_ERROR)
+		or (LE_GAME_ERR_AUCTION_HIGHER_BID and errorCode == LE_GAME_ERR_AUCTION_HIGHER_BID)
+		or (LE_GAME_ERR_ITEM_NOT_FOUND and errorCode == LE_GAME_ERR_ITEM_NOT_FOUND)
+		or (LE_GAME_ERR_NOT_ENOUGH_MONEY and errorCode == LE_GAME_ERR_NOT_ENOUGH_MONEY)
+		or (LE_GAME_ERR_AUCTION_BID_OWN and errorCode == LE_GAME_ERR_AUCTION_BID_OWN)
+		or (LE_GAME_ERR_ITEM_MAX_COUNT and errorCode == LE_GAME_ERR_ITEM_MAX_COUNT)
+end
+
 local function GetDeepQueryDelay(limit)
 	local now = GetTime()
 	while scan.deepQueryTimes[1] and now - scan.deepQueryTimes[1] >= CONSTANTS.DEEP_QUERY_WINDOW do
@@ -1918,9 +2115,24 @@ local function WaitForQuerySlot(timerName, callback, deepQueryLimit)
 		return true
 	end
 	if not IsThrottleReady() then
+		scan.throttleWaitSince = scan.throttleWaitSince or GetTime()
+		if GetTime() - scan.throttleWaitSince >= CONSTANTS.THROTTLE_WAIT_TIMEOUT then
+			scan.throttleResume = nil
+			scan.throttleWaitSince = nil
+			if scan.purchase then
+				CancelResetPurchase("Throttle AH indisponible : achat abandonné.", true, "stale")
+			elseif scan.running then
+				Reset:StopScan("Throttle AH indisponible trop longtemps : scan arrêté.")
+			else
+				Reset:AbortPriorityAction("Throttle AH indisponible : action abandonnée.")
+			end
+			return true
+		end
 		scan.throttleResume = { timerName = timerName, callback = callback }
+		Schedule(timerName, 0.5, callback)
 		return true
 	end
+	scan.throttleWaitSince = nil
 	local delay = deepQueryLimit and GetDeepQueryDelay(deepQueryLimit) or 0
 	if delay > 0 then
 		Schedule(timerName, delay, callback)
@@ -2085,9 +2297,15 @@ FinishOwnAuctionVerification = function(success)
 	if scan.depthCache[check.itemID] then
 		scan.depthCache[check.itemID].ownAuctionQuantity = 0
 	end
+	check.result.purchaseVerifiedAt = nil
+	check.result.lifecycleState = "stale"
+	check.result.lifecycleReason = "Tes auctions ont été annulées : actualise les paliers avant l’achat."
+	check.result.scanAt = 0
+	scan.depthCache[check.itemID] = nil
+	Reset:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
 	Reset:RefreshRows()
-	SetStatus("Tes auctions sont annulées : poursuite de l’achat…")
-	StartResetPurchase(check.result)
+	Reset:FinishOpportunityPause(false)
+	SetStatus("Tes auctions sont annulées : clique « Actualiser » après le verrou.")
 end
 
 BeginOwnAuctionVerification = function(result)
@@ -2118,15 +2336,18 @@ function Reset:SendOwnAuctionVerification()
 		SetStatus("Vérification verrouillée • attente du signal Blizzard…")
 		return
 	end
-	Schedule("ownCancelTimeout", CONSTANTS.QUERY_TIMEOUT, function()
-		FinishOwnAuctionVerification(false)
-	end)
 	if type(YayaReagentSniperTrace) == "function" then
 		YayaReagentSniperTrace("RESET_AH_QUERY", "kind=owned-cancel-check item=%s", tostring(check.itemID))
 	end
 	local ok = pcall(C_AuctionHouse.QueryOwnedAuctions, SORTS)
 	if not ok then
 		FinishOwnAuctionVerification(false)
+	elseif scan.ownCancelCheck == check then
+		Schedule("ownCancelTimeout", CONSTANTS.QUERY_TIMEOUT, function()
+			if scan.ownCancelCheck == check then
+				FinishOwnAuctionVerification(false)
+			end
+		end)
 	end
 end
 
@@ -2166,15 +2387,19 @@ local function ProcessOwnedAuctions()
 		return
 	end
 	scan.ownQuerySent = true
-	Schedule("ownedTimeout", CONSTANTS.QUERY_TIMEOUT, function()
-		FinishOwnedAuctionQuery(false)
-	end)
+	local generation = scan.generation
 	if type(YayaReagentSniperTrace) == "function" then
 		YayaReagentSniperTrace("RESET_AH_QUERY", "kind=owned")
 	end
 	local ok = pcall(C_AuctionHouse.QueryOwnedAuctions, SORTS)
 	if not ok then
 		FinishOwnedAuctionQuery(false)
+	elseif scan.running and scan.phase == "owned" and scan.generation == generation then
+		Schedule("ownedTimeout", CONSTANTS.QUERY_TIMEOUT, function()
+			if scan.running and scan.phase == "owned" and scan.generation == generation then
+				FinishOwnedAuctionQuery(false)
+			end
+		end)
 	end
 end
 
@@ -2187,6 +2412,8 @@ local function FinishBrowseBatch(timedOut)
 	CancelTimer("settle")
 	if timedOut then
 		scan.stats.incomplete = scan.stats.incomplete + #active.items
+		Reset:StopScan("Scan Reset arrêté : réponse browse ambiguë, relance après récupération AH.")
+		return
 	else
 		local seen = {}
 		local resultByID = {}
@@ -2297,16 +2524,28 @@ function Reset:ProcessBrowse()
 		end)
 		return
 	end
-	scan.active = { kind = "browse", items = items, byID = byID, nextIndex = nextIndex }
-	Schedule("timeout", CONSTANTS.QUERY_TIMEOUT, function()
-		FinishBrowseBatch(true)
-	end)
+	scan.operationGeneration = scan.operationGeneration + 1
+	local active = {
+		kind = "browse",
+		items = items,
+		byID = byID,
+		nextIndex = nextIndex,
+		generation = scan.generation,
+		operationGeneration = scan.operationGeneration,
+	}
+	scan.active = active
 	if type(YayaReagentSniperTrace) == "function" then
 		YayaReagentSniperTrace("RESET_AH_QUERY", "kind=browse count=%d index=%d", #keys, scan.browseIndex)
 	end
-	local ok = pcall(C_AuctionHouse.SearchForItemKeys, keys, {})
+	local ok = pcall(C_AuctionHouse.SearchForItemKeys, keys, SORTS)
 	if not ok then
 		FinishBrowseBatch(true)
+	elseif scan.active == active and active.generation == scan.generation then
+		Schedule("timeout", CONSTANTS.QUERY_TIMEOUT, function()
+			if scan.active == active and active.generation == scan.generation then
+				FinishBrowseBatch(true)
+			end
+		end)
 	end
 end
 
@@ -2493,16 +2732,17 @@ local function FinishDeepCandidate(complete)
 	if pauseForOpportunity and not scan.pauseRequested then
 		local pauseEndsAt = GetTime() + CONSTANTS.OPPORTUNITY_PAUSE
 		scan.opportunityPauseUntil = pauseEndsAt
+		scan.opportunityPauseExpired = false
 		scan.pauseRequested = true
+		Reset:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
 		Schedule("opportunityPause", CONSTANTS.OPPORTUNITY_PAUSE, function()
 			if scan.opportunityPauseUntil ~= pauseEndsAt then
 				return
 			end
 			scan.opportunityPauseUntil = nil
-			if scan.running and scan.paused and not scan.purchase and not scan.prepareRefresh then
-				Reset:ResumeSuspendedScan()
-				Reset:RefreshRows()
-				SetStatus("Reprise du scan après la fenêtre d’achat.")
+			scan.opportunityPauseExpired = true
+			if not scan.purchase and not scan.prepareRefresh and not scan.ownCancelCheck then
+				Reset:FinishOpportunityPause(false)
 			end
 		end)
 	end
@@ -2551,10 +2791,6 @@ local function CompletePrepareRefresh()
 		scan.opportunities[#scan.opportunities + 1] = context.result
 		PlayNewOpportunitySound()
 		scan.selected = context.result
-		local planUnchanged = context.result.quantity == context.expectedQuantity
-			and context.result.absorbCost == context.expectedCost
-			and context.result.targetPrice == context.expectedTarget
-		Reset:RefreshRows()
 		if not resume then
 			Schedule("stale", CONSTANTS.MAX_SCAN_AGE, function()
 				if not scan.running and scan.selected == context.result then
@@ -2562,24 +2798,20 @@ local function CompletePrepareRefresh()
 				end
 			end)
 		end
-		if context.autoPurchase and planUnchanged then
-			if context.result.ownAuctionQuantity and context.result.ownAuctionQuantity > 0 then
-				BeginOwnAuctionCancellation(context.result)
-			else
-				StartResetPurchase(context.result)
-			end
-		elseif context.autoPurchase and not planUnchanged then
-			Reset:ArmActionCooldown(0.5)
-			SetStatus("Plan modifié : achat bloqué. Vérifie la nouvelle quantité puis reclique.", true)
-		else
-			SetStatus("Paliers actualisés : clique « Acheter le reset » pour lancer l’achat.")
-		end
+		Reset:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
+		Reset:RefreshRows()
+		Reset:FinishOpportunityPause(false)
+		SetStatus("Paliers actualisés : clique « Acheter le reset » après le verrou.")
 	elseif context.incomplete then
 		local nextResult = SelectNextOpportunity(context.itemID)
 		scan.resumeAfterPurchase = nextResult == nil and resume ~= nil
-		Reset:ArmActionCooldown(0.5)
+		Reset:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
 		if not nextResult then
-			Reset:ResumeSuspendedScan()
+			if scan.opportunityPauseUntil or scan.opportunityPauseExpired then
+				Reset:FinishOpportunityPause(false)
+			else
+				Reset:ResumeSuspendedScan()
+			end
 			Reset:ResumeContinuousAfterAction()
 		end
 		Reset:RefreshRows()
@@ -2588,9 +2820,13 @@ local function CompletePrepareRefresh()
 		RemoveOpportunityByItemID(context.itemID)
 		local nextResult = SelectNextOpportunity(context.itemID)
 		scan.resumeAfterPurchase = nextResult == nil and resume ~= nil
-		Reset:ArmActionCooldown(0.5)
+		Reset:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
 		if not nextResult then
-			Reset:ResumeSuspendedScan()
+			if scan.opportunityPauseUntil or scan.opportunityPauseExpired then
+				Reset:FinishOpportunityPause(false)
+			else
+				Reset:ResumeSuspendedScan()
+			end
 			Reset:ResumeContinuousAfterAction()
 		end
 		Reset:RefreshRows()
@@ -2619,18 +2855,25 @@ local function RequestMoreDepth(active)
 		FinishDeepCandidate(false)
 		return
 	end
-	active.pages = active.pages + 1
 	active.waitingForMore = false
-	Schedule("timeout", CONSTANTS.QUERY_TIMEOUT, function()
-		FinishDeepCandidate(false)
-	end)
 	if type(YayaReagentSniperTrace) == "function" then
 		YayaReagentSniperTrace("RESET_AH_QUERY", "kind=more item=%s page=%d", tostring(active.candidate.itemID), active.pages)
 	end
 	MarkDeepQuerySent()
-	local ok = pcall(C_AuctionHouse.RequestMoreCommoditySearchResults, active.candidate.itemID)
+	local ok, hasFullResults = pcall(C_AuctionHouse.RequestMoreCommoditySearchResults, active.candidate.itemID)
 	if not ok then
 		FinishDeepCandidate(false)
+	elseif scan.active == active and active.generation == scan.generation then
+		active.pages = active.pages + 1
+		if hasFullResults then
+			HandleCommodityResults(active.candidate.itemID)
+		else
+			Schedule("timeout", CONSTANTS.QUERY_TIMEOUT, function()
+				if scan.active == active and active.generation == scan.generation then
+					FinishDeepCandidate(false)
+				end
+			end)
+		end
 	end
 end
 
@@ -2645,7 +2888,7 @@ EnterPause = function(active)
 	scan.active = nil
 	Reset:RefreshRows()
 	if (scan.opportunityPauseUntil or 0) > GetTime() then
-		SetStatus("Deal détecté : scan en pause 5 s pour achat prioritaire.")
+		SetStatus("Deal détecté : scan en pause 10 s • action disponible après 0,5 s.")
 	else
 		SetStatus("Analyse en pause : tu peux acheter une opportunité déjà analysée.")
 	end
@@ -2657,6 +2900,7 @@ function Reset:TogglePause()
 	end
 	CancelTimer("opportunityPause")
 	scan.opportunityPauseUntil = nil
+	scan.opportunityPauseExpired = false
 	if scan.paused and scan.phase ~= "deep" then
 		self:ResumeSuspendedScan()
 		self:RefreshRows()
@@ -2825,8 +3069,11 @@ function Reset:ProcessDeep()
 		end)
 		return
 	end
+	scan.operationGeneration = scan.operationGeneration + 1
 	scan.active = {
 		kind = "deep",
+		generation = scan.generation,
+		operationGeneration = scan.operationGeneration,
 		candidate = candidate,
 		pages = 1,
 		tiers = {},
@@ -2834,9 +3081,6 @@ function Reset:ProcessDeep()
 		tierByPrice = {},
 		resultCount = 0,
 	}
-	Schedule("timeout", CONSTANTS.QUERY_TIMEOUT, function()
-		FinishDeepCandidate(false)
-	end)
 	if type(YayaReagentSniperTrace) == "function" then
 		YayaReagentSniperTrace("RESET_AH_QUERY", "kind=deep item=%s", tostring(candidate.itemID))
 	end
@@ -2844,10 +3088,17 @@ function Reset:ProcessDeep()
 	local ok = pcall(C_AuctionHouse.SendSearchQuery, itemKey, SORTS, false)
 	if not ok then
 		FinishDeepCandidate(false)
+	elseif scan.active and scan.active.kind == "deep" and scan.active.generation == scan.generation then
+		local active = scan.active
+		Schedule("timeout", CONSTANTS.QUERY_TIMEOUT, function()
+			if scan.active == active and active.generation == scan.generation then
+				FinishDeepCandidate(false)
+			end
+		end)
 	end
 end
 
-local function HandleCommodityResults(itemID)
+HandleCommodityResults = function(itemID)
 	local active = scan.active
 	if not active or active.kind ~= "deep" or itemID ~= active.candidate.itemID then
 		return
@@ -2869,8 +3120,10 @@ local function HandleCommodityResults(itemID)
 end
 
 function Reset:StopScan(message)
-	if scan.purchase then
+	if scan.purchase and scan.purchase.mode ~= "quarantine" and scan.purchase.mode ~= "quote-quarantine" then
 		CancelResetPurchase(message or "Achat Reset annulé.", true)
+		message = nil
+	elseif scan.purchase then
 		message = nil
 	end
 	CancelTimer("continuous")
@@ -2878,6 +3131,7 @@ function Reset:StopScan(message)
 	scan.resumeContinuousAfterAction = false
 	scan.resumeAfterPurchase = false
 	scan.actionCooldownUntil = 0
+	scan.throttleWaitSince = nil
 	scan.abandonedQuery = nil
 	local interrupted = scan.active or scan.pausedActive
 	if interrupted and interrupted.kind == "deep" then
@@ -2888,6 +3142,7 @@ function Reset:StopScan(message)
 	scan.paused = false
 	scan.pauseRequested = false
 	scan.opportunityPauseUntil = nil
+	scan.opportunityPauseExpired = false
 	scan.pausedActive = nil
 	if not scan.running and not scan.active then
 		CancelScanTimers()
@@ -2912,13 +3167,20 @@ function Reset:StopScan(message)
 		scan.frame.scanButton:SetEnabled(true)
 	end
 	self:RefreshRows()
+	if interrupted then
+		self:ArmActionCooldown(CONSTANTS.QUOTE_QUARANTINE_SECONDS)
+	end
 	if message then
 		SetStatus(message)
 	end
 end
 
-function Reset:StartScan()
+function Reset:StartScan(ignoreActionCooldown)
 	if EnforceGoldThreshold() then
+		return
+	end
+	if not ignoreActionCooldown and GetTime() < (scan.actionCooldownUntil or 0) then
+		SetStatus("Hôtel des ventes en récupération : attends la fin du verrou.", true)
 		return
 	end
 	if scan.startPending then
@@ -2968,7 +3230,9 @@ function Reset:StartScan()
 	end
 	scan.generation = scan.generation + 1
 	CancelScanTimers()
-	scan.actionCooldownUntil = 0
+	if not ignoreActionCooldown then
+		scan.actionCooldownUntil = 0
+	end
 	scan.abandonedQuery = nil
 	scan.resumeContinuousAfterAction = false
 	wipe(scan.depthCache)
@@ -2983,6 +3247,7 @@ function Reset:StartScan()
 	scan.paused = false
 	scan.pauseRequested = false
 	scan.opportunityPauseUntil = nil
+	scan.opportunityPauseExpired = false
 	scan.pausedActive = nil
 	scan.resumeAfterPurchase = false
 	scan.completedAt = nil
@@ -3049,6 +3314,9 @@ function Reset:ReleaseAbandonedQuery(event, value)
 	if not abandoned then
 		return false
 	end
+	if abandoned.operationGeneration ~= scan.operationGeneration then
+		return false
+	end
 	local matches = abandoned.kind == "browse" and (
 		event == "AUCTION_HOUSE_BROWSE_RESULTS_UPDATED"
 		or event == "AUCTION_HOUSE_BROWSE_FAILURE"
@@ -3070,6 +3338,9 @@ function Reset:ReleaseAbandonedQuery(event, value)
 end
 
 function Reset:OnEvent(event, ...)
+	if not scan.frame or (not scan.frame:IsShown() and not scan.purchase and not scan.abandonedQuery) then
+		return
+	end
 	if event == "AUCTION_HOUSE_CLOSED" then
 		if scan.purchase then
 			CancelResetPurchase(nil, true, "stale")
@@ -3090,7 +3361,9 @@ function Reset:OnEvent(event, ...)
 	if HandleResetPurchaseEvent(event, ...) then
 		return
 	end
-	self:ReleaseAbandonedQuery(event, ...)
+	if self:ReleaseAbandonedQuery(event, ...) then
+		return
+	end
 	if event == "AUCTION_CANCELED" then
 		local auctionID = tonumber(...)
 		local check = scan.ownCancelCheck
@@ -3145,17 +3418,26 @@ function Reset:OnEvent(event, ...)
 		if type(YayaReagentSniperTrace) == "function" then
 			YayaReagentSniperTrace("RESET_AH_THROTTLE", "message dropped count=%d", scan.throttleDrops)
 		end
+		if scan.abandonedQuery then
+			self:HandleDrainTimeout()
+		elseif scan.purchase and (scan.purchase.confirmed or scan.purchase.mode == "quarantine") then
+			CancelResetPurchase("Confirmation incertaine après abandon du message AH.", true, "uncertain")
+		elseif scan.purchase and scan.purchase.started then
+			CancelResetPurchase("Message d’achat abandonné : résultat à rescanner.", true, "stale")
+		elseif scan.active and scan.active.kind == "browse" then
+			FinishBrowseBatch(true)
+		elseif scan.active and scan.active.kind == "deep" then
+			FinishDeepCandidate(false)
+		end
 		return
 	elseif event == "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" then
+		if scan.abandonedQuery then
+			return
+		end
+		scan.throttleWaitSince = nil
 		local resume = scan.throttleResume
 		scan.throttleResume = nil
-		CancelTimer("actionDrainTimeout")
-		scan.abandonedQuery = nil
-		if scan.purchase and not scan.purchase.started then
-			Schedule("purchaseWake", 0, function()
-				Reset:StartPendingPurchase()
-			end)
-		elseif resume and resume.callback then
+		if resume and resume.callback then
 			Schedule(resume.timerName or "next", 0, resume.callback)
 		elseif scan.running and not scan.active and not scan.paused then
 			Schedule("next", 0, function()
@@ -3168,6 +3450,26 @@ function Reset:OnEvent(event, ...)
 				end
 			end)
 		end
+		self:RefreshRows()
+		if scan.controller and scan.controller.updateSniperView then
+			scan.controller.updateSniperView()
+		end
+		return
+	end
+	local isAuctionError = event == "AUCTION_HOUSE_SHOW_ERROR"
+		or (event == "UI_ERROR_MESSAGE" and IsKnownAuctionError(...))
+	if isAuctionError
+		and (scan.purchase or scan.active)
+	then
+		if scan.purchase and (scan.purchase.confirmed or scan.purchase.mode == "quarantine") then
+			CancelResetPurchase("Erreur AH après confirmation : issue incertaine.", true, "uncertain")
+		elseif scan.purchase and scan.purchase.started then
+			CancelResetPurchase("Erreur AH avant cotation : réponse tardive mise en quarantaine.", true, "quote-uncertain")
+		elseif scan.active and scan.active.kind == "browse" then
+			FinishBrowseBatch(true)
+		elseif scan.active and scan.active.kind == "deep" then
+			FinishDeepCandidate(false)
+		end
 		return
 	end
 	if not scan.running then
@@ -3175,16 +3477,23 @@ function Reset:OnEvent(event, ...)
 	end
 	if event == "AUCTION_HOUSE_BROWSE_RESULTS_UPDATED" or event == "AUCTION_HOUSE_BROWSE_RESULTS_ADDED" then
 		if scan.active and scan.active.kind == "browse" then
-			local addedResults = ...
-			if event == "AUCTION_HOUSE_BROWSE_RESULTS_ADDED" and type(addedResults) == "table" then
+			if event == "AUCTION_HOUSE_BROWSE_RESULTS_ADDED" then
 				scan.active.addedResults = scan.active.addedResults or {}
-				for _, info in ipairs(addedResults) do
-					scan.active.addedResults[#scan.active.addedResults + 1] = info
+				local browseResults = C_AuctionHouse.GetBrowseResults and C_AuctionHouse.GetBrowseResults() or {}
+				for _, info in pairs(browseResults) do
+					local itemKey = info and info.itemKey
+					if itemKey and scan.active.byID[itemKey.itemID] then
+						scan.active.addedResults[itemKey.itemID] = info
+					end
 				end
+			else
+				local active = scan.active
+				Schedule("settle", 0.10, function()
+					if scan.active == active and active.generation == scan.generation then
+						FinishBrowseBatch(false)
+					end
+				end)
 			end
-			Schedule("settle", 0.10, function()
-				FinishBrowseBatch(false)
-			end)
 		end
 	elseif event == "AUCTION_HOUSE_BROWSE_FAILURE" then
 		if scan.active and scan.active.kind == "browse" then
@@ -3417,7 +3726,7 @@ local function CreateUI(parent)
 	frame.prepareButton:SetSize(178, 25)
 	frame.prepareButton:SetPoint("TOPRIGHT", frame.detail, "TOPRIGHT", -10, -9)
 	frame.prepareButton:SetText("Acheter le reset")
-	frame.prepareButton:RegisterForClicks("LeftButtonDown")
+	frame.prepareButton:RegisterForClicks("LeftButtonUp")
 	frame.prepareButton:SetScript("OnClick", function()
 		Reset:PreparePurchase()
 	end)
@@ -3432,8 +3741,8 @@ local function CreateUI(parent)
 			GameTooltip:AddLine(canceling and "Annulation des auctions" or "Vérification de l’annulation", 1, 0.82, 0.25)
 			GameTooltip:AddLine(canceling and "Attends la fin de l’annulation." or "Attends la fin de la vérification.", 0.85, 0.85, 0.85, true)
 		elseif prepareState == "refresh" then
-			GameTooltip:AddLine("Actualiser + acheter", 1, 0.82, 0.25)
-			GameTooltip:AddLine("Un clic interrompt le scan. L’achat continue automatiquement uniquement si quantité, coût et cible restent identiques.", 0.85, 0.85, 0.85, true)
+			GameTooltip:AddLine("Actualiser", 1, 0.82, 0.25)
+			GameTooltip:AddLine("Ce clic actualise uniquement les paliers. Après 0,5 seconde, un nouveau clic pourra lancer l’achat.", 0.85, 0.85, 0.85, true)
 		elseif scan.selected and scan.selected.ownAuctionQuantity and scan.selected.ownAuctionQuantity > 0 then
 			GameTooltip:AddLine("Annule mes auctions", 1, 0.82, 0.25)
 			GameTooltip:AddLine("Un clic manuel annule toutes tes auctions actives pour cet item, puis vérifie leur disparition avant l’achat.", 0.85, 0.85, 0.85, true)
@@ -3670,14 +3979,18 @@ local function CreateUI(parent)
 	frame.settingsPanel:Hide()
 	scan.frame = frame
 	frame:SetScript("OnHide", function()
-		if type(YayaReagentSniperTrace) == "function" then
-			YayaReagentSniperTrace("UI", "reset tab hidden; entering strict dormant mode")
-		end
+		scan.generation = scan.generation + 1
 		if scan.running or scan.active or scan.startPending or scan.purchase or scan.continuousPending then
 			Reset:StopScan("Scan Reset arrêté : onglet quitté.")
 		end
+		if scan.controller and scan.controller.updateEventSubscription then
+			scan.controller.updateEventSubscription()
+		end
 	end)
 	frame:SetScript("OnShow", function()
+		if scan.controller and scan.controller.updateEventSubscription then
+			scan.controller.updateEventSubscription()
+		end
 		if type(YayaReagentSniperTrace) == "function" then
 			YayaReagentSniperTrace("UI", "reset tab shown; refreshing cached opportunities")
 		end
@@ -3738,6 +4051,22 @@ function Reset:EnsureUI(parent, controller)
 	scan.db = scan.db or GetDB()
 	CreateUI(parent)
 	CreateTab(parent)
+end
+
+function Reset:IsVisible()
+	return scan.frame and scan.frame:IsShown() == true
+end
+
+function Reset:IsPurchaseBusy()
+	return scan.purchase ~= nil
+end
+
+function Reset:IsTransportBusy()
+	return scan.purchase ~= nil
+		or scan.active ~= nil
+		or scan.abandonedQuery ~= nil
+		or (scan.db ~= nil and IsPurchaseOutcomeUncertain())
+		or GetTime() < (scan.actionCooldownUntil or 0)
 end
 
 function Reset:Hide()

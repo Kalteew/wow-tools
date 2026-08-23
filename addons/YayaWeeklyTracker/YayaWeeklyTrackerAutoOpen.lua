@@ -1,6 +1,9 @@
 local addonName = ...
 
 local OPTION_KEY = "autoOpenContainers"
+local FAILED_CONTAINERS_KEY = "autoOpenFailed"
+local LEGACY_REFUSED_CONTAINERS_KEY = "autoOpenRefusedContainers"
+local SUCCESSFUL_CONTAINERS_KEY = "autoOpenSuccessfulContainers"
 local DEFAULT_OPEN_DELAY_SECONDS = 0.05
 local SCAN_DELAY_SECONDS = 0.05
 local INITIAL_SCAN_DELAY_SECONDS = 0.30
@@ -10,6 +13,7 @@ local PENDING_CHECK_DELAY_SECONDS = 0.03
 local PENDING_TIMEOUT_SECONDS = 1.20
 local LOOT_SETTLE_SECONDS = 0.45
 local CONTAINER_VALUES_MAX_WAIT_SECONDS = 1.35
+local KNOWN_SUCCESS_RETRY_SECONDS = 90.00
 local MAX_FAILURES = 3
 local BLOCKED_RETRY_SECONDS = 0.10
 local MAX_BLOCKED_RETRY_SECONDS = 2.00
@@ -19,8 +23,9 @@ local state = {
     queue = {},
     queueKeys = {},
     pending = nil,
-    failureCount = 0,
+    failureCounts = {},
     halted = false,
+    manualFallback = nil,
     wasEnabled = false,
     lastEnabled = nil,
     itemIDs = {},
@@ -47,6 +52,26 @@ local function EnsureOptions()
     if YayaWeeklyTrackerAccountDB[OPTION_KEY] == nil then
         YayaWeeklyTrackerAccountDB[OPTION_KEY] = false
     end
+    if type(YayaWeeklyTrackerAccountDB[FAILED_CONTAINERS_KEY]) ~= "table" then
+        YayaWeeklyTrackerAccountDB[FAILED_CONTAINERS_KEY] = {}
+    end
+    if type(YayaWeeklyTrackerAccountDB[SUCCESSFUL_CONTAINERS_KEY]) ~= "table" then
+        YayaWeeklyTrackerAccountDB[SUCCESSFUL_CONTAINERS_KEY] = {}
+    end
+
+    local legacyRefusals = YayaWeeklyTrackerAccountDB[LEGACY_REFUSED_CONTAINERS_KEY]
+    if type(legacyRefusals) == "table" then
+        for itemID, entry in pairs(legacyRefusals) do
+            if YayaWeeklyTrackerAccountDB[FAILED_CONTAINERS_KEY][itemID] == nil then
+                YayaWeeklyTrackerAccountDB[FAILED_CONTAINERS_KEY][itemID] = entry
+            end
+        end
+        YayaWeeklyTrackerAccountDB[LEGACY_REFUSED_CONTAINERS_KEY] = nil
+    end
+
+    for itemID in pairs(YayaWeeklyTrackerAccountDB[SUCCESSFUL_CONTAINERS_KEY]) do
+        YayaWeeklyTrackerAccountDB[FAILED_CONTAINERS_KEY][itemID] = nil
+    end
     return YayaWeeklyTrackerAccountDB
 end
 
@@ -56,6 +81,66 @@ end
 
 local function Now()
     return GetTime and GetTime() or 0
+end
+
+local function RecordContainerRefusal(itemID, refusalKind, detail)
+    if not itemID then
+        return
+    end
+
+    local accountDB = EnsureOptions()
+    local failures = accountDB[FAILED_CONTAINERS_KEY]
+    if type(accountDB[SUCCESSFUL_CONTAINERS_KEY][itemID]) == "table" then
+        failures[itemID] = nil
+        return false
+    end
+    accountDB[SUCCESSFUL_CONTAINERS_KEY][itemID] = nil
+    local entry = failures[itemID]
+    if type(entry) ~= "table" then
+        entry = {
+            itemID = itemID,
+            refusalCount = 0,
+            byKind = {},
+        }
+        failures[itemID] = entry
+    end
+
+    local kind = tostring(refusalKind or "unknown")
+    local timestamp = date and date("%Y-%m-%d %H:%M:%S") or tostring(math.floor(Now()))
+    entry.itemID = itemID
+    entry.refusalCount = (tonumber(entry.refusalCount) or 0) + 1
+    entry.byKind = type(entry.byKind) == "table" and entry.byKind or {}
+    entry.byKind[kind] = (tonumber(entry.byKind[kind]) or 0) + 1
+    entry.firstSeen = entry.firstSeen or timestamp
+    entry.lastSeen = timestamp
+    entry.lastKind = kind
+    entry.lastDetail = detail and tostring(detail) or nil
+    return true
+end
+
+local function RecordContainerSuccess(itemID, successMode)
+    if not itemID then
+        return
+    end
+
+    local accountDB = EnsureOptions()
+    local successes = accountDB[SUCCESSFUL_CONTAINERS_KEY]
+    accountDB[FAILED_CONTAINERS_KEY][itemID] = nil
+    local entry = successes[itemID]
+    if type(entry) ~= "table" then
+        entry = {
+            itemID = itemID,
+            successCount = 0,
+        }
+        successes[itemID] = entry
+    end
+
+    local timestamp = date and date("%Y-%m-%d %H:%M:%S") or tostring(math.floor(Now()))
+    entry.itemID = itemID
+    entry.successCount = (tonumber(entry.successCount) or 0) + 1
+    entry.firstSeen = entry.firstSeen or timestamp
+    entry.lastSeen = timestamp
+    entry.lastMode = tostring(successMode or "unknown")
 end
 
 local function StopTimer(field)
@@ -309,6 +394,10 @@ local function UpdateActionButton(candidate)
 
             local currentItemID, currentSlotCount = ReadSlot(queued.bagID, queued.slotID)
             if currentItemID ~= queued.itemID or currentSlotCount <= 0 then
+                if queued.manualFallback then
+                    state.manualFallback = nil
+                    state.halted = false
+                end
                 state.armedCandidate = nil
                 UpdateActionButton(nil)
                 ScheduleScan(0)
@@ -323,6 +412,8 @@ local function UpdateActionButton(candidate)
                 beforeTotalCount = CountItem(queued.itemID),
                 startedAt = Now(),
                 pausedSeconds = 0,
+                candidate = queued,
+                manualFallback = queued.manualFallback == true,
             }
             state.armedCandidate = nil
             state.phase = "opening"
@@ -369,6 +460,77 @@ local function UpdateActionButton(candidate)
     return true
 end
 
+local function ShowManualFallback(candidate, reason, keepRetrying)
+    if not candidate then
+        return
+    end
+
+    candidate.manualFallback = true
+    state.manualFallback = candidate
+    state.halted = keepRetrying ~= true
+    StopTimers()
+    ClearQueue()
+    state.pending = nil
+    state.phase = keepRetrying and "manual fallback retrying" or "manual fallback"
+    UpdateActionButton(candidate)
+    if reason then
+        Log(reason)
+    end
+    if keepRetrying then
+        ScheduleScan(KNOWN_SUCCESS_RETRY_SECONDS)
+    end
+end
+
+local function HandleAutomaticFailure(candidate, refusalKind, reason, detail)
+    local itemID = candidate.itemID
+    local accountDB = EnsureOptions()
+    local knownSuccessful = type(accountDB[SUCCESSFUL_CONTAINERS_KEY][itemID]) == "table"
+    if knownSuccessful then
+        local failures = (state.failureCounts[itemID] or 0) + 1
+        state.failureCounts[itemID] = failures
+        candidate.knownSuccessful = true
+        if failures >= MAX_FAILURES then
+            ShowManualFallback(candidate, ("%s itemID=%d (%d erreurs, bouton manuel affiche, retry dans %ds)"):format(
+                reason,
+                itemID,
+                failures,
+                KNOWN_SUCCESS_RETRY_SECONDS
+            ), true)
+        else
+            state.phase = "retry known successful"
+            ScheduleScan(KNOWN_SUCCESS_RETRY_SECONDS)
+        end
+        return
+    end
+
+    if not RecordContainerRefusal(itemID, refusalKind, detail) then
+        state.failureCounts[itemID] = nil
+        state.phase = "retry known successful"
+        ScheduleScan(KNOWN_SUCCESS_RETRY_SECONDS)
+        return
+    end
+    local failures = (state.failureCounts[itemID] or 0) + 1
+    state.failureCounts[itemID] = failures
+    if failures >= MAX_FAILURES then
+        ShowManualFallback(candidate, ("%s itemID=%d (%d/%d), bouton manuel affiche"):format(
+            reason,
+            itemID,
+            failures,
+            MAX_FAILURES
+        ))
+        return
+    end
+
+    state.phase = "retry"
+    Log(("%s itemID=%d (%d/%d), nouvelle tentative"):format(
+        reason,
+        itemID,
+        failures,
+        MAX_FAILURES
+    ))
+    ScheduleScan(SCAN_DELAY_SECONDS)
+end
+
 local function ScanBags()
     state.scanTimer = nil
     if not IsEnabled() then
@@ -382,7 +544,10 @@ local function ScanBags()
         return
     end
     if state.halted then
-        state.phase = "halted"
+        state.phase = state.manualFallback and "manual fallback" or "halted"
+        if state.manualFallback then
+            UpdateActionButton(state.manualFallback)
+        end
         return
     end
     if IsBlocked() then
@@ -457,9 +622,11 @@ local function StopAutoOpen(reason, halt)
     ClearQueue()
     state.pending = nil
     state.phase = "idle"
-    state.failureCount = 0
+    state.failureCounts = {}
+    state.manualFallback = nil
     state.halted = halt == true
     state.mailSettleUntil = 0
+    UpdateActionButton(nil)
     if reason then
         Log(reason)
     end
@@ -514,7 +681,14 @@ CheckPendingContainer = function()
 
         state.pending = nil
         state.phase = "settled"
-        state.failureCount = 0
+        RecordContainerSuccess(pending.itemID, pending.manualFallback and "secure_button" or "automatic")
+        state.failureCounts[pending.itemID] = nil
+        if state.manualFallback and state.manualFallback.itemID == pending.itemID then
+            state.manualFallback = nil
+        end
+        if pending.manualFallback then
+            state.halted = false
+        end
         ScheduleScan(DEFAULT_OPEN_DELAY_SECONDS)
         return
     end
@@ -525,12 +699,18 @@ CheckPendingContainer = function()
     end
 
     state.pending = nil
-    state.failureCount = state.failureCount + 1
-    if state.failureCount >= MAX_FAILURES then
-        StopAutoOpen("arrêt après 3 ouvertures sans consommation confirmée", true)
+    if pending.manualFallback then
+        ShowManualFallback(
+            pending.candidate,
+            ("ouverture manuelle non confirmee itemID=%d, bouton conserve"):format(pending.itemID),
+            pending.candidate and pending.candidate.knownSuccessful == true
+        )
     else
-        state.phase = "candidate"
-        ScheduleScan(SCAN_DELAY_SECONDS)
+        HandleAutomaticFailure(pending.candidate or {
+            bagID = pending.bagID,
+            slotID = pending.slotID,
+            itemID = pending.itemID,
+        }, "not_consumed", "echec ouverture automatique")
     end
 end
 
@@ -541,7 +721,10 @@ OpenNextContainer = function()
         return
     end
     if state.halted then
-        state.phase = "halted"
+        state.phase = state.manualFallback and "manual fallback" or "halted"
+        if state.manualFallback then
+            UpdateActionButton(state.manualFallback)
+        end
         return
     end
     if IsBlocked() or state.pending then
@@ -564,8 +747,48 @@ OpenNextContainer = function()
     end
 
     candidate.totalCount = CountItem(candidate.itemID)
-    state.phase = "ready"
-    UpdateActionButton(candidate)
+    table.remove(state.queue, 1)
+    state.queueKeys[("%d:%d:%d"):format(candidate.bagID, candidate.slotID, candidate.itemID)] = nil
+    if state.manualFallback then
+        UpdateActionButton(nil)
+    end
+    state.pending = {
+        bagID = candidate.bagID,
+        slotID = candidate.slotID,
+        itemID = candidate.itemID,
+        beforeSlotCount = currentSlotCount,
+        beforeTotalCount = candidate.totalCount,
+        startedAt = Now(),
+        pausedSeconds = 0,
+        candidate = candidate,
+    }
+    state.phase = "opening"
+    Log(("tentative ouverture automatique itemID=%d bag=%d slot=%d"):format(
+        candidate.itemID,
+        candidate.bagID,
+        candidate.slotID
+    ))
+
+    if not (C_Container and type(C_Container.UseContainerItem) == "function") then
+        state.pending = nil
+        HandleAutomaticFailure(candidate, "api_unavailable", "C_Container.UseContainerItem indisponible")
+        return
+    end
+
+    local ok, result = pcall(C_Container.UseContainerItem, candidate.bagID, candidate.slotID)
+    if not ok then
+        state.pending = nil
+        HandleAutomaticFailure(candidate, "api_error", "echec de C_Container.UseContainerItem", result)
+        return
+    end
+    if result == false then
+        state.pending = nil
+        HandleAutomaticFailure(candidate, "api_returned_false", "C_Container.UseContainerItem a refuse l'item")
+        return
+    end
+
+    state.phase = "loot pending"
+    Schedule("pendingTimer", PENDING_CHECK_DELAY_SECONDS, CheckPendingContainer)
 end
 
 local function PauseForBlockedUI()
@@ -581,7 +804,7 @@ local function PauseForBlockedUI()
 end
 
 local function ResumeAfterBlockedUI(startedAt)
-    if not IsEnabled() or state.halted then
+    if not IsEnabled() then
         return
     end
 
@@ -610,6 +833,10 @@ local function ResumeAfterBlockedUI(startedAt)
             state.pending.pausedAt = nil
         end
         Schedule("pendingTimer", PENDING_CHECK_DELAY_SECONDS, CheckPendingContainer)
+    elseif state.halted then
+        if state.manualFallback then
+            UpdateActionButton(state.manualFallback)
+        end
     else
         ScheduleScan(SCAN_DELAY_SECONDS)
     end
@@ -622,7 +849,8 @@ local function Refresh()
     state.lastEnabled = enabled
 
     if optionsChanged then
-        state.failureCount = 0
+        state.failureCounts = {}
+        state.manualFallback = nil
         state.halted = false
     end
 
@@ -637,7 +865,8 @@ local function Refresh()
         return
     end
     if not state.wasEnabled then
-        state.failureCount = 0
+        state.failureCounts = {}
+        state.manualFallback = nil
         state.halted = false
     end
     state.wasEnabled = true
@@ -651,6 +880,13 @@ end
 
 _G.YayaWeeklyTrackerAutoOpen = _G.YayaWeeklyTrackerAutoOpen or {}
 _G.YayaWeeklyTrackerAutoOpen.Refresh = Refresh
+_G.YayaWeeklyTrackerAutoOpen.GetRefusedContainers = function()
+    return EnsureOptions()[FAILED_CONTAINERS_KEY]
+end
+_G.YayaWeeklyTrackerAutoOpen.GetFailedContainers = _G.YayaWeeklyTrackerAutoOpen.GetRefusedContainers
+_G.YayaWeeklyTrackerAutoOpen.GetSuccessfulContainers = function()
+    return EnsureOptions()[SUCCESSFUL_CONTAINERS_KEY]
+end
 
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")

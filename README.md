@@ -98,6 +98,7 @@ Bundled addons:
 - [addons/YayaAddonProfiles](addons/YayaAddonProfiles)
 - [addons/YayaProfessionSpecializations](addons/YayaProfessionSpecializations)
 - [addons/YayaPremadeAssistant](addons/YayaPremadeAssistant)
+- [addons/YayaQueue](addons/YayaQueue)
 - [addons/YayaReagentSniper](addons/YayaReagentSniper)
 
 Notes:
@@ -141,6 +142,7 @@ Notes:
 - `scripts/flipping/apply-auctionator-sniping-lists.py` builds matching Auctionator/PBS sniping files, always writes complete TSM import files, installs only fully named Auctionator lists, and backs up Auctionator/PBS SavedVariables.
 - `YayaTSMLiveMinBuyout` overlays TSM `DBMinBuyout` with live AH search prices for the current session.
 - `YayaTSMMailingFix` refreshes TSM bag tracking before group mailing and uses the live bag-slot lock state so items are not silently skipped.
+- Le relais d'achat `YQTSMBuy` dirige `TSMMacro` vers l'onglet HDV visible de `YayaReagentSniper`, puis vers celui de `YayaQueue`, et conserve TSM comme fallback.
 - `YayaCompanionTargeter` auto-targets known Shadowlands companion XP items to the lowest-level eligible companion, with an optional tracked-only shortlist mode.
 - `YayaCovenantWormhole` auto-selects the Shadowlands wormhole destination that matches the active covenant, unless `Shift` is held.
 - `YayaAddonProfiles` attribue les profils et heritages de Simple Addon Manager aux personnages, puis les reapplique automatiquement a leur connexion.

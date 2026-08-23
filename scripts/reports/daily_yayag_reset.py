@@ -92,6 +92,10 @@ def fmt_pct(value: float | None) -> str:
     return "n/d" if value is None else f"{value * 100:.2f}%"
 
 
+def fmt_ratio(value: float | None) -> str:
+    return "n/d" if value is None else f"{value:.2f}"
+
+
 def item_id_from_string(item_string: str) -> int | None:
     head = item_string.removeprefix("i:").split(":", 1)[0]
     return int(head) if head.isdigit() else None
@@ -729,7 +733,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            f"## 3. Rotation : {fmt_qty(sales['quantity'])} vendus ; ratio achats/ventes nettes {reinvestment['purchase_to_net_sales_ratio']:.2f} si calculable ; {fmt_qty(rotation['cancelled_quantity'])} annulés, {fmt_qty(rotation['expired_quantity'])} expirés.",
+            f"## 3. Rotation : {fmt_qty(sales['quantity'])} vendus ; ratio achats/ventes nettes {fmt_ratio(reinvestment['purchase_to_net_sales_ratio'])} si calculable ; {fmt_qty(rotation['cancelled_quantity'])} annulés, {fmt_qty(rotation['expired_quantity'])} expirés.",
             "",
             "## 4. Stock / enchères : top immobilisations",
         ]

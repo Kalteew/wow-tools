@@ -285,6 +285,16 @@ local MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID = {
             x = 34.04,
             y = 81.20,
         },
+        {
+            label = "Concentrated Silvermoon Health Potion",
+            optionKey = "trackRecipeConcentratedSilvermoonHealthPotion",
+            spellID = 1289744,
+            itemID = 271885,
+            moxieCost = 150,
+            mapID = 2512,
+            x = 58.8,
+            y = 46.0,
+        },
     },
     [2909] = {
         {
@@ -378,6 +388,14 @@ runtimeState.mergeableFinishingReagents = {
     [260630] = { outputItemID = 247788, order = 3, label = "Ingenuity" }, -- Ingenious Identifier -> Ingenious Identity
 }
 runtimeState.containerWhitelist = {
+    [241131] = true, -- Amani Lapis Prism
+    [241132] = true, -- Amani Lapis Prism
+    [241133] = true, -- Tenebrous Amethyst Prism
+    [241134] = true, -- Tenebrous Amethyst Prism
+    [241135] = true, -- Sanguine Garnet Prism
+    [241136] = true, -- Sanguine Garnet Prism
+    [241137] = true, -- Harandar Peridot Prism
+    [241138] = true, -- Harandar Peridot Prism
     [263934] = true, -- Chest of Gold
     [263466] = true, -- Overflowing Abundant Satchel
     [263467] = true, -- Avid Learner's Supply Pack, Season 1
@@ -1114,6 +1132,7 @@ local TRACKER_DEFAULTS = {
     autoOpenContainers = false,
     trackRecipePotionRecklessness = true,
     trackRecipeViciousThalassianFlaskHonor = true,
+    trackRecipeConcentratedSilvermoonHealthPotion = true,
     trackRecipeHaranirMulticrafting = true,
     trackRecipeHaranirGlamour = true,
     trackHaranirLegends = true,
@@ -1142,9 +1161,10 @@ runtimeState.trackingOptions = {
     { category = "Metiers Midnight", key = "trackProfessionToolEnchants", label = "Enchantements des outils" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceEnchantingBags", label = "Acheter automatiquement les sacs de matériaux d'enchantement" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceFusedVitality", label = "Acheter automatiquement les Fused Vitality" },
-    { category = "Conteneurs", key = "autoOpenContainers", label = "Proposer l'ouverture sécurisée des conteneurs YWT" },
+    { category = "Conteneurs", key = "autoOpenContainers", label = "Ouvrir automatiquement les conteneurs YWT" },
     { category = "Recettes Midnight", key = "trackRecipePotionRecklessness", label = "Potion of Recklessness" },
     { category = "Recettes Midnight", key = "trackRecipeViciousThalassianFlaskHonor", label = "Vicious Thalassian Flask of Honor" },
+    { category = "Recettes Midnight", key = "trackRecipeConcentratedSilvermoonHealthPotion", label = "Concentrated Silvermoon Health Potion" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirMulticrafting", label = "Enchant Tool - Haranir Multicrafting" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirGlamour", label = "Gleeful Glamour - Haranir" },
     { category = "Quetes Midnight", key = "trackHaranirLegends", label = "Lost Legends" },
@@ -1412,6 +1432,7 @@ local function GetAccountDB()
         for _, key in ipairs({
             "trackRecipePotionRecklessness",
             "trackRecipeViciousThalassianFlaskHonor",
+            "trackRecipeConcentratedSilvermoonHealthPotion",
             "trackRecipeHaranirMulticrafting",
             "trackRecipeHaranirGlamour",
         }) do
@@ -2757,6 +2778,56 @@ end
 
 trackerUI.InvalidateWarbankTreatiseCache = function()
     midnightCaches.warbankTreatisesDirty = true
+end
+
+trackerUI.InstallWarbankRefreshHooks = function()
+    if type(hooksecurefunc) ~= "function" then
+        return
+    end
+
+    runtimeState.warbankRefreshHooks = runtimeState.warbankRefreshHooks or {}
+    local hooks = runtimeState.warbankRefreshHooks
+    local function RefreshWarbankButtons(source)
+        DebugLog("Warbank selection changed via %s", tostring(source))
+        trackerUI.InvalidateWarbankTreatiseCache()
+        trackerUI.InvalidateToolEnchantCache()
+        ScheduleTrackerRefresh(0.05, false)
+    end
+
+    if not hooks.bankType then
+        if type(Addon_SetBankType) == "function" then
+            hooksecurefunc("Addon_SetBankType", function()
+                RefreshWarbankButtons("Addon_SetBankType")
+            end)
+            hooks.bankType = true
+        else
+            local bankPanel = (_G.BankFrame and _G.BankFrame.BankPanel) or _G.BankPanel
+            if bankPanel and type(bankPanel.SetBankType) == "function" then
+                hooksecurefunc(bankPanel, "SetBankType", function()
+                    RefreshWarbankButtons("BankPanel.SetBankType")
+                end)
+                hooks.bankType = true
+            end
+        end
+    end
+
+    if not hooks.elvUI then
+        local elvUI = _G.ElvUI
+        local engine = type(elvUI) == "table" and elvUI[1] or nil
+        local bags = engine and type(engine.GetModule) == "function"
+            and SafeCall(engine.GetModule, engine, "Bags") or nil
+        if bags and type(bags.SelectBankTab) == "function" then
+            hooksecurefunc(bags, "SelectBankTab", function()
+                RefreshWarbankButtons("ElvUI.SelectBankTab")
+            end)
+            hooks.elvUI = true
+        elseif bags and type(bags.ShowBankTab) == "function" then
+            hooksecurefunc(bags, "ShowBankTab", function()
+                RefreshWarbankButtons("ElvUI.ShowBankTab")
+            end)
+            hooks.elvUI = true
+        end
+    end
 end
 
 trackerUI.IsAccountBankOpen = function()
@@ -7707,7 +7778,7 @@ trackerUI.CreateTrackerFrame = function()
         if self.itemLink then
             GameTooltip:AddLine(self.itemLink, 0.5, 0.8, 1, true)
         end
-        GameTooltip:AddLine("Un clic est requis par les protections Blizzard.", 1, 0.8, 0.2, true)
+        GameTooltip:AddLine("Apparait apres plusieurs echecs automatiques.", 1, 0.8, 0.2, true)
         GameTooltip:Show()
     end)
     trackerFrame.autoOpenButton:SetScript("OnLeave", GameTooltip_Hide)
@@ -7917,6 +7988,8 @@ eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
 eventFrame:RegisterEvent("BANKFRAME_OPENED")
 eventFrame:RegisterEvent("BANKFRAME_CLOSED")
+pcall(eventFrame.RegisterEvent, eventFrame, "PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
+pcall(eventFrame.RegisterEvent, eventFrame, "PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
 pcall(eventFrame.RegisterEvent, eventFrame, "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
 eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
 eventFrame:RegisterEvent("QUEST_TURNED_IN")
@@ -7967,6 +8040,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         trackerUI.RegisterOptions()
         HookCacheItemUse()
         trackerUI.ArmTradeSkillBootstrap(eventFrame)
+        trackerUI.InstallWarbankRefreshHooks()
 
         SLASH_YAYAWEEKLYTRACKER1 = "/ywt"
         SlashCmdList.YAYAWEEKLYTRACKER = function(message)
@@ -8076,6 +8150,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             ScheduleFinalizeActiveCacheOpen(0.35)
         end
     elseif event == "BANKFRAME_OPENED" then
+        trackerUI.InstallWarbankRefreshHooks()
         trackerUI.InvalidateWarbankTreatiseCache()
         trackerUI.InvalidateToolEnchantCache()
         ScheduleTrackerRefresh(0.05, false)
@@ -8090,6 +8165,15 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         trackerUI.InvalidateWarbankTreatiseCache()
         trackerUI.InvalidateToolEnchantCache()
         ScheduleTrackerRefresh(0, false)
+    elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW"
+        or event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
+        local interactionType = ...
+        if Enum and Enum.PlayerInteractionType
+            and interactionType == Enum.PlayerInteractionType.AccountBanker then
+            trackerUI.InvalidateWarbankTreatiseCache()
+            trackerUI.InvalidateToolEnchantCache()
+            ScheduleTrackerRefresh(event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" and 0.05 or 0, false)
+        end
     elseif event == "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED" then
         trackerUI.InvalidateWarbankTreatiseCache()
         trackerUI.InvalidateToolEnchantCache()

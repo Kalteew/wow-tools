@@ -28,10 +28,101 @@ local selectedCharacterIds = {}
 local characterIdsByIndex = {}
 local lastSelectedCharacterIndex
 local reloadQueued = false
+local pendingLoginProfile
 local ToggleSelectedCharacter
+local Debug
+local SaveAddonSettings
+local DEBUG_LOG_LIMIT = 80
+local REGION_CODES = {
+	[1] = "US",
+	[2] = "KR",
+	[3] = "EU",
+	[4] = "TW",
+	[5] = "CN",
+}
 
 local function Print(message)
 	DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffYayaAddonProfiles|r: " .. message)
+end
+
+StaticPopupDialogs["YAYA_ADDON_PROFILES_RELOAD"] = {
+	text = "Le profil d'addons a ete applique. Recharger l'interface maintenant ?",
+	button1 = "Recharger",
+	button2 = CANCEL,
+	OnAccept = function()
+		if SaveAddonSettings() then
+			Debug("Configuration d'addons sauvegardee depuis la confirmation.")
+			ReloadUI()
+		else
+			Print("Sauvegarde des addons impossible : reload annule.")
+		end
+	end,
+	timeout = 0,
+	whileDead = 1,
+	hideOnEscape = 1,
+	preferredIndex = 3,
+}
+
+Debug = function(message)
+	if DB and DB.debug then
+		Print("|cffaaaaaaDEBUG|r " .. message)
+	end
+end
+
+local function RecordDebug(event, details)
+	if not DB then
+		return
+	end
+	DB.debugLog = DB.debugLog or {}
+	table.insert(DB.debugLog, {
+		time = time(),
+		event = event,
+		details = details,
+	})
+	while #DB.debugLog > DEBUG_LOG_LIMIT do
+		table.remove(DB.debugLog, 1)
+	end
+end
+
+SaveAddonSettings = function()
+	if not SaveAddOnsCompat then
+		RecordDebug("save-addons-error", { reason = "API indisponible" })
+		Debug("SaveAddOns indisponible.")
+		return false
+	end
+	local ok, result = pcall(SaveAddOnsCompat)
+	RecordDebug("save-addons", {
+		ok = ok,
+		result = result,
+	})
+	if not ok then
+		Debug("SaveAddOns en erreur : " .. tostring(result))
+	end
+	return ok
+end
+
+local function CountAddons(addons)
+	local count = 0
+	for _ in pairs(addons or {}) do
+		count = count + 1
+	end
+	return count
+end
+
+local function PrintAddonList(prefix, addons, useDebug)
+	if #addons == 0 then
+		return
+	end
+	table.sort(addons)
+	for first = 1, #addons, 6 do
+		local last = math.min(first + 5, #addons)
+		local message = prefix .. " : " .. table.concat(addons, ", ", first, last)
+		if useDebug then
+			Debug(message)
+		else
+			Print(message)
+		end
+	end
 end
 
 local function GetSamDb()
@@ -53,6 +144,10 @@ local function EnsureDb()
 	DB.version = 3
 	DB.assignments = DB.assignments or {}
 	DB.characters = DB.characters or {}
+	if DB.debug == nil then
+		DB.debug = true
+	end
+	DB.debugLog = DB.debugLog or {}
 end
 
 local function RememberCharacter(characterId, guid, classFile, color)
@@ -155,16 +250,26 @@ local function BuildDesiredAddons(profileName)
 	-- The manager and this enforcer must survive every profile switch.
 	desired.SimpleAddonManager = true
 	desired[ADDON_NAME] = true
-	for addonName, state in pairs((GetSamDb() or {}).lock and (GetSamDb().lock.addons or {}) or {}) do
-		if state.enabled then
-			desired[addonName] = true
+
+	-- RaiderIO disables databases from foreign regions at startup. Keeping them
+	-- in the comparison would create an enable/reload loop without loading data
+	-- useful to the current client region.
+	local ignoredRegionAddons = {}
+	local regionCode = REGION_CODES[GetCurrentRegion and GetCurrentRegion()]
+	if regionCode then
+		for addonName in pairs(desired) do
+			local databaseRegion = addonName:match("^RaiderIO_DB_([A-Z]+)_[FMR]$")
+			if databaseRegion and databaseRegion ~= regionCode then
+				desired[addonName] = nil
+				table.insert(ignoredRegionAddons, addonName)
+			end
 		end
 	end
-	return desired
+	return desired, nil, ignoredRegionAddons, regionCode
 end
 
 local function IsAddonEnabled(addonIndexOrName, characterGuid)
-	return GetAddOnEnableStateCompat(addonIndexOrName, characterGuid) ~= 0
+    return GetAddOnEnableStateCompat(addonIndexOrName, characterGuid) == 2
 end
 
 local function ProfileMatches(profileName)
@@ -182,22 +287,40 @@ local function ProfileMatches(profileName)
 	return true
 end
 
-local function QueueReload()
+local function PromptReload()
 	if reloadQueued then
+		Debug("Confirmation de reload deja affichee.")
 		return
 	end
 	reloadQueued = true
-	C_Timer.After(0.2, ReloadUI)
+	DB.reloadRequired = {
+		time = time(),
+		character = currentCharacterId,
+		profile = DB.debugLastApply and DB.debugLastApply.profile,
+	}
+	RecordDebug("reload-required", DB.reloadRequired)
+	Debug("Reload requis : confirmation utilisateur affichee.")
+	StaticPopup_Show("YAYA_ADDON_PROFILES_RELOAD")
 end
 
 local function ApplyProfile(profileName, announce)
-	local desired, reason = BuildDesiredAddons(profileName)
+	local desired, reason, ignoredRegionAddons, regionCode = BuildDesiredAddons(profileName)
 	if not desired then
+		local details = {
+			character = currentCharacterId,
+			profile = profileName,
+			error = reason,
+		}
+		DB.debugLastApply = details
+		RecordDebug("apply-error", details)
+		Debug("Application abandonnee : " .. reason)
 		Print("Profil non applique : " .. reason)
 		return false
 	end
 
 	local changed = false
+	local enabledAddons = {}
+	local disabledAddons = {}
 	for addonIndex = 1, GetNumAddOnsCompat() do
 		local addonName, _, _, _, loadReason = GetAddOnInfoCompat(addonIndex)
 		if addonName and loadReason ~= "MISSING" then
@@ -206,23 +329,56 @@ local function ApplyProfile(profileName, announce)
 				changed = true
 				if shouldEnable then
 					EnableAddOnCompat(addonIndex, currentCharacterGuid)
+					table.insert(enabledAddons, addonName)
 				else
 					DisableAddOnCompat(addonIndex, currentCharacterGuid)
+					table.insert(disabledAddons, addonName)
 				end
 			end
 		end
 	end
 
+	local details = {
+		character = currentCharacterId,
+		guid = currentCharacterGuid,
+		profile = profileName,
+		desiredCount = CountAddons(desired),
+		enabled = enabledAddons,
+		disabled = disabledAddons,
+		ignored = ignoredRegionAddons,
+		region = regionCode,
+		changed = changed,
+	}
+	DB.debugLastApply = details
+	RecordDebug("apply", details)
+	Debug("Profil=" .. profileName .. ", attendu=" .. details.desiredCount .. ", actives=" .. #enabledAddons .. ", desactives=" .. #disabledAddons .. ", ignorees=" .. #(ignoredRegionAddons or {}) .. ".")
+	PrintAddonList("Activation", enabledAddons, true)
+	PrintAddonList("Desactivation", disabledAddons, true)
+	PrintAddonList("Ignore RaiderIO hors " .. (regionCode or "?"), ignoredRegionAddons or {}, true)
+
 	if changed then
-		if SaveAddOnsCompat then
-			SaveAddOnsCompat()
-		end
 		if announce then
-			Print("Profil " .. profileName .. " reapplique. Reload UI...")
+			Print("Profil " .. profileName .. " reapplique. Clique sur Recharger pour enregistrer puis reload.")
 		end
-		QueueReload()
+		PromptReload()
 	end
 	return changed
+end
+
+local function PrintDebugReport()
+	local details = DB.debugLastApply
+	if not details then
+		Print("DEBUG : aucune application enregistree.")
+		return
+	end
+	if details.error then
+		Print("DEBUG dernier echec : " .. (details.profile or "aucun") .. " - " .. details.error)
+		return
+	end
+	Print("DEBUG dernier profil : " .. (details.profile or "aucun") .. ", attendu=" .. (details.desiredCount or 0) .. ", actives=" .. #(details.enabled or {}) .. ", desactives=" .. #(details.disabled or {}) .. ", ignorees=" .. #(details.ignored or {}) .. ".")
+	PrintAddonList("DEBUG activation", details.enabled or {}, false)
+	PrintAddonList("DEBUG desactivation", details.disabled or {}, false)
+	PrintAddonList("DEBUG ignore RaiderIO hors " .. (details.region or "?"), details.ignored or {}, false)
 end
 
 local function EnableEnforcerForCharacter(character, saveImmediately)
@@ -524,6 +680,7 @@ local function PrintHelp()
 	Print("/yap profile <profil> : attribue le profil SAM au perso courant")
 	Print("/yap set <perso-royaume> <profil> : attribution hors ligne")
 	Print("/yap status : affiche l'attribution courante")
+	Print("/yap debug [on|off] : affiche ou active le diagnostic")
 end
 
 local function HandleSlashCommand(message)
@@ -554,6 +711,19 @@ local function HandleSlashCommand(message)
 		Print("Profil de " .. currentCharacterId .. " : " .. (DB.assignments[currentCharacterId] or "aucun"))
 		return
 	end
+	if command == "debug" then
+		if rest == "on" then
+			DB.debug = true
+			Print("DEBUG active.")
+		elseif rest == "off" then
+			DB.debug = false
+			Print("DEBUG desactive.")
+		else
+			Print("DEBUG " .. (DB.debug and "active" or "desactive") .. ".")
+			PrintDebugReport()
+		end
+		return
+	end
 	PrintHelp()
 end
 
@@ -572,9 +742,31 @@ local function OnPlayerLogin()
 	SlashCmdList.YAYAADDONPROFILES = HandleSlashCommand
 
 	local assignedProfile = DB.assignments[currentCharacterId]
+	local details = {
+		character = currentCharacterId,
+		guid = currentCharacterGuid,
+		profile = assignedProfile,
+		samProfiles = CountAddons((GetSamDb() or {}).sets),
+	}
+	RecordDebug("login", details)
+	Debug("Connexion personnage=" .. currentCharacterId .. ", profil=" .. (assignedProfile or "aucun") .. ", profils SAM=" .. details.samProfiles .. ".")
+	pendingLoginProfile = assignedProfile
 	if assignedProfile then
-		ApplyProfile(assignedProfile, true)
+		Debug("Application differee a PLAYER_ENTERING_WORLD.")
 	end
+end
+
+local function OnPlayerEnteringWorld()
+	if not pendingLoginProfile then
+		return
+	end
+
+	local profileName = pendingLoginProfile
+	pendingLoginProfile = nil
+	Debug("Entree dans le monde : application de " .. profileName .. " dans 0,5 seconde.")
+	C_Timer.After(0.5, function()
+		ApplyProfile(profileName, true)
+	end)
 end
 
 function YayaAddonProfiles_OnAddonCompartmentClick()
@@ -585,4 +777,11 @@ end
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
-eventFrame:SetScript("OnEvent", OnPlayerLogin)
+eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+eventFrame:SetScript("OnEvent", function(_, event)
+	if event == "PLAYER_LOGIN" then
+		OnPlayerLogin()
+	elseif event == "PLAYER_ENTERING_WORLD" then
+		OnPlayerEnteringWorld()
+	end
+end)

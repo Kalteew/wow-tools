@@ -31,6 +31,7 @@ local CONFIG = {
     MIDNIGHT_MILLING_REAGENTS_PER_CRAFT = 10,
     ALCHEMY_BOUQUET_RECIPE_ID = 1230892,
     ALCHEMY_WONDROUS_SYNERGIST_RECIPE_ID = 1230856,
+    ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT = 90 * 10000,
     ALCHEMY_BOUQUET_SHARED_COOLDOWN_KEY = "midnight-alchemy-material-transmutations",
     ALCHEMY_BOUQUET_SHARED_COOLDOWN_RECIPE_IDS = {
         [1230891] = true, -- Box of Rocks
@@ -201,6 +202,11 @@ local state = {
     auctionDemandRemovalScheduled = false,
     ingenuityBuffActive = false,
     ingenuityBuffInitialized = false,
+    professionSpecMassPurchaseHandlerInstalled = false,
+    professionSpecMassPurchase = {
+        active = false,
+        token = 0,
+    },
     professionsHooksInitialized = false,
     craftApiHooksInitialized = false,
     orderApiHooksInitialized = false,
@@ -234,7 +240,8 @@ local state = {
     concentrationPhialSessionQueued = false,
     armedIngenuityPhial = nil,
     autoFavoriteConcentration = {
-        queuedByProfession = {},
+        favoriteRecipeByProfession = {},
+        handledFavoriteByProfession = {},
         pending = nil,
         timerQueued = false,
         tracker = nil,
@@ -275,6 +282,1003 @@ local function SafeCall(func, ...)
     return nil
 end
 
+local DebugPrint
+
+function YQQuality.FindProfessionSpecPath(talentFrame, targetNodeID)
+    if not talentFrame or type(C_ProfSpecs) ~= "table"
+        or type(C_ProfSpecs.GetChildrenForPath) ~= "function"
+    then
+        return nil
+    end
+
+    local rootNodeID = type(talentFrame.GetRootNodeID) == "function"
+        and talentFrame:GetRootNodeID()
+        or nil
+    targetNodeID = tonumber(targetNodeID) or targetNodeID
+    rootNodeID = tonumber(rootNodeID) or rootNodeID
+    if not rootNodeID or not targetNodeID then
+        return nil
+    end
+
+    local path = {}
+    local visited = {}
+    local function Visit(nodeID)
+        if visited[nodeID] then
+            return false
+        end
+        visited[nodeID] = true
+        path[#path + 1] = nodeID
+        if nodeID == targetNodeID then
+            return true
+        end
+
+        local children = SafeCall(C_ProfSpecs.GetChildrenForPath, nodeID) or {}
+        for _, childNodeID in ipairs(children) do
+            if Visit(childNodeID) then
+                return true
+            end
+        end
+
+        path[#path] = nil
+        return false
+    end
+
+    return Visit(rootNodeID) and path or nil
+end
+
+function YQQuality.IsProfessionSpecPathUnlocked(configID, nodeID)
+    local pathState = YQQuality.GetProfessionSpecPathState(configID, nodeID)
+    local lockedState = Enum and Enum.ProfessionsSpecPathState
+        and Enum.ProfessionsSpecPathState.Locked
+    return pathState ~= nil and (not lockedState or pathState ~= lockedState)
+end
+
+function YQQuality.GetProfessionSpecPathState(configID, nodeID)
+    if type(C_ProfSpecs) ~= "table"
+        or type(C_ProfSpecs.GetStateForPath) ~= "function"
+    then
+        return nil
+    end
+
+    return SafeCall(C_ProfSpecs.GetStateForPath, nodeID, configID)
+end
+
+function YQQuality.GetProfessionSpecPathButton(talentFrame, nodeID)
+    if not talentFrame or type(talentFrame.GetTalentButtonByNodeID) ~= "function" then
+        return nil
+    end
+
+    local pathButton = SafeCall(talentFrame.GetTalentButtonByNodeID, talentFrame, nodeID)
+    if pathButton and type(pathButton.UpdateNodeInfo) == "function" then
+        SafeCall(pathButton.UpdateNodeInfo, pathButton)
+    end
+    return pathButton
+end
+
+function YQQuality.GetProfessionSpecPathRanks(talentFrame, configID, nodeID)
+    local pathButton = YQQuality.GetProfessionSpecPathButton(talentFrame, nodeID)
+    if pathButton and type(pathButton.GetRanks) == "function" then
+        local ok, currentRank, maxRank = pcall(pathButton.GetRanks, pathButton)
+        if ok and currentRank ~= nil and maxRank ~= nil then
+            return tonumber(currentRank) or 0, tonumber(maxRank) or 0
+        end
+    end
+
+    if type(C_ProfSpecs) ~= "table"
+        or type(C_ProfSpecs.GetUnlockEntryForPath) ~= "function"
+        or type(C_Traits) ~= "table"
+        or type(C_Traits.GetEntryInfo) ~= "function"
+        or type(C_Traits.GetNodeInfo) ~= "function"
+    then
+        return nil, nil
+    end
+
+    local nodeInfo = SafeCall(C_Traits.GetNodeInfo, configID, nodeID)
+    local unlockEntryID = SafeCall(C_ProfSpecs.GetUnlockEntryForPath, nodeID)
+    local unlockEntryInfo = unlockEntryID
+        and SafeCall(C_Traits.GetEntryInfo, configID, unlockEntryID)
+        or nil
+    if not nodeInfo then
+        return nil, nil
+    end
+
+    local unlockRanks = tonumber(unlockEntryInfo and unlockEntryInfo.maxRanks) or 0
+    return math.max(0, (tonumber(nodeInfo.currentRank) or 0) - unlockRanks),
+        math.max(0, (tonumber(nodeInfo.maxRanks) or 0) - unlockRanks)
+end
+
+function YQQuality.GetProfessionSpecPathSpendRank(talentFrame, configID, nodeID)
+    return YQQuality.GetProfessionSpecPathRanks(talentFrame, configID, nodeID)
+end
+
+function YQQuality.GetProfessionSpecRequiredRanks(talentFrame, configID, parentNodeID, childNodeID)
+    if type(C_ProfSpecs) ~= "table" then
+        return nil
+    end
+
+    local currentSpent = YQQuality.GetProfessionSpecPathSpendRank(talentFrame, configID, parentNodeID)
+    if currentSpent == nil then
+        return nil, nil, nil, nil, "parent-rank-unavailable"
+    end
+
+    local requiredSpent
+    local requirementSource
+    local sourceNumberCount = 0
+    local sourceGrammarTokenCount = 0
+    local conditionDiagnostics = {}
+    local exactAmounts = {}
+    local structuredAmounts = {}
+    local spendCurrencyID = type(C_ProfSpecs.GetSpendCurrencyForPath) == "function"
+        and SafeCall(C_ProfSpecs.GetSpendCurrencyForPath, parentNodeID)
+        or nil
+    if type(C_Traits) == "table"
+        and type(C_Traits.GetConditionInfo) == "function"
+        and type(C_Traits.GetEntryInfo) == "function"
+        and type(C_Traits.GetNodeInfo) == "function"
+        and type(C_ProfSpecs.GetUnlockEntryForPath) == "function"
+    then
+        local childNodeInfo = SafeCall(C_Traits.GetNodeInfo, configID, childNodeID)
+        local checkedConditions = {}
+        local function ReadRequirement(conditionIDs, source)
+            for _, conditionID in ipairs(conditionIDs or {}) do
+                if not checkedConditions[conditionID] then
+                    checkedConditions[conditionID] = true
+                    local conditionInfo = SafeCall(C_Traits.GetConditionInfo, configID, conditionID)
+                    local spentAmountRequired = tonumber(conditionInfo and conditionInfo.spentAmountRequired)
+                    local conditionCurrencyID = conditionInfo and conditionInfo.traitCurrencyID
+                    if spentAmountRequired and spentAmountRequired > 0 then
+                        structuredAmounts[spentAmountRequired] = source
+                        conditionDiagnostics[#conditionDiagnostics + 1] = tostring(conditionID)
+                            .. ":" .. tostring(spentAmountRequired)
+                            .. ":" .. tostring(conditionCurrencyID)
+                        if not spendCurrencyID
+                            or tonumber(conditionCurrencyID) == tonumber(spendCurrencyID)
+                        then
+                            exactAmounts[spentAmountRequired] = source
+                        end
+                    end
+                end
+            end
+        end
+
+        ReadRequirement(childNodeInfo and childNodeInfo.conditionIDs, "node")
+        local unlockEntryID = SafeCall(C_ProfSpecs.GetUnlockEntryForPath, childNodeID)
+        local unlockEntryInfo = unlockEntryID
+            and SafeCall(C_Traits.GetEntryInfo, configID, unlockEntryID)
+            or nil
+        ReadRequirement(unlockEntryInfo and unlockEntryInfo.conditionIDs, "unlock-entry")
+        for _, entryID in ipairs(childNodeInfo and childNodeInfo.entryIDs or {}) do
+            local entryInfo = SafeCall(C_Traits.GetEntryInfo, configID, entryID)
+            ReadRequirement(
+                entryInfo and entryInfo.conditionIDs,
+                entryID == unlockEntryID and "unlock-entry" or "entry"
+            )
+        end
+
+        for amount, source in pairs(exactAmounts) do
+            if not requiredSpent or amount > requiredSpent then
+                requiredSpent = amount
+                requirementSource = source .. "-currency"
+            end
+        end
+        if not requiredSpent then
+            local uniqueAmount
+            local amountCount = 0
+            local uniqueSource
+            for amount, source in pairs(structuredAmounts) do
+                uniqueAmount = amount
+                uniqueSource = source
+                amountCount = amountCount + 1
+            end
+            if amountCount == 1 then
+                requiredSpent = uniqueAmount
+                requirementSource = uniqueSource .. "-unique"
+            end
+        end
+    end
+
+    local plainSourceText = ""
+    if not requiredSpent and type(C_ProfSpecs.GetSourceTextForPath) == "function" then
+        local sourceText = SafeCall(C_ProfSpecs.GetSourceTextForPath, childNodeID, configID)
+        plainSourceText = tostring(sourceText or "")
+            :gsub("|T.-|t", "")
+            :gsub("|A.-|a", "")
+            :gsub("|H.-|h(.-)|h", "%1")
+            :gsub("|c%x%x%x%x%x%x%x%x", "")
+            :gsub("|r", "")
+        plainSourceText, sourceGrammarTokenCount = plainSourceText:gsub("|%d[^;]-;", "")
+        local sourceNumber
+        for numberText in plainSourceText:gmatch("(%d+)") do
+            sourceNumber = tonumber(numberText)
+            sourceNumberCount = sourceNumberCount + 1
+        end
+        if sourceNumberCount == 1 and sourceNumber and sourceNumber > 0 then
+            requiredSpent = sourceNumber
+            requirementSource = sourceGrammarTokenCount > 0
+                and "source-text-grammar-cleaned"
+                or "source-text"
+        end
+    end
+
+    if not requiredSpent then
+        plainSourceText = plainSourceText:gsub("%s+", " ")
+        return nil, currentSpent, nil, spendCurrencyID,
+            "conditions=" .. (#conditionDiagnostics > 0 and table.concat(conditionDiagnostics, ",") or "none")
+                .. " source-number-count=" .. tostring(sourceNumberCount)
+                .. " source-grammar-token-count=" .. tostring(sourceGrammarTokenCount)
+                .. " source=" .. plainSourceText
+    end
+    return math.max(0, requiredSpent - currentSpent), currentSpent, requiredSpent, spendCurrencyID, requirementSource
+end
+
+function YQQuality.PurchaseProfessionSpecRank(talentFrame, nodeID)
+    if not talentFrame or type(talentFrame.GetConfigID) ~= "function"
+        or type(C_Traits) ~= "table"
+        or type(C_Traits.PurchaseRank) ~= "function"
+    then
+        DebugPrint(
+            "profession-spec-mass api-call api=PurchaseRank node=" .. tostring(nodeID)
+                .. " accepted=false reason=api-unavailable"
+        )
+        return false, "api-unavailable"
+    end
+
+    local configID = talentFrame:GetConfigID()
+    if not configID then
+        DebugPrint(
+            "profession-spec-mass api-call api=PurchaseRank node=" .. tostring(nodeID)
+                .. " accepted=false reason=config-unavailable"
+        )
+        return false, "config-unavailable"
+    end
+    local rankBefore = YQQuality.GetProfessionSpecPathSpendRank(talentFrame, configID, nodeID)
+    local stateBefore = YQQuality.GetProfessionSpecPathState(configID, nodeID)
+    local ok, purchaseResult = pcall(C_Traits.PurchaseRank, configID, nodeID)
+    if not ok then
+        DebugPrint(
+            "profession-spec-mass api-call api=PurchaseRank config=" .. tostring(configID)
+                .. " node=" .. tostring(nodeID)
+                .. " accepted=false reason=lua-error:" .. tostring(purchaseResult)
+        )
+        return false, "lua-error:" .. tostring(purchaseResult)
+    end
+    local rankAfter = YQQuality.GetProfessionSpecPathSpendRank(talentFrame, configID, nodeID)
+    DebugPrint(
+        "profession-spec-mass api-call api=PurchaseRank config=" .. tostring(configID)
+            .. " node=" .. tostring(nodeID)
+            .. " accepted=" .. tostring(purchaseResult == true)
+            .. " raw-result=" .. tostring(purchaseResult)
+            .. " state=" .. tostring(stateBefore) .. "->"
+                .. tostring(YQQuality.GetProfessionSpecPathState(configID, nodeID))
+            .. " rank=" .. tostring(rankBefore) .. "->" .. tostring(rankAfter)
+    )
+    if purchaseResult == true then
+        return true, nil
+    end
+    return false, "trait-api-rejected"
+end
+
+function YQQuality.TryPurchaseAllProfessionSpecRanks(talentFrame, nodeID)
+    if not talentFrame or type(talentFrame.GetConfigID) ~= "function"
+        or type(C_Traits) ~= "table"
+        or type(C_Traits.TryPurchaseAllRanks) ~= "function"
+    then
+        DebugPrint(
+            "profession-spec-mass api-call api=TryPurchaseAllRanks node=" .. tostring(nodeID)
+                .. " accepted=false reason=api-unavailable"
+        )
+        return false, "api-unavailable"
+    end
+
+    local configID = talentFrame:GetConfigID()
+    if not configID then
+        DebugPrint(
+            "profession-spec-mass api-call api=TryPurchaseAllRanks node=" .. tostring(nodeID)
+                .. " accepted=false reason=config-unavailable"
+        )
+        return false, "config-unavailable"
+    end
+    local rankBefore = YQQuality.GetProfessionSpecPathSpendRank(talentFrame, configID, nodeID)
+    local stateBefore = YQQuality.GetProfessionSpecPathState(configID, nodeID)
+    local ok, purchaseOK = pcall(C_Traits.TryPurchaseAllRanks, configID, nodeID)
+    if not ok then
+        DebugPrint(
+            "profession-spec-mass api-call api=TryPurchaseAllRanks config=" .. tostring(configID)
+                .. " node=" .. tostring(nodeID)
+                .. " accepted=false reason=lua-error:" .. tostring(purchaseOK)
+        )
+        return false, "lua-error:" .. tostring(purchaseOK)
+    end
+    local rankAfter = YQQuality.GetProfessionSpecPathSpendRank(talentFrame, configID, nodeID)
+    DebugPrint(
+        "profession-spec-mass api-call api=TryPurchaseAllRanks config=" .. tostring(configID)
+            .. " node=" .. tostring(nodeID)
+            .. " accepted=" .. tostring(purchaseOK == true)
+            .. " raw-result=" .. tostring(purchaseOK)
+            .. " state=" .. tostring(stateBefore) .. "->"
+                .. tostring(YQQuality.GetProfessionSpecPathState(configID, nodeID))
+            .. " rank=" .. tostring(rankBefore) .. "->" .. tostring(rankAfter)
+    )
+    if purchaseOK == true then
+        return true, nil
+    end
+    return false, "trait-api-rejected"
+end
+
+function YQQuality.DebugProfessionSpecPathSnapshot(talentFrame, configID, path, phase)
+    local parts = {}
+    for _, nodeID in ipairs(path or {}) do
+        local currentRank, maxRank = YQQuality.GetProfessionSpecPathRanks(talentFrame, configID, nodeID)
+        parts[#parts + 1] = tostring(nodeID)
+            .. "{state=" .. tostring(YQQuality.GetProfessionSpecPathState(configID, nodeID))
+            .. ",unlocked=" .. tostring(YQQuality.IsProfessionSpecPathUnlocked(configID, nodeID))
+            .. ",rank=" .. tostring(currentRank) .. "/" .. tostring(maxRank) .. "}"
+    end
+    DebugPrint(
+        "profession-spec-mass snapshot phase=" .. tostring(phase)
+            .. " path=" .. (#parts > 0 and table.concat(parts, ">") or "empty")
+    )
+end
+
+function YQQuality.GetProfessionSpecPurchaseGoal(currentRank, maxRank, limitRank, stepSize)
+    local cappedGoal = math.min(limitRank or maxRank, maxRank)
+    if stepSize and stepSize > 0 then
+        local nextStep = (math.floor(currentRank / stepSize) + 1) * stepSize
+        return math.min(cappedGoal, nextStep)
+    end
+    return cappedGoal
+end
+
+function YQQuality.SubmitProfessionSpecRankBatch(operation, currentRank, maxRank, goalRank)
+    local requestedRanks = math.max(0, goalRank - currentRank)
+    local submittedRanks = 0
+    local purchaseOK
+    local purchaseFailure
+    local batchAPI
+
+    if goalRank >= maxRank and type(C_Traits.TryPurchaseAllRanks) == "function" then
+        batchAPI = "try-purchase-all-ranks"
+        purchaseOK, purchaseFailure = YQQuality.TryPurchaseAllProfessionSpecRanks(
+            operation.talentFrame,
+            operation.fillNodeID
+        )
+        submittedRanks = purchaseOK and requestedRanks or 0
+    else
+        batchAPI = "purchase-rank-batch"
+        for _ = 1, requestedRanks do
+            purchaseOK, purchaseFailure = YQQuality.PurchaseProfessionSpecRank(
+                operation.talentFrame,
+                operation.fillNodeID
+            )
+            if not purchaseOK then
+                break
+            end
+            submittedRanks = submittedRanks + 1
+        end
+    end
+
+    operation.batchAPI = batchAPI
+    operation.batchRequested = requestedRanks
+    operation.batchSubmitted = submittedRanks
+    operation.batchFailure = purchaseFailure
+    local observedRank = YQQuality.GetProfessionSpecPathSpendRank(
+        operation.talentFrame,
+        operation.configID,
+        operation.fillNodeID
+    )
+    DebugPrint(
+        "profession-spec-mass batch api=" .. tostring(batchAPI)
+            .. " node=" .. tostring(operation.fillNodeID)
+            .. " before=" .. tostring(currentRank)
+            .. " goal=" .. tostring(goalRank)
+            .. " requested=" .. tostring(requestedRanks)
+            .. " submitted=" .. tostring(submittedRanks)
+            .. " accepted=" .. tostring(purchaseOK)
+            .. " reason=" .. tostring(purchaseFailure)
+            .. " observed-after-submit=" .. tostring(observedRank)
+    )
+
+    if submittedRanks == 0 and not purchaseOK and batchAPI ~= "try-purchase-all-ranks" then
+        YQQuality.FinishProfessionSpecMassPurchase(
+            operation,
+            "failure",
+            purchaseFailure or "batch-rejected"
+        )
+        return false
+    end
+
+    operation.waitKind = "batch"
+    operation.waitRank = currentRank
+    operation.waitStarted = GetTime and GetTime() or 0
+    DebugPrint(
+        "profession-spec-mass wait=start kind=batch node=" .. tostring(operation.fillNodeID)
+            .. " from=" .. tostring(currentRank)
+            .. " goal=" .. tostring(goalRank)
+            .. " timeout=1"
+    )
+    YQQuality.ScheduleProfessionSpecMassPurchaseStep(operation, 0)
+    return true
+end
+
+function YQQuality.FinishProfessionSpecMassPurchase(operation, outcome, reason)
+    local operationState = state.professionSpecMassPurchase
+    if operationState.operation ~= operation then
+        return
+    end
+
+    local rankAfter, maxRank = YQQuality.GetProfessionSpecPathRanks(
+        operation.talentFrame,
+        operation.configID,
+        operation.fillNodeID
+    )
+    if type(operation.talentFrame.UpdateConfigButtonsState) == "function" then
+        operation.talentFrame:UpdateConfigButtonsState()
+    end
+    if YQQuality.IsProfessionSpecPathUnlocked(operation.configID, operation.targetNodeID) then
+        if type(operation.talentFrame.SetDefaultPath) == "function" then
+            operation.talentFrame:SetDefaultPath(operation.targetNodeID)
+        end
+        if type(operation.talentFrame.SetDefaultTab) == "function" then
+            operation.talentFrame:SetDefaultTab(operation.treeID)
+        end
+    end
+
+    operationState.active = false
+    operationState.operation = nil
+    DebugPrint(
+        "profession-spec-mass summary outcome=" .. tostring(outcome)
+            .. " reason=" .. tostring(reason)
+            .. " mode=" .. tostring(operation.mode)
+            .. " direction=" .. tostring(operation.direction)
+            .. " target=" .. tostring(operation.targetNodeID)
+            .. " node=" .. tostring(operation.fillNodeID)
+            .. " threshold=" .. tostring(operation.goalRank)
+            .. " rank-before=" .. tostring(operation.rankBefore)
+            .. " rank-after=" .. tostring(rankAfter)
+            .. " max=" .. tostring(maxRank)
+            .. " purchased=" .. tostring(operation.purchased or 0)
+            .. " batch-api=" .. tostring(operation.batchAPI or "none")
+            .. " batch-requested=" .. tostring(operation.batchRequested or 0)
+            .. " batch-submitted=" .. tostring(operation.batchSubmitted or 0)
+            .. " unlock-node=" .. tostring(operation.unlockNodeID)
+            .. " unlock-result=" .. tostring(operation.unlockResult or "none")
+    )
+    YQQuality.DebugProfessionSpecPathSnapshot(
+        operation.talentFrame,
+        operation.configID,
+        operation.path,
+        "finish"
+    )
+end
+
+function YQQuality.ScheduleProfessionSpecMassPurchaseStep(operation, delay)
+    if type(C_Timer) ~= "table" or type(C_Timer.After) ~= "function" then
+        YQQuality.FinishProfessionSpecMassPurchase(operation, "failure", "timer-unavailable")
+        return
+    end
+    C_Timer.After(delay or 0, function()
+        local operationState = state.professionSpecMassPurchase
+        if operationState.active
+            and operationState.operation == operation
+            and operationState.token == operation.token
+        then
+            YQQuality.ContinueProfessionSpecMassPurchase(operation)
+        end
+    end)
+end
+
+function YQQuality.ContinueProfessionSpecMassPurchase(operation)
+    local operationState = state.professionSpecMassPurchase
+    if not operationState.active or operationState.operation ~= operation then
+        return
+    end
+    if type(operation.talentFrame.IsVisible) == "function"
+        and not operation.talentFrame:IsVisible()
+    then
+        YQQuality.FinishProfessionSpecMassPurchase(operation, "failure", "frame-hidden")
+        return
+    end
+
+    local now = GetTime and GetTime() or 0
+    if operation.waitKind == "unlock" then
+        local unlocked = YQQuality.IsProfessionSpecPathUnlocked(operation.configID, operation.unlockNodeID)
+        if unlocked then
+            operation.waitKind = nil
+            operation.unlockResult = "succeeded"
+            DebugPrint(
+                "profession-spec-mass unlock=succeeded node=" .. tostring(operation.unlockNodeID)
+                    .. " state-after=" .. tostring(YQQuality.GetProfessionSpecPathState(
+                        operation.configID,
+                        operation.unlockNodeID
+                    ))
+                    .. " elapsed=" .. tostring(now - operation.waitStarted)
+            )
+            YQQuality.ScheduleProfessionSpecMassPurchaseStep(operation, 0)
+        elseif now - operation.waitStarted >= 1 then
+            operation.unlockResult = "refused"
+            DebugPrint(
+                "profession-spec-mass unlock=refused node=" .. tostring(operation.unlockNodeID)
+                    .. " state-after=" .. tostring(YQQuality.GetProfessionSpecPathState(
+                        operation.configID,
+                        operation.unlockNodeID
+                    ))
+                    .. " elapsed=" .. tostring(now - operation.waitStarted)
+            )
+            YQQuality.FinishProfessionSpecMassPurchase(operation, "failure", "unlock-not-applied")
+        else
+            YQQuality.ScheduleProfessionSpecMassPurchaseStep(operation, 0.05)
+        end
+        return
+    end
+
+    if operation.waitKind == "batch" then
+        local currentRank = YQQuality.GetProfessionSpecPathSpendRank(
+            operation.talentFrame,
+            operation.configID,
+            operation.fillNodeID
+        )
+        if currentRank == nil then
+            YQQuality.FinishProfessionSpecMassPurchase(operation, "failure", "rank-unavailable")
+        elseif currentRank >= operation.goalRank then
+            operation.purchased = operation.purchased + math.max(0, currentRank - operation.waitRank)
+            DebugPrint(
+                "profession-spec-mass batch=applied api=" .. tostring(operation.batchAPI)
+                    .. " node=" .. tostring(operation.fillNodeID)
+                    .. " before=" .. tostring(operation.waitRank)
+                    .. " after=" .. tostring(currentRank)
+                    .. " threshold=" .. tostring(operation.goalRank)
+                    .. " elapsed=" .. tostring(now - operation.waitStarted)
+            )
+            operation.waitKind = nil
+            YQQuality.FinishProfessionSpecMassPurchase(operation, "success", "threshold-reached")
+        elseif now - operation.waitStarted >= 1 then
+            local appliedRanks = math.max(0, currentRank - operation.waitRank)
+            operation.purchased = operation.purchased + appliedRanks
+            DebugPrint(
+                "profession-spec-mass batch=incomplete api=" .. tostring(operation.batchAPI)
+                    .. " node=" .. tostring(operation.fillNodeID)
+                    .. " before=" .. tostring(operation.waitRank)
+                    .. " after=" .. tostring(currentRank)
+                    .. " threshold=" .. tostring(operation.goalRank)
+                    .. " reason=" .. tostring(operation.batchFailure)
+                    .. " elapsed=" .. tostring(now - operation.waitStarted)
+            )
+            YQQuality.FinishProfessionSpecMassPurchase(
+                operation,
+                appliedRanks > 0 and "partial" or "failure",
+                operation.batchFailure or "batch-not-applied"
+            )
+        else
+            YQQuality.ScheduleProfessionSpecMassPurchaseStep(operation, 0.05)
+        end
+        return
+    end
+
+    local currentRank, maxRank = YQQuality.GetProfessionSpecPathRanks(
+        operation.talentFrame,
+        operation.configID,
+        operation.fillNodeID
+    )
+    if currentRank == nil or maxRank == nil then
+        YQQuality.FinishProfessionSpecMassPurchase(operation, "failure", "rank-unavailable")
+        return
+    end
+    local goalRank = math.min(operation.goalRank or maxRank, maxRank)
+    if currentRank >= goalRank then
+        YQQuality.FinishProfessionSpecMassPurchase(operation, "success", "threshold-reached")
+        return
+    end
+
+    local pathButton = YQQuality.GetProfessionSpecPathButton(operation.talentFrame, operation.fillNodeID)
+    local canSpend
+    if pathButton and type(pathButton.CanPurchaseSpend) == "function" then
+        local ok, result = pcall(pathButton.CanPurchaseSpend, pathButton)
+        canSpend = ok and result == true
+    end
+    if canSpend == false then
+        DebugPrint(
+            "profession-spec-mass spend=refused node=" .. tostring(operation.fillNodeID)
+                .. " rank=" .. tostring(currentRank)
+                .. " threshold=" .. tostring(goalRank)
+                .. " diagnostic=can-purchase-spend-false"
+        )
+        YQQuality.FinishProfessionSpecMassPurchase(
+            operation,
+            operation.purchased > 0 and "partial" or "failure",
+            "cannot-purchase-spend"
+        )
+        return
+    end
+
+    YQQuality.SubmitProfessionSpecRankBatch(operation, currentRank, maxRank, goalRank)
+end
+
+function YQQuality.StartProfessionSpecMassPurchaseOperation(operation)
+    local operationState = state.professionSpecMassPurchase
+    operationState.token = operationState.token + 1
+    operation.token = operationState.token
+    operation.purchased = 0
+    operationState.active = true
+    operationState.operation = operation
+
+    DebugPrint(
+        "profession-spec-mass action mode=" .. tostring(operation.mode)
+            .. " direction=" .. tostring(operation.direction)
+            .. " target=" .. tostring(operation.targetNodeID)
+            .. " node=" .. tostring(operation.fillNodeID)
+            .. " threshold=" .. tostring(operation.goalRank)
+            .. " rank-before=" .. tostring(operation.rankBefore)
+            .. " unlock-node=" .. tostring(operation.unlockNodeID)
+            .. " reason=" .. tostring(operation.decisionReason)
+            .. " path=" .. table.concat(operation.path or {}, ">")
+    )
+
+    if operation.unlockNodeID then
+        local unlockButton = YQQuality.GetProfessionSpecPathButton(
+            operation.talentFrame,
+            operation.unlockNodeID
+        )
+        local canUnlock
+        if unlockButton and type(unlockButton.CanPurchaseUnlock) == "function" then
+            local ok, result = pcall(unlockButton.CanPurchaseUnlock, unlockButton)
+            canUnlock = ok and result == true
+        end
+        local purchaseOK, purchaseFailure = YQQuality.PurchaseProfessionSpecRank(
+            operation.talentFrame,
+            operation.unlockNodeID
+        )
+        operation.unlockResult = purchaseOK and "attempted" or "refused"
+        DebugPrint(
+            "profession-spec-mass unlock=attempt node=" .. tostring(operation.unlockNodeID)
+                .. " state-before=" .. tostring(operation.unlockStateBefore)
+                .. " can-unlock=" .. tostring(canUnlock)
+                .. " submitted=" .. tostring(purchaseOK)
+                .. " reason=" .. tostring(purchaseFailure)
+        )
+        if not purchaseOK then
+            YQQuality.FinishProfessionSpecMassPurchase(
+                operation,
+                "failure",
+                purchaseFailure or "unlock-rejected"
+            )
+            return false
+        end
+        operation.waitKind = "unlock"
+        operation.waitStarted = GetTime and GetTime() or 0
+        DebugPrint(
+            "profession-spec-mass wait=start kind=unlock node=" .. tostring(operation.unlockNodeID)
+                .. " state-before=" .. tostring(operation.unlockStateBefore)
+                .. " timeout=1"
+        )
+        YQQuality.ScheduleProfessionSpecMassPurchaseStep(operation, 0)
+        return true
+    end
+
+    YQQuality.ContinueProfessionSpecMassPurchase(operation)
+    return true
+end
+
+function YQQuality.MassPurchaseProfessionSpecPath(talentFrame, targetNodeID, stepSize)
+    if not talentFrame or type(C_ProfSpecs) ~= "table"
+        or type(C_ProfSpecs.GetStateForTab) ~= "function"
+        or type(C_ProfSpecs.GetStateForPath) ~= "function"
+        or type(C_ProfSpecs.GetUnlockEntryForPath) ~= "function"
+        or type(C_Traits) ~= "table"
+        or type(C_Traits.PurchaseRank) ~= "function"
+    then
+        DebugPrint("profession-spec-mass failure=api-unavailable target=" .. tostring(targetNodeID))
+        return false
+    end
+    if state.professionSpecMassPurchase.active then
+        DebugPrint("profession-spec-mass skip=operation-active target=" .. tostring(targetNodeID))
+        return false
+    end
+    if type(talentFrame.AnyPopupShown) == "function" and talentFrame:AnyPopupShown() then
+        DebugPrint("profession-spec-mass skip=popup target=" .. tostring(targetNodeID))
+        return false
+    end
+
+    local configID = type(talentFrame.GetConfigID) == "function"
+        and talentFrame:GetConfigID()
+        or nil
+    local treeID = type(talentFrame.GetTalentTreeID) == "function"
+        and talentFrame:GetTalentTreeID()
+        or nil
+    local path = YQQuality.FindProfessionSpecPath(talentFrame, targetNodeID)
+    if not configID or not treeID or not path then
+        DebugPrint(
+            "profession-spec-mass failure=invalid-context config=" .. tostring(configID)
+                .. " tree=" .. tostring(treeID)
+                .. " target=" .. tostring(targetNodeID)
+        )
+        return false
+    end
+
+    local tabState = SafeCall(C_ProfSpecs.GetStateForTab, treeID, configID)
+    local unlockedState = Enum and Enum.ProfessionsSpecTabState
+        and Enum.ProfessionsSpecTabState.Unlocked
+    local rootNodeID = type(talentFrame.GetRootNodeID) == "function"
+        and talentFrame:GetRootNodeID()
+        or nil
+    if unlockedState and tabState ~= unlockedState then
+        if rootNodeID == targetNodeID
+            and type(talentFrame.CheckConfirmPurchaseTab) == "function"
+        then
+            DebugPrint("profession-spec-mass unlock-tab target=" .. tostring(targetNodeID))
+            talentFrame:CheckConfirmPurchaseTab()
+            return true
+        end
+        DebugPrint("profession-spec-mass skip=tab-locked target=" .. tostring(targetNodeID))
+        return false
+    end
+
+    local targetUnlocked = YQQuality.IsProfessionSpecPathUnlocked(configID, targetNodeID)
+    local purchaseMode = stepSize and "step-" .. tostring(stepSize) or "full"
+    DebugPrint(
+        "profession-spec-mass begin config=" .. tostring(configID)
+            .. " tree=" .. tostring(treeID)
+            .. " target=" .. tostring(targetNodeID)
+            .. " path=" .. table.concat(path, ">")
+            .. " target-state=" .. tostring(YQQuality.GetProfessionSpecPathState(configID, targetNodeID))
+            .. " mode=" .. purchaseMode
+            .. " direction=" .. (targetUnlocked and "desc" or "asc")
+    )
+    YQQuality.DebugProfessionSpecPathSnapshot(talentFrame, configID, path, "begin")
+
+    if targetUnlocked then
+        for index = #path, 1, -1 do
+            local nodeID = path[index]
+            local currentRank, maxRank = YQQuality.GetProfessionSpecPathRanks(talentFrame, configID, nodeID)
+            if currentRank == nil or maxRank == nil then
+                DebugPrint("profession-spec-mass failure=rank-unavailable node=" .. tostring(nodeID))
+                return false
+            end
+            if currentRank < maxRank then
+                return YQQuality.StartProfessionSpecMassPurchaseOperation({
+                    talentFrame = talentFrame,
+                    configID = configID,
+                    treeID = treeID,
+                    targetNodeID = targetNodeID,
+                    fillNodeID = nodeID,
+                    goalRank = YQQuality.GetProfessionSpecPurchaseGoal(
+                        currentRank,
+                        maxRank,
+                        maxRank,
+                        stepSize
+                    ),
+                    rankBefore = currentRank,
+                    mode = purchaseMode,
+                    direction = "desc",
+                    decisionReason = "last-non-maxed-from-target",
+                    path = path,
+                })
+            end
+        end
+        DebugPrint(
+            "profession-spec-mass summary outcome=noop reason=path-maxed mode=" .. purchaseMode
+                .. " direction=desc target=" .. tostring(targetNodeID)
+        )
+        return true
+    end
+
+    for index = 1, #path - 1 do
+        local parentNodeID = path[index]
+        local childNodeID = path[index + 1]
+        if not YQQuality.IsProfessionSpecPathUnlocked(configID, childNodeID) then
+            local unlockButton = YQQuality.GetProfessionSpecPathButton(talentFrame, childNodeID)
+            local buttonCanUnlock
+            if unlockButton and type(unlockButton.CanPurchaseUnlock) == "function" then
+                local ok, result = pcall(unlockButton.CanPurchaseUnlock, unlockButton)
+                if ok then
+                    buttonCanUnlock = result == true
+                end
+            end
+            local canUnlock = buttonCanUnlock == true
+            DebugPrint(
+                "profession-spec-mass unlock-check node=" .. tostring(childNodeID)
+                    .. " button=" .. tostring(buttonCanUnlock)
+                    .. " decision=" .. tostring(canUnlock)
+                    .. " decision-source=button-only"
+            )
+
+            if not canUnlock then
+                local _, parentRank, requiredRank, currencyID, requirementSource =
+                    YQQuality.GetProfessionSpecRequiredRanks(talentFrame, configID, parentNodeID, childNodeID)
+                DebugPrint(
+                    "profession-spec-mass requirement node=" .. tostring(parentNodeID)
+                        .. " next=" .. tostring(childNodeID)
+                        .. " current=" .. tostring(parentRank)
+                        .. " threshold=" .. tostring(requiredRank)
+                        .. " currency=" .. tostring(currencyID)
+                        .. " source=" .. tostring(requirementSource)
+                )
+                if requiredRank == nil or parentRank == nil then
+                    DebugPrint(
+                        "profession-spec-mass failure=requirement-unknown node=" .. tostring(parentNodeID)
+                            .. " next=" .. tostring(childNodeID)
+                            .. " diagnostic=" .. tostring(requirementSource)
+                    )
+                    return false
+                end
+
+                if parentRank < requiredRank then
+                    local _, parentMaxRank = YQQuality.GetProfessionSpecPathRanks(
+                        talentFrame,
+                        configID,
+                        parentNodeID
+                    )
+                    return YQQuality.StartProfessionSpecMassPurchaseOperation({
+                        talentFrame = talentFrame,
+                        configID = configID,
+                        treeID = treeID,
+                        targetNodeID = targetNodeID,
+                        fillNodeID = parentNodeID,
+                        goalRank = YQQuality.GetProfessionSpecPurchaseGoal(
+                            parentRank,
+                            parentMaxRank or requiredRank,
+                            requiredRank,
+                            stepSize
+                        ),
+                        rankBefore = parentRank,
+                        mode = purchaseMode,
+                        direction = "asc",
+                        decisionReason = "parent-below-child-threshold",
+                        path = path,
+                    })
+                end
+            else
+                DebugPrint(
+                    "profession-spec-mass requirement=skipped node=" .. tostring(parentNodeID)
+                        .. " next=" .. tostring(childNodeID)
+                        .. " reason=child-unlockable"
+                )
+            end
+
+            local childRank, childMaxRank = YQQuality.GetProfessionSpecPathRanks(
+                talentFrame,
+                configID,
+                childNodeID
+            )
+            if childRank == nil or childMaxRank == nil then
+                DebugPrint("profession-spec-mass failure=rank-unavailable node=" .. tostring(childNodeID))
+                return false
+            end
+            local childGoalRank = childRank
+            if not stepSize then
+                childGoalRank = childMaxRank
+                if childNodeID ~= targetNodeID then
+                    local _, _, nextRequiredRank, _, nextRequirementSource =
+                        YQQuality.GetProfessionSpecRequiredRanks(
+                            talentFrame,
+                            configID,
+                            childNodeID,
+                            path[index + 2]
+                        )
+                    if nextRequiredRank then
+                        childGoalRank = math.min(nextRequiredRank, childMaxRank)
+                    else
+                        childGoalRank = childRank
+                        DebugPrint(
+                            "profession-spec-mass warning=next-requirement-unknown node="
+                                .. tostring(childNodeID)
+                                .. " next=" .. tostring(path[index + 2])
+                                .. " diagnostic=" .. tostring(nextRequirementSource)
+                                .. " action=unlock-only"
+                        )
+                    end
+                end
+                childGoalRank = YQQuality.GetProfessionSpecPurchaseGoal(
+                    childRank,
+                    childMaxRank,
+                    childGoalRank,
+                    nil
+                )
+            end
+            return YQQuality.StartProfessionSpecMassPurchaseOperation({
+                talentFrame = talentFrame,
+                configID = configID,
+                treeID = treeID,
+                targetNodeID = targetNodeID,
+                fillNodeID = childNodeID,
+                goalRank = childGoalRank,
+                rankBefore = childRank,
+                mode = purchaseMode,
+                direction = "asc",
+                decisionReason = stepSize and "unlock-only-step-zero"
+                    or (canUnlock and "child-already-unlockable"
+                        or (childNodeID == targetNodeID
+                            and "unlock-target-then-fill"
+                            or "unlock-child-then-fill-to-next-threshold")),
+                path = path,
+                unlockNodeID = childNodeID,
+                unlockStateBefore = YQQuality.GetProfessionSpecPathState(configID, childNodeID),
+            })
+        end
+    end
+
+    DebugPrint("profession-spec-mass failure=locked-target-without-locked-path target=" .. tostring(targetNodeID))
+    return false
+end
+
+function YQQuality.InstallProfessionSpecMassPurchaseHook()
+    if state.professionSpecMassPurchaseHandlerInstalled then
+        return true
+    end
+    if type(ProfessionsSpecPathMixin) ~= "table"
+        or type(ProfessionsSpecPathMixin.OnClick) ~= "function"
+    then
+        return false
+    end
+
+    local function InstallMixinHook(pathMixin, viewName)
+        if type(pathMixin) ~= "table" or type(pathMixin.OnClick) ~= "function" then
+            DebugPrint(
+                "profession-spec-mass handler=missing view=" .. tostring(viewName)
+                    .. " mixin=" .. tostring(pathMixin)
+            )
+            return false
+        end
+        local originalOnClick = pathMixin.OnClick
+        pathMixin.OnClick = function(button, mouseButton, down)
+            if state.professionSpecMassPurchase.active then
+                DebugPrint(
+                    "profession-spec-mass click skip=operation-active target="
+                        .. tostring(button:GetNodeID())
+                        .. " view=" .. tostring(viewName)
+                )
+                return
+            end
+            local altDown = IsAltKeyDown()
+            local shiftDown = IsShiftKeyDown()
+            local stepSize = altDown and not shiftDown and 5 or nil
+            local fullShortcut = altDown and shiftDown
+            if mouseButton ~= "LeftButton" or (not fullShortcut and not stepSize) then
+                return originalOnClick(button, mouseButton, down)
+            end
+
+            DebugPrint(
+                "profession-spec-mass click mode=" .. (stepSize and "step-5" or "full")
+                    .. " target=" .. tostring(button:GetNodeID())
+                    .. " view=" .. tostring(viewName)
+                    .. " detailed=" .. tostring(button.isDetailedView == true)
+                    .. " selected=" .. tostring(button.selected == true)
+                    .. " alt=" .. tostring(altDown)
+                    .. " shift=" .. tostring(shiftDown)
+            )
+            local talentFrame = type(button.GetTalentFrame) == "function"
+                and button:GetTalentFrame()
+                or nil
+            if not talentFrame
+                or (type(talentFrame.AnyPopupShown) == "function" and talentFrame:AnyPopupShown())
+            then
+                return
+            end
+
+            if not button.selected
+                and type(EventRegistry) == "table"
+                and type(EventRegistry.TriggerEvent) == "function"
+            then
+                EventRegistry:TriggerEvent("ProfessionsSpecializations.PathSelected", button:GetNodeID())
+            end
+            YQQuality.MassPurchaseProfessionSpecPath(talentFrame, button:GetNodeID(), stepSize)
+            if type(button.OnEnter) == "function" then
+                button:OnEnter()
+            end
+        end
+        DebugPrint("profession-spec-mass handler=hooked view=" .. tostring(viewName))
+        return true
+    end
+
+    local treeHooked = InstallMixinHook(ProfessionsSpecPathMixin, "tree")
+    local detailedHooked = InstallMixinHook(ProfessionsDetailedSpecPathMixin, "detailed")
+    state.professionSpecMassPurchaseHandlerInstalled = true
+    DebugPrint(
+        "profession-spec-mass handler=installed tree=" .. tostring(treeHooked)
+            .. " detailed=" .. tostring(detailedHooked)
+    )
+    return true
+end
+
 local function Print(message)
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99" .. addonName .. "|r: " .. message)
 end
@@ -308,7 +1312,7 @@ local function ClearPersistentDebugLog()
     db.debugLog = {}
 end
 
-local function DebugPrint(message)
+DebugPrint = function(message)
     if not CONFIG.debugNextCraft then
         return
     end
@@ -2165,6 +3169,96 @@ local function IsRequiredSelectableReagentSlot(slot)
         or (tonumber(firstReagent and firstReagent.currencyID) or 0) > 0
 end
 
+local function GetRecipeReagentQuality(reagent)
+    local quality = tonumber(reagent and (reagent.reagentQuality or reagent.quality or reagent.qualityID))
+    if quality and quality > 0 then
+        return quality
+    end
+
+    local itemID = tonumber(reagent and reagent.itemID)
+    if itemID and YQQuality and type(YQQuality.GetProfessionItemQuality) == "function" then
+        local itemQuality = YQQuality.GetProfessionItemQuality(itemID)
+        return tonumber(itemQuality)
+    end
+end
+
+local function GetLowestRecipeReagent(slot)
+    local selected
+    local selectedQuality
+    for _, candidate in ipairs(slot and slot.reagents or {}) do
+        local itemID = tonumber(candidate.itemID)
+        local currencyID = tonumber(candidate.currencyID)
+        if (itemID and itemID > 0) or (currencyID and currencyID > 0) then
+            local quality = GetRecipeReagentQuality(candidate)
+            local better = not selected
+            if not better and quality and selectedQuality then
+                better = quality < selectedQuality
+            elseif not better and quality and not selectedQuality then
+                better = true
+            elseif not better and not quality and selectedQuality then
+                better = false
+            elseif not better then
+                better = (itemID or currencyID or 0) < (tonumber(selected.itemID) or tonumber(selected.currencyID) or 0)
+            end
+            if better then
+                selected = candidate
+                selectedQuality = quality
+            end
+        end
+    end
+    return selected
+end
+
+local function ForceRankOneCraftingReagents(schematic, craftingReagents)
+    local normalized = NormalizeCraftingReagents(craftingReagents)
+    for _, slot in ipairs(schematic and schematic.reagentSlotSchematics or {}) do
+        if IsRequiredRecipeReagentSlot(slot) and #slot.reagents > 1 then
+            local lowest = GetLowestRecipeReagent(slot)
+            local dataSlotIndex = tonumber(slot.dataSlotIndex)
+            if lowest and dataSlotIndex then
+                local lowestItemID = tonumber(lowest.itemID)
+                local lowestCurrencyID = tonumber(lowest.currencyID)
+                local allowedItems = {}
+                local allowedCurrencies = {}
+                for _, candidate in ipairs(slot.reagents or {}) do
+                    if candidate.itemID then
+                        allowedItems[tonumber(candidate.itemID)] = true
+                    elseif candidate.currencyID then
+                        allowedCurrencies[tonumber(candidate.currencyID)] = true
+                    end
+                end
+
+                local replaced = false
+                for _, reagentInfo in ipairs(normalized) do
+                    local reagent = reagentInfo.reagent or {}
+                    local itemID = tonumber(reagent.itemID)
+                    local currencyID = tonumber(reagent.currencyID)
+                    if reagentInfo.dataSlotIndex == dataSlotIndex
+                        and ((itemID and allowedItems[itemID]) or (currencyID and allowedCurrencies[currencyID])) then
+                        reagentInfo.reagent = {
+                            itemID = lowestItemID and lowestItemID > 0 and lowestItemID or nil,
+                            currencyID = lowestCurrencyID and lowestCurrencyID > 0 and lowestCurrencyID or nil,
+                        }
+                        replaced = true
+                    end
+                end
+
+                if not replaced and IsRequiredSelectableReagentSlot(slot) then
+                    normalized[#normalized + 1] = {
+                        dataSlotIndex = dataSlotIndex,
+                        reagent = {
+                            itemID = lowestItemID and lowestItemID > 0 and lowestItemID or nil,
+                            currencyID = lowestCurrencyID and lowestCurrencyID > 0 and lowestCurrencyID or nil,
+                        },
+                        quantity = math.max(0, tonumber(slot.quantityRequired) or 0),
+                    }
+                end
+            end
+        end
+    end
+    return NormalizeCraftingReagents(normalized)
+end
+
 local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, subtractAllocated)
     if not recipeID or type(schematic) ~= "table" then
         return nil
@@ -2172,7 +3266,7 @@ local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, 
 
     local reagents = {}
     for slotIndex, slot in ipairs(schematic.reagentSlotSchematics or {}) do
-        local reagent = IsRequiredRecipeReagentSlot(slot) and slot.reagents[1] or nil
+        local reagent = IsRequiredRecipeReagentSlot(slot) and GetLowestRecipeReagent(slot) or nil
         local itemID = reagent and reagent.itemID or nil
         local quantityRequired = tonumber(slot.quantityRequired) or 0
         if subtractAllocated and transaction and type(transaction.GetAllocations) == "function" then
@@ -2194,6 +3288,11 @@ local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, 
     local outputItemID = schematic.outputItemID
     WarmItemData(outputItemID)
 
+    local craftingReagents = transaction and type(transaction.CreateCraftingReagentInfoTbl) == "function"
+        and NormalizeCraftingReagents(SafeCall(transaction.CreateCraftingReagentInfoTbl, transaction))
+        or {}
+    craftingReagents = ForceRankOneCraftingReagents(schematic, craftingReagents)
+
     return {
         recipeID = recipeID,
         recipeName = (recipeInfo and recipeInfo.name) or schematic.name or ("Recette " .. recipeID),
@@ -2201,9 +3300,7 @@ local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, 
         outputItemID = outputItemID,
         outputPerCraft = math.max(1, tonumber(schematic.quantityMin) or 1),
         reagents = reagents,
-        craftingReagents = transaction and type(transaction.CreateCraftingReagentInfoTbl) == "function"
-            and NormalizeCraftingReagents(SafeCall(transaction.CreateCraftingReagentInfoTbl, transaction))
-            or {},
+        craftingReagents = craftingReagents,
         applyConcentration = transaction and type(transaction.IsApplyingConcentration) == "function" and transaction:IsApplyingConcentration() or false,
     }
 end
@@ -2318,7 +3415,7 @@ local function GetCurrentRecipeContext()
 
     local reagents = {}
     for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
-        local reagent = IsRequiredRecipeReagentSlot(slot) and slot.reagents[1] or nil
+        local reagent = IsRequiredRecipeReagentSlot(slot) and GetLowestRecipeReagent(slot) or nil
         local itemID = reagent and reagent.itemID or nil
         local quantityRequired = tonumber(slot.quantityRequired) or 0
         if type(itemID) == "number" and itemID > 0 and quantityRequired > 0 then
@@ -2410,11 +3507,17 @@ local function AddRecipeToQueue(context, quantity)
             and BuildSlotPlanSignature(entry.slotAllocations, entry.clearSlotIndices) == slotPlanSignature
             and (tonumber(entry.concentrationCost) or 0) == (tonumber(context.concentrationCost) or 0)
         then
+            local previousQuantity
+            local updatedQuantity
             if mode == "crafts" then
-                entry.craftQty = ClampQuantity((entry.craftQty or 0) + quantity)
+                previousQuantity = math.max(0, tonumber(entry.craftQty) or 0)
+                updatedQuantity = ClampQuantity(previousQuantity + quantity)
+                entry.craftQty = updatedQuantity
                 entry.outputQty = nil
             else
-                entry.outputQty = ClampQuantity((entry.outputQty or 0) + quantity)
+                previousQuantity = math.max(0, tonumber(entry.outputQty) or 0)
+                updatedQuantity = ClampQuantity(previousQuantity + quantity)
+                entry.outputQty = updatedQuantity
             end
             entry.recipeName = context.recipeName
             entry.outputItemID = context.outputItemID
@@ -2453,7 +3556,7 @@ local function AddRecipeToQueue(context, quantity)
                 YQQuality.QueueConcentrationPhial(1, concentrationPhialItemID)
             end
             state.InvalidateQualityPricing()
-            return entry
+            return entry, math.max(0, updatedQuantity - previousQuantity)
         end
     end
 
@@ -2500,7 +3603,7 @@ local function AddRecipeToQueue(context, quantity)
         YQQuality.QueueConcentrationPhial(1, concentrationPhialItemID)
     end
     state.InvalidateQualityPricing()
-    return entry
+    return entry, quantity
 end
 
 local function SortTaskList(tasks)
@@ -2819,33 +3922,61 @@ alchemyAuto.QueueBouquetAndRecycling = function()
                     return nil
                 end
 
-                DebugPrint("alchemy-auto recipe=" .. tostring(recipeID) .. " charges=" .. tostring(availableCharges))
-
                 local cooldownKey = alchemyAuto.GetCooldownKey(recipeID, craftSim)
                 local reservedCharges = cooldownReservations[cooldownKey] or 0
                 local craftsToQueue = math.max(0, availableCharges - reservedCharges)
+                DebugPrint(
+                    "alchemy-auto recipe=" .. tostring(recipeID)
+                        .. " cooldownKey=" .. tostring(cooldownKey)
+                        .. " charges=" .. tostring(availableCharges)
+                        .. " reserved=" .. tostring(reservedCharges)
+                        .. " craftsToQueue=" .. tostring(craftsToQueue)
+                        .. " queueBefore=" .. tostring(alchemyAuto.GetQueuedRecipeCrafts(recipeID))
+                )
                 if craftsToQueue > 0 then
                     local context = alchemyAuto.BuildCooldownContext(professionID, recipeID, recipeInfo)
                     if not context then
                         return nil
                     end
-                    pendingRecipes[#pendingRecipes + 1] = {
-                        context = context,
-                        quantity = craftsToQueue,
-                    }
-                    cooldownReservations[cooldownKey] = reservedCharges + craftsToQueue
+                    if recipeID == CONFIG.ALCHEMY_WONDROUS_SYNERGIST_RECIPE_ID then
+                        local minBuyout = context.outputItemID
+                            and YQQuality.GetTSMPrice("dbminbuyout", context.outputItemID)
+                            or nil
+                        local shouldQueue = minBuyout
+                            and minBuyout > CONFIG.ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT
+                        DebugPrint(
+                            "alchemy-auto wondrous recipe=" .. tostring(recipeID)
+                                .. " output=" .. tostring(context.outputItemID)
+                                .. " minbuyout=" .. tostring(minBuyout)
+                                .. " threshold=" .. tostring(CONFIG.ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT)
+                                .. " accepted=" .. tostring(shouldQueue == true)
+                        )
+                        if not shouldQueue then
+                            context = nil
+                        end
+                    end
+                    if context then
+                        pendingRecipes[#pendingRecipes + 1] = {
+                            context = context,
+                            quantity = craftsToQueue,
+                        }
+                        cooldownReservations[cooldownKey] = reservedCharges + craftsToQueue
+                    end
                 end
             end
         end
     end
 
     for _, pendingRecipe in ipairs(pendingRecipes) do
+        local queueBefore = alchemyAuto.GetQueuedRecipeCrafts(pendingRecipe.context.recipeID)
         local queuedEntry = AddRecipeToQueue(pendingRecipe.context, pendingRecipe.quantity)
         DebugPrint(
             "alchemy-auto queued profession=" .. tostring(professionID)
                 .. " recipe=" .. tostring(pendingRecipe.context and pendingRecipe.context.recipeID)
                 .. " quantity=" .. tostring(pendingRecipe.quantity)
                 .. " added=" .. tostring(queuedEntry ~= nil)
+                .. " queueBefore=" .. tostring(queueBefore)
+                .. " queueAfter=" .. tostring(alchemyAuto.GetQueuedRecipeCrafts(pendingRecipe.context.recipeID))
         )
     end
     alchemyAuto.EnsureRecycleForDerivateShortage(professionID)
@@ -2868,7 +3999,15 @@ function YQQuality.ScheduleAutoQueueAlchemy(delay)
             return
         end
         autoQueue.attempts = (autoQueue.attempts or 0) + 1
-        local result = alchemyAuto.QueueBouquetAndRecycling()
+        local succeeded, result = pcall(alchemyAuto.QueueBouquetAndRecycling)
+        if not succeeded then
+            autoQueue.pendingProfessionID = false
+            DebugPrint(
+                "alchemy-auto failed profession=" .. tostring(state.GetCurrentProfessionID())
+                    .. " error=" .. tostring(result)
+            )
+            return
+        end
         if result == nil and autoQueue.attempts < 30 then
             YQQuality.ScheduleAutoQueueAlchemy(0.1)
         else
@@ -2883,9 +4022,20 @@ function YQQuality.ScheduleAutoQueueAlchemy(delay)
 end
 
 local function StartAlchemyAutoQueue()
-    DebugPrint("alchemy-auto start profession=" .. tostring(state.GetCurrentProfessionID()))
-    state.alchemyAutoQueue.pendingProfessionID = nil
-    state.alchemyAutoQueue.attempts = 0
+    local autoQueue = state.alchemyAutoQueue
+    local professionID = tonumber(state.GetCurrentProfessionID())
+    if not alchemyAuto.IsAlchemyProfession(professionID) then
+        autoQueue.pendingProfessionID = nil
+        return
+    end
+    if autoQueue.pendingProfessionID == professionID then
+        YQQuality.ScheduleAutoQueueAlchemy(0)
+        return
+    end
+
+    DebugPrint("alchemy-auto start profession=" .. tostring(professionID))
+    autoQueue.pendingProfessionID = professionID
+    autoQueue.attempts = 0
     YQQuality.ScheduleAutoQueueAlchemy(0)
 end
 
@@ -2929,10 +4079,16 @@ local function GetQueuedConcentrationReservation(professionID, currencyID)
     for _, entry in ipairs(db.queue) do
         local entryProfessionID = tonumber(entry.professionID)
         local entryCost, entryCurrencyID = GetEntryConcentrationInfo(entry)
-        local matchesProfession = professionID and entryProfessionID == professionID
-        local matchesCurrency = currencyID and entryCurrencyID == currencyID
-        local unscopedEntry = not entryProfessionID and not entryCurrencyID
-        if (not professionID and not currencyID) or matchesProfession or matchesCurrency or unscopedEntry then
+        local matchesScope
+        if currencyID then
+            matchesScope = entryCurrencyID == currencyID
+                or (not entryCurrencyID and (entryProfessionID == professionID or not entryProfessionID))
+        elseif professionID then
+            matchesScope = entryProfessionID == professionID or (not entryProfessionID and not entryCurrencyID)
+        else
+            matchesScope = true
+        end
+        if matchesScope then
             reserved = reserved + GetEntryCraftsRemaining(entry) * entryCost
         end
     end
@@ -3295,7 +4451,48 @@ local function BuildCraftLines(summary)
     return lines
 end
 
+function YQQuality.DebugCraftState(stage, recipeID, details)
+    if not CONFIG.debugNextCraft then
+        return
+    end
+
+    recipeID = tonumber(recipeID) or 0
+    local pendingEntry = state.pendingCraftEntries[1]
+    local pendingBatch = state.pendingCraftBatches[1]
+    local focusRecipeID = recipeID > 0 and recipeID
+        or tonumber(pendingEntry and pendingEntry.recipeID)
+        or tonumber(pendingBatch and pendingBatch.recipeID)
+        or 0
+    if focusRecipeID <= 0 then
+        return
+    end
+
+    state.EnsureDB()
+    local queued = {}
+    for index, entry in ipairs(db.queue) do
+        if tonumber(entry.recipeID) == focusRecipeID then
+            queued[#queued + 1] = tostring(index)
+                .. ":" .. tostring(entry.recipeID)
+                .. "x" .. tostring(select(1, GetEntryCraftsRemaining(entry)))
+                .. ":" .. tostring(entry.queueKind or "normal")
+                .. ":conc=" .. tostring(entry.applyConcentration == true)
+        end
+    end
+
+    DebugPrint(
+        "craft-trace stage=" .. tostring(stage)
+            .. " recipe=" .. tostring(focusRecipeID)
+            .. " queue=[" .. table.concat(queued, ",") .. "]"
+            .. " pendingEntry=" .. tostring(pendingEntry and pendingEntry.recipeID)
+            .. "x" .. tostring(pendingEntry and pendingEntry.amount)
+            .. " pendingBatch=" .. tostring(pendingBatch and pendingBatch.recipeID)
+            .. "x" .. tostring(pendingBatch and pendingBatch.amount)
+            .. (details and (" " .. tostring(details)) or "")
+    )
+end
+
 local function ConsumeCraftFromQueue(recipeID)
+    YQQuality.DebugCraftState("consume-fallback-before", recipeID)
     if type(recipeID) ~= "number" or recipeID <= 0 then
         return nil
     end
@@ -3328,15 +4525,29 @@ local function ConsumeCraftFromQueue(recipeID)
                 end
             end
             state.InvalidateQualityPricing()
+            YQQuality.DebugCraftState(
+                "consume-fallback-after",
+                recipeID,
+                "matched=true stillQueued=" .. tostring(db.queue[index] == entry)
+                    .. " storedQty=" .. tostring(entry.craftQty or entry.outputQty or 0)
+            )
             return recipeName
         end
     end
 
+    YQQuality.DebugCraftState("consume-fallback-after", recipeID, "matched=false")
     return nil
 end
 
 local function ConsumeMatchedQueueEntry(index, entry, entryData)
     local recipeName = entry.recipeName or (entryData and entryData.recipeName)
+    YQQuality.DebugCraftState(
+        "consume-entry-before",
+        entry.recipeID,
+        "index=" .. tostring(index)
+            .. " incomingRecipe=" .. tostring(entryData and entryData.recipeID)
+            .. " incomingAmount=" .. tostring(entryData and entryData.amount)
+    )
     if entry.queueKind == "patron" and entry.orderID then
         entry.pendingSubmit = true
         entry.craftQty = math.max(1, ClampQuantity(entry.craftQty or 1))
@@ -3361,6 +4572,13 @@ local function ConsumeMatchedQueueEntry(index, entry, entryData)
     end
 
     state.InvalidateQualityPricing()
+    YQQuality.DebugCraftState(
+        "consume-entry-after",
+        entry.recipeID,
+        "index=" .. tostring(index)
+            .. " stillQueued=" .. tostring(db.queue[index] == entry)
+            .. " storedQty=" .. tostring(entry.craftQty or entry.outputQty or 0)
+    )
     return recipeName
 end
 
@@ -3390,6 +4608,12 @@ local function ConsumeCraftEntry(entryData)
     if isPatronEntry then
         DebugPrint("consume-miss kind=patron order=" .. tostring(expectedOrderID) .. " recipe=" .. tostring(entryData.recipeID))
     end
+    YQQuality.DebugCraftState(
+        "consume-entry-miss",
+        entryData.recipeID,
+        "kind=" .. tostring(entryData.queueKind)
+            .. " concentration=" .. tostring(entryData.applyConcentration)
+    )
 
     return nil
 end
@@ -3921,6 +5145,36 @@ local function GetPatronNextButtonState()
     }
 end
 
+function YQQuality.ArmFavoriteConcentrationRefund(entry, craftAmount)
+    local tracker = state.autoFavoriteConcentration.tracker
+    if not tracker
+        or tracker.recipeID ~= tonumber(entry and entry.recipeID)
+        or NormalizeApplyConcentration(entry and entry.applyConcentration) ~= true
+    then
+        return false
+    end
+
+    tracker.beforeConcentration = state.GetCurrentConcentrationAmount(tracker.concentrationCurrencyID)
+    tracker.awaitingCraft = tracker.beforeConcentration ~= nil
+    tracker.craftConfirmed = false
+    tracker.confirmedCrafts = 0
+    tracker.reservationProcessedCrafts = 0
+    tracker.reservationConsumedCrafts = 0
+    tracker.batchCraftsRemaining = math.max(1, math.floor(tonumber(craftAmount) or 1))
+    tracker.refundCheckAttempts = 0
+    tracker.refundCheckScheduled = false
+    tracker.currencyEventSeen = false
+    tracker.currencyEventAmount = nil
+    tracker.lastObservedConcentration = nil
+    tracker.stableObservationCount = 0
+    DebugPrint(
+        "concentration-refund craft-armed recipe=" .. tostring(tracker.recipeID)
+            .. " crafts=" .. tostring(tracker.batchCraftsRemaining)
+            .. " before=" .. tostring(tracker.beforeConcentration)
+    )
+    return tracker.awaitingCraft
+end
+
 state.RunPatronNextAction = function()
     local stateInfo = GetPatronNextButtonState()
     if not stateInfo or not stateInfo.entry then
@@ -4010,20 +5264,7 @@ state.RunPatronNextAction = function()
             end
         end
 
-        local favoriteTracker = state.autoFavoriteConcentration.tracker
-        if favoriteTracker
-            and not favoriteTracker.requeued
-            and favoriteTracker.recipeID == stateInfo.entry.recipeID
-            and stateInfo.entry.applyConcentration == true
-        then
-            favoriteTracker.beforeConcentration = state.GetCurrentConcentrationAmount()
-            favoriteTracker.awaitingCraft = favoriteTracker.beforeConcentration ~= nil
-            favoriteTracker.craftConfirmed = false
-            favoriteTracker.reservationConsumed = false
-            favoriteTracker.refundCheckAttempts = 0
-            favoriteTracker.refundCheckScheduled = false
-            favoriteTracker.currencyEventAmount = nil
-        end
+        YQQuality.ArmFavoriteConcentrationRefund(stateInfo.entry, craftAmount)
 
         BeginNextActionLock("craft", 0, 30.0)
         BeginCraftClickLock()
@@ -4075,22 +5316,9 @@ state.RunPatronNextAction = function()
             end
         end
 
-        local favoriteTracker = state.autoFavoriteConcentration.tracker
-        if favoriteTracker
-            and not favoriteTracker.requeued
-            and favoriteTracker.recipeID == stateInfo.entry.recipeID
-            and stateInfo.entry.applyConcentration == true
-        then
-            -- At craft time we only need the raw currency snapshot. Rebuilding
-            -- the schematic here can race the Blizzard profession UI refresh.
-            favoriteTracker.beforeConcentration = state.GetCurrentConcentrationAmount()
-            favoriteTracker.awaitingCraft = favoriteTracker.beforeConcentration ~= nil
-            favoriteTracker.craftConfirmed = false
-            favoriteTracker.reservationConsumed = false
-            favoriteTracker.refundCheckAttempts = 0
-            favoriteTracker.refundCheckScheduled = false
-            favoriteTracker.currencyEventAmount = nil
-        end
+        -- At craft time we only need the tracked currency snapshot. Rebuilding
+        -- the schematic here can race the Blizzard profession UI refresh.
+        YQQuality.ArmFavoriteConcentrationRefund(stateInfo.entry, craftAmount)
         local vellumLocation
         if recipeInfo and recipeInfo.isEnchantingRecipe and type(C_TradeSkillUI.CraftEnchant) == "function" then
             vellumLocation = GetItemLocationFromItemID(38682)
@@ -4241,7 +5469,13 @@ local function UpdateTSMMacroBridge()
     end
 
     CreateTSMMacroBridgeButton(CONFIG.YQ_TSM_BUY_BUTTON, function()
-        if IsYayaAuctionContextActive() then
+        if _G.YayaReagentSniperAPI
+            and type(_G.YayaReagentSniperAPI.IsAuctionContextActive) == "function"
+            and type(_G.YayaReagentSniperAPI.OnAuctionActionClick) == "function"
+            and _G.YayaReagentSniperAPI.IsAuctionContextActive()
+        then
+            _G.YayaReagentSniperAPI.OnAuctionActionClick()
+        elseif IsYayaAuctionContextActive() then
             state.OnAuctionActionClick()
         else
             ClickExistingButton(CONFIG.TSM_BUY_BUTTON)
@@ -4305,6 +5539,11 @@ local function QueuePendingCraftRecipe(recipeID, amount)
     local lastBatch = batches[#batches]
     if lastBatch and lastBatch.recipeID == recipeID then
         lastBatch.amount = lastBatch.amount + amount
+        YQQuality.DebugCraftState(
+            "pending-batch-merge",
+            recipeID,
+            "added=" .. tostring(amount) .. " total=" .. tostring(lastBatch.amount)
+        )
         return
     end
 
@@ -4313,6 +5552,7 @@ local function QueuePendingCraftRecipe(recipeID, amount)
         amount = amount,
     }
     DebugPrint("queue-recipe recipe=" .. tostring(recipeID) .. " amount=" .. tostring(amount) .. " pendingBatches=" .. tostring(#state.pendingCraftBatches))
+    YQQuality.DebugCraftState("pending-batch-add", recipeID, "amount=" .. tostring(amount))
 end
 
 local function PopPendingCraftRecipe()
@@ -4322,10 +5562,12 @@ local function PopPendingCraftRecipe()
     end
 
     local recipeID = batch.recipeID
+    YQQuality.DebugCraftState("pending-batch-pop-before", recipeID)
     batch.amount = (batch.amount or 1) - 1
     if batch.amount <= 0 then
         table.remove(state.pendingCraftBatches, 1)
     end
+    YQQuality.DebugCraftState("pending-batch-pop-after", recipeID)
     return recipeID
 end
 
@@ -4345,6 +5587,7 @@ state.QueuePendingCraftEntry = function(entry, amount)
         amount = amount,
     }
     DebugPrint("queue-entry recipe=" .. tostring(entry.recipeID) .. " order=" .. tostring(entry.orderID) .. " amount=" .. tostring(amount) .. " pendingEntries=" .. tostring(#state.pendingCraftEntries))
+    YQQuality.DebugCraftState("pending-entry-add", entry.recipeID, "amount=" .. tostring(amount))
 end
 
 state.PopPendingCraftEntry = function()
@@ -4353,11 +5596,13 @@ state.PopPendingCraftEntry = function()
         return nil
     end
 
+    YQQuality.DebugCraftState("pending-entry-pop-before", batch.recipeID)
     batch.amount = (batch.amount or 1) - 1
     if batch.amount <= 0 then
         table.remove(state.pendingCraftEntries, 1)
     end
 
+    YQQuality.DebugCraftState("pending-entry-pop-after", batch.recipeID)
     return batch
 end
 
@@ -4640,10 +5885,13 @@ local function QueueRecipeContext(context, qtyBox, quantityOverride)
     context.professionID = tonumber(context.professionID) or state.GetCurrentProfessionID()
     context.applyConcentration = NormalizeApplyConcentration(context.applyConcentration)
     context.mode = "crafts"
-    AddRecipeToQueue(context, quantity)
-    state.ah.statusMessage = "Ajoute " .. quantity .. "x " .. context.recipeName
-    ScheduleRefresh()
-    return quantity
+    local _, queuedQuantity = AddRecipeToQueue(context, quantity)
+    queuedQuantity = math.max(0, tonumber(queuedQuantity) or 0)
+    if queuedQuantity > 0 then
+        state.ah.statusMessage = "Ajoute " .. queuedQuantity .. "x " .. context.recipeName
+        ScheduleRefresh()
+    end
+    return queuedQuantity
 end
 
 local function BuildCompleteRecipeReagents(schematic, craftingReagents, recipeInfo)
@@ -4880,7 +6128,7 @@ local function GetConcentrationDumpState(schematicForm, headlessRecipeID)
 		craftingReagents = {}
 		for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
 			if IsRequiredSelectableReagentSlot(slot) then
-				local reagent = slot.reagents and slot.reagents[1]
+                local reagent = GetLowestRecipeReagent(slot)
 				local itemID = tonumber(reagent and reagent.itemID)
 				local currencyID = tonumber(reagent and reagent.currencyID)
 				local quantity = math.max(0, tonumber(slot.quantityRequired) or 0)
@@ -4951,7 +6199,7 @@ local function GetConcentrationDumpState(schematicForm, headlessRecipeID)
     }
 end
 
-function YQQuality.GetFirstFavoriteRecipeID()
+function YQQuality.GetFirstFavoriteRecipeID(preferredRecipeID)
     if type(C_TradeSkillUI) ~= "table"
         or type(C_TradeSkillUI.GetAllRecipeIDs) ~= "function"
         or type(C_TradeSkillUI.GetRecipeInfo) ~= "function"
@@ -4963,6 +6211,19 @@ function YQQuality.GetFirstFavoriteRecipeID()
 	if type(recipeIDs) ~= "table" or #recipeIDs == 0 then
 		return nil, false
 	end
+
+    preferredRecipeID = tonumber(preferredRecipeID)
+    if preferredRecipeID then
+        local preferredInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, preferredRecipeID)
+        local preferredIsFavorite = SafeCall(C_TradeSkillUI.IsRecipeFavorite, preferredRecipeID)
+        if type(preferredInfo) == "table"
+            and preferredInfo.learned ~= false
+            and preferredInfo.isRecraft ~= true
+            and preferredIsFavorite == true
+        then
+            return preferredRecipeID, true
+        end
+    end
 
     local dataReady = true
     for _, recipeID in ipairs(recipeIDs) do
@@ -4990,7 +6251,14 @@ function YQQuality.ScheduleAutoQueueFavoriteConcentration(delay)
     C_Timer.After(delay or 0, function()
         autoQueue.timerQueued = false
         if autoQueue.pending then
-            YQQuality.TryAutoQueueFavoriteConcentration()
+            local succeeded, errorMessage = pcall(YQQuality.TryAutoQueueFavoriteConcentration)
+            if not succeeded then
+                DebugPrint(
+                    "auto-favorite failed profession=" .. tostring(state.GetCurrentProfessionID())
+                        .. " error=" .. tostring(errorMessage)
+                )
+                autoQueue.pending = nil
+            end
         end
     end)
 end
@@ -5624,7 +6892,7 @@ local function GetFinishingBatches(schematicForm, dumpState)
     end
 
     local optionalSlots = YQQuality.BuildOptionalSlots(recipeInfo, schematic)
-    local base = YQQuality.CopyReagents(context.craftingReagents)
+    local base = ForceRankOneCraftingReagents(schematic, YQQuality.CopyReagents(context.craftingReagents))
     local finishingSlots = {}
     for _, slotData in ipairs(optionalSlots) do
         if slotData.options[1] and slotData.options[1].isFinishing then
@@ -5649,6 +6917,10 @@ local function GetFinishingBatches(schematicForm, dumpState)
             .. " role=" .. tostring(recipeRole)
     )
     local candidates = { multicraft = {}, resourcefulness = {}, ingenuity = {} }
+    local queuedReservations = type(YQQuality.GetQueuedReagentReservations) == "function"
+        and YQQuality.GetQueuedReagentReservations()
+        or {}
+    local finishingBagCounts = {}
     for _, slotData in ipairs(finishingSlots) do
         local required = math.max(1, tonumber(slotData.slot.quantityRequired) or 1)
         for _, option in ipairs(slotData.options) do
@@ -5656,32 +6928,50 @@ local function GetFinishingBatches(schematicForm, dumpState)
             local supportsRole = role == "ingenuity"
                 or (role == "multicraft" and recipeRole == "multicraft")
                 or (role == "resourcefulness" and recipeRole == "resourcefulness")
-            local available = supportsRole and math.floor(GetBoundBagItemCount(option.itemID) / required) or 0
+            local itemID = tonumber(option.itemID)
+            local bagCount = itemID and finishingBagCounts[itemID]
+            if bagCount == nil then
+                bagCount = itemID and GetBoundBagItemCount(itemID) or 0
+                if itemID then
+                    finishingBagCounts[itemID] = bagCount
+                end
+            end
+            local queuedQuantity = itemID and math.max(0, tonumber(queuedReservations[itemID]) or 0) or 0
+            local availableUnits = supportsRole and math.max(0, bagCount - queuedQuantity) or 0
+            local available = math.floor(availableUnits / required)
             DebugPrint(
                 "finishing-candidate item=" .. tostring(option.itemName)
                     .. " itemID=" .. tostring(option.itemID)
                     .. " role=" .. tostring(role)
                     .. " supports=" .. tostring(supportsRole)
                     .. " required=" .. tostring(required)
+                    .. " queued=" .. tostring(queuedQuantity)
                     .. " available=" .. tostring(available)
             )
             if available > 0 then
                 candidates[role][#candidates[role] + 1] = {
-                    itemID = option.itemID,
+                    itemID = itemID,
                     slot = slotData.slot,
                     available = available,
+                    availableUnits = availableUnits,
                     required = required,
                 }
             end
         end
     end
 
+    local reservedFinishing = {}
     local batches, remaining = {}, dumpState.maxQuantity
     for _, role in ipairs({ "multicraft", "resourcefulness", "ingenuity" }) do
         table.sort(candidates[role], function(left, right) return left.itemID < right.itemID end)
         for _, candidate in ipairs(candidates[role]) do
             if remaining <= 0 then break end
-            local quantity = math.min(remaining, candidate.available)
+            local alreadyReserved = reservedFinishing[candidate.itemID] or 0
+            local availableUnits = math.max(0, candidate.availableUnits - alreadyReserved)
+            local quantity = math.min(
+                remaining,
+                math.floor(availableUnits / math.max(1, candidate.required))
+            )
             if quantity > 0 then
                 local selected = YQQuality.ReplaceReagent(base, candidate.slot, {
                     { itemID = candidate.itemID, quantity = candidate.required },
@@ -5700,6 +6990,7 @@ local function GetFinishingBatches(schematicForm, dumpState)
                         .. " itemID=" .. tostring(candidate.itemID)
                         .. " quantity=" .. tostring(quantity)
                 )
+                reservedFinishing[candidate.itemID] = alreadyReserved + (quantity * candidate.required)
                 remaining = remaining - quantity
             end
         end
@@ -5769,11 +7060,16 @@ local function QueueConcentrationDump(schematicForm, dumpState, source)
             source = source,
             awaitingCraft = false,
             craftConfirmed = false,
-            reservationConsumed = false,
-            requeued = false,
+            confirmedCrafts = 0,
+            reservationProcessedCrafts = 0,
+            reservationConsumedCrafts = 0,
+            batchCraftsRemaining = 0,
             refundCheckAttempts = 0,
             refundCheckScheduled = false,
+            currencyEventSeen = false,
             currencyEventAmount = nil,
+            lastObservedConcentration = nil,
+            stableObservationCount = 0,
         }
         DebugPrint(
             "concentration-refund armed source=" .. tostring(source)
@@ -5803,12 +7099,9 @@ YQQuality.TryAutoQueueFavoriteConcentration = function()
         autoQueue.pending = nil
         return
     end
-    if autoQueue.queuedByProfession[professionID] then
-        autoQueue.pending = nil
-        return
-    end
-
-    local favoriteRecipeID, recipeDataReady = YQQuality.GetFirstFavoriteRecipeID()
+    local favoriteRecipeID, recipeDataReady = YQQuality.GetFirstFavoriteRecipeID(
+        autoQueue.favoriteRecipeByProfession[professionID]
+    )
     if not recipeDataReady then
         if request.attempts == 1 or request.attempts % 10 == 0 then
             DebugPrint("auto-favorite wait profession=" .. tostring(professionID) .. " reason=recipe-data attempt=" .. tostring(request.attempts))
@@ -5818,7 +7111,13 @@ YQQuality.TryAutoQueueFavoriteConcentration = function()
     end
     if not favoriteRecipeID then
         DebugPrint("auto-favorite none profession=" .. tostring(professionID))
-        autoQueue.queuedByProfession[professionID] = true
+        autoQueue.favoriteRecipeByProfession[professionID] = nil
+        autoQueue.handledFavoriteByProfession[professionID] = 0
+        autoQueue.pending = nil
+        return
+    end
+    autoQueue.favoriteRecipeByProfession[professionID] = favoriteRecipeID
+    if autoQueue.handledFavoriteByProfession[professionID] == favoriteRecipeID then
         autoQueue.pending = nil
         return
     end
@@ -5851,26 +7150,26 @@ YQQuality.TryAutoQueueFavoriteConcentration = function()
         DebugPrint("auto-favorite skip profession=" .. tostring(professionID) .. " recipe=" .. tostring(favoriteRecipeID) .. " queued=" .. tostring(alreadyQueued) .. " max=" .. tostring(dumpState.maxQuantity) .. " reserved=" .. tostring(dumpState.queuedReservation))
     end
 
-    autoQueue.queuedByProfession[professionID] = true
+    autoQueue.handledFavoriteByProfession[professionID] = favoriteRecipeID
     autoQueue.pending = nil
 end
 
-state.GetCurrentConcentrationAmount = function()
-    local currencyID = SafeCall(YQQuality.GetConcentrationCurrencyID, nil)
+state.GetCurrentConcentrationAmount = function(currencyID)
+    currencyID = tonumber(currencyID) or SafeCall(YQQuality.GetConcentrationCurrencyID, nil)
     local currencyInfo = currencyID and C_CurrencyInfo and type(C_CurrencyInfo.GetCurrencyInfo) == "function"
         and SafeCall(C_CurrencyInfo.GetCurrencyInfo, currencyID) or nil
     return currencyInfo and tonumber(currencyInfo.quantity) or nil
 end
 
 local function ScheduleFavoriteConcentrationRefundRetry(tracker)
+    if tracker.refundCheckScheduled then
+        return
+    end
     local attempts = (tonumber(tracker.refundCheckAttempts) or 0) + 1
     tracker.refundCheckAttempts = attempts
     if attempts > CONFIG.CONCENTRATION_REFUND_MAX_RETRIES then
         tracker.awaitingCraft = false
         DebugPrint("concentration-refund timeout waiting-for-currency-update")
-        return
-    end
-    if tracker.refundCheckScheduled then
         return
     end
     tracker.refundCheckScheduled = true
@@ -5885,7 +7184,7 @@ end
 
 function YQQuality.TryQueueFavoriteConcentrationRefund(observedAmount)
     local tracker = state.autoFavoriteConcentration.tracker
-    if not tracker or not tracker.awaitingCraft or not tracker.craftConfirmed or tracker.requeued then
+    if not tracker or not tracker.awaitingCraft or not tracker.craftConfirmed then
         return
     end
 
@@ -5895,50 +7194,69 @@ function YQQuality.TryQueueFavoriteConcentrationRefund(observedAmount)
         return
     end
 
-    local before = tonumber(tracker.beforeConcentration)
-    local after = state.GetCurrentConcentrationAmount()
-    local eventAmount = tonumber(observedAmount) or tonumber(tracker.currencyEventAmount)
-    if after == before and eventAmount and eventAmount ~= before then
-        after = eventAmount
+    local confirmedCrafts = math.max(0, math.floor(tonumber(tracker.confirmedCrafts) or 0))
+    local processedCrafts = math.max(0, math.floor(tonumber(tracker.reservationProcessedCrafts) or 0))
+    if confirmedCrafts <= 0
+        or (tonumber(tracker.batchCraftsRemaining) or 0) > 0
+        or processedCrafts < confirmedCrafts
+    then
+        return
     end
+
+    local before = tonumber(tracker.beforeConcentration)
+    local after = tonumber(observedAmount)
+        or state.GetCurrentConcentrationAmount(tracker.concentrationCurrencyID)
     local cost = tonumber(tracker.concentrationCost) or 0
     if not before or not after or cost <= 0 then
         ScheduleFavoriteConcentrationRefundRetry(tracker)
         return
     end
 
-    -- CURRENCY_DISPLAY_UPDATE can arrive before GetCurrencyInfo exposes the
-    -- post-craft value. Never treat the pre-craft amount as a refund result.
-    if after == before then
-        DebugPrint(
-            "concentration-refund wait currency-update before=" .. tostring(before)
-                .. " observed=" .. tostring(after)
-        )
+    if tonumber(tracker.lastObservedConcentration) ~= after then
+        tracker.lastObservedConcentration = after
+        tracker.stableObservationCount = 1
+        ScheduleFavoriteConcentrationRefundRetry(tracker)
+        return
+    end
+    tracker.stableObservationCount = (tonumber(tracker.stableObservationCount) or 1) + 1
+
+    -- A full Ingenuity refund legitimately leaves the currency unchanged.
+    -- Without a matching currency event, keep waiting until the bounded final
+    -- observation before accepting equality as the settled post-craft value.
+    if after == before
+        and tracker.currencyEventSeen ~= true
+        and (tonumber(tracker.refundCheckAttempts) or 0) < CONFIG.CONCENTRATION_REFUND_MAX_RETRIES
+    then
         ScheduleFavoriteConcentrationRefundRetry(tracker)
         return
     end
 
     tracker.awaitingCraft = false
+    tracker.craftConfirmed = false
     tracker.refundCheckAttempts = 0
     tracker.currencyEventAmount = nil
-    local spent = before - cost
+    local expectedWithoutRefund = before - (confirmedCrafts * cost)
     local professionID = tonumber(tracker.professionID) or state.GetCurrentProfessionID()
     local currencyID = tonumber(tracker.concentrationCurrencyID)
     local reserved = GetQueuedConcentrationReservation(professionID, currencyID)
-    if tracker.reservationConsumed ~= true then
-        reserved = math.max(0, reserved - cost)
-    end
+    local consumedCrafts = math.max(0, math.floor(tonumber(tracker.reservationConsumedCrafts) or 0))
+    local stillQueuedCrafts = math.max(0, confirmedCrafts - consumedCrafts)
+    reserved = math.max(0, reserved - (stillQueuedCrafts * cost))
     local availableAfterQueue = math.max(0, after - reserved)
+    local refundQuantity = math.floor(availableAfterQueue / cost)
     DebugPrint(
         "concentration-refund check source=" .. tostring(tracker.source or "?")
             .. " recipe=" .. tostring(tracker.recipeID)
             .. " before=" .. tostring(before)
             .. " after=" .. tostring(after)
             .. " cost=" .. tostring(cost)
+            .. " crafts=" .. tostring(confirmedCrafts)
+            .. " expected=" .. tostring(expectedWithoutRefund)
             .. " reserved=" .. tostring(reserved)
             .. " available=" .. tostring(availableAfterQueue)
+            .. " dump=" .. tostring(refundQuantity)
     )
-    if after <= spent or availableAfterQueue < cost then
+    if after <= expectedWithoutRefund or refundQuantity <= 0 then
         DebugPrint(
             "concentration-refund skip recipe=" .. tostring(tracker.recipeID)
                 .. " reason=insufficient-after-queue"
@@ -5950,16 +7268,17 @@ function YQQuality.TryQueueFavoriteConcentrationRefund(observedAmount)
     local refundState = {
         context = tracker.context,
         cost = cost,
-        maxQuantity = 1,
+        maxQuantity = refundQuantity,
     }
     local batches, queuedQuantity = QueueConcentrationDump(schematicForm, refundState, "ingenuity-refund")
     if queuedQuantity > 0 then
-        tracker.requeued = true
         DebugPrint(
             "concentration-refund queued recipe=" .. tostring(tracker.recipeID)
                 .. " quantity=" .. tostring(queuedQuantity)
                 .. " batches=" .. tostring(batches and #batches or 0)
         )
+    else
+        DebugPrint("concentration-refund skip recipe=" .. tostring(tracker.recipeID) .. " reason=queue-delta-zero")
     end
 end
 
@@ -6032,6 +7351,36 @@ local function GetUsableCraftSimReagentPrice(priceData, itemID, quantity, reserv
     return nil
 end
 
+local function GetCraftSimReagentQuality(reagentItem)
+    local quality = tonumber(reagentItem and (reagentItem.reagentQuality or reagentItem.quality or reagentItem.qualityID))
+    if quality and quality > 0 then
+        return quality
+    end
+    local itemID = reagentItem and reagentItem.item and reagentItem.item.GetItemID
+        and reagentItem.item:GetItemID() or nil
+    if itemID and YQQuality and type(YQQuality.GetProfessionItemQuality) == "function" then
+        local itemQuality = YQQuality.GetProfessionItemQuality(itemID)
+        return tonumber(itemQuality)
+    end
+end
+
+local function FindLowestCraftSimReagent(reagentItems)
+    local selected
+    local selectedQuality
+    for _, reagentItem in ipairs(reagentItems or {}) do
+        local quality = GetCraftSimReagentQuality(reagentItem)
+        if quality == 1 then
+            return reagentItem
+        end
+        if not selected or (quality and not selectedQuality)
+            or (quality and selectedQuality and quality < selectedQuality) then
+            selected = reagentItem
+            selectedQuality = quality
+        end
+    end
+    return selected
+end
+
 local function GetCraftSimItemPrice(itemID)
     if type(_G.CraftSimAPI) ~= "table" or type(_G.CraftSimAPI.GetCraftSim) ~= "function" then
         return nil
@@ -6057,27 +7406,30 @@ local function SelectKnownCraftSimReagents(recipeData, reserved)
     local priceData = recipeData and recipeData.priceData
     for _, reagent in ipairs(recipeData.reagentData.requiredReagents or {}) do
         if reagent.hasQuality then
-            local cheapestItem
-            local cheapestPrice
-            for _, reagentItem in ipairs(reagent.items or {}) do
-                local itemID = reagentItem.item and reagentItem.item.GetItemID and reagentItem.item:GetItemID() or nil
-                local itemPrice = itemID and GetUsableCraftSimReagentPrice(
-                    priceData, itemID, reagent.requiredQuantity, reserved
-                ) or nil
-                if itemPrice and (not cheapestPrice or itemPrice < cheapestPrice) then
-                    cheapestItem = reagentItem
-                    cheapestPrice = itemPrice
-                end
-            end
-            if not cheapestItem or type(reagent.Clear) ~= "function" then
+            local selectedItem = FindLowestCraftSimReagent(reagent.items)
+            local selectedItemID = selectedItem and selectedItem.item
+                and selectedItem.item.GetItemID and selectedItem.item:GetItemID() or nil
+            if not selectedItemID
+                or not GetUsableCraftSimReagentPrice(priceData, selectedItemID, reagent.requiredQuantity, reserved)
+                or type(reagent.Clear) ~= "function" then
                 return false
             end
             reagent:Clear()
-            cheapestItem.quantity = reagent.requiredQuantity
+            selectedItem.quantity = reagent.requiredQuantity
         end
     end
 
     local requiredSlot = recipeData.reagentData.requiredSelectableReagentSlot
+    if requiredSlot and type(requiredSlot.SetReagent) == "function" then
+        for _, possibleReagent in ipairs(requiredSlot.possibleReagents or {}) do
+            local itemID = possibleReagent.item and possibleReagent.item.GetItemID
+                and possibleReagent.item:GetItemID() or nil
+            if itemID and GetCraftSimReagentQuality({ item = possibleReagent.item }) == 1 then
+                requiredSlot:SetReagent(itemID)
+                break
+            end
+        end
+    end
     local activeReagent = requiredSlot and requiredSlot.activeReagent
     if requiredSlot and activeReagent and activeReagent.item then
         local activeItemID = activeReagent.item:GetItemID()
@@ -11006,6 +12358,11 @@ local function HookCraftAPIs()
         if type(C_TradeSkillUI.CraftRecipe) == "function" then
             hooksecurefunc(C_TradeSkillUI, "CraftRecipe", function(recipeID, amount)
                 if tonumber(recipeID) ~= CONFIG.SHATTER_ESSENCE_SPELL_ID then
+                    YQQuality.DebugCraftState(
+                        "craft-api-hook",
+                        recipeID,
+                        "api=CraftRecipe amount=" .. tostring(amount)
+                    )
                     QueuePendingCraftRecipe(recipeID, amount)
                 end
             end)
@@ -11714,6 +13071,10 @@ end
 addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
     InstallRecipeDescriptionGuard()
     if event == "ADDON_LOADED" then
+        if arg1 == "Blizzard_Professions" then
+            YQQuality.InstallProfessionSpecMassPurchaseHook()
+            return
+        end
         if arg1 == "TradeSkillMaster" then
             C_Timer.After(0, UpdateTSMMacroBridge)
             return
@@ -11723,11 +13084,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         end
 
         state.EnsureDB()
+        YQQuality.InstallProfessionSpecMassPurchaseHook()
         YQQuality.RefreshIngenuityBuffState("addon-loaded")
         YQQuality.EnsureOptions()
         addon:RegisterEvent("PLAYER_ENTERING_WORLD")
         addon:RegisterEvent("TRADE_SKILL_SHOW")
         addon:RegisterEvent("TRADE_SKILL_DATA_SOURCE_CHANGED")
+        addon:RegisterEvent("TRADE_SKILL_FAVORITES_CHANGED")
         addon:RegisterEvent("TRADE_SKILL_CLOSE")
         addon:RegisterEvent("TRADE_SKILL_ITEM_CRAFTED_RESULT")
         addon:RegisterEvent("SPELLS_CHANGED")
@@ -11770,6 +13133,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
     end
 
     if event == "PLAYER_ENTERING_WORLD" then
+        YQQuality.InstallProfessionSpecMassPurchaseHook()
         YQQuality.RefreshIngenuityBuffState("player-entering-world")
         UpdateTSMMacroBridge()
         state.craftGear.ScheduleScan()
@@ -11778,6 +13142,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
     end
 
     if event == "TRADE_SKILL_SHOW" then
+        YQQuality.InstallProfessionSpecMassPurchaseHook()
         if state.craft.qualityFrame then state.craft.qualityFrame.userClosed = false end
         state.craftGear.ScheduleScan()
         C_Timer.After(0, function()
@@ -11852,6 +13217,11 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
 
     if event == "TRADE_SKILL_DATA_SOURCE_CHANGED" then
         local professionID = state.GetCurrentProfessionID()
+        YQQuality.DebugCraftState(
+            "data-source-changed",
+            nil,
+            "profession=" .. tostring(professionID)
+        )
         DebugPrint(
             "event=TRADE_SKILL_DATA_SOURCE_CHANGED profession=" .. tostring(professionID)
                 .. " alchemyPending=" .. tostring(state.alchemyAutoQueue.pendingProfessionID)
@@ -11860,6 +13230,45 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             and alchemyAuto.IsAlchemyProfession(professionID)
         then
             StartAlchemyAutoQueue()
+        end
+        ScheduleRefresh()
+        return
+    end
+
+    if event == "TRADE_SKILL_FAVORITES_CHANGED" then
+        local professionID = state.GetCurrentProfessionID()
+        local recipeID = tonumber(arg2)
+        local autoQueue = state.autoFavoriteConcentration
+        local previousFavorite = professionID and autoQueue.favoriteRecipeByProfession[professionID] or nil
+        if professionID and arg1 == true and recipeID then
+            autoQueue.favoriteRecipeByProfession[professionID] = recipeID
+        elseif professionID and recipeID == previousFavorite then
+            autoQueue.favoriteRecipeByProfession[professionID] = nil
+        end
+
+        if professionID then
+            local favoriteRecipeID, recipeDataReady = YQQuality.GetFirstFavoriteRecipeID(
+                autoQueue.favoriteRecipeByProfession[professionID]
+            )
+            if recipeDataReady then
+                autoQueue.favoriteRecipeByProfession[professionID] = favoriteRecipeID
+                local handledRecipeID = autoQueue.handledFavoriteByProfession[professionID]
+                local currentRecipeID = favoriteRecipeID or 0
+                DebugPrint(
+                    "auto-favorite changed profession=" .. tostring(professionID)
+                        .. " old=" .. tostring(previousFavorite)
+                        .. " new=" .. tostring(favoriteRecipeID)
+                        .. " handled=" .. tostring(handledRecipeID)
+                )
+                if handledRecipeID ~= currentRecipeID then
+                    autoQueue.pending = {
+                        professionID = professionID,
+                        attempts = 0,
+                        openRequested = false,
+                    }
+                    YQQuality.ScheduleAutoQueueFavoriteConcentration(0)
+                end
+            end
         end
         ScheduleRefresh()
         return
@@ -11918,9 +13327,12 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
     if event == "CURRENCY_DISPLAY_UPDATE" then
         local favoriteTracker = state.autoFavoriteConcentration.tracker
         if favoriteTracker and favoriteTracker.awaitingCraft
-            and tonumber(arg1) == tonumber(favoriteTracker.concentrationCurrencyID)
+            and (arg1 == nil or tonumber(arg1) == tonumber(favoriteTracker.concentrationCurrencyID))
         then
-            favoriteTracker.currencyEventAmount = tonumber(arg2)
+            favoriteTracker.currencyEventSeen = true
+            favoriteTracker.currencyEventAmount = state.GetCurrentConcentrationAmount(
+                favoriteTracker.concentrationCurrencyID
+            )
         end
         C_Timer.After(0.25, YQQuality.TryQueueFavoriteConcentrationRefund)
         ScheduleRefresh()
@@ -11935,14 +13347,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         local itemID = arg1 and arg1.itemID or nil
         local quantity = arg1 and arg1.quantity or nil
         local multicraft = arg1 and arg1.quantityMulticraft or nil
-        local favoriteTracker = state.autoFavoriteConcentration.tracker
-        local pendingFavoriteEntry = state.pendingCraftEntries[1]
-        if favoriteTracker and favoriteTracker.awaitingCraft
-            and pendingFavoriteEntry
-            and pendingFavoriteEntry.recipeID == favoriteTracker.recipeID
-        then
-            favoriteTracker.craftConfirmed = true
-        end
+        YQQuality.DebugCraftState(
+            "crafted-result",
+            nil,
+            "itemID=" .. tostring(itemID)
+                .. " quantity=" .. tostring(quantity)
+                .. " multicraft=" .. tostring(multicraft)
+        )
         DebugPrint("event=TRADE_SKILL_ITEM_CRAFTED_RESULT itemID=" .. tostring(itemID) .. " qty=" .. tostring(quantity) .. " multicraft=" .. tostring(multicraft) .. " pendingEntries=" .. tostring(#state.pendingCraftEntries) .. " pendingBatches=" .. tostring(#state.pendingCraftBatches))
         C_Timer.After(0.5, function()
             state.firstCraftAvailability = {}
@@ -12006,6 +13417,11 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             return
         end
 
+        YQQuality.DebugCraftState(
+            "spellcast-success-before",
+            arg3,
+            "castGUID=" .. tostring(arg2) .. " spellID=" .. tostring(arg3)
+        )
         local pendingEntry = state.PopPendingCraftEntry()
         local recipeName = ConsumeCraftEntry(pendingEntry)
         if not recipeName then
@@ -12014,13 +13430,29 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         else
             PopPendingCraftRecipe()
         end
+        YQQuality.DebugCraftState(
+            "spellcast-success-after",
+            arg3,
+            "castGUID=" .. tostring(arg2)
+                .. " spellID=" .. tostring(arg3)
+                .. " matched=" .. tostring(recipeName ~= nil)
+        )
         local favoriteTracker = state.autoFavoriteConcentration.tracker
         if favoriteTracker and favoriteTracker.awaitingCraft
             and pendingEntry
             and pendingEntry.recipeID == favoriteTracker.recipeID
+            and pendingEntry.applyConcentration == true
         then
             favoriteTracker.craftConfirmed = true
-            favoriteTracker.reservationConsumed = recipeName ~= nil
+            favoriteTracker.confirmedCrafts = (tonumber(favoriteTracker.confirmedCrafts) or 0) + 1
+            favoriteTracker.reservationProcessedCrafts = (tonumber(favoriteTracker.reservationProcessedCrafts) or 0) + 1
+            if recipeName then
+                favoriteTracker.reservationConsumedCrafts = (tonumber(favoriteTracker.reservationConsumedCrafts) or 0) + 1
+            end
+            favoriteTracker.batchCraftsRemaining = math.max(0, tonumber(pendingEntry.amount) or 0)
+            favoriteTracker.refundCheckAttempts = 0
+            favoriteTracker.lastObservedConcentration = nil
+            favoriteTracker.stableObservationCount = 0
         end
         local nextActionLock = GetNextActionLock()
         if nextActionLock
@@ -12065,7 +13497,10 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             if state.autoFavoriteConcentration.tracker then
                 state.autoFavoriteConcentration.tracker.awaitingCraft = false
                 state.autoFavoriteConcentration.tracker.craftConfirmed = false
-                state.autoFavoriteConcentration.tracker.reservationConsumed = false
+                state.autoFavoriteConcentration.tracker.confirmedCrafts = 0
+                state.autoFavoriteConcentration.tracker.reservationProcessedCrafts = 0
+                state.autoFavoriteConcentration.tracker.reservationConsumedCrafts = 0
+                state.autoFavoriteConcentration.tracker.batchCraftsRemaining = 0
             end
             DebugPrint("event=" .. tostring(event) .. " pendingEntries=" .. tostring(#state.pendingCraftEntries) .. " pendingBatches=" .. tostring(#state.pendingCraftBatches))
             ClearPendingCraftBatches()
@@ -12581,7 +14016,15 @@ function YayaQueueAPI.QueueFavoriteConcentration(professionID)
     end
 
     local autoQueue = state.autoFavoriteConcentration
-    if autoQueue.queuedByProfession[professionID] then
+    local favoriteRecipeID, recipeDataReady = YQQuality.GetFirstFavoriteRecipeID(
+        autoQueue.favoriteRecipeByProfession[professionID]
+    )
+    if recipeDataReady then
+        autoQueue.favoriteRecipeByProfession[professionID] = favoriteRecipeID
+    end
+    if recipeDataReady
+        and autoQueue.handledFavoriteByProfession[professionID] == (favoriteRecipeID or 0)
+    then
         DebugPrint("auto-favorite skip profession=" .. tostring(professionID) .. " reason=already-handled")
         return false, "Already handled"
     end
