@@ -1161,7 +1161,7 @@ runtimeState.trackingOptions = {
     { category = "Metiers Midnight", key = "trackProfessionToolEnchants", label = "Enchantements des outils" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceEnchantingBags", label = "Acheter automatiquement les sacs de matériaux d'enchantement" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceFusedVitality", label = "Acheter automatiquement les Fused Vitality" },
-    { category = "Conteneurs", key = "autoOpenContainers", label = "Ouvrir automatiquement les conteneurs YWT" },
+    { category = "Conteneurs", key = "autoOpenContainers", label = "Proposer l'ouverture securisee des conteneurs YWT" },
     { category = "Recettes Midnight", key = "trackRecipePotionRecklessness", label = "Potion of Recklessness" },
     { category = "Recettes Midnight", key = "trackRecipeViciousThalassianFlaskHonor", label = "Vicious Thalassian Flask of Honor" },
     { category = "Recettes Midnight", key = "trackRecipeConcentratedSilvermoonHealthPotion", label = "Concentrated Silvermoon Health Potion" },
@@ -1323,6 +1323,59 @@ local UpdateTracker
 local ScheduleTrackerRefresh
 local trackerUI = {}
 
+trackerUI.IsContainerOpeningBlocked = function()
+    if InCombatLockdown and InCombatLockdown() then
+        return true
+    end
+    if IsInInstance then
+        local inInstance, instanceType = IsInInstance()
+        if inInstance or (type(instanceType) == "string" and instanceType ~= "none") then
+            return true
+        end
+    end
+    if GetInstanceInfo then
+        local _, instanceType = GetInstanceInfo()
+        if type(instanceType) == "string" and instanceType ~= "none" then
+            return true
+        end
+    end
+    return false
+end
+
+trackerUI.RegisterContainerActionButton = function(button)
+    if not button or button.ywtContainerVisibilityParent then
+        return
+    end
+    local visibilityParent = trackerFrame and trackerFrame.containerActionVisibilityFrame
+    if visibilityParent and type(button.SetParent) == "function" then
+        button:SetParent(visibilityParent)
+        button.ywtContainerVisibilityParent = true
+    end
+end
+
+trackerUI.HideContainerActionButtons = function()
+    if not trackerFrame then
+        return
+    end
+    -- Ces boutons heritent de SecureActionButtonTemplate : Hide est protege.
+    -- L'appelant est PLAYER_REGEN_DISABLED, donc le lockdown est deja actif et
+    -- les appels echouaient en silence, laissant IsShown() a true alors que le
+    -- state driver [combat] hide du parent avait bien masque le bouton. On
+    -- laisse donc le state driver faire seul le travail en combat.
+    if InCombatLockdown and InCombatLockdown() then
+        return
+    end
+    if trackerFrame.payoutButton then
+        trackerFrame.payoutButton:Hide()
+    end
+    if trackerFrame.autoOpenButton then
+        trackerFrame.autoOpenButton:Hide()
+    end
+    for _, button in ipairs(trackerFrame.surplusReagentButtons or EMPTY_TABLE) do
+        button:Hide()
+    end
+end
+
 trackerUI.LockItemActionButton = function(button)
     if not button then
         return false
@@ -1346,7 +1399,17 @@ trackerUI.UnlockItemActionButtons = function()
 
     local function Unlock(button)
         if button and button.itemActionLocked then
+            -- BAG_UPDATE_DELAYED arrive environ 0,3 s apres la consommation,
+            -- bien avant la fin d'un cooldown de 5 s : deverrouiller ici
+            -- reactivait le bouton trop tot.
+            if trackerUI.GetItemActionCooldownRemaining(trackerUI.GetButtonItemTarget(button)) > 0 then
+                -- Deverrouillage differe : c'est ApplyItemActionCooldownGate qui
+                -- rendra la main a la fin du cooldown.
+                button.itemActionCooldownLocked = true
+                return
+            end
             button.itemActionLocked = false
+            button.itemActionCooldownLocked = nil
             if button.SetEnabled then
                 button:SetEnabled(true)
             end
@@ -1472,20 +1535,18 @@ local function AppendPersistentDebugLog(message)
     accountDB.debugLog = accountDB.debugLog or {}
 
     local timestamp = date and date("%H:%M:%S") or tostring(math.floor(GetTime and GetTime() or 0))
-    accountDB.debugLog[#accountDB.debugLog + 1] = ("[%s] %s"):format(timestamp, tostring(message or ""))
-    local overflow = #accountDB.debugLog - TRACKER_DEFAULTS.debugLogLimit
-    if overflow > 0 then
-        for _ = 1, overflow do
-            table.remove(accountDB.debugLog, 1)
-        end
-    end
+    local entry = ("[%s] %s"):format(timestamp, tostring(message or ""))
+    -- Tampon circulaire : la purge precedente appelait table.remove(t, 1), qui
+    -- recopie tout le journal a chaque ligne au-dela de la limite de 400.
+    YayaCore.RingBuffer.Push(accountDB.debugLog, entry, TRACKER_DEFAULTS.debugLogLimit)
 end
 
 local function PrintPersistentDebugLog(limit)
-    local lines = GetAccountDB().debugLog or {}
-    limit = math.max(1, math.floor(tonumber(limit) or 20))
-    local firstIndex = math.max(1, #lines - limit + 1)
-    for index = firstIndex, #lines do
+    local lines = YayaCore.RingBuffer.Read(
+        GetAccountDB().debugLog or {},
+        math.max(1, math.floor(tonumber(limit) or 20))
+    )
+    for index = 1, #lines do
         if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
             DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99YWT|r: " .. lines[index])
         elseif print then
@@ -1520,6 +1581,142 @@ local function DebugLog(message, ...)
         print("YWT DEBUG " .. text)
     end
 end
+
+-- Ces quatre valeurs sont des champs de trackerUI, pas des locaux de chunk :
+-- Lua 5.1 plafonne un chunk a 200 variables locales et ce fichier est a 198.
+-- Quatre locaux de plus et le fichier ne compile plus du tout, donc l'addon
+-- entier ne s'execute pas : ni section, ni boutons, ni ouverture de conteneur.
+trackerUI.itemActionCooldownButtonFields = {
+    "recipeButton",
+    "knowledgeButton",
+    "payoutButton",
+}
+trackerUI.itemActionCooldownButtonLists = {
+    "surplusReagentButtons",
+    "finishingReagentMergeButtons",
+    "warbankTreatiseButtons",
+    "toolEnchantApplyButtons",
+}
+
+trackerUI.GetButtonItemTarget = function(button)
+    if not button then
+        return nil
+    end
+    return button.itemName
+        or button.itemLink
+        or (button.itemID and ("item:" .. tostring(button.itemID)))
+        or nil
+end
+
+-- IsUsableItem ne rend compte que du niveau, de la classe et de la spe : elle
+-- ignore totalement les cooldowns. Entre deux traites, le second bouton restait
+-- donc actif, l'action securisee partait, le serveur la rejetait en silence, la
+-- pile ne bougeait pas et le bouton paraissait casse. On lit le cooldown reel.
+trackerUI.GetItemActionCooldownRemaining = function(itemTarget)
+    if not itemTarget then
+        return 0
+    end
+    local getCooldown = C_Item and C_Item.GetItemCooldown
+    if type(getCooldown) ~= "function" then
+        return 0
+    end
+    local ok, startTime, duration, enabled = pcall(getCooldown, itemTarget)
+    if not ok or enabled == false then
+        return 0
+    end
+    startTime = tonumber(startTime) or 0
+    duration = tonumber(duration) or 0
+    if startTime <= 0 or duration <= 0 then
+        return 0
+    end
+    return math.max(0, startTime + duration - (GetTime and GetTime() or 0))
+end
+
+trackerUI.StripItemActionCountdown = function(button)
+    if type(button.GetText) ~= "function" or type(button.SetText) ~= "function" then
+        return
+    end
+    -- gsub renvoie deux valeurs : on isole la chaine avant de la passer a SetText.
+    local baseText = (button:GetText() or ""):gsub("%s*%(%d+s%)$", "")
+    button:SetText(baseText)
+end
+
+trackerUI.ApplyItemActionCooldownGate = function(button)
+    if not button then
+        return 0
+    end
+
+    local remaining = trackerUI.GetItemActionCooldownRemaining(trackerUI.GetButtonItemTarget(button))
+    if remaining <= 0 then
+        -- C'est ici que le verrou est rendu, pas dans UnlockItemActionButtons :
+        -- cette derniere ne tourne que sur BAG_UPDATE_DELAYED, occasion deja
+        -- consommee pendant le cooldown. Sans cette branche le bouton restait
+        -- desactive pour toujours apres un traite.
+        if button.itemActionCooldownLocked then
+            button.itemActionCooldownLocked = nil
+            button.itemActionLocked = false
+            if button.SetEnabled then
+                button:SetEnabled(true)
+            end
+            trackerUI.StripItemActionCountdown(button)
+            DebugLog(
+                "ItemActionCooldown release button=%s item=%s",
+                tostring(button:GetName() or "?"),
+                tostring(trackerUI.GetButtonItemTarget(button) or "none")
+            )
+        end
+        return 0
+    end
+
+    -- Le cooldown court toujours : on le renvoie meme si le bouton est masque,
+    -- pour que le rafraichissement reste programme et que la liberation arrive.
+    if not button.itemActionCooldownLocked then
+        DebugLog(
+            "ItemActionCooldown hold button=%s item=%s remaining=%.2f",
+            tostring(button:GetName() or "?"),
+            tostring(trackerUI.GetButtonItemTarget(button) or "none"),
+            remaining
+        )
+    end
+    button.itemActionCooldownLocked = true
+    if type(button.IsShown) ~= "function" or not button:IsShown() then
+        return remaining
+    end
+
+    if button.SetEnabled then
+        button:SetEnabled(false)
+    end
+    if type(button.GetText) == "function" and type(button.SetText) == "function" then
+        local baseText = (button:GetText() or ""):gsub("%s*%(%d+s%)$", "")
+        button:SetText(("%s (%ds)"):format(baseText, math.ceil(remaining)))
+    end
+    return remaining
+end
+
+-- Applique le gate a tous les boutons d'objet du tracker, puis reprogramme un
+-- rafraichissement a la fin du cooldown le plus long pour que le compte a
+-- rebours affiche reste juste et que le bouton se reactive tout seul.
+trackerUI.ApplyItemActionCooldownGates = function()
+    local frame = trackerFrame
+    if not frame then
+        return
+    end
+
+    local longest = 0
+    for _, field in ipairs(trackerUI.itemActionCooldownButtonFields) do
+        longest = math.max(longest, trackerUI.ApplyItemActionCooldownGate(frame[field]))
+    end
+    for _, listField in ipairs(trackerUI.itemActionCooldownButtonLists) do
+        for _, button in ipairs(frame[listField] or EMPTY_TABLE) do
+            longest = math.max(longest, trackerUI.ApplyItemActionCooldownGate(button))
+        end
+    end
+
+    if longest > 0 then
+        ScheduleTrackerRefresh(math.min(longest + 0.05, 1.0), false)
+    end
+end
+
 
 _G.YayaWeeklyTrackerAutoOpen = _G.YayaWeeklyTrackerAutoOpen or {}
 _G.YayaWeeklyTrackerAutoOpen.DebugLog = function(message, ...)
@@ -3594,7 +3791,8 @@ trackerUI.UpdateArtisanConsortiumPayoutButton = function(state)
         return false
     end
 
-    if GetAccountDB().autoOpenContainers == true then
+    if trackerUI.IsContainerOpeningBlocked()
+        or GetAccountDB().autoOpenContainers == true then
         state = nil
     end
 
@@ -3642,10 +3840,11 @@ trackerUI.UpdateSurplusReagentButtons = function(states)
     local buttons = trackerFrame and trackerFrame.surplusReagentButtons or EMPTY_TABLE
     local visibleCount = 0
     local autoOpenContainers = GetAccountDB().autoOpenContainers == true
+    local containerOpeningBlocked = trackerUI.IsContainerOpeningBlocked()
 
     for index, button in ipairs(buttons) do
         local state = states and states[index] or nil
-        if state and state.itemID and not autoOpenContainers then
+        if state and state.itemID and not autoOpenContainers and not containerOpeningBlocked then
             if not button.itemActionLocked then
                 button:SetEnabled(true)
             end
@@ -5447,6 +5646,10 @@ trackerUI.NotifyContainerOpening = function(button, _, down)
     if down or not button or not button.itemID then
         return
     end
+    if trackerUI.IsContainerOpeningBlocked() then
+        DebugLog("Container opening blocked itemID=%s", tostring(button.itemID))
+        return
+    end
     if YayaContainerValuesAPI and type(YayaContainerValuesAPI.BeginOpening) == "function" then
         YayaContainerValuesAPI.BeginOpening(button.itemID)
     end
@@ -6429,6 +6632,8 @@ local function RefreshTrackerNow()
         runtimeState.itemActionRefreshPending = false
         trackerUI.UnlockItemActionButtons()
     end
+    -- Apres UpdateTracker et le deverrouillage, sinon le gate serait annule.
+    trackerUI.ApplyItemActionCooldownGates()
     trackerUI.SyncMidnightTreasureWaypoints()
     if runtimeState.midnightRecipeStatePending and C_Timer and C_Timer.After then
         ScheduleTrackerRefresh(10, false)
@@ -7255,14 +7460,27 @@ UpdateTracker = function()
             trackerUI.UpdateToolEnchantApplyButtons,
             trackProfessionToolEnchants and toolEnchantState or nil
         ) or 0
-        local autoOpenButton = _G.YayaWeeklyTrackerAutoOpen
-            and type(_G.YayaWeeklyTrackerAutoOpen.GetActionButton) == "function"
-            and _G.YayaWeeklyTrackerAutoOpen.GetActionButton()
+        local autoOpenApi = _G.YayaWeeklyTrackerAutoOpen
+        local autoOpenButton = autoOpenApi
+            and type(autoOpenApi.GetActionButton) == "function"
+            and autoOpenApi.GetActionButton()
             or nil
-        local hasAutoOpenButton = autoOpenButton
-            and type(autoOpenButton.IsShown) == "function"
-            and autoOpenButton:IsShown()
-            or false
+        -- La visibilite est deduite de l'etat du module, pas de IsShown().
+        -- Lire IsShown() creait une dependance circulaire : le module montrait le
+        -- bouton, demandait un rafraichissement, et cette passe decouvrait un
+        -- bouton visible mais sans ancrage. Chaque bascule masquait aussi toute
+        -- la section, d'ou le bouton qui apparaissait, disparaissait, puis
+        -- sautait d'un cran.
+        local autoOpenCandidate = nil
+        if autoOpenApi and type(autoOpenApi.GetPendingCandidate) == "function" then
+            local ok, candidate = pcall(autoOpenApi.GetPendingCandidate)
+            autoOpenCandidate = ok and candidate or nil
+        end
+        local hasAutoOpenButton = (autoOpenButton ~= nil and autoOpenCandidate ~= nil) or false
+        if autoOpenButton and not hasAutoOpenButton
+            and not (InCombatLockdown and InCombatLockdown()) then
+            autoOpenButton:Hide()
+        end
         local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|fm=%d|wb=%d|tt=%s|tep=%s|teb=%s|tea=%d|ao=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton), toolEnchantApplyButtonCount, tostring(hasAutoOpenButton))
         if trackerDebugSignature ~= debugSignatures.tracker then
             debugSignatures.tracker = trackerDebugSignature
@@ -7505,6 +7723,11 @@ UpdateTracker = function()
             else
                 autoOpenButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
             end
+            -- Ancre pose, on peut afficher : le bouton n'apparait jamais sans
+            -- position. Le state driver [combat] hide reste maitre en combat.
+            if not (InCombatLockdown and InCombatLockdown()) then
+                autoOpenButton:Show()
+            end
             offsetY = offsetY + 24
         end
 
@@ -7533,6 +7756,16 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame:SetFrameStrata("MEDIUM")
     trackerFrame:SetSize(190, 24)
     trackerFrame:SetClampedToScreen(true)
+
+    trackerFrame.containerActionVisibilityFrame = CreateFrame(
+        "Frame",
+        addonName .. "ContainerActionVisibilityFrame",
+        trackerFrame
+    )
+    trackerFrame.containerActionVisibilityFrame:SetAllPoints(trackerFrame)
+    if type(RegisterStateDriver) == "function" then
+        RegisterStateDriver(trackerFrame.containerActionVisibilityFrame, "visibility", "[combat] hide; show")
+    end
 
     trackerFrame.bg = trackerFrame:CreateTexture(nil, "BACKGROUND")
     trackerFrame.bg:SetPoint("TOPLEFT")
@@ -7734,6 +7967,7 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.payoutButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.payoutButton:SetText("Ouvrir payout")
     trackerFrame.payoutButton:Hide()
+    trackerUI.RegisterContainerActionButton(trackerFrame.payoutButton)
     trackerFrame.payoutButton:HookScript("PreClick", trackerUI.NotifyContainerOpening)
     trackerFrame.payoutButton:HookScript("PostClick", function(self, _, down)
         if down then
@@ -7771,7 +8005,9 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.autoOpenButton:RegisterForClicks("AnyUp")
     trackerFrame.autoOpenButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.autoOpenButton:SetText("Ouvrir conteneur")
+    trackerFrame.autoOpenButton:SetPoint("TOPLEFT", 6, -22)
     trackerFrame.autoOpenButton:Hide()
+    trackerUI.RegisterContainerActionButton(trackerFrame.autoOpenButton)
     trackerFrame.autoOpenButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:SetText("Ouvre le prochain conteneur suivi.")
@@ -7791,6 +8027,7 @@ trackerUI.CreateTrackerFrame = function()
         button:SetAttribute("useOnKeyDown", false)
         button:SetText("Ouvrir surplus")
         button:Hide()
+        trackerUI.RegisterContainerActionButton(button)
         button:HookScript("PreClick", trackerUI.NotifyContainerOpening)
         button:HookScript("PostClick", function(self, _, down)
             if down then
@@ -7991,6 +8228,8 @@ eventFrame:RegisterEvent("BANKFRAME_CLOSED")
 pcall(eventFrame.RegisterEvent, eventFrame, "PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
 pcall(eventFrame.RegisterEvent, eventFrame, "PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
 pcall(eventFrame.RegisterEvent, eventFrame, "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
+pcall(eventFrame.RegisterEvent, eventFrame, "ZONE_CHANGED")
+pcall(eventFrame.RegisterEvent, eventFrame, "ZONE_CHANGED_INDOORS")
 eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
 eventFrame:RegisterEvent("QUEST_TURNED_IN")
 eventFrame:RegisterEvent("MERCHANT_SHOW")
@@ -8012,6 +8251,7 @@ eventFrame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
 eventFrame:RegisterEvent("CHAT_MSG_CURRENCY")
 eventFrame:RegisterEvent("CHAT_MSG_MONEY")
 eventFrame:RegisterEvent("CHAT_MSG_LOOT")
+eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("PLAYER_LEVEL_UP")
 eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
@@ -8091,10 +8331,46 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             elseif command == "traites off" then
                 GetAccountDB().trackTreatises = false
                 print("YWT: Tracker les traites (inscription) desactive")
+            elseif command == "autoopen reset" or command == "autoopen reset all" then
+                local api = _G.YayaWeeklyTrackerAutoOpen
+                if api and type(api.ResetContainerCaches) == "function" then
+                    local includeForbidden = command == "autoopen reset all"
+                    api.ResetContainerCaches(includeForbidden)
+                    print(("YWT: verdicts d'auto-ouverture purges%s"):format(
+                        includeForbidden and " (y compris les conteneurs interdits par Blizzard)" or ""
+                    ))
+                else
+                    print("YWT: module d'auto-ouverture indisponible")
+                end
+            elseif command == "autoopen" then
+                local api = _G.YayaWeeklyTrackerAutoOpen
+                local forbidden, failed, successful = 0, 0, 0
+                if api then
+                    if type(api.GetForbiddenContainers) == "function" then
+                        for _ in pairs(api.GetForbiddenContainers() or EMPTY_TABLE) do
+                            forbidden = forbidden + 1
+                        end
+                    end
+                    if type(api.GetFailedContainers) == "function" then
+                        for _ in pairs(api.GetFailedContainers() or EMPTY_TABLE) do
+                            failed = failed + 1
+                        end
+                    end
+                    if type(api.GetSuccessfulContainers) == "function" then
+                        for _ in pairs(api.GetSuccessfulContainers() or EMPTY_TABLE) do
+                            successful = successful + 1
+                        end
+                    end
+                end
+                print(("YWT autoopen: %d interdits (manuel uniquement), %d refus transitoires, %d succes"):format(
+                    forbidden,
+                    failed,
+                    successful
+                ))
             end
             ScheduleTrackerRefresh(0, false)
         end
-        DebugLog("Debug actif. Commandes: /ywt debug, /ywt debug on, /ywt debug off, /ywt traites")
+        DebugLog("Debug actif. Commandes: /ywt debug, /ywt debug on, /ywt debug off, /ywt traites, /ywt autoopen, /ywt autoopen reset")
         ScheduleTrackerRefresh(0, true)
     elseif event == "MERCHANT_SHOW" then
         runtimeState.abundanceEnchantingPurchaseGeneration = (runtimeState.abundanceEnchantingPurchaseGeneration or 0) + 1
@@ -8248,9 +8524,14 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         or event == "AREA_POIS_UPDATED"
         or event == "QUEST_DATA_LOAD_RESULT"
         or event == "ZONE_CHANGED_NEW_AREA"
+        or event == "ZONE_CHANGED"
+        or event == "ZONE_CHANGED_INDOORS"
         or event == "COVENANT_SANCTUM_RENOWN_LEVEL_CHANGED"
         or event == "WEEKLY_REWARDS_UPDATE" then
         ScheduleTrackerRefresh(0.05, false)
+    elseif event == "PLAYER_REGEN_DISABLED" then
+        trackerUI.HideContainerActionButtons()
+        runtimeState.trackerRefreshDeferredByCombat = true
     elseif event == "PLAYER_REGEN_ENABLED" then
         if runtimeState.combatVisibilityUpdateDeferred then
             trackerUI.ApplyCombatVisibility()

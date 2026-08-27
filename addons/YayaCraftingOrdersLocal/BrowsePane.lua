@@ -64,7 +64,7 @@ Pane.retryConfig = {
 	requestFailureLimit = 3,
 	headlessRequestDelay = 0.5,
 	headlessRequestLimit = 3,
-	canRequestRecoveryDelay = 5,
+	canRequestRecoveryDelay = 1,
 	headlessFallbackTimeout = 10,
 	orderTypeDelay = 0.15,
 	orderTypeLimit = 20,
@@ -405,22 +405,11 @@ local function GetMarketPreferenceRank(priceState, unitPrice)
 end
 
 local function GetGoldIconMarkup()
-	if type(CreateTextureMarkup) == "function" then
-		return CreateTextureMarkup("Interface\\MoneyFrame\\UI-GoldIcon", 16, 16, 14, 14, 0, 1, 0, 1, 2, 0)
-	end
-
-	return "|TInterface\\MoneyFrame\\UI-GoldIcon:14:14:2:0|t"
+	return YayaCore.Money.GetGoldIconMarkup()
 end
 
 local function FormatGoldOnly(value, signed)
-	local goldValue = math.floor(math.abs(value) / 10000)
-	local amountText = type(BreakUpLargeNumbers) == "function" and BreakUpLargeNumbers(goldValue) or tostring(goldValue)
-	local formatted = amountText .. GetGoldIconMarkup()
-	if signed and value < 0 then
-		return "-" .. formatted
-	end
-
-	return formatted
+	return YayaCore.Money.FormatGoldOnly(value, signed)
 end
 
 local function FormatListMoney(value, signed)
@@ -4400,9 +4389,31 @@ function Pane:HasCrafterOrderRequestToken(profession)
 		return false, "consumed"
 	end
 	if tonumber(self.craftingOrdersCanRequestProfession) ~= tonumber(profession) then
-		return false, "profession-mismatch"
+		-- CRAFTINGORDERS_CAN_REQUEST est un deblocage de throttle cote serveur,
+		-- pas un droit attache a un metier. L'etiquette posee a la reception est
+		-- deduite de GetProfessionSnapshot, qui renvoie encore le metier
+		-- precedent juste apres une ouverture : refuser sur cette base bloquait
+		-- le flux headless jusqu'au repli visible. On accepte donc le token en
+		-- signalant la derive.
+		return true, "profession-drift"
 	end
 	return true, "ready"
+end
+
+function Pane:ResetCrafterOrderRequestToken(reason)
+	if self.craftingOrdersCanRequest == nil and self.craftingOrdersCanRequestProfession == nil then
+		return false
+	end
+	ns.Debug(
+		"auto-scan",
+		"reset can-request token reason=%s previous=%s/%s",
+		tostring(reason),
+		tostring(self.craftingOrdersCanRequest),
+		tostring(self.craftingOrdersCanRequestProfession)
+	)
+	self.craftingOrdersCanRequest = nil
+	self.craftingOrdersCanRequestProfession = nil
+	return true
 end
 
 function Pane:ConsumeCrafterOrderRequestToken(profession)
@@ -4645,12 +4656,20 @@ function Pane:RequestHeadlessPatronOrders(flow)
 			or (flow.canRequestWaitStartedAt + self.retryConfig.headlessFallbackTimeout)
 		local waitElapsed = GetTime() - flow.canRequestWaitStartedAt
 		local fallbackIn = flow.canRequestFallbackAt - GetTime()
+		-- Recuperation repetable : une seule tentative laissait le flux
+		-- attendre le repli visible des que cette tentative echouait.
 		if waitElapsed >= self.retryConfig.canRequestRecoveryDelay
-			and not flow.canRequestRecoveryAttempted
+			and GetTime() >= (flow.canRequestRecoveryNextAt or 0)
 		then
-			flow.canRequestRecoveryAttempted = true
+			-- Recul progressif : 1 s, 2 s, 4 s... plutot qu'une tentative par
+			-- seconde, pour laisser le throttle serveur se liberer de lui-meme.
+			flow.canRequestRecoveryAttempts = (flow.canRequestRecoveryAttempts or 0) + 1
+			flow.canRequestRecoveryNextAt = GetTime()
+				+ self.retryConfig.canRequestRecoveryDelay
+					* (2 ^ (flow.canRequestRecoveryAttempts - 1))
 			canRequest = true
 			canRequestReason = "timed-recovery"
+			flow.canRequestForcedRequest = true
 			requestTimeout = math.max(0.1, fallbackIn)
 			ns.Debug(
 				"headless",
@@ -4685,12 +4704,21 @@ function Pane:RequestHeadlessPatronOrders(flow)
 	end
 	flow.canRequestWaitLogged = nil
 
-	flow.requestAttempts = (flow.requestAttempts or 0) + 1
-	if flow.requestAttempts > self.retryConfig.headlessRequestLimit then
-		self:FallbackToVisiblePatronAutoScan(flow, "request-retries-exhausted")
-		return
+	-- Seul "ready" signifie que le serveur a effectivement accorde la requete.
+	-- Une requete emise sans cette autorisation, bootstrap ou recuperation
+	-- forcee, peut etre ignoree en silence : elle ne consomme donc pas le budget
+	-- de requetes headless. Elle reste bornee par son propre timer de timeout et
+	-- court-circuitee par la reemission sur CRAFTINGORDERS_CAN_REQUEST.
+	local granted = canRequestReason == "ready"
+	flow.canRequestForcedRequest = nil
+	if granted then
+		flow.requestAttempts = (flow.requestAttempts or 0) + 1
+		if flow.requestAttempts > self.retryConfig.headlessRequestLimit then
+			self:FallbackToVisiblePatronAutoScan(flow, "request-retries-exhausted")
+			return
+		end
 	end
-
+	flow.requestGranted = granted
 	self.headlessRequestSerial = (self.headlessRequestSerial or 0) + 1
 	local requestID = self.headlessRequestSerial
 	flow.requestID = requestID
@@ -4716,22 +4744,22 @@ function Pane:RequestHeadlessPatronOrders(flow)
 	end)
 
 	self:ConsumeCrafterOrderRequestToken(flow.profession)
-	local requestOK, requestError = pcall(C_CraftingOrders.RequestCrafterOrders, {
+	local request = {
 		profession = flow.profession,
 		orderType = ns.ORDER_TYPE_NPC,
 		forCrafter = true,
 		offset = 0,
 		searchFavorites = false,
-		initialNonPublicSearch = false,
+		initialNonPublicSearch = true,
 		primarySort = { sortType = 0, reversed = false },
 		secondarySort = { sortType = 0, reversed = false },
-		callback = function(result, orderType)
+	}
+	request.callback = function(result, orderType, _, expectMoreRows, responseOffset)
 			if Pane.autoScanFlow ~= flow or flow.requestID ~= requestID or not flow.requesting then
 				ns.Debug("headless", "ignore stale callback id=%s request-active=%s", tostring(requestID), tostring(flow.requesting == true))
 				return
 			end
 
-			flow.requesting = nil
 			local currentProfession = Pane:GetCurrentProfessionID()
 			local requestSucceeded = result == 0
 				and (orderType == nil or orderType == ns.ORDER_TYPE_NPC)
@@ -4746,14 +4774,33 @@ function Pane:RequestHeadlessPatronOrders(flow)
 			end
 			ns.Debug(
 				"headless",
-				"request callback id=%s result=%s type=%s current=%s success=%s raw=%s",
+				"request callback id=%s result=%s type=%s current=%s success=%s raw=%s more=%s offset=%s",
 				tostring(requestID),
 				tostring(result),
 				tostring(orderType),
 				tostring(currentProfession),
 				tostring(requestSucceeded),
-				tostring(rawCount)
+					tostring(rawCount),
+					tostring(expectMoreRows),
+					tostring(responseOffset)
 			)
+			if requestSucceeded and expectMoreRows then
+				local currentOffset = tonumber(responseOffset) or tonumber(request.offset) or 0
+				if rawCount <= currentOffset then
+					ns.Debug("headless", "pagination stalled id=%s offset=%s raw=%s", tostring(requestID), tostring(currentOffset), tostring(rawCount))
+					Pane:FallbackToVisiblePatronAutoScan(flow, "pagination-stalled")
+					return
+				end
+				request.offset = rawCount
+				ns.Debug("headless", "request next-page id=%s offset=%s", tostring(requestID), tostring(request.offset))
+				local nextOK, nextError = pcall(C_CraftingOrders.RequestCrafterOrders, request)
+				if not nextOK then
+					ns.Debug("headless", "next-page error id=%s error=%s", tostring(requestID), tostring(nextError))
+					Pane:FallbackToVisiblePatronAutoScan(flow, "pagination-error")
+				end
+				return
+			end
+			flow.requesting = nil
 
 			if not requestSucceeded then
 				if flow.requestAttempts < Pane.retryConfig.headlessRequestLimit then
@@ -4805,8 +4852,8 @@ function Pane:RequestHeadlessPatronOrders(flow)
 			else
 				Pane:FallbackToVisiblePatronAutoScan(flow, reason or "headless-failed")
 			end
-		end,
-	})
+		end
+	local requestOK, requestError = pcall(C_CraftingOrders.RequestCrafterOrders, request)
 	if not requestOK then
 		flow.requesting = nil
 		ns.Debug("headless", "request error=%s", tostring(requestError))
@@ -5124,6 +5171,14 @@ function Pane:MaybeStartPatronAutoScan(reason)
 
 	self.autoScanStartAttempts = 0
 	self.autoScanOpeningRequested = false
+	-- Nouveau metier : l'etat du token decrit la requete du metier precedent et
+	-- n'est plus pertinent. Sans cette remise a neutre, ce flux demarre en
+	-- "consumed" alors que le premier metier de la session demarrait en
+	-- "bootstrap", d'ou une attente puis une recuperation forcee.
+	if self.lastAutoScanTokenProfession ~= profession then
+		self.lastAutoScanTokenProfession = profession
+		self:ResetCrafterOrderRequestToken("new-profession")
+	end
 	local rootShown = self.root and self.root:IsShown() == true
 	self.autoScanSerial = (self.autoScanSerial or 0) + 1
 	local flow = {
@@ -5953,22 +6008,37 @@ function Pane:SetRowIcons(row, bucketName, startX, yOffset, items)
 	end
 end
 
+-- Table de correspondance hissee hors de la fonction : elle etait reconstruite
+-- a chaque ligne et a chaque rafraichissement de la liste.
+local SKILL_UP_ATLAS = {
+	[0] = "Professions-Icon-Skill-High",
+	[1] = "Professions-Icon-Skill-Medium",
+	[2] = "Professions-Icon-Skill-Low",
+}
+
+local FIRST_CRAFT_MARKUP = "|A:Professions_Icon_FirstTimeCraft:14:12:0:1|a"
+
+-- Tampon reutilise entre les appels : la fonction est appelee pour chaque ligne
+-- visible a chaque rafraichissement.
+local flagParts = {}
+
 function Pane:GetFlagText(order)
-	local parts = {}
+	local count = 0
 	if order.firstCraft then
-		parts[#parts + 1] = "|A:Professions_Icon_FirstTimeCraft:14:12:0:1|a"
+		count = count + 1
+		flagParts[count] = FIRST_CRAFT_MARKUP
 	end
 	if order.canSkillUp and order.relativeDifficulty ~= nil then
-		local atlas = ({
-			[0] = "Professions-Icon-Skill-High",
-			[1] = "Professions-Icon-Skill-Medium",
-			[2] = "Professions-Icon-Skill-Low",
-		})[order.relativeDifficulty]
+		local atlas = SKILL_UP_ATLAS[order.relativeDifficulty]
 		if atlas then
-			parts[#parts + 1] = ("|A:%s:13:14|a %s"):format(atlas, order.skillUps > 1 and order.skillUps or "")
+			count = count + 1
+			flagParts[count] = ("|A:%s:13:14|a %s"):format(atlas, order.skillUps > 1 and order.skillUps or "")
 		end
 	end
-	return table.concat(parts, "  ")
+	if count == 0 then
+		return ""
+	end
+	return table.concat(flagParts, "  ", 1, count)
 end
 
 function Pane:SortPreparedOrders()
@@ -6717,23 +6787,24 @@ function Pane:RequestOrders(reason, profession)
 	self:UpdateEmptyState()
 	self.lastRequestAt = now
 	self:StartRequestTimeout(requestID)
-	C_CraftingOrders.RequestCrafterOrders({
+	local request = {
 		profession = profession,
 		orderType = ns.ORDER_TYPE_NPC,
 		forCrafter = true,
 		offset = 0,
 		searchFavorites = false,
-		initialNonPublicSearch = false,
+		initialNonPublicSearch = true,
 		primarySort = { sortType = 0, reversed = false },
 		secondarySort = { sortType = 0, reversed = false },
-		callback = function(result, orderType)
+	}
+	request.callback = function(result, orderType, _, expectMoreRows, responseOffset)
 			local currentProfession = self:GetCurrentProfessionID()
 			local isActiveRequest = self.activeRequestID == requestID
 			local isCurrentSession = requestSessionId == self.visibleSessionId
 			local rawCount = #(C_CraftingOrders.GetCrafterOrders() or EMPTY_LIST)
 			ns.Debug(
 				"request",
-				"callback id=%s result=%s type=%s currentProfession=%s active=%s currentSession=%s rootShown=%s raw=%s",
+				"callback id=%s result=%s type=%s currentProfession=%s active=%s currentSession=%s rootShown=%s raw=%s more=%s offset=%s",
 				tostring(requestID),
 				tostring(result),
 				tostring(orderType),
@@ -6741,18 +6812,31 @@ function Pane:RequestOrders(reason, profession)
 				tostring(isActiveRequest),
 				tostring(isCurrentSession),
 				tostring(self.root and self.root:IsShown() or false),
-				tostring(rawCount)
+				tostring(rawCount),
+				tostring(expectMoreRows),
+				tostring(responseOffset)
 			)
-			if isActiveRequest then
-				self:ClearRequestState(requestID)
-			end
-
 			local requestSucceeded = result == 0
 				and (orderType == nil or orderType == ns.ORDER_TYPE_NPC)
 			if requestSucceeded
 				and profession == currentProfession
 				and self.root
 				and self.root:IsShown() then
+				self.requestFailureRetryCount = 0
+				if expectMoreRows then
+					local currentOffset = tonumber(responseOffset) or tonumber(request.offset) or 0
+					if rawCount <= currentOffset then
+						ns.Debug("request", "pagination stalled id=%s offset=%s raw=%s", tostring(requestID), tostring(currentOffset), tostring(rawCount))
+					else
+						request.offset = rawCount
+						ns.Debug("request", "next-page id=%s offset=%s", tostring(requestID), tostring(request.offset))
+						local nextOK, nextError = pcall(C_CraftingOrders.RequestCrafterOrders, request)
+						if nextOK then
+							return
+						end
+						ns.Debug("request", "next-page error id=%s error=%s", tostring(requestID), tostring(nextError))
+					end
+				end
 				if self.autoScanFlow
 					and self.autoScanFlow.mode == "visible"
 					and self.autoScanFlow.profession == profession
@@ -6760,7 +6844,9 @@ function Pane:RequestOrders(reason, profession)
 					self.autoScanFlow.visibleRequestSucceeded = true
 					ns.Debug("auto-scan", "visible request succeeded profession=%s id=%s", tostring(profession), tostring(requestID))
 				end
-				self.requestFailureRetryCount = 0
+				if isActiveRequest then
+					self:ClearRequestState(requestID)
+				end
 				if isCurrentSession then
 					self.lastSuccessfulRequest = {
 						visibleSessionId = requestSessionId,
@@ -6779,6 +6865,7 @@ function Pane:RequestOrders(reason, profession)
 				and profession == currentProfession
 				and self.root
 				and self.root:IsShown() then
+				self:ClearRequestState(requestID)
 				self.requestFailureRetryCount = (self.requestFailureRetryCount or 0) + 1
 				if self.requestFailureRetryCount <= Pane.retryConfig.requestFailureLimit then
 					self.needsRequest = true
@@ -6795,6 +6882,9 @@ function Pane:RequestOrders(reason, profession)
 					self:DebugState("request-failure-exhausted")
 				end
 			end
+			if self.activeRequestID == requestID then
+				self:ClearRequestState(requestID)
+			end
 			ns.Debug(
 				"request",
 				"callback decision id=%s success=%s applied=%s active=%s currentSession=%s requestedProfession=%s currentProfession=%s shown=%s",
@@ -6807,8 +6897,8 @@ function Pane:RequestOrders(reason, profession)
 				tostring(currentProfession),
 				tostring(self.root and self.root:IsShown() or false)
 			)
-		end,
-	})
+		end
+	C_CraftingOrders.RequestCrafterOrders(request)
 end
 
 function Pane:FinishHeadlessPatronRefresh(refresh, success, context, message)
@@ -6927,16 +7017,17 @@ function Pane:RefreshPatronOrder(orderID, professionID, callback)
 	end)
 
 	self:ConsumeCrafterOrderRequestToken(professionID)
-	local requestOK, requestError = pcall(C_CraftingOrders.RequestCrafterOrders, {
+	local request = {
 		profession = professionID,
 		orderType = ns.ORDER_TYPE_NPC,
 		forCrafter = true,
 		offset = 0,
 		searchFavorites = false,
-		initialNonPublicSearch = false,
+		initialNonPublicSearch = true,
 		primarySort = { sortType = 0, reversed = false },
 		secondarySort = { sortType = 0, reversed = false },
-		callback = function(result, orderType)
+	}
+	request.callback = function(result, orderType, _, expectMoreRows, responseOffset)
 			if refresh.completed then
 				return
 			end
@@ -6962,6 +7053,23 @@ function Pane:RefreshPatronOrder(orderID, professionID, callback)
 				end
 			end
 			if not liveOrder then
+				if expectMoreRows then
+					local rawCount = #(C_CraftingOrders.GetCrafterOrders() or EMPTY_LIST)
+					local currentOffset = tonumber(responseOffset) or tonumber(request.offset) or 0
+					if rawCount <= currentOffset then
+						ns.Debug("request", "headless refresh pagination stalled order=%s offset=%s raw=%s", tostring(orderID), tostring(currentOffset), tostring(rawCount))
+						Pane:FinishHeadlessPatronRefresh(refresh, false, nil, "pagination_stalled")
+						return
+					end
+					request.offset = rawCount
+					ns.Debug("request", "headless refresh next-page order=%s offset=%s", tostring(orderID), tostring(request.offset))
+					local nextOK, nextError = pcall(C_CraftingOrders.RequestCrafterOrders, request)
+					if not nextOK then
+						ns.Debug("request", "headless refresh next-page error order=%s error=%s", tostring(orderID), tostring(nextError))
+						Pane:FinishHeadlessPatronRefresh(refresh, false, nil, "request_failed")
+					end
+					return
+				end
 				Pane:FinishHeadlessPatronRefresh(refresh, false, nil, "order_absent")
 				return
 			end
@@ -6979,8 +7087,8 @@ function Pane:RefreshPatronOrder(orderID, professionID, callback)
 			end
 
 			Pane:FinishHeadlessPatronRefresh(refresh, true, context, nil)
-		end,
-	})
+		end
+	local requestOK, requestError = pcall(C_CraftingOrders.RequestCrafterOrders, request)
 	if not requestOK then
 		self:FinishHeadlessPatronRefresh(refresh, false, nil, "request_failed")
 		ns.Debug("request", "headless refresh request error=%s", tostring(requestError))
@@ -7526,8 +7634,8 @@ function Pane:InitializeEvents()
 	end
 
 	self.eventsInitialized = true
-	ns.RegisterEvent("CRAFTINGORDERS_UPDATE_ORDER_COUNT", function(_, orderType)
-		ns.Debug("event", "CRAFTINGORDERS_UPDATE_ORDER_COUNT type=%s", tostring(orderType))
+	ns.RegisterEvent("CRAFTINGORDERS_UPDATE_ORDER_COUNT", function(_, orderType, count)
+		ns.Debug("event", "CRAFTINGORDERS_UPDATE_ORDER_COUNT type=%s count=%s", tostring(orderType), tostring(count))
 		if orderType == ns.ORDER_TYPE_NPC then
 			Pane:MarkDirty("order-count")
 		end
@@ -7536,7 +7644,9 @@ function Pane:InitializeEvents()
 	ns.RegisterEvent("CRAFTINGORDERS_CAN_REQUEST", function()
 		local snapshot = Pane:GetProfessionSnapshot()
 		local flow = Pane.autoScanFlow
-		local tokenProfession = (flow and not flow.requesting and flow.profession)
+		-- Le metier du flux en cours est la seule valeur fiable : snapshot.selected
+		-- retarde d'une ouverture. On le prefere meme quand une requete est en vol.
+		local tokenProfession = (flow and flow.profession)
 			or snapshot.selected
 			or Pane.visibleProfession
 		ns.Debug(
@@ -7558,7 +7668,24 @@ function Pane:InitializeEvents()
 		)
 		Pane.craftingOrdersCanRequest = true
 		Pane.craftingOrdersCanRequestProfession = tonumber(tokenProfession)
-		if flow and flow.mode == "headless" and not flow.requesting then
+		-- Une requete en vol emise sans autorisation ne recevra jamais de
+		-- callback : ce token est precisement la reponse du serveur. On l'abandonne
+		-- et on reemet tout de suite, au lieu d'attendre le timeout de 10 s puis
+		-- de retomber sur le flux visible.
+		if flow and flow.mode == "headless" and flow.requesting and not flow.requestGranted then
+			ns.Debug(
+				"headless",
+				"reissue after can-request profession=%s deadRequestID=%s",
+				tostring(flow.profession),
+				tostring(flow.requestID)
+			)
+			flow.requesting = nil
+			-- Nouvel identifiant : neutralise le timer de timeout et le callback
+			-- de la requete abandonnee, tous deux gardes par requestID.
+			Pane.headlessRequestSerial = (Pane.headlessRequestSerial or 0) + 1
+			flow.requestID = Pane.headlessRequestSerial
+			Pane:SchedulePatronAutoScanStep(flow, 0)
+		elseif flow and flow.mode == "headless" and not flow.requesting then
 			Pane:SchedulePatronAutoScanStep(flow, 0)
 		else
 			Pane:MaybeStartPatronAutoScan("can-request")

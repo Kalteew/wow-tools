@@ -106,27 +106,43 @@ local CONFIG = {
     },
     CONCENTRATION_REFUND_RETRY_DELAY = 0.25,
     CONCENTRATION_REFUND_MAX_RETRIES = 12,
+    -- Ces actions passent par un attribut securise, donc par SetAttribute, qui
+    -- est interdit sous lockdown de combat.
+    SECURE_NEXT_ACTIONS = {
+        equip_tool = true,
+        shatter = true,
+        merge = true,
+    },
     debugNextCraft = false,
     DEBUG_LOG_LIMIT = 400,
     COMMODITY_SORT = { sortOrder = 0, reverseSort = false },
     ITEM_SORTS = { { sortOrder = 4, reverseSort = false } },
     KNOWN_VENDOR_ITEMS = {
-    [38682] = true, -- Enchanting Vellum
-    [240991] = true, -- Sunglass Vial
-    [242641] = true, -- Cooking Spirits
-    [242642] = true, -- Thalassian Herbs
-    [242643] = true, -- A Big Ol' Stick of Butter
-    [242644] = true, -- Mana-Wyrm Essence
-    [242645] = true, -- Ripened Vegetable Assortment
-    [242646] = true, -- Pouch of Spices
-    [242647] = true, -- Tavern Fixings
-    [243060] = true, -- Luminant Flux
-    [245881] = true, -- Lexicologist's Vellum
-    [245882] = true, -- Thalassian Songwater
-    [251665] = true, -- Silverleaf Thread
-    [253302] = true, -- Malleable Wireframe
-    [253303] = true, -- Pile of Junk
-    [247811] = true, -- Oil of Heartwood
+        [38682] = true, -- Enchanting Vellum
+        [240991] = true, -- Sunglass Vial
+        [242641] = true, -- Cooking Spirits
+        [242642] = true, -- Thalassian Herbs
+        [242643] = true, -- A Big Ol' Stick of Butter
+        [242644] = true, -- Mana-Wyrm Essence
+        [242645] = true, -- Ripened Vegetable Assortment
+        [242646] = true, -- Pouch of Spices
+        [242647] = true, -- Tavern Fixings
+        [243060] = true, -- Luminant Flux
+        [245881] = true, -- Lexicologist's Vellum
+        [245882] = true, -- Thalassian Songwater
+        [251665] = true, -- Silverleaf Thread
+        [253302] = true, -- Malleable Wireframe
+        [253303] = true, -- Pile of Junk
+        [247811] = true, -- Oil of Heartwood
+    },
+    AUCTION_ONLY_CURRENCY_ITEMS = {
+        [210221] = true, -- Forged Combatant's Heraldry
+        [215236] = true, -- Vicious Bloodstone
+        [229388] = true, -- Prized Combatant's Heraldry
+        [230285] = true, -- Astral Combatant's Heraldry
+        [253307] = true, -- Infused Heliotrope
+        [256559] = true, -- Galactic Combatant's Heraldry
+        [275380] = true, -- Venomous Combatant's Heraldry
     },
 }
 
@@ -220,6 +236,8 @@ local state = {
     lastClaimedPatronOrderID = 0,
     craftClickLockUntil = 0,
     craftClickLockSeconds = 2.0,
+    craftClickLockGeneration = 0,
+    nextActionLockGeneration = 0,
     nextActionLock = nil,
     recentCompletedPatronOrders = {},
     recentCompletedPatronOrderTTL = 30.0,
@@ -242,6 +260,10 @@ local state = {
     autoFavoriteConcentration = {
         favoriteRecipeByProfession = {},
         handledFavoriteByProfession = {},
+        -- Derniere quantite de concentration observee, par metier. Sert a ne
+        -- reinjecter que sur un regain reel, jamais sur un simple surplus.
+        spareObservedAmount = {},
+        spareCheckAt = 0,
         pending = nil,
         timerQueued = false,
         tracker = nil,
@@ -1288,21 +1310,16 @@ local function AppendPersistentDebugLog(prefix, message)
     db.debugLog = db.debugLog or {}
 
     local timestamp = date and date("%H:%M:%S") or tostring(math.floor(GetTime and GetTime() or 0))
-    db.debugLog[#db.debugLog + 1] = ("[%s] %s%s"):format(timestamp, prefix or "", tostring(message or ""))
-    local overflow = #db.debugLog - CONFIG.DEBUG_LOG_LIMIT
-    if overflow > 0 then
-        for _ = 1, overflow do
-            table.remove(db.debugLog, 1)
-        end
-    end
+    local entry = ("[%s] %s%s"):format(timestamp, prefix or "", tostring(message or ""))
+    -- Tampon circulaire : la purge precedente appelait table.remove(t, 1), qui
+    -- recopie tout le journal a chaque ligne au-dela de la limite de 400.
+    YayaCore.RingBuffer.Push(db.debugLog, entry, CONFIG.DEBUG_LOG_LIMIT)
 end
 
 local function PrintPersistentDebugLog(limit)
     state.EnsureDB()
-    local lines = db.debugLog or {}
-    limit = math.max(1, math.floor(tonumber(limit) or 20))
-    local firstIndex = math.max(1, #lines - limit + 1)
-    for index = firstIndex, #lines do
+    local lines = YayaCore.RingBuffer.Read(db.debugLog or {}, math.max(1, math.floor(tonumber(limit) or 20)))
+    for index = 1, #lines do
         Print(lines[index])
     end
 end
@@ -1685,6 +1702,9 @@ state.EnsureDB = function()
     for itemID in pairs(CONFIG.KNOWN_VENDOR_ITEMS) do
         db.vendorItems[itemID] = true
     end
+    for itemID in pairs(CONFIG.AUCTION_ONLY_CURRENCY_ITEMS) do
+        db.vendorItems[itemID] = nil
+    end
     NormalizeQueueEntries()
 end
 
@@ -1774,6 +1794,37 @@ local function GetPlayerCraftCastEndTime()
     return nil
 end
 
+-- Le verrou de clic peut etre repousse apres sa pose, soit par la fin de cast
+-- observee ici, soit par IsCraftClickLocked pendant un rendu. Un timer unique
+-- pose a la duree nominale passait alors sans rien faire et sans se
+-- reprogrammer : le verrou restait > 0 et plus rien ne redeclenchait de rendu,
+-- ce qui figeait le bouton sur Next: attente jusqu'a la fermeture du metier.
+local ArmCraftClickLockWatchdog
+ArmCraftClickLockWatchdog = function()
+    local lockUntil = state.craftClickLockUntil or 0
+    if lockUntil <= 0 then
+        return
+    end
+
+    local generation = (state.craftClickLockGeneration or 0) + 1
+    state.craftClickLockGeneration = generation
+    C_Timer.After(math.max(0.05, lockUntil - GetTime() + 0.05), function()
+        if state.craftClickLockGeneration ~= generation then
+            return
+        end
+        if (state.craftClickLockUntil or 0) <= 0 then
+            return
+        end
+        if GetTime() < state.craftClickLockUntil then
+            ArmCraftClickLockWatchdog()
+            return
+        end
+        state.craftClickLockUntil = 0
+        DebugPrint("craft-click-lock release reason=watchdog")
+        ScheduleRefresh()
+    end)
+end
+
 local function BeginCraftClickLock()
     local fallbackLockSeconds = state.craftClickLockSeconds or 2.0
     local castEndTime = GetPlayerCraftCastEndTime()
@@ -1781,22 +1832,15 @@ local function BeginCraftClickLock()
         GetTime() + fallbackLockSeconds,
         castEndTime or 0
     )
-
-    C_Timer.After(fallbackLockSeconds + 0.05, function()
-        if state.craftClickLockUntil <= 0 then
-            return
-        end
-        local isCrafting = C_TradeSkillUI and C_TradeSkillUI.IsCrafting and C_TradeSkillUI.IsCrafting()
-        if not isCrafting and GetTime() >= state.craftClickLockUntil then
-            state.craftClickLockUntil = 0
-            ScheduleRefresh()
-        end
-    end)
+    ArmCraftClickLockWatchdog()
 end
 
 local function EndCraftClickLock()
     state.craftClickLockUntil = 0
+    state.craftClickLockGeneration = (state.craftClickLockGeneration or 0) + 1
 end
+
+local ArmNextActionLockWatchdog
 
 local function BeginNextActionLock(action, orderID, timeoutSeconds)
     state.nextActionLock = {
@@ -1805,6 +1849,7 @@ local function BeginNextActionLock(action, orderID, timeoutSeconds)
         expiresAt = GetTime() + math.max(0.5, tonumber(timeoutSeconds) or 1.5),
     }
     DebugPrint("next-lock begin action=" .. tostring(state.nextActionLock.action) .. " order=" .. tostring(state.nextActionLock.orderID))
+    ArmNextActionLockWatchdog()
 end
 
 local function ClearNextActionLock(reason)
@@ -1813,6 +1858,35 @@ local function ClearNextActionLock(reason)
     end
     DebugPrint("next-lock clear action=" .. tostring(state.nextActionLock.action) .. " order=" .. tostring(state.nextActionLock.orderID) .. " reason=" .. tostring(reason or "?"))
     state.nextActionLock = nil
+    state.nextActionLockGeneration = (state.nextActionLockGeneration or 0) + 1
+    ScheduleRefresh()
+end
+
+-- Sans ce watchdog, un verrou libere par pur ecoulement du temps ne provoquait
+-- aucun re-rendu : GetNextActionLock l'expirait pendant le rendu suivant, mais
+-- rien ne programmait ce rendu, et le bouton restait sur Next: attente.
+ArmNextActionLockWatchdog = function()
+    local lock = state.nextActionLock
+    if not lock or type(lock.expiresAt) ~= "number" then
+        return
+    end
+
+    local generation = (state.nextActionLockGeneration or 0) + 1
+    state.nextActionLockGeneration = generation
+    C_Timer.After(math.max(0.05, lock.expiresAt - GetTime() + 0.05), function()
+        if state.nextActionLockGeneration ~= generation then
+            return
+        end
+        local current = state.nextActionLock
+        if not current then
+            return
+        end
+        if type(current.expiresAt) == "number" and GetTime() < current.expiresAt then
+            ArmNextActionLockWatchdog()
+            return
+        end
+        ClearNextActionLock("expired")
+    end)
 end
 
 local function GetNextActionLock()
@@ -1825,6 +1899,43 @@ local function GetNextActionLock()
     end
     ClearNextActionLock("expired")
     return nil
+end
+
+-- Point de sortie unique de l'action patron.
+--
+-- Le verrou du bouton Suivant peut porter une action sans rapport avec une
+-- commande de patron (equipement d'outil, Shatter) : on ne le libere que
+-- lorsqu'il concerne la meme commande, sinon on le laisse expirer seul.
+local function ClearPatronAction(reason)
+    local action = state.pendingPatronAction
+    if not action then
+        return false
+    end
+    state.pendingPatronAction = nil
+    DebugPrint("patron-action clear phase=" .. tostring(action.phase)
+        .. " order=" .. tostring(action.orderID)
+        .. " reason=" .. tostring(reason or "?"))
+    local lock = state.nextActionLock
+    if lock and tonumber(lock.orderID) == tonumber(action.orderID) then
+        ClearNextActionLock(reason or "patron-action-clear")
+    end
+    return true
+end
+
+-- Lecture de l'action patron courante, action perimee nettoyee au passage.
+--
+-- Sans cette expiration, une action dont la resynchronisation n'aboutissait pas
+-- restait en place indefiniment et laissait le bouton Suivant desactive.
+local function GetPendingPatronAction()
+    local action = state.pendingPatronAction
+    if not action then
+        return nil
+    end
+    if type(action.expiresAt) == "number" and GetTime() >= action.expiresAt then
+        ClearPatronAction("expired")
+        return nil
+    end
+    return action
 end
 
 local function MarkRecentCompletedPatronOrder(orderID)
@@ -1858,15 +1969,21 @@ local function IsCraftClickLocked()
         return false
     end
 
-    local castEndTime = GetPlayerCraftCastEndTime()
-    if castEndTime and castEndTime > GetTime() then
-        state.craftClickLockUntil = math.max(state.craftClickLockUntil or 0, castEndTime)
-        return true
-    end
-
-    local isCrafting = C_TradeSkillUI and C_TradeSkillUI.IsCrafting and C_TradeSkillUI.IsCrafting()
-    if isCrafting then
-        return true
+    -- GetPlayerCraftCastEndTime lit tout cast ou canalisation du joueur, pas
+    -- seulement un craft : sans ce garde, une monture ou un sort quelconque
+    -- repoussait le verrou a chaque rendu. On ne prolonge donc que si un craft
+    -- est reellement en vol.
+    local craftInFlight = #state.pendingCraftEntries > 0 or #state.pendingCraftBatches > 0
+    if craftInFlight then
+        local castEndTime = GetPlayerCraftCastEndTime()
+        if castEndTime and castEndTime > GetTime() then
+            local extended = math.max(state.craftClickLockUntil or 0, castEndTime)
+            if extended > (state.craftClickLockUntil or 0) then
+                state.craftClickLockUntil = extended
+                ArmCraftClickLockWatchdog()
+            end
+            return true
+        end
     end
 
     if GetTime() < state.craftClickLockUntil then
@@ -2765,6 +2882,9 @@ local function FormatMoneyEstimate(value)
 end
 
 local function IsKnownVendorItem(itemID)
+    if CONFIG.AUCTION_ONLY_CURRENCY_ITEMS[itemID] then
+        return false
+    end
     return CONFIG.KNOWN_VENDOR_ITEMS[itemID] or state.merchantIndexByItemID[itemID] or (db and db.vendorItems and db.vendorItems[itemID]) or false
 end
 
@@ -2928,8 +3048,10 @@ local function CacheMerchantItems()
     for index = 1, GetMerchantNumItemsCompat() do
         local itemID = GetMerchantItemIDCompat(index)
         if type(itemID) == "number" and itemID > 0 then
-            state.merchantIndexByItemID[itemID] = index
-            db.vendorItems[itemID] = true
+            if not CONFIG.AUCTION_ONLY_CURRENCY_ITEMS[itemID] then
+                state.merchantIndexByItemID[itemID] = index
+                db.vendorItems[itemID] = true
+            end
             WarmItemData(itemID)
         end
     end
@@ -3451,7 +3573,7 @@ local function ResetQueue()
     state.pendingMerge = nil
     state.armedCraftTool = nil
     state.pendingCraftTool = nil
-    state.pendingPatronAction = nil
+    ClearPatronAction("queue-reset")
     if state.nextActionLock
         and (state.nextActionLock.action == "equip_tool" or state.nextActionLock.action == "shatter")
     then
@@ -4684,9 +4806,9 @@ state.FinalizePatronCompletion = function(orderID, source)
         MarkRecentCompletedPatronOrder(orderID)
         state.ah.statusMessage = "Commande terminee: " .. recipeName
     end
-    local action = state.pendingPatronAction
+    local action = GetPendingPatronAction()
     if action and action.orderID == orderID then
-        state.pendingPatronAction = nil
+        ClearPatronAction("fulfill-confirmed")
     end
     if state.lastClaimedPatronOrderID == orderID then
         state.lastClaimedPatronOrderID = 0
@@ -4704,11 +4826,16 @@ state.BeginPatronAction = function(phase, entry, timeoutSeconds)
     if not entry or not entry.orderID then
         return false
     end
+    local timeout = math.max(0.5, tonumber(timeoutSeconds) or 2.0)
     local action = {
         phase = phase,
         orderID = tonumber(entry.orderID) or 0,
         professionID = tonumber(entry.professionID) or 0,
         entry = entry,
+        -- Large marge au-dela de la resynchronisation programmee juste en
+        -- dessous : cette date est un filet contre le blocage definitif, pas un
+        -- delai de fonctionnement normal.
+        expiresAt = GetTime() + timeout + 10.0,
     }
     if action.orderID <= 0 then
         return false
@@ -4724,14 +4851,14 @@ state.BeginPatronAction = function(phase, entry, timeoutSeconds)
 end
 
 state.RefreshPatronOrder = function(orderID, professionID, reason)
-    local action = state.pendingPatronAction
+    local action = GetPendingPatronAction()
     if action and action.orderID == tonumber(orderID) and action.resyncing then
         return
     end
     local api = _G.YayaCraftingOrdersAPI
     if not api or type(api.RefreshPatronOrder) ~= "function" then
         if action and action.orderID == tonumber(orderID) then
-            state.pendingPatronAction = nil
+            ClearPatronAction("patron-resync-api-missing")
         end
         ClearNextActionLock("patron-resync-api-missing")
         state.ah.statusMessage = "Resynchronisation patron indisponible"
@@ -4742,7 +4869,7 @@ state.RefreshPatronOrder = function(orderID, professionID, reason)
         action.resyncing = true
     end
     local callOK = pcall(api.RefreshPatronOrder, orderID, professionID, function(success, context, message)
-        local pending = state.pendingPatronAction
+        local pending = GetPendingPatronAction()
         if pending and pending.orderID == tonumber(orderID) then
             pending.resyncing = nil
         end
@@ -4766,7 +4893,7 @@ state.RefreshPatronOrder = function(orderID, professionID, reason)
                 entry.profitKnown = context.profitKnown == true
             end
             if pending and pending.orderID == tonumber(orderID) then
-                state.pendingPatronAction = nil
+                ClearPatronAction("patron-resynced")
             end
             ClearNextActionLock("patron-resynced")
             state.ah.statusMessage = "Commande patron resynchronisee"
@@ -4777,13 +4904,13 @@ state.RefreshPatronOrder = function(orderID, professionID, reason)
             end
             ConsumePatronSubmit(orderID)
             if pending and pending.orderID == tonumber(orderID) then
-                state.pendingPatronAction = nil
+                ClearPatronAction("patron-absent")
             end
             ClearNextActionLock("patron-absent")
             state.ah.statusMessage = "Commande patron indisponible"
         else
             if pending and pending.orderID == tonumber(orderID) then
-                state.pendingPatronAction = nil
+                ClearPatronAction("patron-resync-failed")
             end
             ClearNextActionLock("patron-resync-failed")
             state.ah.statusMessage = type(message) == "string" and message or "Resynchronisation patron echouee"
@@ -4793,7 +4920,7 @@ state.RefreshPatronOrder = function(orderID, professionID, reason)
     end)
     if not callOK then
         if action and action.orderID == tonumber(orderID) then
-            state.pendingPatronAction = nil
+            ClearPatronAction("patron-resync-call-failed")
         end
         ClearNextActionLock("patron-resync-call-failed")
         state.ah.statusMessage = "Resynchronisation patron echouee"
@@ -4806,7 +4933,7 @@ local function HandlePatronFulfill(orderID, source)
     if orderID <= 0 then
         return nil
     end
-    local action = state.pendingPatronAction
+    local action = GetPendingPatronAction()
     if not (action and action.orderID == orderID and action.phase == "complete") then
         local entry = state.GetPatronQueueEntry(orderID)
         if entry then
@@ -5058,7 +5185,7 @@ local function GetPatronNextButtonState()
     if entry.isRecraft == true then
         return { entry = entry, text = "Next: recraft", enabled = false }
     end
-    local pendingPatronAction = state.pendingPatronAction
+    local pendingPatronAction = GetPendingPatronAction()
     if pendingPatronAction and pendingPatronAction.orderID == tonumber(entry.orderID) then
         return { entry = entry, text = "Next: attente", enabled = false }
     end
@@ -5416,11 +5543,15 @@ state.RunPatronNextAction = function()
             ScheduleRefresh()
             return
         end
-        BeginCraftClickLock()
+        -- Pas de BeginCraftClickLock ici : aucun TRADE_SKILL_ITEM_CRAFTED_RESULT
+        -- ne suit un fulfill, donc EndCraftClickLock ne se declenchait jamais et
+        -- les 2 s pleines etaient purgees avant l'entree suivante. Le couple
+        -- pendingPatronAction + nextActionLock couvre deja l'anti-double-clic
+        -- pour cet orderID, et CRAFTINGORDERS_CLAIMED_ORDER_REMOVED reste le
+        -- signal de fin.
         ClearPendingWorkOrderSubmit(stateInfo.entry.orderID)
         local callOK = pcall(C_CraftingOrders.FulfillOrder, stateInfo.entry.orderID, "", stateInfo.entry.professionID)
         if not callOK then
-            EndCraftClickLock()
             state.RefreshPatronOrder(stateInfo.entry.orderID, stateInfo.entry.professionID, "fulfill-call-failed")
             return
         end
@@ -7154,6 +7285,96 @@ YQQuality.TryAutoQueueFavoriteConcentration = function()
     autoQueue.pending = nil
 end
 
+local AUTO_REFUND_THROTTLE_SECONDS = 0.5
+
+-- Reinjection du favori quand la concentration remonte, sans passer par le
+-- tracker de remboursement.
+--
+-- TryQueueFavoriteConcentrationRefund n'agit que si un tracker attend la
+-- confirmation d'un craft, et ce tracker n'existe qu'a la premiere ouverture du
+-- metier dans la session, ou apres un clic sur dump conc. Une ingenious
+-- breakthrough qui rendait assez de concentration pour recrafter le favori ne
+-- declenchait donc rien : il fallait cliquer sur dump a la main.
+--
+-- GetConcentrationDumpState soustrait deja les reservations de la queue, donc
+-- maxQuantity > 0 signifie que la concentration est reellement disponible en
+-- plus de tout ce qui est deja prevu.
+local function TryAutoQueueSpareFavoriteConcentration(reason)
+    if not YQQuality.IsIngenuityRefundAutoQueueEnabled() then
+        return
+    end
+
+    local autoQueue = state.autoFavoriteConcentration
+    if autoQueue.pending then
+        return
+    end
+    if autoQueue.tracker and autoQueue.tracker.awaitingCraft then
+        -- Le chemin par tracker gere ce lot : ne pas doubler l'ajout.
+        return
+    end
+
+    local now = GetTime()
+    if now < (autoQueue.spareCheckAt or 0) then
+        return
+    end
+    autoQueue.spareCheckAt = now + AUTO_REFUND_THROTTLE_SECONDS
+
+    if not (ProfessionsFrame and ProfessionsFrame:IsShown()) then
+        return
+    end
+    local professionID = state.GetCurrentProfessionID()
+    if not professionID then
+        return
+    end
+    if IsCraftClickLocked() or GetNextActionLock() then
+        -- Un lot est en vol : la quantite observee n'est pas encore stable.
+        return
+    end
+
+    local favoriteRecipeID, recipeDataReady = YQQuality.GetFirstFavoriteRecipeID(
+        autoQueue.favoriteRecipeByProfession[professionID]
+    )
+    if not recipeDataReady or not favoriteRecipeID then
+        return
+    end
+
+    local dumpState = GetConcentrationDumpState(nil, favoriteRecipeID)
+    if not dumpState or not dumpState.context or (dumpState.cost or 0) <= 0 then
+        return
+    end
+
+    local previous = tonumber(autoQueue.spareObservedAmount[professionID])
+    autoQueue.spareObservedAmount[professionID] = dumpState.available
+    if previous == nil then
+        -- Premiere observation de la session : on pose seulement la reference.
+        return
+    end
+    if dumpState.available <= previous then
+        return
+    end
+    if (dumpState.maxQuantity or 0) <= 0 then
+        DebugPrint(
+            "concentration-spare skip profession=" .. tostring(professionID)
+                .. " reason=reserved-by-queue"
+                .. " available=" .. tostring(dumpState.available)
+                .. " reserved=" .. tostring(dumpState.queuedReservation)
+        )
+        return
+    end
+
+    local batches, queuedQuantity = QueueConcentrationDump(nil, dumpState, "auto-refund")
+    DebugPrint(
+        "concentration-spare queued reason=" .. tostring(reason or "?")
+            .. " profession=" .. tostring(professionID)
+            .. " recipe=" .. tostring(favoriteRecipeID)
+            .. " gain=" .. tostring(dumpState.available - previous)
+            .. " quantity=" .. tostring(queuedQuantity)
+            .. " batches=" .. tostring(batches and #batches or 0)
+    )
+end
+
+YQQuality.TryAutoQueueSpareFavoriteConcentration = TryAutoQueueSpareFavoriteConcentration
+
 state.GetCurrentConcentrationAmount = function(currencyID)
     currencyID = tonumber(currencyID) or SafeCall(YQQuality.GetConcentrationCurrencyID, nil)
     local currencyInfo = currencyID and C_CurrencyInfo and type(C_CurrencyInfo.GetCurrencyInfo) == "function"
@@ -8073,7 +8294,6 @@ local function UpdateCraftPanel(summary)
                 state.craft.nextButton:SetAttribute("item", nil)
                 state.armedShatter = {
                     itemID = nextState.itemID,
-                    expiresAt = GetTime() + 2.0,
                 }
                 shatterArmed = true
             end
@@ -8132,7 +8352,20 @@ local function UpdateCraftPanel(summary)
                         or (phialArmed and "Next: Phial"
                             or (mergeArmed and "Next: Fusion" or (nextState.text or "Next"))))
             )
-            if nextState.enabled then
+            -- En combat, aucune action a bouton securise ne peut etre armee :
+            -- SetAttribute est interdit sous lockdown. Sans ce garde le bouton
+            -- restait actif avec le libelle de l'action, et le clic ne faisait
+            -- rien du tout, sans meme un message de statut.
+            local secureActionBlocked = inCombat
+                and CONFIG.SECURE_NEXT_ACTIONS[nextState.action or ""] == true
+                and not toolArmed
+                and not shatterArmed
+                and not phialArmed
+                and not mergeArmed
+            if secureActionBlocked then
+                state.craft.nextButton:SetText((nextState.text or "Next") .. " (combat)")
+            end
+            if nextState.enabled and not secureActionBlocked then
                 state.craft.nextButton:Enable()
             else
                 state.craft.nextButton:Disable()
@@ -13068,19 +13301,36 @@ state.RefreshAll = function()
     end
 end
 
-addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
-    InstallRecipeDescriptionGuard()
+-- Table de routage des evenements.
+--
+-- Remplace une chaine de 30 blocs `if event == ...` de pres de 650 lignes,
+-- qui comparait la chaine d'evenement jusqu'a 30 fois par evenement recu et
+-- dont les branches n'etaient pas toutes exclusives.
+--
+-- Convention : un handler renvoie true quand il a fini de traiter
+-- l'evenement (l'ancien `return` du dispatcher), false pour laisser le
+-- rafraichissement final s'appliquer.
+--
+-- Les handlers sont portes par une table : le chunk principal frole la
+-- limite Lua de 200 variables locales (187 avant ce changement), un
+-- declaration locale par handler la depasserait et empecherait l'addon
+-- de compiler.
+local eventHandlers = {}
+local handle = {}
+
+-- Extrait du dispatcher, ligne 13090 de la version precedente.
+handle.AddonLoaded = function(event, arg1, arg2, arg3)
     if event == "ADDON_LOADED" then
         if arg1 == "Blizzard_Professions" then
             YQQuality.InstallProfessionSpecMassPurchaseHook()
-            return
+            return true
         end
         if arg1 == "TradeSkillMaster" then
             C_Timer.After(0, UpdateTSMMacroBridge)
-            return
+            return true
         end
         if arg1 ~= addonName then
-            return
+            return true
         end
 
         state.EnsureDB()
@@ -13112,6 +13362,9 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         addon:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
         addon:RegisterEvent("CRAFTINGORDERS_CLAIMED_ORDER_UPDATED")
         addon:RegisterEvent("CRAFTINGORDERS_CLAIMED_ORDER_REMOVED")
+        pcall(addon.RegisterEvent, addon, "CRAFTINGORDERS_CLAIM_ORDER_RESPONSE")
+        pcall(addon.RegisterEvent, addon, "CRAFTINGORDERS_FULFILL_ORDER_RESPONSE")
+        pcall(addon.RegisterEvent, addon, "CRAFTINGORDERS_CRAFT_ORDER_RESPONSE")
         addon:RegisterEvent("PLAYER_REGEN_ENABLED")
         addon:RegisterEvent("UNIT_AURA")
         HookCraftAPIs()
@@ -13129,18 +13382,26 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         C_Timer.After(0, UpdateTSMMacroBridge)
         state.craftGear.ScheduleScan()
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13152 de la version precedente.
+handle.PlayerEnteringWorld = function(event, arg1, arg2, arg3)
     if event == "PLAYER_ENTERING_WORLD" then
         YQQuality.InstallProfessionSpecMassPurchaseHook()
         YQQuality.RefreshIngenuityBuffState("player-entering-world")
         UpdateTSMMacroBridge()
         state.craftGear.ScheduleScan()
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13161 de la version precedente.
+handle.TradeSkillShow = function(event, arg1, arg2, arg3)
     if event == "TRADE_SKILL_SHOW" then
         YQQuality.InstallProfessionSpecMassPurchaseHook()
         if state.craft.qualityFrame then state.craft.qualityFrame.userClosed = false end
@@ -13166,11 +13427,15 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             DebugPrint("event=TRADE_SKILL_SHOW alchemy-scheduled profession=" .. tostring(professionID))
         end)
         C_Timer.After(0, ScheduleRefresh)
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13189 de la version precedente.
+handle.CraftingordersClaimedOrderUpdated = function(event, arg1, arg2, arg3)
     if event == "CRAFTINGORDERS_CLAIMED_ORDER_UPDATED" then
-        local pending = state.pendingPatronAction
+        local pending = GetPendingPatronAction()
         local claimedOrder = type(C_CraftingOrders) == "table"
             and type(C_CraftingOrders.GetClaimedOrder) == "function"
             and C_CraftingOrders.GetClaimedOrder()
@@ -13181,22 +13446,76 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         end
         if pending and claimedOrderID == pending.orderID then
             if pending.phase == "claim" then
-                state.pendingPatronAction = nil
+                ClearPatronAction("patron-claim-confirmed")
                 ClearNextActionLock("patron-claim-confirmed")
                 state.ah.statusMessage = "Commande patron demarree"
             elseif pending.phase == "craft" and claimedOrder.isFulfillable then
-                state.pendingPatronAction = nil
+                ClearPatronAction("patron-craft-confirmed")
                 ClearNextActionLock("patron-craft-confirmed")
                 ClearPendingWorkOrderSubmit(claimedOrderID)
                 state.ah.statusMessage = "Craft termine: Claim"
             end
         end
         ScheduleRefresh()
-        return
+        return true
+    end
+    return false
+end
+
+-- Les reponses serveur ne servent qu'a echouer vite : sur succes, Blizzard met
+-- a jour via CLAIMED_ORDER_ADDED / _REMOVED, deja traites. Sans elles, un claim
+-- ou un fulfill refuse laissait le bouton sur Next: attente pendant tout le
+-- timeout de l'action patron, plus les 10 s de filet.
+handle.CraftingordersOrderResponse = function(event, arg1, arg2, arg3)
+    if event ~= "CRAFTINGORDERS_CLAIM_ORDER_RESPONSE"
+        and event ~= "CRAFTINGORDERS_FULFILL_ORDER_RESPONSE"
+        and event ~= "CRAFTINGORDERS_CRAFT_ORDER_RESPONSE" then
+        return false
     end
 
+    local result = arg1
+    local orderID = tonumber(arg2) or 0
+    local okResult = Enum and Enum.CraftingOrderResult and Enum.CraftingOrderResult.Ok
+    local succeeded = okResult ~= nil and result == okResult
+    DebugPrint(
+        "event=" .. tostring(event)
+            .. " order=" .. tostring(orderID)
+            .. " result=" .. tostring(result)
+            .. " ok=" .. tostring(succeeded)
+    )
+
+    if okResult == nil then
+        -- Sans l'enum on ne sait pas distinguer un succes d'un echec : ne rien
+        -- annuler vaut mieux que d'abandonner une commande qui a abouti.
+        return true
+    end
+    if succeeded then
+        -- Sur succes, Blizzard notifie via CLAIMED_ORDER_ADDED / _REMOVED, deja
+        -- traites ailleurs.
+        return true
+    end
+
+    local pending = GetPendingPatronAction()
+    if not pending or (orderID > 0 and pending.orderID ~= orderID) then
+        return true
+    end
+
+    EndCraftClickLock()
+    ClearPendingWorkOrderSubmit(pending.orderID)
+    state.ClearPendingCraftEntries()
+    -- ClearPatronAction ne libere le verrou Next que s'il porte bien cet
+    -- orderID : un verrou d'une autre action, shatter par exemple, doit rester.
+    ClearPatronAction("patron-response-failed")
+    state.ah.statusMessage = "Commande patron refusee"
+    state.RefreshPatronOrder(pending.orderID, pending.professionID, "order-response-failed")
+    ScheduleRefresh()
+    return true
+end
+
+-- Extrait du dispatcher, ligne 13215 de la version precedente.
+handle.CraftingordersClaimedOrderRemoved = function(event, arg1, arg2, arg3)
     if event == "CRAFTINGORDERS_CLAIMED_ORDER_REMOVED" then
-        local pending = state.pendingPatronAction
+        local pending = GetPendingPatronAction()
         local removedOrderID = tonumber(pending and pending.orderID) or state.lastClaimedPatronOrderID or 0
         state.lastClaimedPatronOrderID = 0
         if pending then
@@ -13212,9 +13531,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             end
         end
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13235 de la version precedente.
+handle.TradeSkillDataSourceChanged = function(event, arg1, arg2, arg3)
     if event == "TRADE_SKILL_DATA_SOURCE_CHANGED" then
         local professionID = state.GetCurrentProfessionID()
         YQQuality.DebugCraftState(
@@ -13232,9 +13555,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             StartAlchemyAutoQueue()
         end
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13255 de la version precedente.
+handle.TradeSkillFavoritesChanged = function(event, arg1, arg2, arg3)
     if event == "TRADE_SKILL_FAVORITES_CHANGED" then
         local professionID = state.GetCurrentProfessionID()
         local recipeID = tonumber(arg2)
@@ -13271,12 +13598,17 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             end
         end
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13294 de la version precedente.
+handle.TradeSkillClose = function(event, arg1, arg2, arg3)
     if event == "TRADE_SKILL_CLOSE" then
         state.alchemyAutoQueue.pendingProfessionID = false
         state.alchemyAutoQueue.attempts = 0
+        state.autoFavoriteConcentration.spareObservedAmount = {}
         state.firstCraftAvailability = {}
         state.craft.qualityTarget = nil
         YQQuality.CancelRecipeSolve()
@@ -13287,7 +13619,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             state.ClearPendingCraftEntries()
         end
         EndCraftClickLock()
-        local pendingPatronAction = state.pendingPatronAction
+        local pendingPatronAction = GetPendingPatronAction()
         if pendingPatronAction then
             state.RefreshPatronOrder(
                 pendingPatronAction.orderID,
@@ -13304,9 +13636,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             ClearNextActionLock("trade-skill-close")
         end
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13327 de la version precedente.
+handle.AuctionHouseShow = function(event, arg1, arg2, arg3)
     if event == "AUCTION_HOUSE_SHOW" then
         C_Timer.After(0, function()
             if not AuctionHouseFrame or not AuctionHouseFrame:IsShown() then
@@ -13321,9 +13657,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
                 ShowAuctionFrame()
             end
         end)
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13344 de la version precedente.
+handle.CurrencyDisplayUpdate = function(event, arg1, arg2, arg3)
     if event == "CURRENCY_DISPLAY_UPDATE" then
         local favoriteTracker = state.autoFavoriteConcentration.tracker
         if favoriteTracker and favoriteTracker.awaitingCraft
@@ -13335,10 +13675,20 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             )
         end
         C_Timer.After(0.25, YQQuality.TryQueueFavoriteConcentrationRefund)
+        -- Chemin independant du tracker : une ingenious breakthrough qui rend
+        -- assez de concentration pour recrafter le favori le remet en queue sans
+        -- passer par le bouton dump conc.
+        C_Timer.After(0.30, function()
+            YQQuality.TryAutoQueueSpareFavoriteConcentration("currency-update")
+        end)
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13359 de la version precedente.
+handle.TradeSkillItemCraftedResult = function(event, arg1, arg2, arg3)
     if event == "TRADE_SKILL_ITEM_CRAFTED_RESULT" then
         state.firstCraftAvailability = {}
         YQQuality.MarkStockDirty(true, false, false)
@@ -13361,9 +13711,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         end)
         C_Timer.After(0.5, YQQuality.TryQueueFavoriteConcentrationRefund)
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13384 de la version precedente.
+handle.ProfessionDataChanged = function(event, arg1, arg2, arg3)
     if event == "SPELLS_CHANGED" or event == "SKILL_LINES_CHANGED"
         or event == "PLAYER_EQUIPMENT_CHANGED" then
         state.firstCraftAvailability = {}
@@ -13371,18 +13725,26 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         YQQuality.MarkStockDirty(true, false, false)
         state.craftGear.ScheduleScan()
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13394 de la version precedente.
+handle.PlayerRegenEnabled = function(event, arg1, arg2, arg3)
     if event == "PLAYER_REGEN_ENABLED" then
         state.craftGear.ScheduleScan()
         if state.refreshDeferredByCombat then
             state.refreshDeferredByCombat = false
             ScheduleRefresh()
         end
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13403 de la version precedente.
+handle.UnitAura = function(event, arg1, arg2, arg3)
     if event == "UNIT_AURA" and arg1 == "player" then
         local ingenuityBuffActive = YQQuality.RefreshIngenuityBuffState("unit-aura")
         if YQQuality.IsShatterBuffActive() then
@@ -13398,23 +13760,31 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             state.ah.statusMessage = "Phial consommee"
         end
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13421 de la version precedente.
+handle.UnitSpellcastSucceeded = function(event, arg1, arg2, arg3)
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         local unit = arg1
         if unit ~= "player" then
-            return
+            return true
         end
 
-        if state.pendingShatter or tonumber(arg3) == CONFIG.SHATTER_ESSENCE_SPELL_ID then
+        local castSpellID = tonumber(arg3)
+        if state.pendingShatter or castSpellID == CONFIG.SHATTER_ESSENCE_SPELL_ID then
             C_Timer.After(0.1, YQQuality.ConfirmPendingShatter)
-            return
+            if castSpellID == CONFIG.SHATTER_ESSENCE_SPELL_ID then
+                return true
+            end
+            DebugPrint("shatter-pending passthrough spellID=" .. tostring(castSpellID))
         end
 
         if state.pendingMerge then
             C_Timer.After(0.1, YQQuality.ConfirmPendingMerge)
-            return
+            return true
         end
 
         YQQuality.DebugCraftState(
@@ -13473,9 +13843,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             state.ah.statusMessage = "Craft termine: " .. recipeName
             ScheduleRefresh()
         end
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13496 de la version precedente.
+handle.SpellcastAborted = function(event, arg1, arg2, arg3)
     if event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_INTERRUPTED" then
         local unit = arg1
         if unit == "player" then
@@ -13484,7 +13858,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
                 ClearNextActionLock(string.lower(tostring(event)))
                 state.ah.statusMessage = "Shatter echoue"
                 ScheduleRefresh()
-                return
+                return true
             end
             if state.pendingMerge then
                 state.pendingMerge = nil
@@ -13492,7 +13866,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
                 ClearNextActionLock(string.lower(tostring(event)))
                 state.ah.statusMessage = "Fusion echouee"
                 ScheduleRefresh()
-                return
+                return true
             end
             if state.autoFavoriteConcentration.tracker then
                 state.autoFavoriteConcentration.tracker.awaitingCraft = false
@@ -13506,7 +13880,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             ClearPendingCraftBatches()
             state.ClearPendingCraftEntries()
             EndCraftClickLock()
-            local pendingPatronAction = state.pendingPatronAction
+            local pendingPatronAction = GetPendingPatronAction()
             if pendingPatronAction and pendingPatronAction.phase == "craft" then
                 ClearPendingWorkOrderSubmit(pendingPatronAction.orderID)
                 state.RefreshPatronOrder(
@@ -13521,9 +13895,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             end
             ScheduleRefresh()
         end
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13544 de la version precedente.
+handle.AuctionHouseClosed = function(event, arg1, arg2, arg3)
     if event == "AUCTION_HOUSE_CLOSED" then
         ClearAuctionTransientState("HV fermee")
         -- Les resultats Blizzard ne survivent pas a la fermeture de l'HV.
@@ -13531,9 +13909,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         wipe(state.searchCache)
         HideAuctionFrame()
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13554 de la version precedente.
+handle.InventoryStockChanged = function(event, arg1, arg2, arg3)
     if event == "BAG_UPDATE_DELAYED" then
         YQQuality.MarkStockDirty(true, true, true)
         state.InvalidateMaterialPricing()
@@ -13555,7 +13937,11 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         state.InvalidateMaterialPricing()
         C_Timer.After(0, function() YQQuality.ScanStockScope("warband") end)
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13576 de la version precedente.
+handle.MerchantWindow = function(event, arg1, arg2, arg3)
     if event == "MERCHANT_SHOW" or event == "MERCHANT_UPDATE" then
         if event == "MERCHANT_SHOW" then
             state.merchantAutoBuyGeneration = state.merchantAutoBuyGeneration + 1
@@ -13568,28 +13954,44 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         CacheMerchantItems()
         ScheduleAutoBuyVendor(event == "MERCHANT_SHOW" and CONFIG.MERCHANT_AUTO_BUY_INITIAL_DELAY or CONFIG.MERCHANT_AUTO_BUY_RETRY_DELAY)
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13591 de la version precedente.
+handle.MerchantAutoBuyRetry = function(event, arg1, arg2, arg3)
     if event == "BAG_UPDATE_DELAYED" and state.merchantAutoBuyPending then
         ScheduleAutoBuyVendor(0)
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13597 de la version precedente.
+handle.ItemSearchResultsUpdated = function(event, arg1, arg2, arg3)
     if event == "ITEM_SEARCH_RESULTS_UPDATED" then
         local itemID = type(arg1) == "table" and arg1.itemID or nil
         if itemID then
             HandleSearchResults(itemID)
         end
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13605 de la version precedente.
+handle.CommoditySearchResultsUpdated = function(event, arg1, arg2, arg3)
     if event == "COMMODITY_SEARCH_RESULTS_UPDATED" then
         HandleSearchResults(arg1)
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13610 de la version precedente.
+handle.CommodityPriceUpdated = function(event, arg1, arg2, arg3)
     if event == "COMMODITY_PRICE_UPDATED" then
         if state.ah.pendingCommodity and not state.ah.pendingCommodity.confirmSent then
             local pending = state.ah.pendingCommodity
@@ -13598,7 +14000,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
                 unitPrice = math.floor((tonumber(arg2) / pending.quantity) + 0.5)
             end
             if pending.confirmationShown then
-                return
+                return true
             end
             local warning = YQQuality.WarnIfAuctionPriceAboveExpected(
                 pending.name,
@@ -13614,7 +14016,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
                     if pending.confirmationShown then
                         state.ah.statusMessage = "Confirmation prix " .. pending.name
                         ScheduleRefresh()
-                        return
+                        return true
                     end
                 end
                 if not pending.confirmationShown then
@@ -13624,7 +14026,7 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
                     end
                     state.ah.pendingCommodity = nil
                     ScheduleRefresh()
-                    return
+                    return true
                 end
             end
             if warning then
@@ -13633,9 +14035,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             pending.confirmSent = true
             C_AuctionHouse.ConfirmCommoditiesPurchase(pending.itemID, pending.quantity)
         end
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13656 de la version precedente.
+handle.CommodityPriceUnavailable = function(event, arg1, arg2, arg3)
     if event == "COMMODITY_PRICE_UNAVAILABLE" then
         state.ah.statusMessage = "Prix indisponible"
         YQQuality.HideHighPriceConfirmation()
@@ -13644,9 +14050,13 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         end
         state.ah.pendingCommodity = nil
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13667 de la version precedente.
+handle.CommodityPurchaseSucceeded = function(event, arg1, arg2, arg3)
     if event == "COMMODITY_PURCHASE_SUCCEEDED" then
         if state.ah.pendingCommodity then
             AddIncomingPurchase(
@@ -13659,48 +14069,68 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             state.ah.pendingCommodity = nil
         end
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13682 de la version precedente.
+handle.CommodityPurchaseFailed = function(event, arg1, arg2, arg3)
     if event == "COMMODITY_PURCHASE_FAILED" then
         state.ah.statusMessage = "Achat echoue"
         YQQuality.HideHighPriceConfirmation()
         state.ah.pendingCommodity = nil
         ScheduleRefresh()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13690 de la version precedente.
+handle.AuctionHouseThrottledSystemReady = function(event, arg1, arg2, arg3)
     if event == "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" then
         ResumeSearches()
-        return
+        return true
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13695 de la version precedente.
+handle.AuctionBidResolved = function(event, arg1, arg2, arg3)
     if event == "BIDS_UPDATED" or event == "AUCTION_CANCELED" then
         if state.ah.pendingItem then
             FinalizePendingItemPurchase()
             ScheduleRefresh()
-            return
+            return true
         end
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13703 de la version precedente.
+handle.ChatMsgSystem = function(event, arg1, arg2, arg3)
     if event == "CHAT_MSG_SYSTEM" then
         if state.ah.pendingItem and arg1 == ERR_AUCTION_BID_PLACED then
             FinalizePendingItemPurchase()
             ScheduleRefresh()
-            return
+            return true
         end
     end
+    return false
+end
 
+-- Extrait du dispatcher, ligne 13711 de la version precedente.
+handle.UiErrorMessage = function(event, arg1, arg2, arg3)
     if event == "UI_ERROR_MESSAGE" then
         local message = arg2
-        local pendingPatronAction = state.pendingPatronAction
+        local pendingPatronAction = GetPendingPatronAction()
         if pendingPatronAction then
             state.RefreshPatronOrder(
                 pendingPatronAction.orderID,
                 pendingPatronAction.professionID,
                 "ui-error"
             )
-            return
+            return true
         end
         if (state.ah.pendingItem or state.ah.pendingCommodity) and (
             message == ERR_AUCTION_DATABASE_ERROR
@@ -13711,10 +14141,71 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         ) then
             ClearAuctionTransientState(type(message) == "string" and message or "Achat echoue")
             ScheduleRefresh()
-            return
+            return true
         end
     end
+    return false
+end
 
+-- Un evenement peut passer par plusieurs handlers : BAG_UPDATE_DELAYED
+-- traversait deux blocs distincts dans l'ancienne chaine (invalidation du
+-- stock, puis relance de l'achat vendeur). L'ordre est celui d'origine.
+eventHandlers["ADDON_LOADED"] = { handle.AddonLoaded }
+eventHandlers["AUCTION_CANCELED"] = { handle.AuctionBidResolved }
+eventHandlers["AUCTION_HOUSE_CLOSED"] = { handle.AuctionHouseClosed }
+eventHandlers["AUCTION_HOUSE_SHOW"] = { handle.AuctionHouseShow }
+eventHandlers["AUCTION_HOUSE_THROTTLED_SYSTEM_READY"] = { handle.AuctionHouseThrottledSystemReady }
+eventHandlers["BAG_UPDATE_DELAYED"] = { handle.InventoryStockChanged, handle.MerchantAutoBuyRetry }
+eventHandlers["BANKFRAME_OPENED"] = { handle.InventoryStockChanged }
+eventHandlers["BIDS_UPDATED"] = { handle.AuctionBidResolved }
+eventHandlers["CHAT_MSG_SYSTEM"] = { handle.ChatMsgSystem }
+eventHandlers["COMMODITY_PRICE_UNAVAILABLE"] = { handle.CommodityPriceUnavailable }
+eventHandlers["COMMODITY_PRICE_UPDATED"] = { handle.CommodityPriceUpdated }
+eventHandlers["COMMODITY_PURCHASE_FAILED"] = { handle.CommodityPurchaseFailed }
+eventHandlers["COMMODITY_PURCHASE_SUCCEEDED"] = { handle.CommodityPurchaseSucceeded }
+eventHandlers["COMMODITY_SEARCH_RESULTS_UPDATED"] = { handle.CommoditySearchResultsUpdated }
+eventHandlers["CRAFTINGORDERS_CLAIMED_ORDER_REMOVED"] = { handle.CraftingordersClaimedOrderRemoved }
+eventHandlers["CRAFTINGORDERS_CLAIMED_ORDER_UPDATED"] = { handle.CraftingordersClaimedOrderUpdated }
+eventHandlers["CRAFTINGORDERS_CLAIM_ORDER_RESPONSE"] = { handle.CraftingordersOrderResponse }
+eventHandlers["CRAFTINGORDERS_CRAFT_ORDER_RESPONSE"] = { handle.CraftingordersOrderResponse }
+eventHandlers["CRAFTINGORDERS_FULFILL_ORDER_RESPONSE"] = { handle.CraftingordersOrderResponse }
+eventHandlers["CURRENCY_DISPLAY_UPDATE"] = { handle.CurrencyDisplayUpdate }
+eventHandlers["ITEM_SEARCH_RESULTS_UPDATED"] = { handle.ItemSearchResultsUpdated }
+eventHandlers["MERCHANT_SHOW"] = { handle.MerchantWindow }
+eventHandlers["MERCHANT_UPDATE"] = { handle.MerchantWindow }
+eventHandlers["PLAYERBANKSLOTS_CHANGED"] = { handle.InventoryStockChanged }
+eventHandlers["PLAYERREAGENTBANKSLOTS_CHANGED"] = { handle.InventoryStockChanged }
+eventHandlers["PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED"] = { handle.InventoryStockChanged }
+eventHandlers["PLAYER_ENTERING_WORLD"] = { handle.PlayerEnteringWorld }
+eventHandlers["PLAYER_EQUIPMENT_CHANGED"] = { handle.ProfessionDataChanged }
+eventHandlers["PLAYER_REGEN_ENABLED"] = { handle.PlayerRegenEnabled }
+eventHandlers["SKILL_LINES_CHANGED"] = { handle.ProfessionDataChanged }
+eventHandlers["SPELLS_CHANGED"] = { handle.ProfessionDataChanged }
+eventHandlers["TRADE_SKILL_CLOSE"] = { handle.TradeSkillClose }
+eventHandlers["TRADE_SKILL_DATA_SOURCE_CHANGED"] = { handle.TradeSkillDataSourceChanged }
+eventHandlers["TRADE_SKILL_FAVORITES_CHANGED"] = { handle.TradeSkillFavoritesChanged }
+eventHandlers["TRADE_SKILL_ITEM_CRAFTED_RESULT"] = { handle.TradeSkillItemCraftedResult }
+eventHandlers["TRADE_SKILL_SHOW"] = { handle.TradeSkillShow }
+eventHandlers["UI_ERROR_MESSAGE"] = { handle.UiErrorMessage }
+eventHandlers["UNIT_AURA"] = { handle.UnitAura }
+eventHandlers["UNIT_SPELLCAST_FAILED"] = { handle.SpellcastAborted }
+eventHandlers["UNIT_SPELLCAST_INTERRUPTED"] = { handle.SpellcastAborted }
+eventHandlers["UNIT_SPELLCAST_SUCCEEDED"] = { handle.UnitSpellcastSucceeded }
+
+-- Un evenement enregistre sans handler tombe volontairement sur le
+-- ScheduleRefresh() final : c'est le cas de SPELL_DATA_LOAD_RESULT, dont le
+-- seul effet utile est de rafraichir l'affichage quand les donnees de sort
+-- finissent de charger.
+addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
+    InstallRecipeDescriptionGuard()
+    local chain = eventHandlers[event]
+    if chain then
+        for index = 1, #chain do
+            if chain[index](event, arg1, arg2, arg3) then
+                return
+            end
+        end
+    end
     ScheduleRefresh()
 end)
 
@@ -13811,7 +14302,7 @@ function YayaQueueAPI.SyncPatronOrders(orderIDs, professionID)
     local currentOrderID = tonumber(currentOrder and currentOrder.orderID) or 0
     local nextActionLock = GetNextActionLock()
     local lockedOrderID = tonumber(nextActionLock and nextActionLock.orderID) or 0
-    local pendingPatronAction = state.pendingPatronAction
+    local pendingPatronAction = GetPendingPatronAction()
     local pendingOrderID = tonumber(pendingPatronAction and pendingPatronAction.orderID) or 0
     for index = #db.queue, 1, -1 do
         local entry = db.queue[index]

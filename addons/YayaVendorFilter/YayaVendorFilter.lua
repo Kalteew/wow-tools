@@ -932,27 +932,60 @@ local function WarnIfTSMIsVisible()
     end)
 end
 
+-- Evenements de collection : ils invalident le cache de possession, mais ne
+-- servent que fenetre marchand ouverte. TRANSMOG_COLLECTION_UPDATED,
+-- PET_JOURNAL_LIST_UPDATE et TOYS_UPDATED sont tres bavards hors de ce
+-- contexte : on ne s'y abonne qu'entre MERCHANT_SHOW et MERCHANT_CLOSED.
+local COLLECTION_EVENTS = {
+    "GET_ITEM_INFO_RECEIVED",
+    "MERCHANT_FILTER_ITEM_UPDATE",
+    "SPELLS_CHANGED",
+    "TOYS_UPDATED",
+    "NEW_TOY_ADDED",
+    "NEW_MOUNT_ADDED",
+    "PET_JOURNAL_LIST_UPDATE",
+    "NEW_PET_ADDED",
+    "TRANSMOG_COLLECTION_UPDATED",
+    "TRANSMOG_COLLECTION_SOURCE_ADDED",
+    "SKILL_LINES_CHANGED",
+}
+
+local collectionEventsActive = false
+
+local function SetCollectionEventsRegistered(enabled)
+    enabled = enabled and true or false
+    if collectionEventsActive == enabled then
+        return
+    end
+    collectionEventsActive = enabled
+    for _, eventName in ipairs(COLLECTION_EVENTS) do
+        if enabled then
+            frame:RegisterEvent(eventName)
+        else
+            frame:UnregisterEvent(eventName)
+        end
+    end
+end
+
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("MERCHANT_SHOW")
-frame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-frame:RegisterEvent("MERCHANT_FILTER_ITEM_UPDATE")
-frame:RegisterEvent("SPELLS_CHANGED")
-frame:RegisterEvent("TOYS_UPDATED")
-frame:RegisterEvent("NEW_TOY_ADDED")
-frame:RegisterEvent("NEW_MOUNT_ADDED")
-frame:RegisterEvent("PET_JOURNAL_LIST_UPDATE")
-frame:RegisterEvent("NEW_PET_ADDED")
-frame:RegisterEvent("TRANSMOG_COLLECTION_UPDATED")
-frame:RegisterEvent("TRANSMOG_COLLECTION_SOURCE_ADDED")
-frame:RegisterEvent("SKILL_LINES_CHANGED")
+frame:RegisterEvent("MERCHANT_CLOSED")
 frame:SetScript("OnEvent", function(_, event, ...)
     if event == "ADDON_LOADED" and ... == ADDON_NAME then
         InitializeDatabase()
         InstallHooks()
+    elseif event == "MERCHANT_CLOSED" then
+        -- Le cache n'etait vide qu'a l'ouverture : sans cela il survivait a la
+        -- fermeture et pouvait etre relu plus tard avec des donnees perimees.
+        SetCollectionEventsRegistered(false)
+        wipe(knownCache)
     elseif event == "PLAYER_LOGIN" or event == "MERCHANT_SHOW" then
         wipe(knownCache)
         InstallHooks()
+        if event == "MERCHANT_SHOW" then
+            SetCollectionEventsRegistered(true)
+        end
         ScheduleRefresh()
         if event == "MERCHANT_SHOW" then
             WarnIfTSMIsVisible()

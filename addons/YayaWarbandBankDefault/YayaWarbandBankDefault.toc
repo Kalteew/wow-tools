@@ -1,8 +1,8 @@
-## Interface: 120007
+## Interface: 120100
 ## Title: Yaya Warband Bank Default
 ## Notes: Opens the bank on the warband bank tab by default.
 ## Author: Codex
-## Version: 0.8.0-debug
+## Version: 0.8.1
 ## OptionalDeps: ElvUI, TradeSkillMaster
 
 YayaWarbandBankDefault.lua

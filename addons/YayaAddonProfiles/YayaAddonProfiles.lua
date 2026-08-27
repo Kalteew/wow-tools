@@ -9,6 +9,7 @@ end
 local EnableAddOnCompat = AddOns.EnableAddOn or EnableAddOn
 local DisableAddOnCompat = AddOns.DisableAddOn or DisableAddOn
 local SaveAddOnsCompat = AddOns.SaveAddOns or SaveAddOns
+local GetAddOnDependenciesCompat = AddOns.GetAddOnDependencies or GetAddOnDependencies
 
 local DB
 local currentCharacterId
@@ -46,16 +47,16 @@ local function Print(message)
 end
 
 StaticPopupDialogs["YAYA_ADDON_PROFILES_RELOAD"] = {
-	text = "Le profil d'addons a ete applique. Recharger l'interface maintenant ?",
+	text = "Le profil d'addons a ete sauvegarde. Recharger l'interface pour l'activer maintenant ?",
 	button1 = "Recharger",
 	button2 = CANCEL,
 	OnAccept = function()
-		if SaveAddonSettings() then
-			Debug("Configuration d'addons sauvegardee depuis la confirmation.")
-			ReloadUI()
-		else
-			Print("Sauvegarde des addons impossible : reload annule.")
-		end
+		Debug("Reload facultatif accepte par l'utilisateur.")
+		ReloadUI()
+	end,
+	OnCancel = function()
+		reloadQueued = false
+		Debug("Reload reporte a la prochaine connexion.")
 	end,
 	timeout = 0,
 	whileDead = 1,
@@ -74,14 +75,13 @@ local function RecordDebug(event, details)
 		return
 	end
 	DB.debugLog = DB.debugLog or {}
-	table.insert(DB.debugLog, {
+	-- Tampon circulaire : la purge precedente recopiait tout le journal a chaque
+	-- entree au-dela de la limite.
+	YayaCore.RingBuffer.Push(DB.debugLog, {
 		time = time(),
 		event = event,
 		details = details,
-	})
-	while #DB.debugLog > DEBUG_LOG_LIMIT do
-		table.remove(DB.debugLog, 1)
-	end
+	}, DEBUG_LOG_LIMIT)
 end
 
 SaveAddonSettings = function()
@@ -208,6 +208,36 @@ local function ResolveProfileName(query)
 	return nil
 end
 
+local function IsAddonEnabled(addonIndexOrName, characterGuid)
+    return GetAddOnEnableStateCompat(addonIndexOrName, characterGuid) == 2
+end
+
+-- Addons que le client WoW reactive de lui-meme (dependances declarees,
+-- chargement a la demande). Leur etat n'est pas pilote par le profil : les
+-- comparer produisait un ecart a presque chaque connexion, donc un prompt de
+-- reload quasi systematique qui banalisait la confirmation et noyait les vrais
+-- changements de profil.
+local CLIENT_MANAGED_ADDONS = {
+	M33kAurasArchive = true,
+	Simulationcraft = true,
+}
+local CLIENT_MANAGED_ADDON_PATTERNS = {
+	"^BigWigs_",
+	"^LittleWigs",
+}
+
+local function IsClientManagedAddon(addonName)
+	if CLIENT_MANAGED_ADDONS[addonName] then
+		return true
+	end
+	for _, pattern in ipairs(CLIENT_MANAGED_ADDON_PATTERNS) do
+		if addonName:match(pattern) then
+			return true
+		end
+	end
+	return false
+end
+
 local function AddProfileAddons(profileName, desired, visiting, visited)
 	if visited[profileName] then
 		return true
@@ -240,6 +270,54 @@ local function AddProfileAddons(profileName, desired, visiting, visited)
 	return true
 end
 
+-- Un addon desire dont une dependance dure manque devient DEP_DISABLED au
+-- prochain login : il ne charge pas, n'applique aucun profil et ne peut plus se
+-- reparer, ce qui a deja desactive YayaCore puis toute la suite Yaya sur un
+-- personnage. On ferme donc transitivement les dependances declarees de chaque
+-- addon desire avant toute comparaison avec l'etat enable sauvegarde.
+local function AddHardDependencies(desired)
+	local added = {}
+	if type(GetAddOnDependenciesCompat) ~= "function" then
+		-- Repli minimal : la dependance commune de tous les addons Yaya.
+		if not desired.YayaCore then
+			desired.YayaCore = true
+			table.insert(added, "YayaCore")
+		end
+		return added
+	end
+
+	local indexByName = {}
+	for addonIndex = 1, GetNumAddOnsCompat() do
+		local addonName = GetAddOnInfoCompat(addonIndex)
+		if addonName then
+			indexByName[addonName] = addonIndex
+		end
+	end
+
+	local pending = {}
+	for addonName in pairs(desired) do
+		table.insert(pending, addonName)
+	end
+
+	while #pending > 0 do
+		local addonName = table.remove(pending)
+		local addonIndex = indexByName[addonName]
+		if addonIndex then
+			local dependencies = { GetAddOnDependenciesCompat(addonIndex) }
+			for _, dependencyName in ipairs(dependencies) do
+				if type(dependencyName) == "string" and dependencyName ~= ""
+					and not desired[dependencyName] then
+					desired[dependencyName] = true
+					table.insert(added, dependencyName)
+					table.insert(pending, dependencyName)
+				end
+			end
+		end
+	end
+
+	return added
+end
+
 local function BuildDesiredAddons(profileName)
 	local desired = {}
 	local ok, reason = AddProfileAddons(profileName, desired, {}, {})
@@ -250,6 +328,26 @@ local function BuildDesiredAddons(profileName)
 	-- The manager and this enforcer must survive every profile switch.
 	desired.SimpleAddonManager = true
 	desired[ADDON_NAME] = true
+	-- Le journal d'erreurs doit survivre lui aussi : c'est lui qui capture les
+	-- fautes des autres addons, et un profil qui le desactive rend tout
+	-- diagnostic impossible sans que rien ne le signale. Il se charge avant les
+	-- autres, d'ou le "!" dans son nom.
+	desired["!YayaErrorLog"] = true
+
+	local addedDependencies = AddHardDependencies(desired)
+	if #addedDependencies > 0 then
+		Debug("Dependances dures ajoutees au profil : " .. table.concat(addedDependencies, ", "))
+	end
+
+	-- Un addon gere par le client et absent du profil est aligne sur son etat
+	-- courant, jamais corrige. S'il est explicitement dans le profil, le profil
+	-- garde la main.
+	for addonIndex = 1, GetNumAddOnsCompat() do
+		local addonName = GetAddOnInfoCompat(addonIndex)
+		if addonName and not desired[addonName] and IsClientManagedAddon(addonName) then
+			desired[addonName] = IsAddonEnabled(addonIndex, currentCharacterGuid) or nil
+		end
+	end
 
 	-- RaiderIO disables databases from foreign regions at startup. Keeping them
 	-- in the comparison would create an enable/reload loop without loading data
@@ -266,10 +364,6 @@ local function BuildDesiredAddons(profileName)
 		end
 	end
 	return desired, nil, ignoredRegionAddons, regionCode
-end
-
-local function IsAddonEnabled(addonIndexOrName, characterGuid)
-    return GetAddOnEnableStateCompat(addonIndexOrName, characterGuid) == 2
 end
 
 local function ProfileMatches(profileName)
@@ -292,15 +386,27 @@ local function PromptReload()
 		Debug("Confirmation de reload deja affichee.")
 		return
 	end
-	reloadQueued = true
 	DB.reloadRequired = {
 		time = time(),
 		character = currentCharacterId,
 		profile = DB.debugLastApply and DB.debugLastApply.profile,
 	}
 	RecordDebug("reload-required", DB.reloadRequired)
-	Debug("Reload requis : confirmation utilisateur affichee.")
-	StaticPopup_Show("YAYA_ADDON_PROFILES_RELOAD")
+
+	-- reloadQueued etait pose avant l'affichage et le retour de StaticPopup_Show
+	-- n'etait pas inspecte : quand les quatre emplacements de popup sont occupes
+	-- au login, la fenetre n'apparaissait jamais et tout appel suivant sortait en
+	-- early-return, sans que rien ne le signale.
+	local popup = StaticPopup_Show("YAYA_ADDON_PROFILES_RELOAD")
+	if popup then
+		reloadQueued = true
+		Debug("Reload requis : confirmation utilisateur affichee.")
+		return
+	end
+
+	Print("Profil d'addons sauvegarde. Tape |cffffd200/reload|r pour l'activer.")
+	RecordDebug("reload-popup-unavailable", DB.reloadRequired)
+	Debug("Reload requis : popup indisponible, message chat affiche.")
 end
 
 local function ApplyProfile(profileName, announce)
@@ -357,8 +463,13 @@ local function ApplyProfile(profileName, announce)
 	PrintAddonList("Ignore RaiderIO hors " .. (regionCode or "?"), ignoredRegionAddons or {}, true)
 
 	if changed then
+		if not SaveAddonSettings() then
+			Print("Profil modifie en memoire, mais sa sauvegarde a echoue.")
+			return changed
+		end
+		Debug("Configuration d'addons sauvegardee immediatement.")
 		if announce then
-			Print("Profil " .. profileName .. " reapplique. Clique sur Recharger pour enregistrer puis reload.")
+			Print("Profil " .. profileName .. " sauvegarde. Reload facultatif ; sinon il sera actif a la prochaine connexion.")
 		end
 		PromptReload()
 	end
@@ -754,6 +865,16 @@ local function OnPlayerLogin()
 	if assignedProfile then
 		Debug("Application differee a PLAYER_ENTERING_WORLD.")
 	end
+
+	-- DB.reloadRequired etait ecrit mais jamais relu ni nettoye. Une demande
+	-- restee en suspens, popup perdu ou reload refuse, ne laissait aucune trace
+	-- exploitable a la session suivante.
+	local pendingReload = DB.reloadRequired
+	if type(pendingReload) == "table" and pendingReload.character == currentCharacterId then
+		Debug("Reload encore en attente depuis la session precedente pour "
+			.. tostring(pendingReload.profile or "?") .. ".")
+	end
+	DB.reloadRequired = nil
 end
 
 local function OnPlayerEnteringWorld()

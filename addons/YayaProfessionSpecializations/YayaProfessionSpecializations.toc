@@ -1,4 +1,4 @@
-## Interface: 120005
+## Interface: 120100
 ## Title: Yaya Profession Specializations
 ## Notes: Dumps profession specialization trees to SavedVariables.
 ## Author: Codex

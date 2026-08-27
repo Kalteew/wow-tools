@@ -1065,7 +1065,7 @@ local function IsDeal(item, unitPrice)
 end
 
 local function FormatPrice(price)
-	return GetMoneyString and GetMoneyString(math.floor(price or 0), true) or tostring(price or 0)
+	return YayaCore.Money.Format(price)
 end
 
 local function GetScanBudgetCopper()

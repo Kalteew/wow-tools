@@ -7,7 +7,7 @@ Addon Retail simple pour :
 - utiliser uniquement les réactifs rang 1 dans les flows automatiques ; les rangs supérieurs restent réservés au flow explicite d'optimisation des réactifs
 - arrêter proprement les auto-queues d’ouverture si une préparation échoue, sans boucle de relance ni blocage du scan des premières fabrications
 - afficher cette frame comme une fenêtre flottante déplaçable, avec une icône par réactif et les quantités réparties par qualité
-- afficher toujours `dump conc.` sur une recette visible, puis le griser si la concentration restante après les réservations de la queue ne permet pas d'ajouter au moins un craft tout en conservant le seuil de 500
+- afficher toujours `dump conc.` sur une recette visible, puis le griser si la concentration restante après les réservations de la queue ne permet pas d'ajouter au moins un craft
 - garder la fenêtre de queue compacte : jusqu'à 3 tâches sont détaillées, puis le reste est résumé par `+X autres`
 - ancrer le coin inférieur gauche de la fenêtre pour que ses changements de hauteur s'étendent vers le haut et la droite
 - inclure le réactif actuellement sélectionné dans les slots requis sélectionnables (par exemple Mote of Primal Energy), même si l’API de transaction l’omet
@@ -16,6 +16,7 @@ Addon Retail simple pour :
 - garder une frame flottante a l'ecran pour suivre la queue
 - accepter des ajouts externes via `YayaQueueAPI.AddRecipe(...)`, des besoins supplementaires via `YayaQueueAPI.AddItem(...)`, leur lecture via `YayaQueueAPI.GetDirectItemQuantity(...)`, leur retrait via `YayaQueueAPI.RemoveItem(...)` et des cibles idempotentes via `YayaQueueAPI.SetItemTarget(...)`
 - afficher ce qu'il reste a acheter a l'HV ou au marchand
+- garder a l'HV les composants PvP echangeables achetes contre une monnaie, meme s'ils sont proposes par un vendeur
 - afficher `Acquérir X` pour les composants soulbound, sans les envoyer vers l'HV
 - afficher un bouton unique d'achat groupé chez les marchands compatibles
 - acheter automatiquement les composants manquants à l'ouverture d'un marchand compatible (désactivable avec `/yq vendor off`)
@@ -34,6 +35,7 @@ Addon Retail simple pour :
 - lors du `dump conc.` et de l’auto-dump de concentration du favori, vider uniquement les réactifs de finition liés dans les sacs du personnage, y compris le sac de réactifs, par sous-lots Multicraft puis Resourcefulness puis Ingéniosité ; une réinjection après proc d’Ingéniosité applique les mêmes règles, attend la fin du lot et isole la devise exacte avant de soustraire les réservations restantes
 - les lots automatiques réservent aussi les MC/RF/IG déjà engagés dans toute la queue et dans les sous-lots en cours ; ils ne demandent jamais l’acquisition de ces réactifs naturels et n’en consomment jamais plus que le stock disponible
 - la réinjection d’un proc d’Ingéniosité distingue les réservations déjà consommées, suit tous les crafts d’un lot et ne soustrait jamais deux fois les crafts terminés
+- un regain de concentration réinjecte le favori même sans tracker de remboursement actif : le tracker n'existe qu'à la première ouverture du métier de la session ou après un clic sur `dump conc.`, si bien qu'une ingenious breakthrough survenue plus tard n'ajoutait rien et imposait un `dump` manuel. La réinjection ne se déclenche que sur une hausse réellement observée de la devise, hors lot en vol, et seulement pour la concentration disponible au-delà de toutes les réservations de la queue
 
 Notes :
 
@@ -82,3 +84,11 @@ Notes :
 - la fermeture de l'HV invalide le cache de recherche afin que le retour dans l'onglet relance une recherche propre
 - un achat deja recu dans les sacs n'est pas recompte comme un faux envoi `Mailbox`
 - `RemoveItem` ne retire que la demande directe ajoutee par un addon externe; les besoins des recettes restent intacts
+- l'action de patron en cours et le verrou du bouton `Next` partagent desormais une meme duree de vie : une resynchronisation qui n'aboutit pas libere le bouton au bout d'une dizaine de secondes au lieu de le laisser bloque indefiniment
+- chaque verrou du bouton `Next` porte son propre watchdog auto-reprogramme : un verrou libere par simple ecoulement du temps declenche un rendu, au lieu de laisser `Next: attente` affiche jusqu'a un evenement sans rapport ou jusqu'a la fermeture du metier
+- le verrou de clic de craft n'est prolonge par un cast en cours que si un craft est reellement en vol ; une monture ou un sort quelconque ne repousse plus le verrou a chaque rendu
+- `FulfillOrder` ne pose plus de verrou de clic de craft : aucun `TRADE_SKILL_ITEM_CRAFTED_RESULT` ne suit un fulfill, donc les 2 s etaient toujours purgees en entier entre deux commandes de patron. L'anti-double-clic reste assure par l'action patron et le verrou `Next` de cet `orderID`
+- `CRAFTINGORDERS_CLAIM_ORDER_RESPONSE`, `CRAFTINGORDERS_FULFILL_ORDER_RESPONSE` et `CRAFTINGORDERS_CRAFT_ORDER_RESPONSE` liberent immediatement le bouton quand le serveur refuse une commande, au lieu d'attendre le timeout de l'action patron ; un resultat que l'addon ne sait pas interpreter n'annule jamais une commande
+- en combat, une action qui exige un bouton securise (`equip_tool`, `shatter`, `merge`) affiche `(combat)` et grise le bouton : `SetAttribute` etant interdit sous lockdown, le bouton restait auparavant actif et le clic ne faisait rien
+- pendant la fenetre de confirmation d'un Shatter, seule la reussite du sort de Shatter court-circuite le traitement des crafts ; les autres crafts confirmes continuent de decrementer la queue, de liberer le verrou de lot et d'alimenter le suivi du favori en concentration
+- les evenements sont routes par une table plutot que par une chaine de tests successifs ; le comportement est identique, y compris le double traitement volontaire de `BAG_UPDATE_DELAYED` (invalidation du stock, puis relance de l'achat marchand)

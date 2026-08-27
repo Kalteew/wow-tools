@@ -1,10 +1,19 @@
 Set-StrictMode -Version Latest
+
+# Primitives communes aux auto-patchs (validation Lua, ecriture atomique,
+# rotation du journal, notifications, suivi des echecs).
+. (Join-Path $PSScriptRoot "..\lib\AddonPatchCore.ps1")
 $ErrorActionPreference = "Stop"
 
 $script:TaskName = "TSM Auto Patch Watcher"
 $script:WatcherMutexName = "Local\TSMAutoPatchWatcher"
 $script:StartupLauncherName = "TSM Auto Patch Watcher.vbs"
 $script:PatchTransaction = $null
+$script:LuacCommand = $null
+$script:LastLuaSyntaxError = $null
+$script:OutputPathOverride = $null
+$script:LogMaxBytes = 1MB
+$script:LogRetainedFiles = 3
 $script:DefaultAddonCandidates = @(
     "C:\Program Files (x86)\World of Warcraft\_retail_\Interface\AddOns\TradeSkillMaster",
     "C:\Program Files\World of Warcraft\_retail_\Interface\AddOns\TradeSkillMaster",
@@ -14,11 +23,35 @@ $script:DefaultAddonCandidates = @(
 )
 
 function Get-TSMAutoPatchLogPath {
+    # Les tests redirigent le journal et le fichier d'etat vers un dossier
+    # temporaire pour ne pas polluer le diagnostic reel.
+    if ($script:OutputPathOverride) {
+        return Join-Path $script:OutputPathOverride "tsm-auto-patch.log"
+    }
     return Join-Path $PSScriptRoot "tsm-auto-patch.log"
+}
+
+function Set-TSMAutoPatchOutputPath {
+    param(
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string]$Path
+    )
+
+    $script:OutputPathOverride = $Path
 }
 
 function Get-TSMAutoPatchStartupPath {
     return Join-Path ([Environment]::GetFolderPath("Startup")) $script:StartupLauncherName
+}
+
+function Invoke-TSMAutoPatchLogRotation {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LogPath
+    )
+
+    Invoke-AddonPatchLogRotation -LogPath $LogPath
 }
 
 function Write-TSMAutoPatchLog {
@@ -28,10 +61,92 @@ function Write-TSMAutoPatchLog {
         [switch]$Quiet
     )
 
+    $logPath = Get-TSMAutoPatchLogPath
+    try {
+        Invoke-TSMAutoPatchLogRotation -LogPath $logPath
+    } catch {
+        # Une rotation qui echoue ne doit jamais empecher d'ecrire la ligne.
+    }
+
     $line = "{0} {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
-    Add-Content -LiteralPath (Get-TSMAutoPatchLogPath) -Value $line
+    Add-Content -LiteralPath $logPath -Value $line
     if (-not $Quiet) {
         Write-Host $line
+    }
+}
+
+function Get-TSMAutoPatchStatusPath {
+    if ($script:OutputPathOverride) {
+        return Join-Path $script:OutputPathOverride "patch-status.json"
+    }
+    return Join-Path $PSScriptRoot "patch-status.json"
+}
+
+function Send-TSMAutoPatchNotification {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Title,
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    return Send-AddonPatchNotification -Title $Title -Message $Message
+}
+
+function Write-TSMAutoPatchStatus {
+    <#
+    .SYNOPSIS
+        Ecrit l'etat du dernier passage du patch dans patch-status.json.
+
+    .DESCRIPTION
+        Sert de source de verite consultable a froid : quels patchs sont
+        appliques, lesquels sont sautes faute de cible, lesquels echouent et
+        depuis combien de passages consecutifs.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowNull()]
+        $Result,
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ConsecutiveFailures,
+        [string]$FatalError
+    )
+
+    $failures = New-Object System.Collections.Generic.List[object]
+    if ($Result -and $Result.FailedPatches) {
+        foreach ($failure in $Result.FailedPatches) {
+            $failures.Add([pscustomobject]@{
+                name = $failure.Name
+                error = $failure.Error
+                consecutiveFailures = [int]$ConsecutiveFailures[$failure.Name]
+            })
+        }
+    }
+
+    $skips = New-Object System.Collections.Generic.List[object]
+    if ($Result -and $Result.SkippedPatches) {
+        foreach ($skip in $Result.SkippedPatches) {
+            $skips.Add([pscustomobject]@{ name = $skip.Name; reason = $skip.Reason })
+        }
+    }
+
+    $payload = [pscustomobject]@{
+        updatedAt = (Get-Date).ToString("o")
+        healthy = (-not $FatalError) -and ($failures.Count -eq 0)
+        addonPath = if ($Result) { $Result.AddonPath } else { $null }
+        addonVersion = if ($Result) { $Result.Version } else { $null }
+        status = if ($Result) { $Result.Status } else { "error" }
+        fatalError = $FatalError
+        appliedCount = if ($Result) { $Result.AppliedPatches.Count } else { 0 }
+        failedPatches = $failures.ToArray()
+        skippedPatches = $skips.ToArray()
+    }
+
+    try {
+        $json = $payload | ConvertTo-Json -Depth 4
+        [System.IO.File]::WriteAllText((Get-TSMAutoPatchStatusPath), $json, [System.Text.UTF8Encoding]::new($false))
+    } catch {
+        # L'ecriture de l'etat ne doit jamais interrompre le watcher.
     }
 }
 
@@ -74,6 +189,87 @@ function Get-TSMAddonVersion {
     return "unknown"
 }
 
+function Convert-TSMPatchBlockText {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Text,
+        [Parameter(Mandatory = $true)]
+        [string]$Newline,
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    $normalized = [regex]::Replace($Text, "\r?\n", $Newline)
+
+    # Les blocs de patch ecrivent leurs tabulations avec le marqueur litteral
+    # deux caracteres backslash-t, pour survivre aux editeurs qui convertissent
+    # les tabulations en espaces. La meme sequence a l'interieur d'une chaine Lua
+    # est en revanche une vraie sequence d'echappement : l'expanser corromprait
+    # le code source. On refuse alors explicitement au lieu de reecrire en
+    # silence.
+    $marker = [string][char]92 + "t"
+    foreach ($line in ($normalized -split "\r?\n")) {
+        $markerIndex = $line.IndexOf($marker, [System.StringComparison]::Ordinal)
+        while ($markerIndex -ge 0) {
+            $prefix = $line.Substring(0, $markerIndex)
+            $quotesBefore = $prefix.Length - $prefix.Replace([string][char]34, "").Length
+            if ($quotesBefore % 2 -eq 1) {
+                throw "Ambiguous tab marker inside a Lua string in $Label. Use a real tab character on this line instead of the backslash-t marker: $line"
+            }
+            $markerIndex = $line.IndexOf($marker, $markerIndex + 2, [System.StringComparison]::Ordinal)
+        }
+    }
+
+    return $normalized.Replace($marker, [string][char]9)
+}
+
+function Get-TSMPatchOccurrenceCount {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Haystack,
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Needle
+    )
+
+    if ([string]::IsNullOrEmpty($Needle)) {
+        return 0
+    }
+    $count = 0
+    $index = $Haystack.IndexOf($Needle, [System.StringComparison]::Ordinal)
+    while ($index -ge 0) {
+        $count++
+        $index = $Haystack.IndexOf($Needle, $index + $Needle.Length, [System.StringComparison]::Ordinal)
+    }
+    return $count
+}
+
+function Test-TSMPatchAnchor {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Haystack,
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Needle,
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    $occurrences = Get-TSMPatchOccurrenceCount -Haystack $Haystack -Needle $Needle
+    if ($occurrences -eq 0) {
+        return $false
+    }
+    if ($occurrences -gt 1) {
+        # Un ancrage qui matche plusieurs fois patcherait toutes les occurrences
+        # d'un coup sans que rien ne le signale. On prefere echouer bruyamment.
+        throw "Ambiguous anchor in $Label ($occurrences matches). Widen the anchor so that it matches exactly once."
+    }
+    return $true
+}
+
 function Replace-ExactBlock {
     param(
         [Parameter(Mandatory = $true)]
@@ -87,15 +283,13 @@ function Replace-ExactBlock {
     )
 
     $newline = if ($Content.Value.Contains("`r`n")) { "`r`n" } else { "`n" }
-    $normalizedOriginal = [regex]::Replace($Original, "\r?\n", $newline)
-    $normalizedPatched = [regex]::Replace($Patched, "\r?\n", $newline)
-    $normalizedOriginal = $normalizedOriginal.Replace('\t', [string][char]9)
-    $normalizedPatched = $normalizedPatched.Replace('\t', [string][char]9)
+    $normalizedOriginal = Convert-TSMPatchBlockText -Text $Original -Newline $newline -Label $Label
+    $normalizedPatched = Convert-TSMPatchBlockText -Text $Patched -Newline $newline -Label $Label
 
     if ($Content.Value.Contains($normalizedPatched)) {
         return $false
     }
-    if (-not $Content.Value.Contains($normalizedOriginal)) {
+    if (-not (Test-TSMPatchAnchor -Haystack $Content.Value -Needle $normalizedOriginal -Label $Label)) {
         throw "Unexpected code in $Label."
     }
 
@@ -116,13 +310,13 @@ function Replace-ExactBlockAny {
     )
 
     $newline = if ($Content.Value.Contains("`r`n")) { "`r`n" } else { "`n" }
-    $normalizedPatched = [regex]::Replace($Patched, "\r?\n", $newline).Replace('\t', [string][char]9)
+    $normalizedPatched = Convert-TSMPatchBlockText -Text $Patched -Newline $newline -Label $Label
     if ($Content.Value.Contains($normalizedPatched)) {
         return $false
     }
     foreach ($original in $Originals) {
-        $normalizedOriginal = [regex]::Replace($original, "\r?\n", $newline).Replace('\t', [string][char]9)
-        if ($Content.Value.Contains($normalizedOriginal)) {
+        $normalizedOriginal = Convert-TSMPatchBlockText -Text $original -Newline $newline -Label $Label
+        if (Test-TSMPatchAnchor -Haystack $Content.Value -Needle $normalizedOriginal -Label $Label) {
             $Content.Value = $Content.Value.Replace($normalizedOriginal, $normalizedPatched)
             return $true
         }
@@ -182,28 +376,43 @@ function Write-TSMPatchBytesAtomically {
         [byte[]]$Bytes
     )
 
-    $token = [guid]::NewGuid().ToString('N')
-    $tempPath = "$FilePath.yaya-patch-$token.tmp"
-    $replaceBackupPath = "$FilePath.yaya-patch-$token.bak"
-    try {
-        [System.IO.File]::WriteAllBytes($tempPath, $Bytes)
-        [System.IO.File]::Replace($tempPath, $FilePath, $replaceBackupPath, $true)
-    } finally {
-        if (Test-Path -LiteralPath $tempPath) {
-            Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
-        }
-        if (Test-Path -LiteralPath $replaceBackupPath) {
-            Remove-Item -LiteralPath $replaceBackupPath -Force -ErrorAction SilentlyContinue
-        }
-    }
+    Write-AddonPatchBytesAtomically -FilePath $FilePath -Bytes $Bytes
+}
+
+function Test-TSMPatchLuaSyntax {
+    # Delegue a la primitive partagee ; conserve pour ne pas toucher aux
+    # appelants et aux tests existants.
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Content,
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    $valid = Test-AddonPatchLuaSyntax -Content $Content -Label $Label
+    $script:LastLuaSyntaxError = Get-AddonPatchLastLuaError
+    return $valid
 }
 
 function Start-TSMPatchTransaction {
+    <#
+    .SYNOPSIS
+        Ouvre une transaction de patch sur un jeu de fichiers de l'addon.
+
+    .DESCRIPTION
+        Les chemins passes via -FilePaths sont obligatoires : leur absence
+        interrompt le patch. Ceux passes via -OptionalFilePaths sont ignores
+        lorsqu'ils n'existent pas (fichier deplace ou supprime par une mise a
+        jour de l'addon) : les patchs qui les ciblent sont alors sautes au lieu
+        de faire echouer l'ensemble.
+    #>
     param(
         [Parameter(Mandatory = $true)]
         [string]$AddonPath,
         [Parameter(Mandatory = $true)]
-        [string[]]$FilePaths
+        [string[]]$FilePaths,
+        [string[]]$OptionalFilePaths = @()
     )
 
     if ($script:PatchTransaction) {
@@ -212,35 +421,84 @@ function Start-TSMPatchTransaction {
     $resolvedRoot = [System.IO.Path]::GetFullPath($AddonPath).TrimEnd('\')
     $rootPrefix = $resolvedRoot + '\'
     $files = @{}
-    foreach ($filePath in $FilePaths) {
-        $resolvedPath = [System.IO.Path]::GetFullPath($filePath)
-        if (-not $resolvedPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "TSM patch target is outside the addon folder: $resolvedPath"
-        }
-        if (-not [System.IO.File]::Exists($resolvedPath)) {
-            throw "TSM patch target does not exist: $resolvedPath"
-        }
-        $bytes = [System.IO.File]::ReadAllBytes($resolvedPath)
-        $decoded = ConvertFrom-TSMPatchBytes -Bytes $bytes
-        $files[$resolvedPath] = [pscustomobject]@{
-            Path = $resolvedPath
-            RelativePath = $resolvedPath.Substring($rootPrefix.Length)
-            OriginalBytes = $bytes
-            OriginalContent = $decoded.Content
-            Content = $decoded.Content
-            HasUtf8Bom = $decoded.HasUtf8Bom
-            LastWriteTimeUtc = [System.IO.File]::GetLastWriteTimeUtc($resolvedPath)
-            Changed = $false
+    $skipped = New-Object System.Collections.Generic.List[string]
+    $missingRequired = New-Object System.Collections.Generic.List[string]
+
+    foreach ($entry in @(
+        @{ Paths = $FilePaths; Required = $true },
+        @{ Paths = $OptionalFilePaths; Required = $false }
+    )) {
+        foreach ($filePath in $entry.Paths) {
+            $resolvedPath = [System.IO.Path]::GetFullPath($filePath)
+            if (-not $resolvedPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw "TSM patch target is outside the addon folder: $resolvedPath"
+            }
+            if (-not [System.IO.File]::Exists($resolvedPath)) {
+                if ($entry.Required) {
+                    $missingRequired.Add($resolvedPath)
+                } else {
+                    $skipped.Add($resolvedPath.Substring($rootPrefix.Length))
+                }
+                continue
+            }
+            $bytes = [System.IO.File]::ReadAllBytes($resolvedPath)
+            $decoded = ConvertFrom-TSMPatchBytes -Bytes $bytes
+            $files[$resolvedPath] = [pscustomobject]@{
+                Path = $resolvedPath
+                RelativePath = $resolvedPath.Substring($rootPrefix.Length)
+                OriginalBytes = $bytes
+                OriginalContent = $decoded.Content
+                Content = $decoded.Content
+                HasUtf8Bom = $decoded.HasUtf8Bom
+                LastWriteTimeUtc = [System.IO.File]::GetLastWriteTimeUtc($resolvedPath)
+                Changed = $false
+            }
         }
     }
+
+    if ($missingRequired.Count -gt 0) {
+        # Un fichier du coeur a disparu : le patch ne peut pas etre coherent.
+        # On liste chaque chemin sur sa propre ligne, l'ancienne version les
+        # concatenait en un seul message illisible.
+        throw ("TSM patch targets do not exist:" + [Environment]::NewLine + (($missingRequired | ForEach-Object { "  - $_" }) -join [Environment]::NewLine))
+    }
+
     $script:PatchTransaction = [pscustomobject]@{
         AddonPath = $resolvedRoot
         Files = $files
+        SkippedTargets = $skipped.ToArray()
     }
 }
 
 function Stop-TSMPatchTransaction {
     $script:PatchTransaction = $null
+}
+
+function Get-TSMPatchSkippedTargets {
+    if (-not $script:PatchTransaction) {
+        return @()
+    }
+    return $script:PatchTransaction.SkippedTargets
+}
+
+function Test-TSMPatchTarget {
+    <#
+    .SYNOPSIS
+        Indique si un fichier cible fait partie de la transaction en cours.
+
+    .DESCRIPTION
+        Permet aux patchs qui visent un fichier optionnel de se sauter
+        proprement lorsque la mise a jour de l'addon l'a fait disparaitre.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    if (-not $script:PatchTransaction) {
+        return [System.IO.File]::Exists([System.IO.Path]::GetFullPath($FilePath))
+    }
+    return $script:PatchTransaction.Files.ContainsKey([System.IO.Path]::GetFullPath($FilePath))
 }
 
 function Get-TSMPatchContent {
@@ -293,10 +551,28 @@ function Complete-TSMPatchTransaction {
     }
     $transaction = $script:PatchTransaction
     $changedEntries = @($transaction.Files.Values | Where-Object { $_.Changed } | Sort-Object Path)
+    $skippedTargets = @($transaction.SkippedTargets)
+
+    # Verification de syntaxe avant toute ecriture : un bloc de remplacement qui
+    # laisse un end en trop produirait du Lua invalide et casserait l'addon au
+    # prochain rechargement de l'interface.
+    $invalid = New-Object System.Collections.Generic.List[string]
+    foreach ($entry in $changedEntries) {
+        if (-not (Test-TSMPatchLuaSyntax -Content $entry.Content -Label $entry.RelativePath)) {
+            $invalid.Add("$($entry.RelativePath): $script:LastLuaSyntaxError")
+        }
+    }
+    if ($invalid.Count -gt 0) {
+        Stop-TSMPatchTransaction
+        throw ("TSM patch produced invalid Lua, nothing was written:" + [Environment]::NewLine + (($invalid | ForEach-Object { "  - $_" }) -join [Environment]::NewLine))
+    }
+
     if ($DryRun -or $changedEntries.Count -eq 0) {
         Stop-TSMPatchTransaction
         return [pscustomobject]@{
             ChangedCount = $changedEntries.Count
+            ChangedFiles = @($changedEntries | ForEach-Object { $_.RelativePath })
+            SkippedTargets = $skippedTargets
             BackupPath = $null
             DryRun = [bool]$DryRun
         }
@@ -309,17 +585,17 @@ function Complete-TSMPatchTransaction {
     $rollbackErrors = New-Object System.Collections.Generic.List[string]
     try {
         New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
-        $manifest = @()
+        $manifest = New-Object System.Collections.Generic.List[object]
         foreach ($entry in $changedEntries) {
             $diskBackupPath = Join-Path $backupPath $entry.RelativePath
             $diskBackupParent = Split-Path -Parent $diskBackupPath
             New-Item -ItemType Directory -Path $diskBackupParent -Force | Out-Null
             [System.IO.File]::WriteAllBytes($diskBackupPath, $entry.OriginalBytes)
-            $manifest += [pscustomobject]@{
+            $manifest.Add([pscustomobject]@{
                 Path = $entry.Path
                 RelativePath = $entry.RelativePath
                 LastWriteTimeUtc = $entry.LastWriteTimeUtc.ToString("o")
-            }
+            })
         }
         $manifestPath = Join-Path $backupPath "manifest.json"
         $manifestJson = $manifest | ConvertTo-Json -Depth 3
@@ -351,6 +627,8 @@ function Complete-TSMPatchTransaction {
 
     return [pscustomobject]@{
         ChangedCount = $changedEntries.Count
+        ChangedFiles = @($changedEntries | ForEach-Object { $_.RelativePath })
+        SkippedTargets = $skippedTargets
         BackupPath = $backupPath
         DryRun = $false
     }
@@ -1889,6 +2167,311 @@ for slotId in Container.GetBagSlotIterator() do
     return $changed
 }
 
+function Update-TSMSchemaFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $changed = $false
+
+    $original = @'
+	-- [133] updated global.auctionUIContext.{auctioningAuctionScrollingTable,myAuctionsScrollingTable,shoppingAuctionScrollingTable,sniperScrollingTable}, factionrealm.auctioningOptions.whitelist
+	return Settings.NewSchema(133, 10)
+'@
+    $patched = @'
+	-- [133] updated global.auctionUIContext.{auctioningAuctionScrollingTable,myAuctionsScrollingTable,shoppingAuctionScrollingTable,sniperScrollingTable}, factionrealm.auctioningOptions.whitelist
+	-- [134] added global.coreOptions.goldToKeepOnCharacter
+	return Settings.NewSchema(134, 10)
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "LibTSMSystem\\Source\\AddonSettings\\Schema.lua version") -or $changed
+
+    $original = @'
+				:AddBoolean("regionWide", false, 119)
+'@
+    $patched = @'
+				:AddBoolean("regionWide", false, 119)
+				:AddNumber("goldToKeepOnCharacter", 0, 134)
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "LibTSMSystem\\Source\\AddonSettings\\Schema.lua gold setting") -or $changed
+
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
+function Update-TSMLocaleFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $changed = $false
+
+    $original = @'
+-- LOCALE STRINGS END HERE
+'@
+    $patched = @'
+L["The amount of gold to keep on the character when balancing gold with the Warbank."] = "The amount of gold to keep on the character when balancing gold with the Warbank."
+L["Gold to keep on character"] = "Gold to keep on character"
+L["Gold pieces"] = "Gold pieces"
+L["Deposit excess gold"] = "Deposit excess gold"
+L["Withdraw gold"] = "Withdraw gold"
+L["Gold is balanced"] = "Gold is balanced"
+-- LOCALE STRINGS END HERE
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Locale strings") -or $changed
+
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
+function Update-TSMGeneralSettingsFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $changed = $false
+
+    $original = @'
+	auctionDBAltRealm = L["Loads AuctionDB data for an additional realm for display in the tooltip."],
+}
+'@
+    $patched = @'
+	auctionDBAltRealm = L["Loads AuctionDB data for an additional realm for display in the tooltip."],
+	goldToKeepOnCharacter = L["The amount of gold to keep on the character when balancing gold with the Warbank."],
+}
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\MainUI\\Settings\\General.lua gold tooltip") -or $changed
+
+    $original = @'
+		:AddKey("global", "coreOptions", "groupPriceSource")
+		:AddKey("global", "coreOptions", "destroyValueSource")
+'@
+    $patched = @'
+		:AddKey("global", "coreOptions", "groupPriceSource")
+		:AddKey("global", "coreOptions", "destroyValueSource")
+		:AddKey("global", "coreOptions", "goldToKeepOnCharacter")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\MainUI\\Settings\\General.lua gold setting") -or $changed
+
+    $original = @'
+			:AddChild(TSM.MainUI.Settings.CreateInputWithReset("generalGroupPriceField", L["Filter group item lists based on the following price source"], private.settings, "groupPriceSource", nil, nil, SETTING_TOOLTIPS.groupPriceSource))
+			:AddChild(UIElements.New("Frame", "dropdownLabelLine")
+'@
+    $patched = @'
+			:AddChild(TSM.MainUI.Settings.CreateInputWithReset("generalGroupPriceField", L["Filter group item lists based on the following price source"], private.settings, "groupPriceSource", nil, nil, SETTING_TOOLTIPS.groupPriceSource))
+			:AddChild(UIElements.New("Text", "goldToKeepLabel")
+				:SetHeight(18)
+				:SetMargin(0, 0, 0, 4)
+				:SetFont("BODY_BODY2_MEDIUM")
+				:SetText(L["Gold to keep on character"])
+			)
+			:AddChild(UIElements.New("Frame", "goldToKeepFrame")
+				:SetLayout("HORIZONTAL")
+				:SetHeight(24)
+				:SetMargin(0, 0, 0, 12)
+				:AddChild(UIElements.New("Input", "goldToKeepInput")
+					:SetMargin(0, 8, 0, 0)
+					:SetBackgroundColor("ACTIVE_BG")
+					:SetValidateFunc("NUMBER", "0:1000000000")
+					:SetSettingInfo(private.settings, "goldToKeepOnCharacter")
+					:SetTooltip(SETTING_TOOLTIPS.goldToKeepOnCharacter, "__parent")
+				)
+				:AddChild(UIElements.New("Text", "label")
+					:SetSize("AUTO", 16)
+					:SetFont("BODY_BODY3")
+					:SetText(L["Gold pieces"])
+				)
+			)
+			:AddChild(UIElements.New("Frame", "dropdownLabelLine")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\MainUI\\Settings\\General.lua gold input") -or $changed
+
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
+function Update-TSMBankingUIFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $changed = $false
+
+    $original = @'
+local ClientInfo = TSM.LibTSMWoW:Include("Util.ClientInfo")
+local L = TSM.Locale.GetTable()
+'@
+    $patched = @'
+local ClientInfo = TSM.LibTSMWoW:Include("Util.ClientInfo")
+local Event = TSM.LibTSMWoW:Include("Service.Event")
+local L = TSM.Locale.GetTable()
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\BankingUI\\Core.lua event API") -or $changed
+
+    $original = @'
+		:AddKey("global", "bankingUIContext", "tab")
+		:AddKey("char", "bankingUIContext", "warehousingGroupTree")
+'@
+    $patched = @'
+		:AddKey("global", "bankingUIContext", "tab")
+		:AddKey("global", "coreOptions", "goldToKeepOnCharacter")
+		:AddKey("char", "bankingUIContext", "warehousingGroupTree")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\BankingUI\\Core.lua gold setting") -or $changed
+
+    $original = @'
+			:AddChild(UIElements.New("Frame", "footer")
+				:SetLayout("VERTICAL")
+				:SetHeight(ClientInfo.IsRetail() and 202 or 170)
+'@
+    $patched = @'
+			:AddChild(UIElements.New("Frame", "footer")
+				:SetLayout("VERTICAL")
+				:SetHeight(ClientInfo.IsRetail() and 234 or 170)
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\BankingUI\\Core.lua footer height") -or $changed
+
+    $original = @'
+	else
+		error("Unexpected module: "..tostring(private.settings.tab))
+	end
+	footerButtonsFrame:Draw()
+end
+'@
+    $patched = @'
+	else
+		error("Unexpected module: "..tostring(private.settings.tab))
+	end
+	footerButtonsFrame:AddChildIf(ClientInfo.IsRetail(), UIElements.New("ActionButton", "balanceGoldBtn")
+		:SetHeight(24)
+		:SetMargin(0, 0, 8, 0)
+		:SetFont("BODY_BODY2_MEDIUM")
+		:SetContext(private.BalanceCharacterGold)
+		:SetScript("OnClick", private.SimpleBtnOnClick)
+	)
+	footerButtonsFrame:Draw()
+end
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\BankingUI\\Core.lua balance button") -or $changed
+
+    $balanceFunction = @'
+function private.BalanceCharacterGold(callback)
+	local targetMoney = max(0, floor(private.settings.goldToKeepOnCharacter or 0)) * COPPER_PER_GOLD
+	local playerMoney = GetMoney()
+	local warbankMoney = C_Bank.FetchDepositedMoney(Enum.BankType.Account) or 0
+	local difference = targetMoney - playerMoney
+	if difference > 0 then
+		C_Bank.WithdrawMoney(Enum.BankType.Account, min(difference, warbankMoney))
+	elseif difference < 0 then
+		C_Bank.DepositMoney(Enum.BankType.Account, -difference)
+	end
+	-- Les callbacks doivent sortir de la transition FSM avant d'etre emis.
+	-- BalanceCharacterGold est le seul startFunc synchrone de cette machine a
+	-- etats : appeles ici, PROGRESS et DONE arrivaient pendant _inTransition et
+	-- LibTSMUtil les jetait avec un simple Log.Warn, laissant ST_PROCESSING actif
+	-- indefiniment. context.progress restait alors a 0, valeur vraie en Lua, donc
+	-- le bouton restait enfonce et grise sur "Gold is balanced" jusqu'a la
+	-- fermeture de la banque. Deux timers distincts pour eviter toute reentrance
+	-- entre EV_THREAD_PROGRESS et EV_THREAD_DONE.
+	C_Timer.After(0, function()
+		callback("PROGRESS", 1)
+	end)
+	C_Timer.After(0, function()
+		callback("DONE")
+	end)
+end
+'@
+    $newline = if ($content.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $normalizedBalanceFunction = [regex]::Replace($balanceFunction.TrimEnd("`r", "`n"), "\r?\n", $newline) + $newline + $newline
+    $balanceMarker = "function private.BalanceCharacterGold(callback)"
+    $simpleMarker = "function private.SimpleBtnOnClick(button)"
+    $balanceStart = $content.IndexOf($balanceMarker, [System.StringComparison]::Ordinal)
+    $simpleStart = $content.IndexOf($simpleMarker, [System.StringComparison]::Ordinal)
+    if ($simpleStart -lt 0) {
+        throw "Unexpected code in Core\\UI\\BankingUI\\Core.lua balance action."
+    }
+    if ($balanceStart -lt 0) {
+        $content = $content.Insert($simpleStart, $normalizedBalanceFunction)
+        $changed = $true
+    } else {
+        $simpleStart = $content.IndexOf($simpleMarker, $balanceStart, [System.StringComparison]::Ordinal)
+        if ($simpleStart -lt 0) {
+            throw "Unexpected code in Core\\UI\\BankingUI\\Core.lua balance action."
+        }
+        $currentBalanceFunctions = $content.Substring($balanceStart, $simpleStart - $balanceStart)
+        if ($currentBalanceFunctions -cne $normalizedBalanceFunction) {
+            $content = $content.Substring(0, $balanceStart) + $normalizedBalanceFunction + $content.Substring($simpleStart)
+            $changed = $true
+        }
+    }
+
+    $original = @'
+		-- Update the action button state
+		context.frame:SetTitle(context.isWarBank and L["Warbank"] or BANK)
+		local footerButtonsFrame = context.frame:GetElement("content.footer.buttons")
+		if private.settings.tab == "Warehousing" then
+'@
+    $patched = @'
+		-- Update the action button state
+		context.frame:SetTitle(context.isWarBank and L["Warbank"] or BANK)
+		local footerButtonsFrame = context.frame:GetElement("content.footer.buttons")
+		if ClientInfo.IsRetail() then
+			local balanceGoldBtn = footerButtonsFrame:GetElement("balanceGoldBtn")
+			balanceGoldBtn:SetShown(context.isWarBank)
+			if context.isWarBank then
+				local targetMoney = max(0, floor(private.settings.goldToKeepOnCharacter or 0)) * COPPER_PER_GOLD
+				local playerMoney = GetMoney()
+				local warbankMoney = C_Bank.FetchDepositedMoney(Enum.BankType.Account) or 0
+				local difference = playerMoney - targetMoney
+				local canBalance = difference ~= 0 and (difference > 0 or warbankMoney > 0)
+				balanceGoldBtn
+					:SetDisabled(context.progress or not canBalance)
+					:SetText(difference > 0 and L["Deposit excess gold"] or difference < 0 and L["Withdraw gold"] or L["Gold is balanced"])
+			end
+		end
+		if private.settings.tab == "Warehousing" then
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\BankingUI\\Core.lua balance state") -or $changed
+
+    $original = @'
+		:AddDefaultEventTransition("EV_BANK_CLOSED", "ST_CLOSED")
+		:Init("ST_CLOSED", fsmContext)
+'@
+    $patched = @'
+		:AddDefaultEventTransition("EV_BANK_CLOSED", "ST_CLOSED")
+		:Init("ST_CLOSED", fsmContext)
+
+	if ClientInfo.IsRetail() then
+		local function MoneyChanged()
+			if fsmContext.frame then
+				UpdateFrame(fsmContext)
+			end
+		end
+		Event.Register("PLAYER_MONEY", MoneyChanged)
+		Event.Register("ACCOUNT_MONEY", MoneyChanged)
+	end
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\BankingUI\\Core.lua money refresh") -or $changed
+
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
 function Update-TSMBankingFile {
     param(
         [Parameter(Mandatory = $true)]
@@ -2039,7 +2622,68 @@ function Update-TSMDefaultUICompatibilityFiles {
     return $changed -or $auctionChanged
 }
 
+function Update-TSMContainerApiFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $changed = $false
+
+    # C_Bank.IsItemAllowedInBankType leve une erreur Lua si l'ItemLocation ne
+    # designe plus aucun objet. Cela arrive des qu'un deplacement precedent a
+    # vide la case pendant que le thread BANKING_MOVE evalue encore ses cibles,
+    # typiquement en enchainant vite les boutons de la Banking UI :
+    #   Container.lua:301: bad argument #2 to 'IsItemAllowedInBankType'
+    # TSM applique deja exactement ce garde ailleurs (AuctionHouse.lua, ligne 91
+    # environ) ; il manque seulement ici. Une case vide n'accepte aucun depot,
+    # donc false est la bonne reponse et l'appelant passe a l'emplacement suivant.
+    $original = @'
+function Container.CanDepositIntoWarbank(bag, slot)
+\tif not ClientInfo.HasFeature(ClientInfo.FEATURES.WARBAND_BANK) then
+\t\treturn false
+\tend
+\tprivate.itemLocation:SetBagAndSlot(bag, slot)
+\treturn C_Bank.IsItemAllowedInBankType(Enum.BankType.Account, private.itemLocation)
+end
+'@
+    $patched = @'
+function Container.CanDepositIntoWarbank(bag, slot)
+\tif not ClientInfo.HasFeature(ClientInfo.FEATURES.WARBAND_BANK) then
+\t\treturn false
+\tend
+\tprivate.itemLocation:SetBagAndSlot(bag, slot)
+\tif not private.itemLocation:IsValid() then
+\t\treturn false
+\tend
+\treturn C_Bank.IsItemAllowedInBankType(Enum.BankType.Account, private.itemLocation)
+end
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "LibTSMWoW\\Source\\API\\Container.lua warbank deposit guard") -or $changed
+
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
 function Invoke-TSMMailingPatch {
+    <#
+    .SYNOPSIS
+        Applique l'ensemble des patchs personnels a TradeSkillMaster.
+
+    .DESCRIPTION
+        Chaque patch est isole : un ancrage qui ne correspond plus a la version
+        installee est signale comme echoue sans annuler les autres. Seuls
+        Core\API.lua et TradeSkillMaster.lua sont obligatoires (leur absence
+        signifie que le dossier n'est pas une installation TSM valide) ; les
+        autres cibles sont optionnelles et leurs patchs sont sautes si une mise
+        a jour de l'addon les a deplacees.
+
+        Le resultat expose AppliedPatches / FailedPatches / SkippedPatches pour
+        que l'appelant puisse alerter au lieu de decouvrir l'echec dans le log.
+    #>
     param(
         [string]$AddonPath,
         [switch]$Quiet,
@@ -2064,10 +2708,28 @@ function Invoke-TSMMailingPatch {
     $shoppingOperationPath = Join-Path $resolvedAddonPath "LibTSMSystem\Source\Operation\ShoppingOperation.lua"
     $shoppingUiPath = Join-Path $resolvedAddonPath "Core\UI\MainUI\Operations\Shopping.lua"
     $shoppingGroupSearchPath = Join-Path $resolvedAddonPath "Core\Service\Shopping\GroupSearch.lua"
+    $schemaPath = Join-Path $resolvedAddonPath "LibTSMSystem\Source\AddonSettings\Schema.lua"
+    $generalSettingsPath = Join-Path $resolvedAddonPath "Core\UI\MainUI\Settings\General.lua"
+    $bankingUiPath = Join-Path $resolvedAddonPath "Core\UI\BankingUI\Core.lua"
+    $containerApiPath = Join-Path $resolvedAddonPath "LibTSMWoW\Source\API\Container.lua"
+    $localePaths = @(
+        "enUS.lua",
+        "deDE.lua",
+        "esES.lua",
+        "esMX.lua",
+        "frFR.lua",
+        "itIT.lua",
+        "koKR.lua",
+        "ptBR.lua",
+        "ruRU.lua",
+        "zhCN.lua",
+        "zhTW.lua"
+    ) | ForEach-Object { Join-Path $resolvedAddonPath "Locale\$_" }
 
-    $targetPaths = @(
-        $apiPath,
-        $craftedPricePath,
+    # Ces deux fichiers structurent l'addon depuis toujours : s'ils manquent, le
+    # dossier cible n'est pas une installation TradeSkillMaster.
+    $requiredPaths = @($apiPath, $craftedPricePath)
+    $optionalPaths = @(
         $mailingCorePath,
         $mailingGroupsPath,
         $mailingOtherPath,
@@ -2080,25 +2742,79 @@ function Invoke-TSMMailingPatch {
         $auctionUiPath,
         $shoppingOperationPath,
         $shoppingUiPath,
-        $shoppingGroupSearchPath
-    )
-    Start-TSMPatchTransaction -AddonPath $resolvedAddonPath -FilePaths $targetPaths
+        $shoppingGroupSearchPath,
+        $schemaPath,
+        $generalSettingsPath,
+        $bankingUiPath,
+        $containerApiPath
+    ) + $localePaths
+
+    $patches = New-Object System.Collections.Generic.List[object]
+    $patches.Add(@{ Name = "API hooks";              Targets = @($apiPath);                 Action = { Update-TSMApiFile -FilePath $apiPath } })
+    $patches.Add(@{ Name = "Crafted price source";   Targets = @($craftedPricePath);         Action = { Update-TSMCraftedPriceFile -FilePath $craftedPricePath } })
+    $patches.Add(@{ Name = "Mailing UI core";        Targets = @($mailingCorePath);          Action = { Update-TSMMailingCoreFile -FilePath $mailingCorePath } })
+    $patches.Add(@{ Name = "Mailing UI groups";      Targets = @($mailingGroupsPath);        Action = { Update-TSMMailingGroupsFile -FilePath $mailingGroupsPath } })
+    $patches.Add(@{ Name = "Mailing UI other";       Targets = @($mailingOtherPath);         Action = { Update-TSMMailingOtherFile -FilePath $mailingOtherPath } })
+    $patches.Add(@{ Name = "Mailing send";           Targets = @($mailingSendPath);          Action = { Update-TSMMailingSendFile -FilePath $mailingSendPath } })
+    $patches.Add(@{ Name = "Auction scroll table";   Targets = @($auctionScrollTablePath);   Action = { Update-TSMAuctionScrollTableFile -FilePath $auctionScrollTablePath } })
+    $patches.Add(@{ Name = "Bag tracking";           Targets = @($bagTrackingPath);          Action = { Restore-TSMBagTrackingFile -FilePath $bagTrackingPath } })
+    $patches.Add(@{ Name = "Banking";                Targets = @($bankingCorePath);          Action = { Update-TSMBankingFile -FilePath $bankingCorePath } })
+    $patches.Add(@{ Name = "Post scan debug";        Targets = @($postScanPath);             Action = { Update-TSMPostScanDebugFile -FilePath $postScanPath } })
+    $patches.Add(@{ Name = "Default UI compat";      Targets = @($craftingUiPath, $auctionUiPath); Action = { Update-TSMDefaultUICompatibilityFiles -CraftingFilePath $craftingUiPath -AuctionFilePath $auctionUiPath } })
+    $patches.Add(@{ Name = "Shopping operation";     Targets = @($shoppingOperationPath);    Action = { Update-TSMShoppingOperationFile -FilePath $shoppingOperationPath } })
+    $patches.Add(@{ Name = "Shopping UI";            Targets = @($shoppingUiPath);           Action = { Update-TSMShoppingUIFile -FilePath $shoppingUiPath } })
+    $patches.Add(@{ Name = "Shopping group search";  Targets = @($shoppingGroupSearchPath);  Action = { Update-TSMShoppingGroupSearchFile -FilePath $shoppingGroupSearchPath } })
+    $patches.Add(@{ Name = "Settings schema";        Targets = @($schemaPath);               Action = { Update-TSMSchemaFile -FilePath $schemaPath } })
+    $patches.Add(@{ Name = "General settings";       Targets = @($generalSettingsPath);      Action = { Update-TSMGeneralSettingsFile -FilePath $generalSettingsPath } })
+    $patches.Add(@{ Name = "Banking UI";             Targets = @($bankingUiPath);            Action = { Update-TSMBankingUIFile -FilePath $bankingUiPath } })
+    $patches.Add(@{ Name = "Container API";          Targets = @($containerApiPath);         Action = { Update-TSMContainerApiFile -FilePath $containerApiPath } })
+    # Le chemin arrive en argument : un scriptblock qui capturerait $localePath
+    # verrait la derniere valeur de la boucle au moment de l'invocation.
+    $localeAction = { param($Path) Update-TSMLocaleFile -FilePath $Path }
+    foreach ($localePath in $localePaths) {
+        $patches.Add(@{
+            Name = "Locale $([System.IO.Path]::GetFileNameWithoutExtension($localePath))"
+            Targets = @($localePath)
+            Action = $localeAction
+        })
+    }
+
+    Start-TSMPatchTransaction -AddonPath $resolvedAddonPath -FilePaths $requiredPaths -OptionalFilePaths $optionalPaths
+
+    $appliedPatches = New-Object System.Collections.Generic.List[string]
+    $failedPatches = New-Object System.Collections.Generic.List[object]
+    $skippedPatches = New-Object System.Collections.Generic.List[object]
     try {
-        $changed = $false
-        $changed = (Update-TSMApiFile -FilePath $apiPath) -or $changed
-        $changed = (Update-TSMCraftedPriceFile -FilePath $craftedPricePath) -or $changed
-        $changed = (Update-TSMMailingCoreFile -FilePath $mailingCorePath) -or $changed
-        $changed = (Update-TSMMailingGroupsFile -FilePath $mailingGroupsPath) -or $changed
-        $changed = (Update-TSMMailingOtherFile -FilePath $mailingOtherPath) -or $changed
-        $changed = (Update-TSMMailingSendFile -FilePath $mailingSendPath) -or $changed
-        $changed = (Update-TSMAuctionScrollTableFile -FilePath $auctionScrollTablePath) -or $changed
-        $changed = (Restore-TSMBagTrackingFile -FilePath $bagTrackingPath) -or $changed
-        $changed = (Update-TSMBankingFile -FilePath $bankingCorePath) -or $changed
-        $changed = (Update-TSMPostScanDebugFile -FilePath $postScanPath) -or $changed
-        $changed = (Update-TSMDefaultUICompatibilityFiles -CraftingFilePath $craftingUiPath -AuctionFilePath $auctionUiPath) -or $changed
-        $changed = (Update-TSMShoppingOperationFile -FilePath $shoppingOperationPath) -or $changed
-        $changed = (Update-TSMShoppingUIFile -FilePath $shoppingUiPath) -or $changed
-        $changed = (Update-TSMShoppingGroupSearchFile -FilePath $shoppingGroupSearchPath) -or $changed
+        foreach ($patch in $patches) {
+            $missingTarget = $null
+            foreach ($target in $patch.Targets) {
+                if (-not (Test-TSMPatchTarget -FilePath $target)) {
+                    $missingTarget = $target
+                    break
+                }
+            }
+            if ($missingTarget) {
+                $skippedPatches.Add([pscustomobject]@{
+                    Name = $patch.Name
+                    Reason = "cible absente: $($missingTarget.Substring($resolvedAddonPath.Length + 1))"
+                })
+                continue
+            }
+
+            try {
+                # La premiere cible est passee en argument : les scriptblocks qui
+                # referencent directement leur variable l'ignorent via $args.
+                & $patch.Action $patch.Targets[0] | Out-Null
+                $appliedPatches.Add($patch.Name)
+            } catch {
+                # Un ancrage perime ne doit pas empecher les autres patchs de
+                # s'appliquer : on enregistre l'echec et on continue.
+                $failedPatches.Add([pscustomobject]@{
+                    Name = $patch.Name
+                    Error = $_.Exception.Message
+                })
+            }
+        }
         $transactionResult = Complete-TSMPatchTransaction -DryRun:$DryRun
     } catch {
         Stop-TSMPatchTransaction
@@ -2107,9 +2823,19 @@ function Invoke-TSMMailingPatch {
 
     $changed = $transactionResult.ChangedCount -gt 0
     $status = if ($DryRun -and $changed) { "would patch" } elseif ($changed) { "patched" } else { "already patched" }
+    if ($failedPatches.Count -gt 0) {
+        $status = "$status with $($failedPatches.Count) failed patch(es)"
+    }
+
     if (-not $DryRun) {
         $backupSuffix = if ($transactionResult.BackupPath) { " backup=$($transactionResult.BackupPath)" } else { "" }
         Write-TSMAutoPatchLog -Message ("{0} ({1}) at {2}{3}" -f $status, $version, $resolvedAddonPath, $backupSuffix) -Quiet:$Quiet
+        foreach ($failure in $failedPatches) {
+            Write-TSMAutoPatchLog -Message ("  patch failed [{0}]: {1}" -f $failure.Name, $failure.Error) -Quiet:$Quiet
+        }
+        foreach ($skip in $skippedPatches) {
+            Write-TSMAutoPatchLog -Message ("  patch skipped [{0}]: {1}" -f $skip.Name, $skip.Reason) -Quiet:$Quiet
+        }
     }
 
     return [pscustomobject]@{
@@ -2119,5 +2845,132 @@ function Invoke-TSMMailingPatch {
         Status = $status
         DryRun = [bool]$DryRun
         BackupPath = $transactionResult.BackupPath
+        ChangedFiles = $transactionResult.ChangedFiles
+        AppliedPatches = $appliedPatches.ToArray()
+        FailedPatches = $failedPatches.ToArray()
+        SkippedPatches = $skippedPatches.ToArray()
     }
 }
+
+function New-TSMAutoPatchRunTracker {
+    <#
+    .SYNOPSIS
+        Cree l'etat de suivi partage entre deux passages du patch.
+
+    .DESCRIPTION
+        FailureCounts compte les echecs consecutifs par patch, AlertedPatches
+        retient ceux pour lesquels une notification a deja ete envoyee, afin de
+        ne pas repeter la meme alerte a chaque passage.
+    #>
+    return [pscustomobject]@{
+        FailureCounts = @{}
+        AlertedPatches = @{}
+    }
+}
+
+function Invoke-TSMAutoPatchRun {
+    <#
+    .SYNOPSIS
+        Applique le patch en suivant la persistance des echecs.
+
+    .DESCRIPTION
+        C'est la persistance d'un echec, et non son occurrence isolee, qui
+        merite une notification : pendant une mise a jour de l'addon les
+        fichiers sont reecrits un par un et un ancrage peut manquer
+        temporairement. On notifie donc au bout de -AlertThreshold passages
+        consecutifs en echec, une seule fois, puis on signale le retablissement.
+
+    .PARAMETER Tracker
+        Objet renvoye par New-TSMAutoPatchRunTracker, conserve entre les appels.
+
+    .PARAMETER Notify
+        Mettre a $false pour tester la logique sans emettre de notification.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AddonPath,
+        [Parameter(Mandatory = $true)]
+        $Tracker,
+        [Parameter(Mandatory = $true)]
+        [string]$Origin,
+        [int]$AlertThreshold = 2,
+        [bool]$Notify = $true,
+        [switch]$DryRun
+    )
+
+    $notifications = New-Object System.Collections.Generic.List[object]
+    $failureCounts = $Tracker.FailureCounts
+    $alertedPatches = $Tracker.AlertedPatches
+
+    try {
+        $result = Invoke-TSMMailingPatch -AddonPath $AddonPath -Quiet -DryRun:$DryRun
+    } catch {
+        $message = $_.Exception.Message
+        Write-TSMAutoPatchLog -Message ("{0} patch failed: {1}" -f $Origin, $message) -Quiet
+        Write-TSMAutoPatchStatus -Result $null -ConsecutiveFailures $failureCounts -FatalError $message
+        if (-not $alertedPatches.ContainsKey("__fatal__")) {
+            $alertedPatches["__fatal__"] = $true
+            $notifications.Add([pscustomobject]@{ Kind = "fatal"; Name = "__fatal__"; Title = "Patch TSM interrompu"; Message = $message })
+            if ($Notify) {
+                Send-TSMAutoPatchNotification -Title "Patch TSM interrompu" -Message $message | Out-Null
+            }
+        }
+        return [pscustomobject]@{
+            Result = $null
+            FatalError = $message
+            Notifications = $notifications.ToArray()
+        }
+    }
+
+    $alertedPatches.Remove("__fatal__")
+
+    $currentFailures = @{}
+    foreach ($failure in $result.FailedPatches) {
+        $currentFailures[$failure.Name] = $failure.Error
+    }
+
+    # Un patch qui refonctionne remet son compteur a zero et leve son alerte.
+    foreach ($name in @($failureCounts.Keys)) {
+        if (-not $currentFailures.ContainsKey($name)) {
+            $failureCounts.Remove($name)
+            if ($alertedPatches.ContainsKey($name)) {
+                $alertedPatches.Remove($name)
+                Write-TSMAutoPatchLog -Message ("patch recovered [{0}]" -f $name) -Quiet
+                $title = "Patch TSM retabli"
+                $message = "Le patch {0} s'applique a nouveau." -f $name
+                $notifications.Add([pscustomobject]@{ Kind = "recovered"; Name = $name; Title = $title; Message = $message })
+                if ($Notify) {
+                    Send-TSMAutoPatchNotification -Title $title -Message $message | Out-Null
+                }
+            }
+        }
+    }
+
+    foreach ($name in $currentFailures.Keys) {
+        $count = 1
+        if ($failureCounts.ContainsKey($name)) {
+            $count = [int]$failureCounts[$name] + 1
+        }
+        $failureCounts[$name] = $count
+
+        if ($count -ge $AlertThreshold -and -not $alertedPatches.ContainsKey($name)) {
+            $alertedPatches[$name] = $true
+            $title = "Patch TSM en echec"
+            $message = "{0} echoue depuis {1} passages (TSM {2}). Detail : {3}" -f $name, $count, $result.Version, $currentFailures[$name]
+            Write-TSMAutoPatchLog -Message ("ALERT patch [{0}] failed {1} consecutive runs: {2}" -f $name, $count, $currentFailures[$name]) -Quiet
+            $notifications.Add([pscustomobject]@{ Kind = "failed"; Name = $name; Title = $title; Message = $message })
+            if ($Notify) {
+                Send-TSMAutoPatchNotification -Title $title -Message $message | Out-Null
+            }
+        }
+    }
+
+    Write-TSMAutoPatchStatus -Result $result -ConsecutiveFailures $failureCounts
+
+    return [pscustomobject]@{
+        Result = $result
+        FatalError = $null
+        Notifications = $notifications.ToArray()
+    }
+}
+

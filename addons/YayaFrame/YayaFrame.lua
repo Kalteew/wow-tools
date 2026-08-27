@@ -7,11 +7,18 @@ local DEFAULT_POSITION = {
     y = 8,
 }
 
+-- La largeur suivait la plus large des sections, mais restait bornee : une
+-- section qui deborde ne doit pas etirer le conteneur sur tout l'ecran.
+local MIN_WIDTH = 200
+local MAX_WIDTH = 520
+
 local api = {}
 local sections = {}
 local rootFrame
 local visibilityFrame
 local pendingHideInCombat
+local layoutScheduled = false
+local layoutInProgress = false
 
 local function GetDB()
     YayaFrameDB = YayaFrameDB or {}
@@ -60,13 +67,35 @@ local function SortSections(left, right)
     return left.order < right.order
 end
 
+--- Largeur souhaitee du conteneur, deduite de la plus large des sections.
+local function ComputeWidth()
+    local widest = MIN_WIDTH
+    for _, section in ipairs(sections) do
+        local frame = section.frame
+        if frame and frame:IsShown() then
+            local requested = tonumber(section.preferredWidth)
+                or (frame.GetWidth and frame:GetWidth())
+                or 0
+            if requested > widest then
+                widest = requested
+            end
+        end
+    end
+    return math.min(MAX_WIDTH, math.max(MIN_WIDTH, math.floor(widest + 0.5)))
+end
+
 local function Layout()
-    if not rootFrame then
+    if not rootFrame or layoutInProgress then
         return
     end
 
+    -- Le redimensionnement des sections declenche OnSizeChanged, qui redemande
+    -- un layout : sans ce verrou, la mise en page se rappellerait sans fin.
+    layoutInProgress = true
+
     table.sort(sections, SortSections)
 
+    local width = ComputeWidth()
     local totalHeight = 0
     local hasVisibleSection = false
     for _, section in ipairs(sections) do
@@ -78,6 +107,7 @@ local function Layout()
     end
 
     local height = math.max(1, totalHeight)
+    rootFrame:SetWidth(width)
     rootFrame:SetHeight(height)
     rootFrame.bg:SetHeight(height)
 
@@ -97,6 +127,29 @@ local function Layout()
     else
         rootFrame:Hide()
     end
+
+    layoutInProgress = false
+end
+
+--- Demande une mise en page, au plus une par frame de rendu.
+--
+-- Les sections modifiaient leur hauteur puis devaient penser a appeler
+-- Refresh() : la convention n'etait pas toujours respectee et laissait des
+-- sections superposees. Le layout est desormais declenche par OnSizeChanged, ce
+-- qui impose de le regrouper pour ne pas le rejouer a chaque pixel.
+local function RequestLayout()
+    if layoutScheduled or layoutInProgress then
+        return
+    end
+    if not (C_Timer and type(C_Timer.After) == "function") then
+        Layout()
+        return
+    end
+    layoutScheduled = true
+    C_Timer.After(0, function()
+        layoutScheduled = false
+        Layout()
+    end)
 end
 
 local function CreateFrames()
@@ -110,7 +163,7 @@ local function CreateFrames()
 
     rootFrame = CreateFrame("Frame", addonName .. "Frame", visibilityFrame)
     rootFrame:SetFrameStrata("MEDIUM")
-    rootFrame:SetSize(200, 1)
+    rootFrame:SetSize(MIN_WIDTH, 1)
     rootFrame:SetClampedToScreen(true)
     rootFrame:SetMovable(true)
     rootFrame:EnableMouse(true)
@@ -130,6 +183,7 @@ local function CreateFrames()
     rootFrame.bg:SetColorTexture(0, 0, 0, 0.55)
 
     api:ApplyPosition()
+    api:ApplyScale()
     api:SetHideInCombat(GetDB().hideInCombat == true)
 end
 
@@ -172,7 +226,29 @@ function api:AttachSection(id, frame, order)
     local section = self:RegisterSection(id, order)
     section.frame = frame
     frame:SetParent(self:GetFrame())
+
+    -- La section n'a plus a signaler ses changements de taille elle-meme.
+    if not section.sizeHooked and frame.HookScript then
+        frame:HookScript("OnSizeChanged", RequestLayout)
+        frame:HookScript("OnShow", RequestLayout)
+        frame:HookScript("OnHide", RequestLayout)
+        section.sizeHooked = true
+    end
+
     self:Refresh()
+end
+
+--- Declare la largeur souhaitee d'une section.
+--
+-- Sans cet appel, la largeur mesuree de la frame est utilisee.
+function api:SetSectionWidth(id, width)
+    for _, section in ipairs(sections) do
+        if section.id == id then
+            section.preferredWidth = tonumber(width)
+            RequestLayout()
+            return
+        end
+    end
 end
 
 function api:DetachSection(id)
@@ -190,6 +266,11 @@ function api:DetachSection(id)
 end
 
 function api:Refresh()
+    RequestLayout()
+end
+
+--- Mise en page immediate, sans attendre la fin de la frame de rendu.
+function api:RefreshNow()
     Layout()
 end
 
@@ -247,6 +328,32 @@ function api:ResetPosition()
     self:ApplyPosition()
 end
 
+--- Applique l'echelle enregistree du conteneur.
+function api:ApplyScale()
+    self:EnsureFrame()
+    local scale = tonumber(GetDB().scale)
+    if not scale then
+        return
+    end
+    rootFrame:SetScale(math.min(2.0, math.max(0.5, scale)))
+end
+
+--- Regle l'echelle du conteneur, bornee entre 50 % et 200 %.
+function api:SetScale(scale)
+    scale = tonumber(scale)
+    if not scale then
+        return
+    end
+    scale = math.min(2.0, math.max(0.5, scale))
+    GetDB().scale = scale
+    self:EnsureFrame()
+    rootFrame:SetScale(scale)
+end
+
+function api:GetScale()
+    return tonumber(GetDB().scale) or 1.0
+end
+
 function api:SetHideInCombat(enabled)
     self:EnsureFrame()
     if InCombatLockdown and InCombatLockdown() then
@@ -275,5 +382,24 @@ eventFrame:SetScript("OnEvent", function(_, event)
         api:SetHideInCombat(pendingHideInCombat)
     end
 end)
+
+SLASH_YAYAFRAME1 = "/yframe"
+SlashCmdList.YAYAFRAME = function(message)
+    local command, argument = (message or ""):lower():match("^(%S*)%s*(.*)$")
+    if command == "scale" then
+        local scale = tonumber(argument)
+        if scale then
+            api:SetScale(scale)
+            print(("|cff00ff98YayaFrame:|r echelle %.2f"):format(api:GetScale()))
+        else
+            print(("|cff00ff98YayaFrame:|r echelle %.2f (usage : /yframe scale 0.5 a 2.0)"):format(api:GetScale()))
+        end
+    elseif command == "reset" then
+        api:ResetPosition()
+        print("|cff00ff98YayaFrame:|r position reinitialisee")
+    else
+        print("|cff00ff98YayaFrame:|r /yframe scale <0.5-2.0> | /yframe reset")
+    end
+end
 
 YayaFrameAPI = api

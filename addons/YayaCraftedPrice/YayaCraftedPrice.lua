@@ -207,42 +207,20 @@ local function SaveSnapshot(itemString, price, quantity)
 end
 
 GetTSMItemString = function(itemString)
-	if type(TSM_API) ~= "table" or type(TSM_API.ToItemString) ~= "function" then
-		return nil
-	end
-
-	local ok, result = pcall(TSM_API.ToItemString, itemString)
-	return ok and type(result) == "string" and result ~= "" and result or nil
+	local result = YayaCore.Price.ToItemString(itemString)
+	return type(result) == "string" and result ~= "" and result or nil
 end
 
 local function GetSmartAvgBuy(itemString)
-	local tsmItemString = GetTSMItemString(itemString)
-	if not tsmItemString or type(TSM_API) ~= "table" or type(TSM_API.GetCustomPriceValue) ~= "function" then
-		return nil
-	end
-
-	local ok, value = pcall(TSM_API.GetCustomPriceValue, "SmartAvgBuy", tsmItemString)
-	return ok and tonumber(value) and value > 0 and value or nil
+	return YayaCore.Price.Get(itemString, "SmartAvgBuy")
 end
 
 local function GetVendorBuy(itemString)
-	local tsmItemString = GetTSMItemString(itemString)
-	if not tsmItemString or type(TSM_API) ~= "table" or type(TSM_API.GetCustomPriceValue) ~= "function" then
-		return nil
-	end
-
-	local ok, value = pcall(TSM_API.GetCustomPriceValue, "VendorBuy", tsmItemString)
-	return ok and tonumber(value) and value > 0 and value or nil
+	return YayaCore.Price.Get(itemString, "VendorBuy")
 end
 
 local function GetTSMPrice(itemString, source)
-	local tsmItemString = GetTSMItemString(itemString)
-	if not tsmItemString or type(TSM_API) ~= "table" or type(TSM_API.GetCustomPriceValue) ~= "function" then
-		return nil
-	end
-
-	local ok, value = pcall(TSM_API.GetCustomPriceValue, source, tsmItemString)
-	return ok and tonumber(value) and value > 0 and value or nil
+	return YayaCore.Price.Get(itemString, source)
 end
 
 local function GetContainerAverage(item)
@@ -383,10 +361,7 @@ local function CalculateNetValue(outputUnitValue, outputQuantity, materialCost, 
 end
 
 local function FormatMoney(value)
-	if type(GetMoneyString) == "function" then
-		return GetMoneyString(math.floor(value), true)
-	end
-	return tostring(math.floor(value)) .. " copper"
+	return YayaCore.Money.Format(value)
 end
 
 local function GetTooltipItemString(tooltip, data)

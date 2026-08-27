@@ -241,10 +241,7 @@ local function Clamp(value, minimum, maximum)
 end
 
 local function FormatMoney(value)
-	if not value or value <= 0 then
-		return NONE
-	end
-	return GetMoneyString(math.floor(value), true)
+	return YayaCore.Money.Format(value, { zeroText = NONE })
 end
 
 local function GetLocalTimeStamp()

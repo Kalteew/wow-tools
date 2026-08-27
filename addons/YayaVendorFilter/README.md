@@ -20,6 +20,10 @@ filtre. Le choix est conserve pour le compte.
 
 Commande : `/yvf` pour basculer le filtre, `/yvf on` ou `/yvf off`.
 
+Les evenements de collection (transmogrifications, mascottes, jouets, montures,
+metiers) ne sont ecoutes que pendant que la fenetre du marchand est ouverte, et
+le cache de possession est vide a sa fermeture.
+
 Limites :
 
 - le decor Housing n'est pas filtre ;

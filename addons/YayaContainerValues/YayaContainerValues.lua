@@ -277,20 +277,9 @@ local function GetTSMUnitPrice(itemID)
         return nil
     end
 
-    if type(TSM_API) ~= "table"
-        or type(TSM_API.ToItemString) ~= "function"
-        or type(TSM_API.GetCustomPriceValue) ~= "function" then
-        return nil
-    end
-
-    local okString, itemString = pcall(TSM_API.ToItemString, "i:" .. tostring(itemID))
-    if not okString or type(itemString) ~= "string" or itemString == "" then
-        return nil
-    end
-
     for _, priceSource in ipairs(PRICE_SOURCES) do
-        local okPrice, price = pcall(TSM_API.GetCustomPriceValue, priceSource, itemString)
-        if okPrice and type(price) == "number" and price > 0 then
+        local price = YayaCore.Price.Get(itemID, priceSource)
+        if price then
             return price
         end
     end
@@ -506,10 +495,7 @@ function API.GetStats(item)
 end
 
 local function FormatMoney(value)
-    if type(GetMoneyString) == "function" then
-        return GetMoneyString(math.floor(value), true)
-    end
-    return tostring(math.floor(value)) .. " copper"
+    return YayaCore.Money.Format(value)
 end
 
 local function AddContainerValueToTooltip(tooltip, data)

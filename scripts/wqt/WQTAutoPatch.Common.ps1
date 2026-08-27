@@ -1,13 +1,17 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Primitives communes aux auto-patchs (validation Lua, ecriture atomique,
+# rotation du journal, notifications, suivi des echecs).
+. (Join-Path $PSScriptRoot "..\lib\AddonPatchCore.ps1")
+
 $script:TaskName = "WQT Auto Patch Watcher"
 $script:WatcherMutexName = "Local\WQTAutoPatchWatcher"
 $script:StartupLauncherName = "WQT Auto Patch Watcher.vbs"
 $script:PatchMarker = "Yaya WQT AutoPatch: deferred ObjectiveTrackerManager hooks"
 
 function Get-WQTAutoPatchLogPath {
-    return (Join-Path $PSScriptRoot "wqt-auto-patch.log")
+    return (Resolve-AddonPatchOutputPath -DefaultDirectory $PSScriptRoot -FileName "wqt-auto-patch.log")
 }
 
 function Get-WQTAutoPatchStartupPath {
@@ -22,8 +26,12 @@ function Write-WQTAutoPatchLog {
     )
 
     $logPath = Get-WQTAutoPatchLogPath
-    $logDir = Split-Path -Parent $logPath
-    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+    New-Item -ItemType Directory -Path (Split-Path -Parent $logPath) -Force | Out-Null
+    try {
+        Invoke-AddonPatchLogRotation -LogPath $logPath
+    } catch {
+        # Une rotation qui echoue ne doit jamais empecher d'ecrire la ligne.
+    }
     Add-Content -LiteralPath $logPath -Value ("[{0}] {1}" -f (Get-Date).ToString("s"), $Message) -Encoding UTF8
     if (-not $Quiet) {
         Write-Host $Message
@@ -100,17 +108,9 @@ function Write-WQTTextFileAtomically {
         [Parameter(Mandatory = $true)][bool]$HasBom
     )
 
-    $encoding = New-Object System.Text.UTF8Encoding($HasBom)
-    $bytes = $encoding.GetBytes($Text)
-    $tempPath = "{0}.{1}.{2}.tmp" -f $Path, $PID, ([Guid]::NewGuid().ToString("N"))
-    try {
-        [IO.File]::WriteAllBytes($tempPath, $bytes)
-        Move-Item -LiteralPath $tempPath -Destination $Path -Force
-    } finally {
-        if (Test-Path -LiteralPath $tempPath) {
-            Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
-        }
-    }
+    # Delegue a la primitive partagee : elle refuse d'ecrire un Lua dont la
+    # syntaxe est incoherente et remplace le fichier via File::Replace.
+    Write-AddonPatchTextAtomically -Path $Path -Text $Text -HasBom $HasBom -Label (Split-Path -Leaf $Path)
 }
 
 function Get-WQTSourceHash {
@@ -146,9 +146,11 @@ function Invoke-WQTAutoPatch {
 
     $text = $file.Text.Replace("`r`n", "`n")
     $pattern = '(?m)^hooksecurefunc\(ObjectiveTrackerManager, "UpdateAll", function\(\)\n[ \t]+On_ObjectiveTracker_Update\(\)(?:[ \t]+--v11)?\nend\)\nhooksecurefunc\(ObjectiveTrackerManager, "UpdateModule", function\(\)\n[ \t]+On_ObjectiveTracker_Update\(\)(?:[ \t]+--v11)?\nend\)'
-    $matches = [regex]::Matches($text, $pattern)
-    if ($matches.Count -ne 1) {
-        throw ("Bloc WQT attendu introuvable ou ambigu (matches={0}, version={1}, SHA256={2})." -f $matches.Count, $version, $sourceHash)
+    # $matches est une variable automatique de PowerShell : on utilise un nom
+    # propre pour eviter toute collision avec l'operateur -match.
+    $blockMatches = [regex]::Matches($text, $pattern)
+    if ($blockMatches.Count -ne 1) {
+        throw ("Bloc WQT attendu introuvable ou ambigu (matches={0}, version={1}, SHA256={2})." -f $blockMatches.Count, $version, $sourceHash)
     }
 
     $replacement = @"
@@ -175,7 +177,7 @@ hooksecurefunc(ObjectiveTrackerManager, "UpdateModule", ScheduleWQTObjectiveTrac
 "@.Trim()
     $replacement = $replacement.Replace("`r`n", "`n")
 
-    $match = $matches[0]
+    $match = $blockMatches[0]
     $patchedText = $text.Remove($match.Index, $match.Length).Insert($match.Index, $replacement)
     $newline = if ($file.Text.Contains("`r`n")) { "`r`n" } else { "`n" }
     $patchedText = $patchedText.Replace("`n", $newline)

@@ -1,5 +1,10 @@
 param(
-    [string]$AddonPath
+    [string]$AddonPath,
+    # Nombre d'echecs consecutifs d'un meme patch avant de notifier. A 1 le
+    # bruit serait constant pendant une mise a jour de l'addon (fichiers
+    # reecrits un par un) ; a 2 on ne notifie que ce qui persiste.
+    [int]$AlertThreshold = 2,
+    [int]$HeartbeatMinutes = 30
 )
 
 Set-StrictMode -Version Latest
@@ -25,7 +30,9 @@ try {
     }
 
     $resolvedAddonPath = Resolve-TSMAddonPath -AddonPath $AddonPath
-    Invoke-TSMMailingPatch -AddonPath $resolvedAddonPath -Quiet | Out-Null
+    $tracker = New-TSMAutoPatchRunTracker
+
+    Invoke-TSMAutoPatchRun -AddonPath $resolvedAddonPath -Tracker $tracker -Origin "startup" -AlertThreshold $AlertThreshold | Out-Null
 
     $state = [hashtable]::Synchronized(@{
         Pending = $false
@@ -52,22 +59,16 @@ try {
     while ($true) {
         Start-Sleep -Seconds 2
 
+        # On attend 3 secondes de calme : une mise a jour de l'addon reecrit
+        # des dizaines de fichiers, inutile de patcher a chaque evenement.
         if ($state.Pending -and ((Get-Date) - $state.LastEvent).TotalSeconds -ge 3) {
             $state.Pending = $false
-            try {
-                Invoke-TSMMailingPatch -AddonPath $resolvedAddonPath -Quiet | Out-Null
-            } catch {
-                Write-TSMAutoPatchLog -Message ("watcher retry failed: {0}" -f $_.Exception.Message) -Quiet
-            }
+            Invoke-TSMAutoPatchRun -AddonPath $resolvedAddonPath -Tracker $tracker -Origin "watcher retry" -AlertThreshold $AlertThreshold | Out-Null
         }
 
-        if (((Get-Date) - $lastHeartbeat).TotalMinutes -ge 30) {
+        if (((Get-Date) - $lastHeartbeat).TotalMinutes -ge $HeartbeatMinutes) {
             $lastHeartbeat = Get-Date
-            try {
-                Invoke-TSMMailingPatch -AddonPath $resolvedAddonPath -Quiet | Out-Null
-            } catch {
-                Write-TSMAutoPatchLog -Message ("heartbeat patch failed: {0}" -f $_.Exception.Message) -Quiet
-            }
+            Invoke-TSMAutoPatchRun -AddonPath $resolvedAddonPath -Tracker $tracker -Origin "heartbeat" -AlertThreshold $AlertThreshold | Out-Null
         }
     }
 } finally {

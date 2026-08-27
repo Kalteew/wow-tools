@@ -150,8 +150,7 @@ local function Clamp(value, minimum, maximum)
 end
 
 local function FormatPrice(value)
-	value = math.max(0, math.floor(tonumber(value) or 0))
-	return GetMoneyString and GetMoneyString(value, true) or tostring(value)
+	return YayaCore.Money.Format(value, { clampNegative = true })
 end
 
 local function FormatDecimal(value, digits)

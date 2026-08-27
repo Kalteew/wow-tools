@@ -150,6 +150,65 @@ Notes:
 - `scripts/wow-addon-profiles.ps1` writes Blizzard `WTF/.../AddOns.txt` per character, so a low profile is active before first login.
 - On Windows you can also launch [wow_tools_gui.pyw](wow_tools_gui.pyw) directly to open the GUI without using the CLI.
 
+## Addons a installer
+
+Les addons de ce depot declarent de vraies dependances dures dans leur `.toc`. Un addon
+dont une dependance dure manque est marque `DEP_DISABLED` par le client : il ne charge
+pas, ne signale rien d'exploitable en jeu, et tout ce qui en depend tombe avec lui.
+Installer la liste complete n'est donc pas optionnel.
+
+Obligatoires, dans cet ordre de dependance :
+
+| Addon | Role | Dependances dures |
+| --- | --- | --- |
+| `YayaCore` | socle partage : journal, tampon circulaire, utilitaires communs | aucune |
+| `YayaFrame` | conteneur d'affichage partage par les trackers | aucune |
+| `YayaWeeklyTracker` | suivi hebdomadaire, metiers Midnight, ouverture des conteneurs | `YayaCore`, `YayaFrame` |
+| `YayaQueue` | file de fabrication, achats HDV et marchand, commandes de patron | `YayaCore` |
+| `YayaCraftingOrdersLocal` | scan et valorisation des commandes de patron | `YayaCore` |
+| `YayaSessionTracker` | bilan de session | `YayaCore`, `YayaFrame` |
+| `YayaReagentSniper` | onglet HDV de sniping de reactifs | `YayaCore` |
+
+Commande d'installation :
+
+```powershell
+.\scripts\sync-wow-addon.ps1 -AddonNames YayaCore
+.\scripts\sync-wow-addon.ps1 -AddonNames YayaFrame
+.\scripts\sync-wow-addon.ps1 -AddonNames YayaWeeklyTracker
+.\scripts\sync-wow-addon.ps1 -AddonNames YayaQueue
+.\scripts\sync-wow-addon.ps1 -AddonNames YayaCraftingOrdersLocal
+.\scripts\sync-wow-addon.ps1 -AddonNames YayaSessionTracker
+.\scripts\sync-wow-addon.ps1 -AddonNames YayaReagentSniper
+```
+
+`sync-wow-addon.ps1` ne prend qu'un addon a la fois de facon fiable : passer une liste
+separee par des virgules a `-AddonNames` via `pwsh -File` la traite comme un seul nom.
+
+Complementaires, a installer selon l'usage :
+
+| Addon | Role | Dependances dures |
+| --- | --- | --- |
+| `YayaAddonProfiles` | applique les profils Simple Addon Manager par personnage | `YayaCore`, `SimpleAddonManager` |
+| `YayaContainerValues` | valorise le contenu des conteneurs | `YayaCore` |
+| `YayaCraftedPrice` | source de prix des objets crafts | `YayaCore` |
+| `!YayaErrorLog` | agrege les erreurs Lua de la session | aucune (`YayaCore` optionnel) |
+| `YayaProfessionSpecializations` | aide au remplissage des specialisations | aucune |
+| `YayaVendorFilter` | filtre les marchands | aucune |
+| `YayaWarbandBankDefault` | ouvre la banque de bataillon par defaut | aucune |
+
+Verification apres installation :
+
+```powershell
+pwsh -NoProfile -File .\scripts\Test-Addons.ps1
+```
+
+Ce script compile chaque fichier Lua avec `luac5.1` quand il est disponible, sinon il
+retombe sur un controle d'equilibrage nettement plus faible. Il verifie aussi que
+chaque chunk reste sous la limite Lua 5.1 de 200 variables locales : un depassement
+empeche l'addon entier de se charger, sans message clair en jeu. Installer Lua 5.1
+(`luac5.1.exe`, `lua5.1.exe`) et le laisser dans le `PATH` ou le pointer avec
+`-LuaPath` est donc fortement recommande.
+
 ## Bootstrap complet sous Windows
 
 Copier ce prompt dans Codex pour reconstruire l'environnement `wow-tools`, les skills et les addons :
@@ -193,8 +252,18 @@ Actions :
 
 5. Vérifie que WoW Retail est fermé. Sauvegarde les dossiers d'addons existants avant remplacement, sans toucher à WTF ni aux SavedVariables.
 
-6. Depuis la racine du dépôt, installe ces addons avec le script officiel :
-   .\scripts\sync-wow-addon.ps1 -AddonNames YayaWeeklyTracker,YayaQueue,YayaSessionTracker,YayaCraftingOrdersLocal
+6. Depuis la racine du dépôt, installe les addons obligatoires avec le script
+   officiel, un par appel (une liste séparée par des virgules serait traitée comme un
+   seul nom). `YayaCore` et `YayaFrame` sont des dépendances dures : sans eux les
+   autres addons sont marqués `DEP_DISABLED` et ne chargent pas.
+
+   .\scripts\sync-wow-addon.ps1 -AddonNames YayaCore
+   .\scripts\sync-wow-addon.ps1 -AddonNames YayaFrame
+   .\scripts\sync-wow-addon.ps1 -AddonNames YayaWeeklyTracker
+   .\scripts\sync-wow-addon.ps1 -AddonNames YayaQueue
+   .\scripts\sync-wow-addon.ps1 -AddonNames YayaCraftingOrdersLocal
+   .\scripts\sync-wow-addon.ps1 -AddonNames YayaSessionTracker
+   .\scripts\sync-wow-addon.ps1 -AddonNames YayaReagentSniper
 
 7. Installe la dernière version stable Retail de TomTom depuis sa source officielle :
    https://www.curseforge.com/wow/addons/tomtom
@@ -203,8 +272,11 @@ Actions :
    ...\AddOns\TomTom\TomTom.toc
 
 8. Valide :
-   - les 5 fichiers .toc sont présents ;
-   - les 4 addons Yaya installés correspondent au dépôt, par comparaison de hash ;
+   - les 8 fichiers .toc sont présents (7 addons Yaya obligatoires + TomTom) ;
+   - les 7 addons Yaya installés correspondent au dépôt, par comparaison de hash ;
+   - aucun addon Yaya n'est privé d'une dépendance dure déclarée dans son .toc ;
+   - `pwsh -NoProfile -File .\scripts\Test-Addons.ps1` passe, y compris le contrôle
+     des 200 variables locales par chunk ;
    - TomTom est une version Retail stable ;
    - aucune archive ou arborescence imbriquée incorrecte ne reste dans AddOns ;
    - le dépôt Git est opérationnel.

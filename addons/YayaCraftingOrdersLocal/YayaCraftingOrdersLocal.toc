@@ -1,7 +1,8 @@
-## Interface: 120007
+## Interface: 120100
 ## Title: YayaCraftingOrders
 ## Author: Yaya
-## Version: 0.2.6
+## Version: 0.2.13
+## Dependencies: YayaCore
 ## Notes: Personal patron orders pane with TSM pricing and YayaQueue integration.
 ## Category: Professions
 ## IconTexture: Interface\AddOns\YayaCraftingOrdersLocal\YayaCraftingOrders_Icon

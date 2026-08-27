@@ -1,0 +1,9 @@
+## Interface: 120100
+## Title: Yaya Error Log
+## Notes: Capture persistante des erreurs Lua et des actions bloquees, pour identifier l'addon et la ligne derriere le popup de desactivation.
+## Author: Yaya
+## Version: 0.1.0
+## OptionalDeps: YayaCore
+## SavedVariables: YayaErrorLogDB
+
+YayaErrorLog.lua

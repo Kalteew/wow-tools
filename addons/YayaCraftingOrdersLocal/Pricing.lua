@@ -73,17 +73,12 @@ local function ResolveTSMItemString(item)
 end
 
 local function GetTSMPrice(item, priceSource)
-	if not (TSM_API and type(TSM_API.GetCustomPriceValue) == "function") then
-		return nil
-	end
-
 	local itemString = ResolveTSMItemString(item)
 	if not itemString then
 		return nil
 	end
 
-	local ok, value = pcall(TSM_API.GetCustomPriceValue, priceSource or DEFAULT_PRICE_SOURCE, itemString)
-	return NormalizeUnitPrice(ok and value or nil)
+	return NormalizeUnitPrice(YayaCore.Price.Get(itemString, priceSource or DEFAULT_PRICE_SOURCE))
 end
 
 local function GetContainerAveragePrice(item)

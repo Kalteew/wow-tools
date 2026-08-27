@@ -276,29 +276,7 @@ local function IsKnownCharacter(name)
 end
 
 local function FormatGoldCompact(copper)
-    local negative = copper < 0
-    local absCopper = math.abs(copper)
-    local goldValue = absCopper / 10000
-    local text
-
-    if goldValue >= 100000 then
-        text = string.format("%.0fk", goldValue / 1000)
-    elseif goldValue >= 10000 then
-        text = string.format("%.1fk", goldValue / 1000)
-    elseif goldValue >= 100 then
-        text = string.format("%.0fg", goldValue)
-    elseif goldValue >= 10 then
-        text = string.format("%.1fg", goldValue)
-    elseif absCopper >= 100 then
-        text = string.format("%ds", math.floor(absCopper / 100))
-    else
-        text = string.format("%dc", absCopper)
-    end
-
-    if negative then
-        return "-" .. text
-    end
-    return text
+    return YayaCore.Money.FormatCompact(copper)
 end
 
 local function FormatDurationCompact(seconds)

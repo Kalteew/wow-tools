@@ -27,6 +27,12 @@ data/flipping/generated/
 dist/
 tmp-*.html
 *.log
+scripts/**/patch-status.json
+# Vidages de pile Git Bash, produits par les outils locaux
+*.stackdump
+
+# Local backups (snapshots before risky changes, never versioned)
+.backups/
 
 # Local tooling metadata
 .agents/
