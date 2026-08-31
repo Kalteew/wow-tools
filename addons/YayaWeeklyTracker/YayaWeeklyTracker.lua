@@ -276,14 +276,12 @@ local MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID = {
             y = 72.9,
         },
         {
+            -- Achetee a l'hotel des ventes : aucun vendeur a pointer, donc ni waypoint ni cout Moxie/Marl.
             label = "Vicious Thalassian Flask of Honor",
             optionKey = "trackRecipeViciousThalassianFlaskHonor",
             spellID = 1230883,
             itemID = 257417,
-            moxieCost = 150,
-            mapID = 2395,
-            x = 34.04,
-            y = 81.20,
+            auctionHouse = true,
         },
         {
             label = "Concentrated Silvermoon Health Potion",
@@ -1313,6 +1311,7 @@ local debugSignatures = {
     treasure = nil,
     warbankTreatises = nil,
     toolEnchants = nil,
+    toolEnchantPlan = nil,
 }
 local GetContainerItemIDCompat
 local GetContainerNumSlotsCompat
@@ -1602,9 +1601,11 @@ trackerUI.GetButtonItemTarget = function(button)
     if not button then
         return nil
     end
-    return button.itemName
+    -- itemID d'abord : C_Item.GetItemCooldown l'accepte directement, alors qu'un
+    -- nom depend d'un cache d'objet chaud et reste ambigu entre deux homonymes.
+    return button.itemID
         or button.itemLink
-        or (button.itemID and ("item:" .. tostring(button.itemID)))
+        or button.itemName
         or nil
 end
 
@@ -2819,7 +2820,14 @@ local function FindMidnightKnowledgeConsumableInBags(trackedRows)
     end
 
     local maxBagIndex = math.max(NUM_TOTAL_EQUIPPED_BAG_SLOTS or 0, NUM_BAG_SLOTS or 0, 5)
-    local firstMatch
+    -- Les traites partagent un long cooldown que les autres objets de connaissance
+    -- n'ont pas. Prendre le premier objet trouve dans l'ordre des sacs enchainait
+    -- donc parfois deux traites, et le second partait dans le vide. On retient un
+    -- candidat par categorie pour intercaler les autres objets KP entre les deux
+    -- traites : le cooldown s'ecoule pendant ce temps.
+    local firstReadyTreatise
+    local firstTreatise
+    local firstOtherItem
     local totalCount = 0
     local countsByItemID = {}
 
@@ -2830,27 +2838,41 @@ local function FindMidnightKnowledgeConsumableInBags(trackedRows)
             local skillLineID = itemID and MIDNIGHT_KNOWLEDGE_ITEM_SKILL_LINE_IDS[itemID] or nil
             if skillLineID and trackedSkillLineIDs[skillLineID] then
                 local treatiseInfo = MIDNIGHT_TREATISES_BY_SKILL_LINE_ID[skillLineID]
-                local isCompletedTreatise = treatiseInfo and treatiseInfo.itemID == itemID and IsQuestDone(treatiseInfo.weeklyQuestID)
+                local isTreatise = treatiseInfo ~= nil and treatiseInfo.itemID == itemID
+                local isCompletedTreatise = isTreatise and IsQuestDone(treatiseInfo.weeklyQuestID)
                 if not isCompletedTreatise then
-                    countsByItemID[itemID] = (countsByItemID[itemID] or 0) + math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
+                    local stackCount = math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
+                    countsByItemID[itemID] = (countsByItemID[itemID] or 0) + stackCount
                     local itemLink = GetContainerItemLinkCompat(bagID, slotIndex)
                     local itemName = GetItemInfo and GetItemInfo(itemID) or nil
                     if IsItemCurrentlyUsable(itemLink, itemName, itemID) then
-                        totalCount = totalCount + math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
-                        if not firstMatch then
-                            firstMatch = {
-                                bagID = bagID,
-                                itemID = itemID,
-                                itemLink = itemLink,
-                                itemName = itemName,
-                                slotIndex = slotIndex,
-                            }
+                        totalCount = totalCount + stackCount
+                        local candidate = {
+                            bagID = bagID,
+                            itemID = itemID,
+                            itemLink = itemLink,
+                            itemName = itemName,
+                            slotIndex = slotIndex,
+                        }
+                        if not isTreatise then
+                            firstOtherItem = firstOtherItem or candidate
+                        else
+                            firstTreatise = firstTreatise or candidate
+                            if trackerUI.GetItemActionCooldownRemaining(itemID) <= 0 then
+                                firstReadyTreatise = firstReadyTreatise or candidate
+                            end
                         end
                     end
                 end
             end
         end
     end
+
+    -- Ordre voulu : un traite des qu'il est pret, sinon les autres objets KP tant
+    -- qu'il en reste, sinon le traite encore en cooldown (le gate du bouton se
+    -- charge alors d'afficher l'attente). Avec deux traites cela donne
+    -- traite -> autres KP -> traite ; avec un seul, il part en premier comme avant.
+    local firstMatch = firstReadyTreatise or firstOtherItem or firstTreatise
 
     local result = {
         totalCount = totalCount,
@@ -3395,9 +3417,10 @@ trackerUI.UpdateMidnightKnowledgeButton = function(state)
         button.itemLink = state.itemLink
         button.itemName = state.itemName
         if not (InCombatLockdown and InCombatLockdown()) then
-            local itemTarget = state.itemName or state.itemLink or ("item:" .. tostring(state.itemID or 0))
+            -- Dispatch par itemID comme UpdateMidnightRecipeButton : un nom depend
+            -- d'un cache d'objet chaud et reste ambigu entre deux homonymes.
             button:SetAttribute("type", "item")
-            button:SetAttribute("item", itemTarget)
+            button:SetAttribute("item", "item:" .. tostring(state.itemID))
         end
         DebugLog(
             "KnowledgeButton ready itemID=%s bag=%s slot=%s link=%s name=%s item=%s",
@@ -4244,6 +4267,7 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         requiredByItemID = {},
         pullPlan = {},
         buyPlan = {},
+        planByItemID = {},
         applyEnchants = {},
         pullQuantity = 0,
         buyQuantity = 0,
@@ -4263,6 +4287,8 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             applyEnchants = {},
             hasEquippedTool = false,
             equippedToolPending = false,
+            hasResourcefulnessTool = false,
+            toolScanPending = false,
             professionID = nil,
             toolSlot = nil,
         }
@@ -4306,10 +4332,14 @@ trackerUI.FindToolEnchantState = function(trackedRows)
 
         local profession = result.bySkillLineID[skillLineID]
         profession.tools[#profession.tools + 1] = details
-        if source == "equipment"
+        -- Un outil de rechange garde en sac s'enchante comme l'outil equipe :
+        -- le bouton securise cible alors la paire target-bag/target-slot au
+        -- lieu du seul slot d'inventaire. La cible doit rester adressable.
+        local targetAddressable = (source == "equipment" and slotIndex ~= nil)
+            or (source == "bag" and bagID ~= nil and slotIndex ~= nil)
+        if targetAddressable
             and details.statInfo
-            and details.enchantID ~= details.statInfo.enchantID
-            and slotIndex then
+            and details.enchantID ~= details.statInfo.enchantID then
             local toolName = type(GetItemInfo) == "function"
                 and SafeCall(GetItemInfo, itemLink or itemID)
                 or nil
@@ -4321,6 +4351,8 @@ trackerUI.FindToolEnchantState = function(trackedRows)
                 toolItemID = details.itemID,
                 toolLink = details.itemLink,
                 toolName = toolName,
+                source = source,
+                toolBag = source == "bag" and bagID or nil,
                 toolSlot = slotIndex,
                 statKey = details.statKey,
                 statLabel = details.statInfo.label,
@@ -4436,7 +4468,19 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         for _, tool in pairs(profession.missingTools) do
             wrongEnchantCount = wrongEnchantCount + (tool.quantity or 0)
         end
-        debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d apply=%d equipped=%s pending=%s"):format(
+        -- Presence d'un outil Resourcefulness, equipe ou en sac : la stat est
+        -- celle lue au tooltip de chaque exemplaire, jamais un enchantement.
+        for _, tool in ipairs(profession.tools) do
+            if tool.statKey == "resourcefulness" then
+                profession.hasResourcefulnessTool = true
+                break
+            end
+        end
+        -- Un scan incomplet ne doit pas declarer un outil absent : sans cache
+        -- precedent, FindToolEnchantState renvoie un resultat encore partiel.
+        profession.toolScanPending = result.pending == true
+            or profession.equippedToolPending == true
+        debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d apply=%d equipped=%s rf=%s pending=%s"):format(
             row.skillLineID,
             tostring(profession.professionID),
             tostring(profession.toolSlot),
@@ -4445,7 +4489,8 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             wrongEnchantCount,
             #profession.applyEnchants,
             tostring(profession.hasEquippedTool),
-            tostring(profession.equippedToolPending)
+            tostring(profession.hasResourcefulnessTool),
+            tostring(profession.toolScanPending)
         )
     end
     local debugSummary = #debugParts > 0 and table.concat(debugParts, " | ") or "none"
@@ -4490,6 +4535,20 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         end
         local buyQuantity = math.max(buyDeficit - directQuantity, 0)
         local itemName = type(GetItemInfo) == "function" and SafeCall(GetItemInfo, itemID) or nil
+        -- Le besoin brut et les trois soustractions restent visibles : sans ce
+        -- detail, un bouton qui propose moins que le nombre d'outils signales
+        -- est indiscernable d'un bug de comptage.
+        result.planByItemID[itemID] = {
+            itemID = itemID,
+            itemName = itemName,
+            required = requiredQuantity,
+            bag = bagQuantity,
+            bank = bankQuantity,
+            bankKnown = bankItemKnown,
+            queued = directQuantity,
+            pull = pullQuantity,
+            buy = buyQuantity,
+        }
         if pullQuantity > 0 then
             result.pullPlan[#result.pullPlan + 1] = {
                 itemID = itemID,
@@ -4508,10 +4567,37 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         end
     end
 
+    local planParts = {}
+    for itemID, plan in pairs(result.planByItemID) do
+        planParts[#planParts + 1] = ("%d req=%d bag=%d bank=%d(known=%s) queued=%d pull=%d buy=%d"):format(
+            itemID, plan.required, plan.bag, plan.bank, tostring(plan.bankKnown),
+            plan.queued, plan.pull, plan.buy)
+    end
+    table.sort(planParts)
+    local planSignature = #planParts > 0 and table.concat(planParts, " | ") or "none"
+    if planSignature ~= debugSignatures.toolEnchantPlan then
+        debugSignatures.toolEnchantPlan = planSignature
+        DebugLog("Tool enchant plan = %s", planSignature)
+    end
+
     table.sort(result.pullPlan, function(left, right) return left.itemID < right.itemID end)
     table.sort(result.buyPlan, function(left, right) return left.itemID < right.itemID end)
+    -- L'outil equipe passe avant les outils de rechange : le pool de boutons
+    -- est borne, et c'est lui qui doit rester visible quand il y a trop
+    -- d'actions a afficher.
     table.sort(result.applyEnchants, function(left, right)
-        return (left.toolSlot or 0) < (right.toolSlot or 0)
+        local leftRank = left.source == "equipment" and 0 or 1
+        local rightRank = right.source == "equipment" and 0 or 1
+        if leftRank ~= rightRank then
+            return leftRank < rightRank
+        end
+        if (left.toolBag or -1) ~= (right.toolBag or -1) then
+            return (left.toolBag or -1) < (right.toolBag or -1)
+        end
+        if (left.toolSlot or 0) ~= (right.toolSlot or 0) then
+            return (left.toolSlot or 0) < (right.toolSlot or 0)
+        end
+        return (left.skillLineID or 0) < (right.skillLineID or 0)
     end)
     midnightCaches.toolEnchants = result
     midnightCaches.toolEnchantsDirty = false
@@ -4523,9 +4609,19 @@ trackerUI.MarkToolEnchantApplicationPending = function(action)
         return
     end
 
-    local key = tostring(action.skillLineID) .. ":" .. tostring(action.toolSlot)
+    -- Deux outils de rechange peuvent partager un meme slotIndex dans deux
+    -- sacs differents : la source et le sac font partie de l'identite de la
+    -- cible, sinon une confirmation validerait la mauvaise application.
+    local key = table.concat({
+        tostring(action.skillLineID),
+        tostring(action.source or "equipment"),
+        tostring(action.toolBag or "-"),
+        tostring(action.toolSlot),
+    }, ":")
     runtimeState.toolEnchantApplicationPending[key] = {
         skillLineID = action.skillLineID,
+        source = action.source or "equipment",
+        toolBag = action.toolBag,
         toolSlot = action.toolSlot,
         enchantItemID = action.enchantItemID,
         expectedEnchantID = action.expectedEnchantID,
@@ -4542,8 +4638,10 @@ trackerUI.ConfirmToolEnchantApplications = function(state)
         else
             local profession = state and state.bySkillLineID[action.skillLineID]
             local confirmed = false
+            local expectedSource = action.source or "equipment"
             for _, tool in ipairs(profession and profession.tools or EMPTY_TABLE) do
-                if tool.source == "equipment"
+                if tool.source == expectedSource
+                    and tool.bagID == action.toolBag
                     and tool.slotIndex == action.toolSlot
                     and tool.enchantID == action.expectedEnchantID then
                     confirmed = true
@@ -4565,8 +4663,10 @@ trackerUI.ConfirmToolEnchantApplications = function(state)
                     ))
                 end
                 DebugLog(
-                    "Tool enchant applied skillLine=%s slot=%s item=%s removed=%s",
+                    "Tool enchant applied skillLine=%s source=%s bag=%s slot=%s item=%s removed=%s",
                     tostring(action.skillLineID),
+                    tostring(action.source or "equipment"),
+                    tostring(action.toolBag),
                     tostring(action.toolSlot),
                     tostring(action.enchantItemID),
                     tostring(removedQuantity)
@@ -4757,7 +4857,10 @@ trackerUI.UpdateToolEnchantApplyButtons = function(state)
             if not button.itemActionLocked then
                 button:SetEnabled(true)
             end
-            button:SetText(("Appliquer %s"):format(action.statLabel or "l'enchantement"))
+            button:SetText(("Appliquer %s%s"):format(
+                action.statLabel or "l'enchantement",
+                action.source == "bag" and " (sac)" or ""
+            ))
             button.actionState = action
             button.itemID = action.enchantItemID
             button.itemLink = action.enchantLink
@@ -4765,7 +4868,10 @@ trackerUI.UpdateToolEnchantApplyButtons = function(state)
             if not (InCombatLockdown and InCombatLockdown()) then
                 button:SetAttribute("type", "item")
                 button:SetAttribute("item", "item:" .. tostring(action.enchantItemID))
-                button:SetAttribute("target-bag", nil)
+                -- target-bag nil pour l'outil equipe : target-slot est alors
+                -- lu comme un slot d'inventaire, sinon comme un slot de
+                -- conteneur.
+                button:SetAttribute("target-bag", action.toolBag)
                 button:SetAttribute("target-slot", action.toolSlot)
             end
             button:Show()
@@ -5278,9 +5384,12 @@ trackerUI.GetMidnightRecipeStatus = function(row)
                 runtimeState.midnightRecipeStatePending = true
             elseif not known and (recipeItems.countsByItemID[recipe.itemID] or 0) == 0 then
                 result.missingRecipes[#result.missingRecipes + 1] = recipe
-                result.requiredMoxie = result.requiredMoxie + (recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST)
-                result.requiredVoidlightMarl = result.requiredVoidlightMarl
-                    + (recipe.voidlightMarlCost or runtimeState.midnightRecipeVoidlightMarlCost)
+                -- Une recette achetee a l'hotel des ventes ne coute aucune monnaie de metier.
+                if not recipe.auctionHouse then
+                    result.requiredMoxie = result.requiredMoxie + (recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST)
+                    result.requiredVoidlightMarl = result.requiredVoidlightMarl
+                        + (recipe.voidlightMarlCost or runtimeState.midnightRecipeVoidlightMarlCost)
+                end
             end
         end
     end
@@ -5314,18 +5423,24 @@ trackerUI.BuildMidnightKnowledgeBookWaypointPlan = function(trackedRows)
             signatureParts[#signatureParts + 1] = tostring(row.skillLineID) .. ":" .. tostring(book.questID)
         end
         local recipeStatus = trackerUI.GetMidnightRecipeStatus(row)
+        -- Budget cumule : ne pointer un vendeur que si la Moxie restante paie encore la recette.
+        local affordableMoxie = recipeStatus.currentMoxie or 0
         for _, recipe in ipairs(recipeStatus.missingRecipes) do
-            local key = ("%s:%s:%s:%s"):format(recipe.mapID, recipe.x, recipe.y, recipe.label)
-            if not seen[key] then
-                seen[key] = true
-                plan[#plan + 1] = {
-                    mapID = recipe.mapID,
-                    x = recipe.x / 100,
-                    y = recipe.y / 100,
-                    title = ("YWT recette - %s"):format(recipe.label),
-                }
+            local moxieCost = recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST
+            if not recipe.auctionHouse and recipe.mapID and affordableMoxie >= moxieCost then
+                affordableMoxie = affordableMoxie - moxieCost
+                local key = ("%s:%s:%s:%s"):format(recipe.mapID, recipe.x, recipe.y, recipe.label)
+                if not seen[key] then
+                    seen[key] = true
+                    plan[#plan + 1] = {
+                        mapID = recipe.mapID,
+                        x = recipe.x / 100,
+                        y = recipe.y / 100,
+                        title = ("YWT recette - %s"):format(recipe.label),
+                    }
+                end
+                signatureParts[#signatureParts + 1] = tostring(row.skillLineID) .. ":recipe:" .. tostring(recipe.itemID)
             end
-            signatureParts[#signatureParts + 1] = tostring(row.skillLineID) .. ":recipe:" .. tostring(recipe.itemID)
         end
     end
 
@@ -5534,7 +5649,9 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
 
     local recipeStatus = trackerUI.GetMidnightRecipeStatus(row)
     for _, recipe in ipairs(recipeStatus.missingRecipes) do
-        oneTimeTokens[#oneTimeTokens + 1] = ("recette (%s)"):format(recipe.label)
+        oneTimeTokens[#oneTimeTokens + 1] = recipe.auctionHouse
+            and ("recette HV (%s)"):format(recipe.label)
+            or ("recette (%s)"):format(recipe.label)
     end
 
     local toolStatus = (trackProfessionTools or trackProfessionToolEnchants)
@@ -5544,6 +5661,13 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         and toolStatus.hasEquippedTool == false
         and not toolStatus.equippedToolPending then
         oneTimeTokens[#oneTimeTokens + 1] = "outil non equipe"
+    end
+    -- Rappel independant du precedent : un metier peut avoir un outil equipe
+    -- correct sans posseder le moindre exemplaire Resourcefulness.
+    if trackProfessionTools
+        and toolStatus.hasResourcefulnessTool == false
+        and not toolStatus.toolScanPending then
+        oneTimeTokens[#oneTimeTokens + 1] = "outil RF absent"
     end
     if trackProfessionToolEnchants then
         for _, tool in pairs(toolStatus.missingTools or EMPTY_TABLE) do
@@ -8086,6 +8210,20 @@ trackerUI.CreateTrackerFrame = function()
         if state and state.buyQuantity then
             GameTooltip:AddLine(("À acheter : %d"):format(state.buyQuantity), 1, 1, 1, true)
         end
+        for _, plan in pairs(state and state.planByItemID or EMPTY_TABLE) do
+            if plan.required > 0 then
+                GameTooltip:AddLine(
+                    ("%s : %d requis - %d sacs - %d banque - %d en file = %d"):format(
+                        plan.itemName or ("item:" .. tostring(plan.itemID)),
+                        plan.required, plan.bag, plan.bank, plan.queued, plan.buy),
+                    0.7, 0.7, 0.7, true)
+                if not plan.bankKnown then
+                    GameTooltip:AddLine(
+                        "Stock Warbank inconnu : ouvre la Warbank ou charge TSM.",
+                        1, 0.6, 0.2, true)
+                end
+            end
+        end
         if not self:IsEnabled() then
             GameTooltip:AddLine("YayaQueue n'est pas disponible.", 1, 0.4, 0.4, true)
         end
@@ -8094,7 +8232,9 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.toolEnchantBuyButton:SetScript("OnLeave", GameTooltip_Hide)
 
     trackerFrame.toolEnchantApplyButtons = {}
-    for index = 1, 11 do
+    -- Les outils de rechange en sac ont chacun leur bouton : 11 ne couvrait
+    -- que les metiers, pas les exemplaires supplementaires.
+    for index = 1, 20 do
         local button = CreateFrame("Button", addonName .. "ToolEnchantApplyButton" .. index, trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
         button:SetSize(178, YayaCore.UI.ACTION.height)
         button:RegisterForClicks("AnyUp")
@@ -8113,7 +8253,7 @@ trackerUI.CreateTrackerFrame = function()
         button:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
             local action = self.actionState
-            GameTooltip:SetText("Applique l'enchantement sur l'outil équipé correspondant.")
+            GameTooltip:SetText("Applique l'enchantement sur l'outil correspondant, équipé ou en sac.")
             if action and action.statLabel then
                 GameTooltip:AddLine(("Stat : %s"):format(action.statLabel), 1, 1, 1, true)
             end
