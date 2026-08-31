@@ -18,6 +18,7 @@ local CONSTANTS = {
 	MAX_DEEP_PAGES = 40,
 	MAX_SCAN_AGE = 300,
 	PURCHASE_REFRESH_MAX_AGE = 10,
+	THROTTLE_UI_GRACE = 0.4,
 	PURCHASE_UNCERTAIN_COOLDOWN = 300,
 	QUOTE_QUARANTINE_SECONDS = 8,
 	ROW_HEIGHT = 36,
@@ -48,6 +49,10 @@ local CATALOG_OPTIONS = {
 	{ key = "the_war_within", label = "The War Within" },
 	{ key = "midnight", label = "Midnight" },
 }
+
+-- Ordre de traitement des cibles : une baisse de plancher passe avant un volume
+-- ajoute, lui-meme avant un item jamais lu en profondeur.
+local TRIGGER_RANK = { price = 1, volume = 2, first = 3 }
 
 local CATALOG_TYPES = {
 	{ key = "raw", label = "Réactifs bruts" },
@@ -89,6 +94,10 @@ local scan = {
 	timers = {},
 	opportunities = {},
 	depthCache = {},
+	priceBaseline = {},
+	baselineStartedAt = nil,
+	forceDeepCycle = false,
+	cycleMode = "deep",
 	bagCounts = {},
 	rows = {},
 	selected = nil,
@@ -103,6 +112,7 @@ local scan = {
 	resumeContinuousAfterAction = false,
 	throttleResume = nil,
 	throttleWaitSince = nil,
+	throttleBusySince = nil,
 	abandonedQuery = nil,
 	throttleDrops = 0,
 	deepQueryTimes = {},
@@ -117,6 +127,14 @@ local scan = {
 	ownQuerySent = false,
 	ownAuctionsReady = false,
 	ownCancelCheck = nil,
+	sellTargets = {},
+	sellIndex = 1,
+	sellStage = nil,
+	sellCursor = 1,
+	sellBagItems = {},
+	sellQuerySent = false,
+	post = nil,
+	sellOnly = false,
 }
 
 local BeginOwnAuctionCancellation
@@ -125,6 +143,7 @@ local EnterPause
 local ValidateFreshResetPlan
 local RefreshBlacklistPanel
 local HandleCommodityResults
+local IsCancelRepostEnabled
 
 local function GetCatalogOption(key)
 	for _, option in ipairs(CATALOG_OPTIONS) do
@@ -300,7 +319,71 @@ local function ResetStats()
 		missingData = 0,
 		incomplete = 0,
 		rejected = 0,
+		unchanged = 0,
 	}
+end
+
+-- Prix planchers releves au pre-scan. Ils survivent volontairement aux cycles du
+-- scan continu : le premier passage d'un item l'analyse en profondeur, les
+-- suivants ne relancent une requete que si son marche a bouge.
+local function ClearPriceBaselines()
+	wipe(scan.priceBaseline)
+	scan.baselineStartedAt = nil
+end
+
+local function RememberPrice(itemID, minPrice, totalQuantity)
+	local entry = scan.priceBaseline[itemID]
+	if not entry then
+		entry = {}
+		scan.priceBaseline[itemID] = entry
+	end
+	entry.minPrice = minPrice
+	entry.totalQuantity = totalQuantity
+	entry.seenAt = GetTime()
+end
+
+-- Motif d'analyse profonde. Sans reference, l'item n'a jamais ete lu en
+-- profondeur : c'est le cycle qui etablit la reference. Ensuite, seule une
+-- baisse du plancher ou du volume ajoute justifie une nouvelle requete.
+local function GetDeepTrigger(candidate)
+	local baseline = scan.priceBaseline[candidate.itemID]
+	if not baseline or not baseline.minPrice then
+		return "first", 0
+	elseif candidate.minPrice < baseline.minPrice then
+		return "price", 1 - candidate.minPrice / baseline.minPrice
+	elseif candidate.totalQuantity > (baseline.totalQuantity or 0) then
+		return "volume", candidate.totalQuantity - baseline.totalQuantity
+	end
+	return nil, 0
+end
+
+-- Seule la queue non traitee est triee : scan.deepIndex avance en continu et
+-- reordonner tout le tableau relancerait des items deja analyses.
+local function SortPendingDeepCandidates()
+	local first = scan.deepIndex
+	if first >= #scan.deepCandidates then
+		return
+	end
+	local pending = {}
+	for index = first, #scan.deepCandidates do
+		pending[#pending + 1] = scan.deepCandidates[index]
+	end
+	table.sort(pending, function(left, right)
+		local leftRank = TRIGGER_RANK[left.triggerReason or "first"] or 3
+		local rightRank = TRIGGER_RANK[right.triggerReason or "first"] or 3
+		if leftRank ~= rightRank then
+			return leftRank < rightRank
+		end
+		local leftScore = left.triggerScore or 0
+		local rightScore = right.triggerScore or 0
+		if leftScore ~= rightScore then
+			return leftScore > rightScore
+		end
+		return (left.rotationOrder or 0) < (right.rotationOrder or 0)
+	end)
+	for offset, candidate in ipairs(pending) do
+		scan.deepCandidates[first + offset - 1] = candidate
+	end
 end
 
 local function GetDB()
@@ -333,11 +416,13 @@ local function GetDB()
 	db.minScore = Clamp(db.minScore or 0, 0, 100)
 	db.sound = db.sound == true
 	db.continuous = db.continuous == true
+	db.cancelRepost = db.cancelRepost == true
 	db.catalogTypes = type(db.catalogTypes) == "table" and db.catalogTypes or {}
 	db.catalogTypes.raw = db.catalogTypes.raw ~= false
 	db.catalogTypes.prepared = db.catalogTypes.prepared ~= false
 	db.blacklist = type(db.blacklist) == "table" and db.blacklist or {}
 	db.rotation = type(db.rotation) == "table" and db.rotation or {}
+	db.deepRefreshMinutes = Clamp(db.deepRefreshMinutes or 15, 0, 720)
 	db.purchaseUncertainUntil = tonumber(db.purchaseUncertainUntil) or 0
 	if db.purchaseUncertainUntil <= time() then
 		db.purchaseUncertainUntil = 0
@@ -712,8 +797,14 @@ local function GetScanSummary()
 		elseif scan.phase == "owned" then
 			return "Lecture des auctions personnelles…"
 		elseif scan.phase == "browse" then
-			return string.format("Pré-scan : %d / %d composants", math.min(scan.browseIndex - 1, #scan.candidates), #scan.candidates)
+			if scan.cycleMode == "snipe" then
+				return string.format("Pré-scan snipe : %d / %d composants • %d cible(s)", math.min(scan.browseIndex - 1, #scan.candidates), #scan.candidates, scan.stats.deepQueued or 0)
+			end
+			return string.format("Pré-scan profond : %d / %d composants", math.min(scan.browseIndex - 1, #scan.candidates), #scan.candidates)
 		elseif scan.phase == "deep" then
+			if scan.cycleMode == "snipe" then
+				return string.format("Analyse ciblée : %d / %d", math.min(scan.deepIndex - 1, #scan.deepCandidates), #scan.deepCandidates)
+			end
 			return string.format("Analyse des paliers : %d / %d", math.min(scan.deepIndex - 1, #scan.deepCandidates), #scan.deepCandidates)
 		end
 	end
@@ -729,30 +820,43 @@ local function GetScanSummary()
 	return string.format("Catalogue • %s • %s • %d composants", label, GetCatalogTypeSummary(), scan.catalogSelectedCount or 0)
 end
 
+-- Les widgets ne sont reecrits que sur changement reel : pendant un scan, le
+-- transport Blizzard bascule toutes les 100 ms et repeindrait le bouton d'action
+-- a chaque bascule. L'etat courant du widget sert de reference plutot qu'un cache
+-- local, car d'autres fonctions ecrivent encore ces boutons directement.
+local function SetWidgetText(widget, text)
+	if not widget or widget:GetText() == text then
+		return
+	end
+	widget:SetText(text)
+end
+
+local function SetButtonEnabled(button, enabled)
+	enabled = enabled == true
+	if not button or (button:IsEnabled() and true or false) == enabled then
+		return
+	end
+	button:SetEnabled(enabled)
+end
+
 local function RefreshGoldLock()
 	local frame = scan.frame
 	if not frame then
 		return false
 	end
-	local blocked = IsBelowGoldThreshold()
+	-- Le mode Cancel & Repost survit au seuil d'or : il ne coupe que les achats,
+	-- lesquels sont deja refuses par l'etat du bouton d'action.
+	local blocked = IsBelowGoldThreshold() and not IsCancelRepostEnabled()
 	if blocked then
-		if frame.scanButton then
-			frame.scanButton:SetEnabled(false)
-		end
-		if frame.pauseButton then
-			frame.pauseButton:SetEnabled(false)
-		end
-		if frame.continuousButton then
-			frame.continuousButton:SetEnabled(false)
-		end
-		if frame.prepareButton then
-			frame.prepareButton:SetEnabled(false)
-		end
+		SetButtonEnabled(frame.scanButton, false)
+		SetButtonEnabled(frame.pauseButton, false)
+		SetButtonEnabled(frame.continuousButton, false)
+		SetButtonEnabled(frame.prepareButton, false)
 		return true
 	end
 	if frame.scanButton then
 		local pending = scan.startPending or scan.purchase or scan.prepareRefresh or scan.continuousPending
-		frame.scanButton:SetEnabled(not pending)
+		SetButtonEnabled(frame.scanButton, not pending)
 	end
 	return false
 end
@@ -760,6 +864,15 @@ end
 local function EnforceGoldThreshold()
 	local message = GetGoldThresholdMessage()
 	if not message then
+		return false
+	end
+	-- En mode Cancel & Repost, le seuil ne coupe que les achats : la vente prend
+	-- le relais au lieu d'arreter le scan.
+	if IsCancelRepostEnabled() then
+		scan.sellOnly = true
+		if scan.running and (scan.phase == "browse" or scan.phase == "deep") and scan.sellStage == nil then
+			Reset:BeginSellPhase(false)
+		end
 		return false
 	end
 	if scan.running or scan.active or scan.startPending or scan.purchase or scan.prepareRefresh or scan.ownCancelCheck or scan.continuousPending then
@@ -777,8 +890,8 @@ local function RefreshContinuousButton()
 	if not button then
 		return
 	end
-	button:SetText(scan.db and scan.db.continuous and "Scan continu ✓" or "Scan continu")
-	button:SetEnabled(not IsBelowGoldThreshold() and not scan.purchase and not scan.prepareRefresh and not scan.ownCancelCheck and not scan.pauseRequested)
+	SetWidgetText(button, scan.db and scan.db.continuous and "Scan continu ✓" or "Scan continu")
+	SetButtonEnabled(button, not IsBelowGoldThreshold() and not scan.purchase and not scan.prepareRefresh and not scan.ownCancelCheck and not scan.pauseRequested)
 end
 
 local function RefreshPauseButton()
@@ -788,14 +901,14 @@ local function RefreshPauseButton()
 	end
 	local canPause = scan.running and scan.phase == "deep" and not scan.prepareRefresh and not scan.purchase and not scan.ownCancelCheck
 	if scan.paused then
-		button:SetText("Reprendre")
-		button:SetEnabled(not IsBelowGoldThreshold() and not scan.purchase and not scan.prepareRefresh and not scan.ownCancelCheck)
+		SetWidgetText(button, "Reprendre")
+		SetButtonEnabled(button, not IsBelowGoldThreshold() and not scan.purchase and not scan.prepareRefresh and not scan.ownCancelCheck)
 	elseif scan.pauseRequested then
-		button:SetText("Pause…")
-		button:SetEnabled(false)
+		SetWidgetText(button, "Pause…")
+		SetButtonEnabled(button, false)
 	else
-		button:SetText("Pause")
-		button:SetEnabled(canPause)
+		SetWidgetText(button, "Pause")
+		SetButtonEnabled(button, canPause)
 	end
 end
 
@@ -817,9 +930,73 @@ local function IsPurchaseOutcomeUncertain()
 	return true
 end
 
+-- L'occupation du transport dure 0,1 a 0,3 s entre deux requetes de scan : on ne
+-- grise le bouton que si elle se prolonge, sinon il clignoterait a chaque requete.
+local function IsTransportBlockingAction()
+	if not C_AuctionHouse.IsThrottledMessageSystemReady or C_AuctionHouse.IsThrottledMessageSystemReady() then
+		scan.throttleBusySince = nil
+		return false
+	end
+	if not scan.throttleBusySince then
+		scan.throttleBusySince = GetTime()
+		return false
+	end
+	return GetTime() - scan.throttleBusySince >= CONSTANTS.THROTTLE_UI_GRACE
+end
+
+-- Libelle du bouton d'action : ne depend que de l'etat durable de la selection,
+-- jamais d'un blocage transitoire (transport occupe, phase du scan, budget).
+local function IsSellAction(action)
+	return action == "sell-cancel" or action == "sell-post"
+end
+
+local function GetBuyAction(result)
+	if not result or result.complete ~= true then
+		return "none"
+	elseif not result.quantity or result.quantity <= 0 or not result.absorbCost or result.absorbCost <= 0 then
+		return "none"
+	elseif result.lifecycleState == "stale" or not result.scanAt or GetTime() - result.scanAt > CONSTANTS.MAX_SCAN_AGE then
+		return "refresh"
+	elseif not result.purchaseVerifiedAt or GetTime() - result.purchaseVerifiedAt > CONSTANTS.PURCHASE_REFRESH_MAX_AGE then
+		return "refresh"
+	elseif result.ownAuctionQuantity and result.ownAuctionQuantity > 0 then
+		return "cancel-own"
+	end
+	return "buy"
+end
+
+local function GetPrepareAction(result)
+	if scan.purchase then
+		return "purchase"
+	elseif scan.post then
+		return "posting"
+	elseif scan.prepareRefresh then
+		return "refreshing"
+	elseif scan.ownCancelCheck then
+		return "own-cancel"
+	end
+	local buyAction = GetBuyAction(result)
+	-- L'achat garde la priorite tant qu'il est finançable : une opportunite
+	-- fraiche est bien plus perissable qu'une enchere a annuler.
+	if buyAction ~= "none" and not IsBelowGoldThreshold() then
+		-- Pendant la phase de vente, seule une opportunite directement achetable
+		-- passe devant : une ligne a rafraichir bloquerait sinon toutes les cibles.
+		if scan.phase ~= "sell" or buyAction == "buy" or buyAction == "cancel-own" then
+			return buyAction
+		end
+	end
+	local target = Reset:GetNextSellTarget()
+	if target then
+		return target.kind == "cancel" and "sell-cancel" or "sell-post"
+	end
+	return buyAction
+end
+
 local function GetPrepareState(result, ignoreCooldown)
 	if scan.purchase then
 		return "disabled", "Un achat Reset est déjà en cours."
+	elseif scan.post then
+		return "disabled", "Une mise en vente est déjà en cours."
 	elseif IsPurchaseOutcomeUncertain() then
 		return "disabled", "Résultat d’achat incertain : sécurité active pendant 5 min."
 	elseif scan.prepareRefresh then
@@ -832,14 +1009,16 @@ local function GetPrepareState(result, ignoreCooldown)
 		return "disabled", "Pause du scan en cours…"
 	elseif not ignoreCooldown and GetTime() < (scan.actionCooldownUntil or 0) then
 		return "disabled", "Protection multiclic active…"
-	elseif IsBelowGoldThreshold() then
+	elseif IsBelowGoldThreshold() and not IsSellAction(GetPrepareAction(result)) then
 		return "disabled", GetGoldThresholdMessage()
 	elseif scan.controller and scan.controller.isPurchaseBusy and scan.controller.isPurchaseBusy() then
 		return "disabled", "Termine l’achat Sniper en cours."
-	elseif C_AuctionHouse.IsThrottledMessageSystemReady and not C_AuctionHouse.IsThrottledMessageSystemReady() then
+	elseif IsTransportBlockingAction() then
 		return "disabled", "Transport Blizzard occupé : le bouton sera réactivé au signal de disponibilité."
-	elseif scan.running and scan.phase ~= "browse" and scan.phase ~= "deep" then
+	elseif scan.running and scan.phase ~= "browse" and scan.phase ~= "deep" and scan.phase ~= "sell" then
 		return "disabled", "Attends l’analyse du marché avant l’achat."
+	elseif IsSellAction(GetPrepareAction(result)) then
+		return "ready", nil
 	elseif not result then
 		return "disabled", "Sélectionne une opportunité."
 	elseif result.complete ~= true then
@@ -862,6 +1041,8 @@ function Reset:RefreshSelected()
 	end
 	local result = scan.selected
 	local prepareState, prepareMessage = GetPrepareState(result)
+	local prepareAction = GetPrepareAction(result)
+	local locked = GetTime() < (scan.actionCooldownUntil or 0)
 	local canBlacklist = result ~= nil
 		and not IsBlacklisted(result.itemID)
 		and not scan.purchase
@@ -872,61 +1053,105 @@ function Reset:RefreshSelected()
 		and not IsBelowGoldThreshold()
 		and (not scan.running or scan.paused)
 	if scan.frame.prepareButton then
-		scan.frame.prepareButton:SetEnabled(prepareState ~= "disabled")
-		if scan.purchase then
-			scan.frame.prepareButton:SetText("Achat en cours…")
-		elseif scan.prepareRefresh then
-			scan.frame.prepareButton:SetText("Actualisation…")
-		elseif scan.ownCancelCheck then
-			scan.frame.prepareButton:SetText(scan.ownCancelCheck.phase == "wait" and "Action verrouillée…" or scan.ownCancelCheck.phase == "cancel" and "Annulation…" or "Vérification…")
-		elseif GetTime() < (scan.actionCooldownUntil or 0) then
-			scan.frame.prepareButton:SetText("Verrouillé…")
-		elseif prepareState == "refresh" then
-			scan.frame.prepareButton:SetText("Actualiser")
-		elseif result and result.ownAuctionQuantity and result.ownAuctionQuantity > 0 then
-			scan.frame.prepareButton:SetText("Annule mes auctions")
-		elseif prepareState == "disabled" and not result then
-			scan.frame.prepareButton:SetText("Aucune sélection")
+		local text
+		if prepareAction == "purchase" then
+			text = "Achat en cours…"
+		elseif prepareAction == "posting" then
+			text = "Mise en vente…"
+		elseif prepareAction == "refreshing" then
+			text = "Actualisation…"
+		elseif prepareAction == "own-cancel" then
+			text = scan.ownCancelCheck.phase == "wait" and "Action verrouillée…" or scan.ownCancelCheck.phase == "cancel" and "Annulation…" or "Vérification…"
+		elseif locked then
+			text = "Verrouillé…"
+		elseif prepareAction == "refresh" then
+			text = "Actualiser"
+		elseif prepareAction == "cancel-own" then
+			text = "Annule mes auctions"
+		elseif prepareAction == "sell-cancel" then
+			local cancels = Reset:GetSellCounts()
+			text = cancels > 1 and string.format("Annuler (%d)", cancels) or "Annuler l’enchère"
+		elseif prepareAction == "sell-post" then
+			local _, posts = Reset:GetSellCounts()
+			text = posts > 1 and string.format("Mettre en vente (%d)", posts) or "Mettre en vente"
+		elseif not result then
+			text = "Aucune sélection"
 		else
-			scan.frame.prepareButton:SetText("Acheter le reset")
+			text = "Acheter le reset"
 		end
+		SetWidgetText(scan.frame.prepareButton, text)
+		SetButtonEnabled(scan.frame.prepareButton, prepareState ~= "disabled")
 	end
 	if scan.frame.blacklistButton then
-		scan.frame.blacklistButton:SetEnabled(canBlacklist)
+		SetButtonEnabled(scan.frame.blacklistButton, canBlacklist)
 	end
 	if scan.frame.prepareHint then
-		if scan.purchase then
-			scan.frame.prepareHint:SetText("Transaction Blizzard en cours")
-		elseif scan.prepareRefresh then
-			scan.frame.prepareHint:SetText("Lecture des paliers en cours")
-		elseif scan.ownCancelCheck then
-			scan.frame.prepareHint:SetText(scan.ownCancelCheck.phase == "wait" and "Attente du signal Blizzard" or scan.ownCancelCheck.phase == "cancel" and "Annulation de tes auctions" or "Vérification de tes auctions")
-		elseif GetTime() < (scan.actionCooldownUntil or 0) then
-			scan.frame.prepareHint:SetText("Action disponible dans 0,5 seconde")
-		elseif prepareState == "refresh" then
-			scan.frame.prepareHint:SetText("1 clic • aucun achat automatique")
-		elseif result and result.ownAuctionQuantity and result.ownAuctionQuantity > 0 then
-			scan.frame.prepareHint:SetText("Étape 1/2 • clic manuel pour annuler")
-		elseif prepareState == "disabled" then
-			scan.frame.prepareHint:SetText("Sélection fraîche requise")
+		local hint
+		if prepareAction == "purchase" then
+			hint = "Transaction Blizzard en cours"
+		elseif prepareAction == "posting" then
+			hint = "Mise en vente en cours"
+		elseif prepareAction == "refreshing" then
+			hint = "Lecture des paliers en cours"
+		elseif prepareAction == "own-cancel" then
+			hint = scan.ownCancelCheck.phase == "wait" and "Attente du signal Blizzard" or scan.ownCancelCheck.phase == "cancel" and "Annulation de tes auctions" or "Vérification de tes auctions"
+		elseif locked then
+			hint = "Action disponible dans 0,5 seconde"
+		elseif prepareAction == "refresh" then
+			hint = "1 clic • aucun achat automatique"
+		elseif prepareAction == "cancel-own" then
+			hint = "Étape 1/2 • clic manuel pour annuler"
+		elseif prepareAction == "sell-cancel" then
+			hint = "1 clic • 1 enchère annulée"
+		elseif prepareAction == "sell-post" then
+			hint = "1 clic • 1 mise en vente"
+		elseif prepareAction == "none" then
+			hint = "Sélection fraîche requise"
 		else
-			scan.frame.prepareHint:SetText(scan.running and "1 clic • scan interrompu" or "1 achat • prix revalidé")
+			hint = scan.running and "1 clic • scan interrompu" or "1 achat • prix revalidé"
+		end
+		SetWidgetText(scan.frame.prepareHint, hint)
+	end
+	if IsSellAction(prepareAction) then
+		local target = self:GetNextSellTarget()
+		if target then
+			local name = GetItemLink(target.itemID) or GetItemName(target.itemID) or ("Objet " .. tostring(target.itemID))
+			SetWidgetText(scan.frame.detailTitle, name)
+			if target.kind == "cancel" then
+				SetWidgetText(scan.frame.detailBody, string.format(
+					"%s Ton prix %s/u pour %d unité(s)%s. L’objet annulé revient par courrier avant de pouvoir être remis en vente.",
+					target.reason or "Enchère à annuler.",
+					FormatPrice(target.unitPrice or 0),
+					target.quantity or 0,
+					target.targetPrice and string.format(" • repost visé %s/u", FormatPrice(target.targetPrice)) or ""
+				))
+			else
+				SetWidgetText(scan.frame.detailBody, string.format(
+					"Mise en vente de %d unité(s) à %s/u pour %d h%s%s.",
+					target.quantity or 0,
+					FormatPrice(target.unitPrice or 0),
+					YayaReagentSniperSell and YayaReagentSniperSell.GetDurationHours(target.duration) or 24,
+					target.hasOperation and " • opération Auctioning TSM" or " • plancher automatique",
+					target.marketPrice and string.format(" • marché %s/u", FormatPrice(target.marketPrice)) or " • aucune concurrence"
+				))
+			end
+			return
 		end
 	end
 	if not result then
-		scan.frame.detailTitle:SetText("Sélectionne une ligne pour voir le scénario")
-		scan.frame.detailBody:SetText("Aucune boucle : un clic humain ne lance qu’un seul achat Reset sélectionné.")
+		SetWidgetText(scan.frame.detailTitle, "Sélectionne une ligne pour voir le scénario")
+		SetWidgetText(scan.frame.detailBody, "Aucune boucle : un clic humain ne lance qu’un seul achat Reset sélectionné.")
 		return
 	end
-	scan.frame.detailTitle:SetText(result.itemLink or result.name or ("Composant " .. tostring(result.itemID)))
+	SetWidgetText(scan.frame.detailTitle, result.itemLink or result.name or ("Composant " .. tostring(result.itemID)))
 	if prepareState == "disabled" then
-		scan.frame.detailBody:SetText(prepareMessage .. " Aucun achat n’a été lancé.")
+		SetWidgetText(scan.frame.detailBody, prepareMessage .. " Aucun achat n’a été lancé.")
 		return
 	elseif prepareState == "refresh" then
-		scan.frame.detailBody:SetText((result.lifecycleReason or "Données expirées.") .. " Le bouton actualise uniquement cet item. Un nouveau clic sera requis pour acheter.")
+		SetWidgetText(scan.frame.detailBody, (result.lifecycleReason or "Données expirées.") .. " Le bouton actualise uniquement cet item. Un nouveau clic sera requis pour acheter.")
 		return
 	end
-	scan.frame.detailBody:SetText(string.format(
+	SetWidgetText(scan.frame.detailBody, string.format(
 		"Score %d/100 • absorber %s palier(s) pour %s, puis viser %s/u. Profit net %s après 5%% de commission • %.1f j à %.0f%% de la demande TSM%s%s. Le prix Blizzard sera revalidé avant confirmation.",
 		math.floor(result.score + 0.5),
 		result.tiersAbsorbed,
@@ -1062,6 +1287,8 @@ function Reset:ResumeSuspendedScan()
 			Reset:ProcessBrowse()
 		elseif scan.phase == "deep" then
 			Reset:ProcessDeep()
+			elseif scan.phase == "sell" then
+				Reset:ProcessSell()
 		end
 	end)
 	return true
@@ -1405,8 +1632,7 @@ local function StartResetPurchase(result)
 		SetStatus("Ancienne requête AH en cours de vidage : reclique quand le bouton se réactive.", true)
 		return
 	elseif C_AuctionHouse.IsThrottledMessageSystemReady and not C_AuctionHouse.IsThrottledMessageSystemReady() then
-		Reset:RefreshRows()
-		SetStatus("Transport Blizzard occupé : reclique dès que le bouton se réactive.", true)
+		Reset:AbortPriorityAction("Transport Blizzard occupé : reclique dès que le bouton se réactive.")
 		return
 	end
 	if scan.controller and scan.controller.stopSniper then
@@ -1552,10 +1778,28 @@ local function HandleResetPurchaseEvent(event, ...)
 end
 
 function Reset:PreparePurchase()
-	if EnforceGoldThreshold() then
+	if scan.purchase or scan.post or scan.prepareRefresh or scan.ownCancelCheck or scan.pauseRequested then
 		return
 	end
-	if scan.purchase or scan.prepareRefresh or scan.ownCancelCheck or scan.pauseRequested then
+	-- Les appels de vente sont restreints par Blizzard : ils partent du clic
+	-- courant, jamais d'un timer ni d'un evenement.
+	local sellTarget = self:GetNextSellTarget()
+	local sellAction = IsSellAction(GetPrepareAction(scan.selected))
+	if sellTarget and sellAction then
+		local prepareState, prepareMessage = GetPrepareState(scan.selected)
+		if prepareState ~= "ready" then
+			SetStatus(prepareMessage, true)
+			self:RefreshSelected()
+			return
+		end
+		if sellTarget.kind == "cancel" then
+			self:ExecuteSellCancel(sellTarget)
+		else
+			self:ExecuteSellPost(sellTarget)
+		end
+		return
+	end
+	if EnforceGoldThreshold() then
 		return
 	end
 	local result = scan.selected
@@ -2048,6 +2292,7 @@ function Reset:SetExpansion(key)
 	wipe(scan.deepCandidates)
 	wipe(scan.opportunities)
 	wipe(scan.depthCache)
+	ClearPriceBaselines()
 	UpdateCatalogSelector()
 	self:RefreshRows()
 	SetStatus(string.format("Extension : %s • %s • %d composants.", option.label, GetCatalogTypeSummary(), scan.catalogSelectedCount))
@@ -2074,6 +2319,7 @@ function Reset:SetCatalogType(key, enabled)
 	wipe(scan.deepCandidates)
 	wipe(scan.opportunities)
 	wipe(scan.depthCache)
+	ClearPriceBaselines()
 	UpdateCatalogSelector()
 	self:RefreshRows()
 	if scan.db.catalogTypes.raw or scan.db.catalogTypes.prepared then
@@ -2165,7 +2411,13 @@ local function ReadOwnedAuctions()
 		then
 			local unitPrice = math.floor(buyout + 0.5)
 			local records = scan.ownAuctionRecords[itemID] or {}
-			records[#records + 1] = { auctionID = auctionID, quantity = quantity }
+			records[#records + 1] = {
+				auctionID = auctionID,
+				quantity = quantity,
+				unitPrice = unitPrice,
+				timeLeftSeconds = tonumber(info.timeLeftSeconds),
+				timeLeft = info.timeLeft,
+			}
 			scan.ownAuctionRecords[itemID] = records
 			local byPrice = scan.ownAuctions[itemID] or {}
 			byPrice[unitPrice] = (byPrice[unitPrice] or 0) + quantity
@@ -2361,6 +2613,9 @@ local function FinishOwnedAuctionQuery(success)
 	end
 	ReadOwnedAuctions()
 	scan.ownAuctionsReady = true
+	if scan.sellOnly and Reset:BeginSellPhase(true) then
+		return
+	end
 	scan.phase = "browse"
 	if scan.frame then
 		scan.frame.scanButton:SetText("Arrêter")
@@ -2439,34 +2694,57 @@ local function FinishBrowseBatch(timedOut)
 				if info.minPrice and info.minPrice > 0 and info.totalQuantity and info.totalQuantity > 0 then
 					candidate.minPrice = info.minPrice
 					candidate.totalQuantity = info.totalQuantity
+					local trigger, triggerScore = GetDeepTrigger(candidate)
+					candidate.triggerReason = trigger
+					candidate.triggerScore = triggerScore
+					local deferBaseline = false
 					if ResolveTSMData(candidate) then
-						if candidate.minPrice < candidate.referencePrice * scan.db.maxTargetPct / 100 then
+						if candidate.minPrice >= candidate.referencePrice * scan.db.maxTargetPct / 100 then
+							scan.stats.rejected = scan.stats.rejected + 1
+						elseif trigger then
 							scan.deepCandidates[#scan.deepCandidates + 1] = candidate
 							scan.stats.deepQueued = scan.stats.deepQueued + 1
+							-- Le plancher n'est retenu qu'apres une lecture profonde reussie :
+							-- une analyse interrompue est ainsi retentee au cycle suivant.
+							deferBaseline = true
 						else
-							scan.stats.rejected = scan.stats.rejected + 1
+							scan.stats.unchanged = scan.stats.unchanged + 1
 						end
 					else
 						scan.stats.missingData = scan.stats.missingData + 1
 					end
+					if not deferBaseline then
+						-- La reference est retenue meme quand les garde-fous rejettent l'item :
+						-- c'est sa chute future qui en fera une cible.
+						RememberPrice(candidate.itemID, candidate.minPrice, candidate.totalQuantity)
+					end
 				else
 					scan.stats.noMarket = scan.stats.noMarket + 1
+					-- Plus aucune offre : oublier le plancher, sinon le retour d'une vente
+					-- ne serait pas vu comme une baisse.
+					scan.priceBaseline[candidate.itemID] = nil
 				end
 			end
 		end
 		for _, candidate in ipairs(active.items) do
 			if not IsBlacklisted(candidate.itemID) and not seen[candidate.itemID] then
 				scan.stats.noMarket = scan.stats.noMarket + 1
+				scan.priceBaseline[candidate.itemID] = nil
 			end
 		end
 	end
 	scan.active = nil
 	scan.browseIndex = active.nextIndex
+	SortPendingDeepCandidates()
 	if type(YayaReagentSniperTrace) == "function" then
-		YayaReagentSniperTrace("RESET_BROWSE_BATCH", "items=%d browsed=%d deep=%d no-market=%d missing-tsm=%d above-target=%d", #active.items, scan.stats.browsed, scan.stats.deepQueued, scan.stats.noMarket, scan.stats.missingData, scan.stats.rejected)
+		YayaReagentSniperTrace("RESET_BROWSE_BATCH", "mode=%s items=%d browsed=%d deep=%d unchanged=%d no-market=%d missing-tsm=%d above-target=%d", tostring(scan.cycleMode), #active.items, scan.stats.browsed, scan.stats.deepQueued, scan.stats.unchanged, scan.stats.noMarket, scan.stats.missingData, scan.stats.rejected)
 	end
 	Reset:RefreshRows()
 	Schedule("next", 0, function()
+		if scan.phase == "sell" then
+			Reset:ProcessSell()
+			return
+		end
 		if scan.deepIndex <= #scan.deepCandidates then
 			scan.phase = "deep"
 			Reset:ProcessDeep()
@@ -2696,12 +2974,19 @@ local function FinishDeepCandidate(complete)
 			candidate = active.candidate,
 			tiers = active.tiers or {},
 			ownAuctionQuantity = active.ownAuctionQuantity or 0,
+			purchaseVerifiedAt = result and result.purchaseVerifiedAt or nil,
 			scanAt = GetTime(),
 		}
+		if active.candidate.minPrice and active.candidate.minPrice > 0 then
+			RememberPrice(active.candidate.itemID, active.candidate.minPrice, active.candidate.totalQuantity)
+		end
 		if prepareRefresh then
 			prepareRefresh.result = result
 			prepareRefresh.complete = true
-		elseif result then
+			elseif active.candidate.sellOnly then
+				-- Lecture faite pour la phase de vente : le cache de profondeur suffit,
+				-- pas d'opportunite d'achat ni de fenetre d'achat de dix secondes.
+			elseif result then
 			ReplaceOpportunity(result)
 			PlayNewOpportunitySound()
 			opportunityChanged = true
@@ -2759,7 +3044,11 @@ local function FinishDeepCandidate(complete)
 		SetStatus(GetScanSummary())
 	end
 	Schedule("next", CONSTANTS.BETWEEN_QUERIES, function()
-		Reset:ProcessDeep()
+		if scan.phase == "sell" then
+			Reset:ProcessSell()
+		else
+			Reset:ProcessDeep()
+		end
 	end)
 end
 
@@ -2949,6 +3238,19 @@ function Reset:TogglePause()
 	end
 end
 
+-- Oublie les prix planchers : le cycle courant, puis les suivants, repassent en
+-- releve profond complet jusqu'a ce qu'une nouvelle reference soit etablie.
+function Reset:ForceDeepCycle()
+	ClearPriceBaselines()
+	scan.forceDeepCycle = true
+	scan.cycleMode = "deep"
+	if scan.frame and scan.frame.settingsPanel then
+		scan.frame.settingsPanel:Hide()
+	end
+	self:RefreshRows()
+	SetStatus(scan.running and "Relevé profond complet repris sur le cycle en cours." or "Prochain cycle : relevé profond complet du catalogue.")
+end
+
 function Reset:ToggleContinuous()
 	if EnforceGoldThreshold() then
 		return
@@ -2993,6 +3295,15 @@ function Reset:ProcessDeep()
 			CompletePrepareRefresh()
 			return
 		end
+		-- Le marche des objets a vendre vient d'etre lu : retour a la phase vente.
+		if scan.sellStage == "market" then
+			scan.phase = "sell"
+			scan.sellStage = "targets"
+			Schedule("next", 0, function()
+				Reset:ProcessSell()
+			end)
+			return
+		end
 		if scan.browseIndex <= #scan.candidates then
 			scan.phase = "browse"
 			Schedule("next", CONSTANTS.BETWEEN_QUERIES, function()
@@ -3000,7 +3311,14 @@ function Reset:ProcessDeep()
 			end)
 			return
 		end
-		local noDeepCandidates = scan.stats.deepQueued == 0
+		-- En mode snipe, un cycle sans aucune baisse est le cas normal : seul un
+		-- cycle qui n'a rien pu evaluer du tout signale une vraie anomalie.
+		local quietCycle = scan.stats.deepQueued == 0 and scan.stats.unchanged > 0
+		local noDeepCandidates = scan.stats.deepQueued == 0 and not quietCycle
+		-- Le cycle d'achat est fini : la vente enchaine avant de relancer.
+		if not noDeepCandidates and self:BeginSellPhase(false) then
+			return
+		end
 		scan.running = false
 		scan.phase = "idle"
 		if noDeepCandidates then
@@ -3024,7 +3342,7 @@ function Reset:ProcessDeep()
 			end
 		end)
 		if scan.db.continuous then
-			SetStatus("Scan terminé — prochain cycle…")
+			SetStatus(quietCycle and "Aucune baisse détectée • prochain cycle…" or "Scan terminé — prochain cycle…")
 			Schedule("continuous", CONSTANTS.BETWEEN_QUERIES, function()
 				scan.continuousPending = false
 				if not scan.db.continuous or scan.purchase or scan.running or not scan.frame or not scan.frame:IsShown() then
@@ -3118,6 +3436,444 @@ HandleCommodityResults = function(itemID)
 	end
 end
 
+-- ---------------------------------------------------------------------------
+-- Mode Cancel & Repost
+-- ---------------------------------------------------------------------------
+
+IsCancelRepostEnabled = function()
+	return scan.db and scan.db.cancelRepost == true and type(YayaReagentSniperSell) == "table"
+end
+
+-- Etat du marche d'un objet, vu depuis le cache de profondeur : les paliers y
+-- sont deja tries et purges de mes propres encheres.
+local function GetSellMarket(itemID, myPrice)
+	local cached = scan.depthCache[itemID]
+	if not cached or GetTime() - (cached.scanAt or 0) > CONSTANTS.MAX_SCAN_AGE then
+		return nil
+	end
+	local market = {}
+	local tiers = cached.tiers or {}
+	for index = 1, #tiers do
+		local tier = tiers[index]
+		if tier.quantity and tier.quantity > 0 then
+			if not market.lowestOther then
+				market.lowestOther = tier.price
+			end
+			if myPrice and tier.price == myPrice then
+				market.hasOtherAtSamePrice = true
+			end
+			if myPrice and tier.price > myPrice then
+				break
+			end
+		end
+	end
+	return market
+end
+
+-- Objets dont le marche doit etre connu pour decider : ceux que je vends, et
+-- ceux que je pourrais remettre en vente depuis mes sacs.
+local function CollectSellItemIDs()
+	local seen, list = {}, {}
+	local function Add(itemID)
+		itemID = tonumber(itemID)
+		if itemID and itemID > 0 and not seen[itemID] and not IsBlacklisted(itemID) and IsCommodity(itemID) then
+			seen[itemID] = true
+			list[#list + 1] = itemID
+		end
+	end
+	for itemID in pairs(scan.ownAuctionRecords) do
+		Add(itemID)
+	end
+	for itemID in pairs(scan.sellBagItems or {}) do
+		Add(itemID)
+	end
+	return list
+end
+
+local function BuildSellTargets()
+	local Sell = YayaReagentSniperSell
+	wipe(scan.sellTargets)
+	scan.sellIndex = 1
+	if not Sell then
+		return
+	end
+
+	-- Annulations : une cible par enchere.
+	for itemID, records in pairs(scan.ownAuctionRecords) do
+		if not IsBlacklisted(itemID) then
+			local itemString = "i:" .. tostring(itemID)
+			local operation = Sell.GetAuctioningOperation(itemString)
+			for index = 1, #records do
+				local record = records[index]
+				local market = GetSellMarket(itemID, record.unitPrice)
+				if market then
+					local repostPrice = Sell.ComputePostPrice({
+						itemString = itemString,
+						operation = operation,
+						marketPrice = market.lowestOther,
+					})
+					market.targetPrice = repostPrice
+					local shouldCancel, reason = Sell.ShouldCancel(record, market, operation, itemString)
+					if shouldCancel then
+						scan.sellTargets[#scan.sellTargets + 1] = {
+							kind = "cancel",
+							itemID = itemID,
+							itemString = itemString,
+							auctionID = record.auctionID,
+							quantity = record.quantity,
+							unitPrice = record.unitPrice,
+							targetPrice = repostPrice,
+							reason = reason,
+						}
+					end
+				end
+			end
+		end
+	end
+
+	-- Mises en vente : ce qui dort dans les sacs, hors reserve de craft.
+	local reservations = Sell.GetCraftingReservations()
+	for itemID, entry in pairs(scan.sellBagItems or {}) do
+		if not IsBlacklisted(itemID) then
+			local itemString = "i:" .. tostring(itemID)
+			local operation = Sell.GetAuctioningOperation(itemString)
+			local market = GetSellMarket(itemID)
+			local quantity = Sell.GetPostQuantity(operation, entry.quantity, itemString, reservations[itemID] or 0)
+			if quantity > 0 then
+				local price, reason = Sell.ComputePostPrice({
+					itemString = itemString,
+					operation = operation,
+					marketPrice = market and market.lowestOther or nil,
+				})
+				if price and price > 0 then
+					scan.sellTargets[#scan.sellTargets + 1] = {
+						kind = "post",
+						itemID = itemID,
+						itemString = itemString,
+						quantity = quantity,
+						unitPrice = price,
+						marketPrice = market and market.lowestOther or nil,
+						duration = Sell.ReadSetting(operation, "duration"),
+						location = entry.location,
+						hasOperation = operation ~= nil,
+						reason = reason,
+					}
+				end
+			end
+		end
+	end
+
+	-- Les annulations passent avant les mises en vente : une enchere sous-cotee
+	-- perd de la valeur a chaque minute, un objet en sac non.
+	table.sort(scan.sellTargets, function(left, right)
+		if left.kind ~= right.kind then
+			return left.kind == "cancel"
+		end
+		local leftValue = (left.unitPrice or 0) * (left.quantity or 0)
+		local rightValue = (right.unitPrice or 0) * (right.quantity or 0)
+		if leftValue ~= rightValue then
+			return leftValue > rightValue
+		end
+		return (left.itemID or 0) < (right.itemID or 0)
+	end)
+end
+
+local function GetSellSummary()
+	local cancels, posts = 0, 0
+	for index = scan.sellIndex, #scan.sellTargets do
+		local target = scan.sellTargets[index]
+		if not target.done then
+			if target.kind == "cancel" then
+				cancels = cancels + 1
+			else
+				posts = posts + 1
+			end
+		end
+	end
+	return cancels, posts
+end
+
+local function FinishSellPhase()
+	scan.sellStage = nil
+	scan.sellQuerySent = false
+	scan.running = false
+	scan.phase = "idle"
+	scan.continuousPending = scan.db.continuous
+	FinalizeScanFreshness()
+	if scan.frame then
+		scan.frame.scanButton:SetText(scan.continuousPending and "Relance…" or "Scanner le marché")
+		scan.frame.scanButton:SetEnabled(not scan.continuousPending)
+	end
+	Reset:RefreshRows()
+	if scan.db.continuous then
+		SetStatus(scan.sellOnly
+			and "Vente terminée • or sous le seuil : prochain cycle de vente…"
+			or "Vente terminée — prochain cycle…")
+		Schedule("continuous", CONSTANTS.BETWEEN_QUERIES, function()
+			scan.continuousPending = false
+			if not scan.db.continuous or scan.purchase or scan.running or not scan.frame or not scan.frame:IsShown() then
+				if scan.frame then
+					scan.frame.scanButton:SetText("Scanner le marché")
+					scan.frame.scanButton:SetEnabled(true)
+				end
+				return
+			end
+			Reset:StartScan()
+		end)
+	else
+		SetStatus("Vente terminée : plus rien à annuler ni à remettre en vente.")
+	end
+end
+
+function Reset:GetNextSellTarget()
+	while scan.sellIndex <= #scan.sellTargets do
+		local target = scan.sellTargets[scan.sellIndex]
+		if target and not target.done then
+			return target
+		end
+		scan.sellIndex = scan.sellIndex + 1
+	end
+	return nil
+end
+
+function Reset:GetSellCounts()
+	return GetSellSummary()
+end
+
+function Reset:ProcessSell()
+	if not scan.running or scan.phase ~= "sell" or scan.active or scan.paused then
+		return
+	end
+	if not scan.frame or not scan.frame:IsShown() then
+		self:StopScan()
+		return
+	end
+	local stage = scan.sellStage
+
+	if stage == "owned" then
+		if scan.sellQuerySent then
+			return
+		end
+		if WaitForQuerySlot("next", function()
+			Reset:ProcessSell()
+		end) then
+			return
+		end
+		scan.sellQuerySent = true
+		if type(YayaReagentSniperTrace) == "function" then
+			YayaReagentSniperTrace("RESET_AH_QUERY", "kind=sell-owned")
+		end
+		local ok = pcall(C_AuctionHouse.QueryOwnedAuctions, SORTS)
+		if not ok then
+			self:FinishSellOwnedQuery(false)
+			return
+		end
+		local generation = scan.generation
+		Schedule("timeout", CONSTANTS.QUERY_TIMEOUT, function()
+			if scan.generation == generation and scan.phase == "sell" and scan.sellStage == "owned" then
+				Reset:FinishSellOwnedQuery(false)
+			end
+		end)
+		return
+	end
+
+	if stage == "market" then
+		-- Le marche des objets concernes passe par la file profonde existante :
+		-- elle remplit scan.depthCache, qui porte deja les paliers hors mes encheres.
+		wipe(scan.deepCandidates)
+		scan.deepIndex = 1
+		local itemIDs = CollectSellItemIDs()
+		for index = 1, #itemIDs do
+			local itemID = itemIDs[index]
+			local cached = scan.depthCache[itemID]
+			if not cached or GetTime() - (cached.scanAt or 0) > CONSTANTS.MAX_SCAN_AGE then
+				scan.deepCandidates[#scan.deepCandidates + 1] = {
+					itemID = itemID,
+					itemString = "i:" .. tostring(itemID),
+					sellOnly = true,
+				}
+			end
+		end
+		if #scan.deepCandidates == 0 then
+			scan.sellStage = "targets"
+			Schedule("next", 0, function()
+				Reset:ProcessSell()
+			end)
+			return
+		end
+		SetStatus(string.format("Vente : lecture du marché de %d objet(s)…", #scan.deepCandidates))
+		scan.phase = "deep"
+		Schedule("next", 0, function()
+			Reset:ProcessDeep()
+		end)
+		return
+	end
+
+	if stage == "targets" then
+		BuildSellTargets()
+		scan.sellStage = "ready"
+		local cancels, posts = GetSellSummary()
+		if type(YayaReagentSniperTrace) == "function" then
+			YayaReagentSniperTrace("RESET_SELL_TARGETS", "cancel=%d post=%d", cancels, posts)
+		end
+		if cancels == 0 and posts == 0 then
+			FinishSellPhase()
+			return
+		end
+		self:RefreshRows()
+		SetStatus(string.format("Vente : %d à annuler • %d à remettre en vente.", cancels, posts))
+		return
+	end
+
+	if stage == "ready" then
+		if not self:GetNextSellTarget() then
+			FinishSellPhase()
+		end
+		return
+	end
+end
+
+function Reset:FinishSellOwnedQuery(success)
+	if scan.phase ~= "sell" or scan.sellStage ~= "owned" then
+		return
+	end
+	CancelTimer("timeout")
+	scan.sellQuerySent = false
+	if not success then
+		self:StopScan("Vente : lecture de tes auctions impossible, scan arrêté.")
+		return
+	end
+	ReadOwnedAuctions()
+	scan.sellBagItems = YayaReagentSniperSell and YayaReagentSniperSell.EnumerateSellableBagItems(IsCommodity) or {}
+	scan.sellStage = "market"
+	Schedule("next", 0, function()
+		Reset:ProcessSell()
+	end)
+end
+
+-- Annulation d'une enchere sous-cotee. C_AuctionHouse.CancelAuction est un appel
+-- restreint : il doit partir du clic courant, il ne supporte ni file ni timer.
+function Reset:ExecuteSellCancel(target)
+	if not target or target.done then
+		return
+	end
+	target.done = true
+	if type(C_AuctionHouse.CancelAuction) ~= "function" then
+		SetStatus("API d’annulation indisponible.", true)
+		self:RefreshRows()
+		return
+	end
+	if type(C_AuctionHouse.CanCancelAuction) == "function" then
+		local ok, allowed = pcall(C_AuctionHouse.CanCancelAuction, target.auctionID)
+		if ok and allowed == false then
+			SetStatus("Cette enchère ne peut plus être annulée.", true)
+			self:RefreshRows()
+			return
+		end
+	end
+	local ok = pcall(C_AuctionHouse.CancelAuction, target.auctionID)
+	self:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
+	if not ok then
+		SetStatus("Annulation refusée par Blizzard : enchère laissée en place.", true)
+	else
+		local name = GetItemName(target.itemID) or ("objet " .. tostring(target.itemID))
+		SetStatus(string.format("Annulation envoyée : %s ×%d. L’objet revient par courrier.", name, target.quantity or 0))
+		if type(YayaReagentSniperTrace) == "function" then
+			YayaReagentSniperTrace("RESET_SELL_CANCEL", "item=%s auction=%s price=%s", tostring(target.itemID), tostring(target.auctionID), tostring(target.unitPrice))
+		end
+	end
+	self:RefreshRows()
+	Schedule("next", CONSTANTS.BETWEEN_QUERIES, function()
+		Reset:ProcessSell()
+	end)
+end
+
+-- Mise en vente d'une pile des sacs. PostCommodity est restreint de la meme
+-- facon, et renvoie true quand Blizzard veut sa propre confirmation.
+function Reset:ExecuteSellPost(target)
+	if not target or target.done then
+		return
+	end
+	if type(C_AuctionHouse.PostCommodity) ~= "function" then
+		target.done = true
+		SetStatus("API de mise en vente indisponible.", true)
+		self:RefreshRows()
+		return
+	end
+	local location = target.location
+	if not location or type(location.IsValid) ~= "function" or not location:IsValid() then
+		target.done = true
+		SetStatus("L’objet n’est plus à sa place dans les sacs : cible abandonnée.", true)
+		self:RefreshRows()
+		return
+	end
+	local duration = tonumber(target.duration) or 2
+	duration = math.max(1, math.min(3, math.floor(duration)))
+	local quantity = math.max(1, math.floor(tonumber(target.quantity) or 1))
+	local unitPrice = math.floor(tonumber(target.unitPrice) or 0)
+	if unitPrice <= 0 then
+		target.done = true
+		SetStatus("Prix de mise en vente indisponible : cible abandonnée.", true)
+		self:RefreshRows()
+		return
+	end
+	if type(C_AuctionHouse.CalculateCommodityDeposit) == "function" then
+		local ok, deposit = pcall(C_AuctionHouse.CalculateCommodityDeposit, target.itemID, duration, quantity)
+		deposit = ok and tonumber(deposit) or 0
+		local money = type(GetMoney) == "function" and GetMoney() or 0
+		if deposit > 0 and deposit > money then
+			target.done = true
+			SetStatus(string.format("Dépôt de %s requis : or insuffisant pour cette mise en vente.", FormatPrice(deposit)), true)
+			self:RefreshRows()
+			return
+		end
+	end
+	target.done = true
+	local ok, needsConfirmation = pcall(C_AuctionHouse.PostCommodity, location, duration, quantity, unitPrice)
+	self:ArmActionCooldown(CONSTANTS.ACTION_LOCK)
+	local name = GetItemName(target.itemID) or ("objet " .. tostring(target.itemID))
+	if not ok then
+		SetStatus("Mise en vente refusée par Blizzard : objet laissé en sac.", true)
+	elseif needsConfirmation then
+		SetStatus(string.format("%s : Blizzard demande une confirmation, valide sa fenêtre.", name), true)
+	else
+		SetStatus(string.format("Mise en vente : %s ×%d à %s/u pour %d h.", name, quantity, FormatPrice(unitPrice), YayaReagentSniperSell.GetDurationHours(duration)))
+	end
+	if type(YayaReagentSniperTrace) == "function" then
+		YayaReagentSniperTrace("RESET_SELL_POST", "item=%s qty=%d price=%s confirm=%s", tostring(target.itemID), quantity, tostring(unitPrice), tostring(needsConfirmation))
+	end
+	self:RefreshRows()
+	Schedule("next", CONSTANTS.BETWEEN_QUERIES, function()
+		Reset:ProcessSell()
+	end)
+end
+
+function Reset:BeginSellPhase(auctionsAreFresh)
+	if not IsCancelRepostEnabled() then
+		return false
+	end
+	scan.phase = "sell"
+	scan.sellQuerySent = false
+	wipe(scan.sellTargets)
+	scan.sellIndex = 1
+	if auctionsAreFresh then
+		-- Les encheres viennent d'etre lues : inutile de redemander.
+		scan.sellBagItems = YayaReagentSniperSell and YayaReagentSniperSell.EnumerateSellableBagItems(IsCommodity) or {}
+		scan.sellStage = "market"
+	else
+		scan.sellStage = "owned"
+	end
+	if scan.frame then
+		scan.frame.scanButton:SetText("Arrêter")
+		scan.frame.scanButton:SetEnabled(true)
+	end
+	SetStatus("Vente : vérification de tes auctions et de tes sacs…")
+	Schedule("next", 0, function()
+		Reset:ProcessSell()
+	end)
+	return true
+end
+
 function Reset:StopScan(message)
 	if scan.purchase and scan.purchase.mode ~= "quarantine" and scan.purchase.mode ~= "quote-quarantine" then
 		CancelResetPurchase(message or "Achat Reset annulé.", true)
@@ -3127,6 +3883,8 @@ function Reset:StopScan(message)
 	end
 	CancelTimer("continuous")
 	scan.continuousPending = false
+	scan.sellStage = nil
+	scan.sellQuerySent = false
 	scan.resumeContinuousAfterAction = false
 	scan.resumeAfterPurchase = false
 	scan.actionCooldownUntil = 0
@@ -3227,6 +3985,19 @@ function Reset:StartScan(ignoreActionCooldown)
 	if scan.controller and scan.controller.stopSniper then
 		scan.controller.stopSniper()
 	end
+	local refreshMinutes = tonumber(scan.db.deepRefreshMinutes) or 0
+	if scan.forceDeepCycle then
+		ClearPriceBaselines()
+		scan.forceDeepCycle = false
+	elseif refreshMinutes > 0 and scan.baselineStartedAt and GetTime() - scan.baselineStartedAt >= refreshMinutes * 60 then
+		ClearPriceBaselines()
+	end
+	-- Les prix planchers survivent au cycle : c'est leur presence qui fait passer
+	-- le scan du releve profond au snipe des baisses.
+	scan.cycleMode = next(scan.priceBaseline) and "snipe" or "deep"
+	if scan.cycleMode == "deep" then
+		scan.baselineStartedAt = GetTime()
+	end
 	scan.generation = scan.generation + 1
 	CancelScanTimers()
 	if not ignoreActionCooldown then
@@ -3238,6 +4009,7 @@ function Reset:StartScan(ignoreActionCooldown)
 	wipe(scan.bagCounts)
 	wipe(scan.deepCandidates)
 	wipe(scan.ownAuctions)
+	wipe(scan.ownAuctionRecords)
 	scan.ownAuctionCount = 0
 	scan.ownAuctionQuantity = 0
 	scan.ownQuerySent = false
@@ -3250,6 +4022,11 @@ function Reset:StartScan(ignoreActionCooldown)
 	scan.pausedActive = nil
 	scan.resumeAfterPurchase = false
 	scan.completedAt = nil
+	scan.sellOnly = IsCancelRepostEnabled() and IsBelowGoldThreshold() or false
+	scan.sellStage = nil
+	scan.sellQuerySent = false
+	wipe(scan.sellTargets)
+	scan.sellIndex = 1
 	scan.candidates = candidates
 	scan.browseIndex = 1
 	scan.deepIndex = 1
@@ -3267,7 +4044,7 @@ function Reset:StartScan(ignoreActionCooldown)
 		result.purchaseVerifiedAt = nil
 	end
 	self:RefreshRows()
-	SetStatus(string.format("Préparation du scan • %d candidats au pré-scan…", #candidates))
+	SetStatus(string.format("Préparation du %s • %d candidats au pré-scan…", scan.cycleMode == "snipe" and "cycle snipe" or "cycle profond", #candidates))
 	local generation = scan.generation
 	Schedule("start", CONSTANTS.START_SETTLE_DELAY, function()
 		if not scan.startPending or not scan.running or scan.generation ~= generation then
@@ -3291,6 +4068,7 @@ function Reset:RebuildFromCache()
 			local result = EvaluateDepth(cached.candidate, cached.tiers, cached.ownAuctionQuantity or 0)
 			if result then
 				result.scanAt = cached.scanAt
+				result.purchaseVerifiedAt = cached.purchaseVerifiedAt
 				scan.opportunities[#scan.opportunities + 1] = result
 			end
 		end
@@ -3350,6 +4128,7 @@ function Reset:OnEvent(event, ...)
 			InvalidateResetOpportunity(result, "Hôtel des ventes fermé : résultat à rescanner.")
 		end
 		wipe(scan.depthCache)
+		ClearPriceBaselines()
 		scan.selected = nil
 		scan.completedAt = nil
 		self:StopScan()
@@ -3373,6 +4152,23 @@ function Reset:OnEvent(event, ...)
 				FinishOwnAuctionVerification(true)
 			end
 		end
+		if scan.phase == "sell" then
+			self:RefreshRows()
+			Schedule("next", 0, function()
+				Reset:ProcessSell()
+			end)
+		end
+		return
+	end
+	if event == "AUCTION_HOUSE_AUCTION_CREATED" or event == "AUCTION_MULTISELL_FAILURE" then
+		wipe(scan.bagCounts)
+		if scan.phase == "sell" then
+			scan.sellBagItems = YayaReagentSniperSell and YayaReagentSniperSell.EnumerateSellableBagItems(IsCommodity) or scan.sellBagItems
+			self:RefreshRows()
+			Schedule("next", 0, function()
+				Reset:ProcessSell()
+			end)
+		end
 		return
 	end
 	if event == "OWNED_AUCTIONS_UPDATED" then
@@ -3386,6 +4182,8 @@ function Reset:OnEvent(event, ...)
 			elseif scan.ownCancelCheck.phase == "verify" then
 				FinishOwnAuctionVerification(true)
 			end
+		elseif scan.running and scan.phase == "sell" and scan.sellStage == "owned" then
+			self:FinishSellOwnedQuery(true)
 		elseif scan.running and scan.phase == "owned" then
 			FinishOwnedAuctionQuery(true)
 		end
@@ -3434,6 +4232,7 @@ function Reset:OnEvent(event, ...)
 			return
 		end
 		scan.throttleWaitSince = nil
+		scan.throttleBusySince = nil
 		local resume = scan.throttleResume
 		scan.throttleResume = nil
 		if resume and resume.callback then
@@ -3446,6 +4245,8 @@ function Reset:OnEvent(event, ...)
 					Reset:ProcessBrowse()
 				elseif scan.phase == "deep" then
 					Reset:ProcessDeep()
+					elseif scan.phase == "sell" then
+						Reset:ProcessSell()
 				end
 			end)
 		end
@@ -3572,8 +4373,28 @@ local function CreateUI(parent)
 	frame.scanButton:SetSize(150, 26)
 	frame.scanButton:SetPoint("RIGHT", frame.settingsButton, "LEFT", -8, 0)
 	frame.scanButton:SetText("Scanner le marché")
-	frame.scanButton:SetScript("OnClick", function()
+	frame.scanButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	frame.scanButton:SetScript("OnClick", function(_, button)
+		if button == "RightButton" then
+			Reset:ForceDeepCycle()
+			if not scan.running then
+				Reset:StartScan()
+			end
+			return
+		end
 		Reset:StartScan()
+	end)
+	frame.scanButton:SetScript("OnEnter", function(button)
+		GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+		GameTooltip:AddLine(scan.running and "Arrêter le scan" or "Scanner le marché", 1, 0.82, 0.25)
+		GameTooltip:AddLine("Le premier cycle relève le prix plancher de chaque composant et analyse leurs paliers. Les cycles suivants ne réanalysent que les marchés qui ont bougé.", 0.85, 0.85, 0.85, true)
+		GameTooltip:AddLine("Clic droit : repartir sur un relevé profond complet.", 0.35, 1, 0.45, true)
+		GameTooltip:Show()
+	end)
+	frame.scanButton:SetScript("OnLeave", function(button)
+		if GameTooltip:IsOwned(button) then
+			GameTooltip:Hide()
+		end
 	end)
 	frame.pauseButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
 	frame.pauseButton:SetSize(112, 26)
@@ -3732,17 +4553,18 @@ local function CreateUI(parent)
 	frame.prepareButton:SetScript("OnEnter", function(button)
 		GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
 		local prepareState, prepareMessage = GetPrepareState(scan.selected)
+		local prepareAction = GetPrepareAction(scan.selected)
 		if prepareState == "disabled" then
 			GameTooltip:AddLine("Préparation indisponible", 1, 0.35, 0.25)
 			GameTooltip:AddLine(prepareMessage, 0.85, 0.85, 0.85, true)
-		elseif scan.ownCancelCheck then
+		elseif prepareAction == "own-cancel" then
 			local canceling = scan.ownCancelCheck.phase == "cancel"
 			GameTooltip:AddLine(canceling and "Annulation des auctions" or "Vérification de l’annulation", 1, 0.82, 0.25)
 			GameTooltip:AddLine(canceling and "Attends la fin de l’annulation." or "Attends la fin de la vérification.", 0.85, 0.85, 0.85, true)
-		elseif prepareState == "refresh" then
+		elseif prepareAction == "refresh" then
 			GameTooltip:AddLine("Actualiser", 1, 0.82, 0.25)
 			GameTooltip:AddLine("Ce clic actualise uniquement les paliers. Après 0,5 seconde, un nouveau clic pourra lancer l’achat.", 0.85, 0.85, 0.85, true)
-		elseif scan.selected and scan.selected.ownAuctionQuantity and scan.selected.ownAuctionQuantity > 0 then
+		elseif prepareAction == "cancel-own" then
 			GameTooltip:AddLine("Annule mes auctions", 1, 0.82, 0.25)
 			GameTooltip:AddLine("Un clic manuel annule toutes tes auctions actives pour cet item, puis vérifie leur disparition avant l’achat.", 0.85, 0.85, 0.85, true)
 		else
@@ -3801,7 +4623,7 @@ local function CreateUI(parent)
 	frame.settingsPanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
 	frame.settingsPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -58)
 	frame.settingsPanel:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -16, -58)
-	frame.settingsPanel:SetHeight(160)
+	frame.settingsPanel:SetHeight(210)
 	frame.settingsPanel:SetFrameLevel(frame:GetFrameLevel() + 20)
 	frame.settingsPanel:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 10 })
 	frame.settingsPanel:SetBackdropColor(0.025, 0.03, 0.04, 0.99)
@@ -3827,9 +4649,11 @@ local function CreateUI(parent)
 	local budget = CreateSetting(frame.settingsContent, "Budget (po)", 10, 100)
 	local score = CreateSetting(frame.settingsContent, "Score min. (0-100)", 10, 100)
 	local goldThreshold = CreateSetting(frame.settingsContent, "Seuil or min. (po)", 10, 100)
+	local deepRefresh = CreateSetting(frame.settingsContent, "Cycle profond (min)", 10, 100)
 	local settingRows = {
 		{ roi, profit, days, share },
 		{ target, budget, score, goldThreshold },
+		{ deepRefresh },
 	}
 	local function LayoutSettings()
 		local panelWidth = math.max(1, frame.settingsContent:GetWidth())
@@ -3849,10 +4673,28 @@ local function CreateUI(parent)
 	LayoutSettings()
 	local sound = CreateFrame("CheckButton", nil, frame.settingsContent, "UICheckButtonTemplate")
 	sound:SetSize(24, 24)
-	sound:SetPoint("TOPLEFT", frame.settingsContent, "TOPLEFT", 8, -96)
+	sound:SetPoint("TOPLEFT", frame.settingsContent, "TOPLEFT", 8, -140)
 	sound.label = sound:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	sound.label:SetPoint("LEFT", sound, "RIGHT", 3, 0)
 	sound.label:SetText("Son à chaque nouvelle ligne")
+	local cancelRepost = CreateFrame("CheckButton", nil, frame.settingsContent, "UICheckButtonTemplate")
+	cancelRepost:SetSize(24, 24)
+	cancelRepost:SetPoint("LEFT", deepRefresh, "RIGHT", 14, -8)
+	cancelRepost.label = cancelRepost:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	cancelRepost.label:SetPoint("LEFT", cancelRepost, "RIGHT", 3, 0)
+	cancelRepost.label:SetText("Mode Cancel & Repost")
+	cancelRepost:SetScript("OnEnter", function(button)
+		GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+		GameTooltip:AddLine("Annuler et remettre en vente", 1, 0.82, 0.25)
+		GameTooltip:AddLine("À la fin de chaque cycle, le même bouton propose d’annuler tes enchères sous-cotées puis de remettre en vente les commodités de tes sacs, au prix de tes opérations Auctioning TSM.", 0.85, 0.85, 0.85, true)
+		GameTooltip:AddLine("Sous le seuil d’or, seule la vente tourne. Une enchère annulée revient par courrier : passe à la boîte aux lettres avant de la remettre en vente.", 0.65, 0.75, 1, true)
+		GameTooltip:Show()
+	end)
+	cancelRepost:SetScript("OnLeave", function(button)
+		if GameTooltip:IsOwned(button) then
+			GameTooltip:Hide()
+		end
+	end)
 	frame.settingInputs = {
 		roi = roi.input,
 		profit = profit.input,
@@ -3862,7 +4704,9 @@ local function CreateUI(parent)
 		budget = budget.input,
 		score = score.input,
 		goldThreshold = goldThreshold.input,
+		deepRefresh = deepRefresh.input,
 		sound = sound,
+		cancelRepost = cancelRepost,
 	}
 	frame.applySettings = CreateFrame("Button", nil, frame.settingsContent, "UIPanelButtonTemplate")
 	frame.applySettings:SetSize(94, 24)
@@ -3877,7 +4721,9 @@ local function CreateUI(parent)
 		scan.db.budgetGold = Clamp(frame.settingInputs.budget:GetText(), 1, 100000000)
 		scan.db.minScore = Clamp(frame.settingInputs.score:GetText(), 0, 100)
 		scan.db.goldThreshold = Clamp(frame.settingInputs.goldThreshold:GetText(), 0, 100000000)
+		scan.db.deepRefreshMinutes = Clamp(frame.settingInputs.deepRefresh:GetText(), 0, 720)
 		scan.db.sound = frame.settingInputs.sound:GetChecked() == true
+		scan.db.cancelRepost = frame.settingInputs.cancelRepost:GetChecked() == true
 		frame.settingsPanel:Hide()
 		local goldBlocked = EnforceGoldThreshold()
 		Reset:RebuildFromCache()
@@ -3885,6 +4731,24 @@ local function CreateUI(parent)
 			SetStatus(GetGoldThresholdMessage(), true)
 		else
 			SetStatus(string.format("Paramètres appliqués • score min. %d • seuil gold %s.", scan.db.minScore, scan.db.goldThreshold > 0 and FormatPrice(scan.db.goldThreshold * 10000) or "désactivé"))
+		end
+	end)
+	frame.forceDeepButton = CreateFrame("Button", nil, frame.settingsContent, "UIPanelButtonTemplate")
+	frame.forceDeepButton:SetSize(128, 24)
+	frame.forceDeepButton:SetPoint("RIGHT", frame.applySettings, "LEFT", -6, 0)
+	frame.forceDeepButton:SetText("Cycle profond")
+	frame.forceDeepButton:SetScript("OnClick", function()
+		Reset:ForceDeepCycle()
+	end)
+	frame.forceDeepButton:SetScript("OnEnter", function(button)
+		GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+		GameTooltip:AddLine("Repartir sur un relevé profond", 1, 0.82, 0.25)
+		GameTooltip:AddLine("Oublie les prix planchers mémorisés : chaque composant est de nouveau analysé en profondeur, comme au premier cycle.", 0.85, 0.85, 0.85, true)
+		GameTooltip:Show()
+	end)
+	frame.forceDeepButton:SetScript("OnLeave", function(button)
+		if GameTooltip:IsOwned(button) then
+			GameTooltip:Hide()
 		end
 	end)
 	frame.blacklistScroll = CreateFrame("ScrollFrame", nil, frame.blacklistContent, "UIPanelScrollFrameTemplate")
@@ -3967,7 +4831,9 @@ local function CreateUI(parent)
 		frame.settingInputs.budget:SetText(tostring(scan.db.budgetGold))
 		frame.settingInputs.score:SetText(tostring(scan.db.minScore))
 		frame.settingInputs.goldThreshold:SetText(tostring(scan.db.goldThreshold))
+		frame.settingInputs.deepRefresh:SetText(tostring(scan.db.deepRefreshMinutes))
 		frame.settingInputs.sound:SetChecked(scan.db.sound)
+		frame.settingInputs.cancelRepost:SetChecked(scan.db.cancelRepost)
 		local shown = not frame.settingsPanel:IsShown()
 		frame.settingsPanel:SetShown(shown)
 		if shown then
@@ -4048,6 +4914,9 @@ function Reset:EnsureUI(parent, controller)
 	end
 	scan.controller = controller or scan.controller
 	scan.db = scan.db or GetDB()
+	if type(YayaReagentSniperSell) == "table" and type(YayaReagentSniperSell.Init) == "function" then
+		YayaReagentSniperSell.Init(scan.controller)
+	end
 	CreateUI(parent)
 	CreateTab(parent)
 end

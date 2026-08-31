@@ -35,6 +35,10 @@ local state = {
 		"COMMODITY_SEARCH_RESULTS_ADDED",
 		"OWNED_AUCTIONS_UPDATED",
 		"AUCTION_CANCELED",
+		"AUCTION_HOUSE_AUCTION_CREATED",
+		"AUCTION_MULTISELL_START",
+		"AUCTION_MULTISELL_UPDATE",
+		"AUCTION_MULTISELL_FAILURE",
 		"ITEM_SEARCH_RESULTS_UPDATED",
 		"COMMODITY_PRICE_UPDATED",
 		"COMMODITY_PRICE_UNAVAILABLE",
@@ -683,7 +687,7 @@ local function GetParentGroupPath(path)
 	return string.match(path or "", "^(.*)`[^`]*$") or ""
 end
 
-local function GetEffectiveShoppingOperations(groups, path, visited)
+local function GetEffectiveOperations(groups, path, typeName, visited)
 	if type(groups) ~= "table" then
 		return nil
 	end
@@ -694,14 +698,14 @@ local function GetEffectiveShoppingOperations(groups, path, visited)
 	end
 	visited[path] = true
 	local group = groups[path]
-	local shopping = group and group.Shopping
-	if shopping and (path == "" or shopping.override) then
-		return shopping
+	local assigned = group and group[typeName]
+	if assigned and (path == "" or assigned.override) then
+		return assigned
 	end
 	if path == "" then
-		return shopping
+		return assigned
 	end
-	return GetEffectiveShoppingOperations(groups, GetParentGroupPath(path), visited)
+	return GetEffectiveOperations(groups, GetParentGroupPath(path), typeName, visited)
 end
 
 local function ResolveOperationSetting(operations, operationName, key, default)
@@ -734,10 +738,13 @@ local function IsOperationIgnored(settings)
 		or settings.ignoreFactionrealm and factionrealm and settings.ignoreFactionrealm[factionrealm]
 end
 
-GetShoppingOperation = function(itemString)
+-- Operation TSM effective d'un objet, pour un type donne ("Shopping",
+-- "Auctioning", ...). TSM_API n'expose aucune operation : on lit la table
+-- SavedVariables vivante, qui reflete les editions faites dans l'UI de TSM.
+local function GetOperationForItem(itemString, typeName)
 	local operationsRoot, groups = GetTSMSettingsTables()
-	local shoppingOperations = operationsRoot and operationsRoot.Shopping
-	if not shoppingOperations or not groups then
+	local typeOperations = operationsRoot and operationsRoot[typeName]
+	if not typeOperations or not groups then
 		return nil, nil
 	end
 	local path
@@ -745,18 +752,22 @@ GetShoppingOperation = function(itemString)
 		local ok, groupPath = pcall(TSM_API.GetGroupPathByItem, itemString)
 		path = ok and groupPath or nil
 	end
-	local assigned = GetEffectiveShoppingOperations(groups, path or "")
+	local assigned = GetEffectiveOperations(groups, path or "", typeName)
 	if not assigned then
 		return nil, nil
 	end
 	for index = 1, #assigned do
 		local operationName = assigned[index]
-		local settings = shoppingOperations[operationName]
+		local settings = typeOperations[operationName]
 		if settings and not IsOperationIgnored(settings) then
-			return settings, operationName, shoppingOperations
+			return settings, operationName, typeOperations
 		end
 	end
 	return nil, nil
+end
+
+GetShoppingOperation = function(itemString)
+	return GetOperationForItem(itemString, "Shopping")
 end
 
 local function GetCustomPriceValue(source, itemString)
@@ -3364,20 +3375,40 @@ EnsureUI = function()
 			end,
 			updateEventSubscription = UpdateAHEventSubscription,
 			updateSniperView = UpdateView,
+			getOperationForItem = GetOperationForItem,
+			getCustomPriceValue = GetCustomPriceValue,
+			resolveOperationSetting = ResolveOperationSetting,
 		})
 	end
 end
 
 local eventFrame = CreateFrame("Frame")
 	state.events = eventFrame
+eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("AUCTION_HOUSE_SHOW")
 eventFrame:RegisterEvent("AUCTION_HOUSE_CLOSED")
 eventFrame:SetScript("OnEvent", function(self, event, ...)
+	-- Les SavedVariables ne sont restaurees qu'apres l'execution des fichiers de
+	-- l'addon. Le GetDB() de portee fichier travaillait donc sur une table neuve,
+	-- orpheline : l'UI y ecrivait, WoW serialisait le global jamais modifie, et
+	-- tous les reglages repartaient aux defauts a chaque session (son reactive,
+	-- stock manquant min. remis a 0). On repointe state.db sur la table restauree.
+	if event == "ADDON_LOADED" then
+		local loadedAddon = ...
+		if loadedAddon == addonName then
+			state.db = GetDB()
+		end
+		return
+	end
 	if YayaReagentSniperReset and YayaReagentSniperReset.OnEvent then
 		YayaReagentSniperReset:OnEvent(event, ...)
 	end
 	if event == "PLAYER_LOGIN" then
+		-- Ceinture et bretelles : si ADDON_LOADED a ete manque, la table restauree
+		-- est de toute facon disponible ici, bien avant la creation de l'UI qui
+		-- n'intervient qu'a l'ouverture de l'hotel des ventes.
+		state.db = GetDB()
 		return
 	elseif event == "AUCTION_HOUSE_SHOW" then
 		C_Timer.After(0.2, EnsureUI)
