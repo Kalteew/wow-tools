@@ -218,6 +218,8 @@ local state = {
     auctionDemandRemovalScheduled = false,
     ingenuityBuffActive = false,
     ingenuityBuffInitialized = false,
+    ingenuityBuffSignals = nil,
+    ingenuityPhialArmingBlocked = false,
     professionSpecMassPurchaseHandlerInstalled = false,
     professionSpecMassPurchase = {
         active = false,
@@ -2137,30 +2139,99 @@ YQQuality.GetIngenuityPhialCount = function(itemID, getter)
     return count
 end
 
-YQQuality.RefreshIngenuityBuffState = function(reason)
-    local spellID = CONFIG.CONCENTRATION_PHIAL_BUFF_SPELL_ID
-    local auraData
-    if C_UnitAuras and type(C_UnitAuras.GetPlayerAuraBySpellID) == "function" then
-        auraData = SafeCall(C_UnitAuras.GetPlayerAuraBySpellID, spellID)
+-- Les deux rangs de flasque posent potentiellement deux auras distinctes, et
+-- l'identifiant en dur n'en couvre qu'une. Quand l'aura reelle ne correspondait
+-- pas, le buff restait invisible pour l'addon, qui rearmait le bouton et brulait
+-- une flasque toutes les deux secondes. On rassemble donc tous les signaux
+-- disponibles. Les noms viennent du client, ils sont deja localises : aucune
+-- table de traduction n'est necessaire et le client francais est couvert.
+YQQuality.GetIngenuityBuffSignals = function()
+    local signals = state.ingenuityBuffSignals
+    if signals and signals.resolved then
+        return signals
     end
 
-    local active = auraData ~= nil
-    if not active
-        and (not C_UnitAuras or type(C_UnitAuras.GetPlayerAuraBySpellID) ~= "function")
-        and AuraUtil
-        and type(AuraUtil.FindAuraBySpellID) == "function"
-    then
-        active = AuraUtil.FindAuraBySpellID(spellID, "player", "HELPFUL") ~= nil
+    signals = { spellIDs = {}, names = {}, resolved = true }
+    signals.spellIDs[CONFIG.CONCENTRATION_PHIAL_BUFF_SPELL_ID] = true
+    for rank = 1, 2 do
+        local itemID = CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[rank]
+        local itemName = GetItemName(itemID)
+        if type(itemName) == "string" and itemName ~= "" and itemName ~= ("Item " .. itemID) then
+            signals.names[itemName] = true
+        else
+            -- Donnee d'objet encore froide : on retentera au prochain appel.
+            signals.resolved = false
+            WarmItemData(itemID)
+        end
+
+        local spellName, spellID
+        if C_Item and type(C_Item.GetItemSpell) == "function" then
+            local ok
+            ok, spellName, spellID = pcall(C_Item.GetItemSpell, itemID)
+            if not ok then
+                spellName, spellID = nil, nil
+            end
+        end
+        if type(spellName) == "string" and spellName ~= "" then
+            signals.names[spellName] = true
+        end
+        spellID = tonumber(spellID)
+        if spellID and spellID > 0 then
+            signals.spellIDs[spellID] = true
+        else
+            signals.resolved = false
+        end
+    end
+
+    state.ingenuityBuffSignals = signals
+    return signals
+end
+
+YQQuality.RefreshIngenuityBuffState = function(reason)
+    local signals = YQQuality.GetIngenuityBuffSignals()
+    local active = false
+    local matched
+
+    if C_UnitAuras and type(C_UnitAuras.GetPlayerAuraBySpellID) == "function" then
+        for spellID in pairs(signals.spellIDs) do
+            if SafeCall(C_UnitAuras.GetPlayerAuraBySpellID, spellID) then
+                active, matched = true, "spellID:" .. tostring(spellID)
+                break
+            end
+        end
+    end
+
+    if not active and AuraUtil and type(AuraUtil.FindAuraBySpellID) == "function" then
+        for spellID in pairs(signals.spellIDs) do
+            if AuraUtil.FindAuraBySpellID(spellID, "player", "HELPFUL") then
+                active, matched = true, "aurautil:" .. tostring(spellID)
+                break
+            end
+        end
+    end
+
+    if not active and AuraUtil and type(AuraUtil.FindAuraByName) == "function" then
+        for name in pairs(signals.names) do
+            if AuraUtil.FindAuraByName(name, "player", "HELPFUL") then
+                active, matched = true, "name"
+                break
+            end
+        end
     end
 
     local changed = state.ingenuityBuffInitialized ~= true
         or state.ingenuityBuffActive ~= active
     state.ingenuityBuffActive = active
     state.ingenuityBuffInitialized = true
+    if active then
+        -- Le buff est de nouveau visible : la detection remarche, on peut lever
+        -- le coupe-circuit pose par une consommation restee sans confirmation.
+        state.ingenuityPhialArmingBlocked = false
+    end
     if changed then
         DebugPrint(
             "ingenuity-buff active=" .. tostring(active)
-                .. " spellID=" .. tostring(spellID)
+                .. " via=" .. tostring(matched or "none")
                 .. " reason=" .. tostring(reason or "?")
         )
     end
@@ -2833,6 +2904,36 @@ YQQuality.EnsureShatterMoteDemandForEntry = function(entry, recipeInfo)
     end
 end
 
+-- state.pendingIngenuityPhial n'etait efface que par une confirmation d'aura.
+-- Sans elle il survivait indefiniment, et passe expiresAt le bouton se rearmait
+-- pour bruler la flasque suivante, en boucle. On tranche ici une fois la fenetre
+-- ecoulee : la flasque compte comme consommee si le stock a baisse, et tout
+-- rearmement automatique est coupe jusqu'a ce que le buff redevienne detectable.
+YQQuality.ResolveStalePendingIngenuityPhial = function()
+    local pending = state.pendingIngenuityPhial
+    if not pending or GetTime() < (pending.expiresAt or 0) then
+        return false
+    end
+
+    state.pendingIngenuityPhial = nil
+    local remaining = YQQuality.GetIngenuityPhialCount(pending.demandItemID, GetImmediateOwnedCount)
+    local consumed = type(pending.beforeCount) == "number" and remaining < pending.beforeCount
+    if consumed then
+        YQQuality.RemoveConcentrationPhialDemand(pending.demandItemID, 1)
+    end
+
+    state.ingenuityPhialArmingBlocked = true
+    state.ah.statusMessage = consumed
+        and "Phial consommee sans buff detecte : rearmement coupe"
+        or "Phial non consommee : rearmement coupe"
+    DebugPrint(
+        "phial-pending-stale consumed=" .. tostring(consumed)
+            .. " item=" .. tostring(pending.itemID)
+            .. " remaining=" .. tostring(remaining)
+    )
+    return true
+end
+
 function YQQuality.GetConcentrationPhialState(entry)
     if not (entry and entry.applyConcentration == true)
         or not YQQuality.IsConcentrationPhialEnabled()
@@ -3415,10 +3516,34 @@ local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, 
         or {}
     craftingReagents = ForceRankOneCraftingReagents(schematic, craftingReagents)
 
+    -- Une recette de broyage ou de recyclage ne passe pas par un slot de reactif :
+    -- son entree est un objet, designe par une ItemLocation. Sans ce marqueur, tout
+    -- chemin d'ajout autre que le dump de concentration la traitait en craft normal
+    -- et appelait CraftRecipe, qui ne fait rien sur une recette salvage : le verrou
+    -- de 30 s tombait, le bouton oscillait, et le craft ne partait jamais.
+    local isSalvageRecipe = (type(recipeInfo) == "table" and recipeInfo.isSalvageRecipe == true)
+        or schematic.isSalvageRecipe == true
+        or (type(Enum) == "table" and type(Enum.TradeskillRecipeType) == "table"
+            and Enum.TradeskillRecipeType.Salvage ~= nil
+            and schematic.recipeType == Enum.TradeskillRecipeType.Salvage)
+        or false
+    local salvageItemID, salvageItemQuantity
+    if isSalvageRecipe and tonumber(recipeID) == CONFIG.MIDNIGHT_MILLING_RECIPE_ID then
+        salvageItemID = CONFIG.ARGENTLEAF_RANK_1_ITEM_ID
+        salvageItemQuantity = CONFIG.MIDNIGHT_MILLING_REAGENTS_PER_CRAFT
+        if #reagents == 0 then
+            WarmItemData(salvageItemID)
+            reagents = { { itemID = salvageItemID, quantity = salvageItemQuantity } }
+        end
+    end
+
     return {
         recipeID = recipeID,
         recipeName = (recipeInfo and recipeInfo.name) or schematic.name or ("Recette " .. recipeID),
         isEnchantingRecipe = type(recipeInfo) == "table" and recipeInfo.isEnchantingRecipe == true,
+        isSalvageRecipe = isSalvageRecipe or nil,
+        salvageItemID = salvageItemID,
+        salvageItemQuantity = salvageItemQuantity,
         outputItemID = outputItemID,
         outputPerCraft = math.max(1, tonumber(schematic.quantityMin) or 1),
         reagents = reagents,
@@ -3593,9 +3718,106 @@ local function ResetQueue()
     ScheduleRefresh()
 end
 
+-- Tous les chemins d'ajout convergent vers AddRecipeToQueue : c'est le seul
+-- endroit ou garantir que les flux automatiques n'engagent que du rang 1. Un
+-- rang 2 detenu -- typiquement en banque de guilde -- ne doit ni etre alloue ni
+-- masquer le manque de rang 1, qui doit apparaitre dans la liste d'achat.
+-- Accroche sur state plutot qu'un local de chunk : le fichier est a 195/200.
+state.ForceRankOneContextReagents = function(context)
+    if type(context) ~= "table"
+        -- L'optimiseur de reactifs est le seul flux autorise au rang superieur :
+        -- il est identifie par la qualite cible qu'il pose sur le contexte.
+        or NormalizeTargetQuality(context.targetQuality) ~= nil
+        -- Une fusion Gold Star consomme par construction des objets de qualite
+        -- superieure : la forcer au rang 1 la casserait.
+        or context.queueKind == "merge"
+        or context.allowHigherQualityReagents == true
+    then
+        return false
+    end
+
+    local schematic = SafeCall(C_TradeSkillUI.GetRecipeSchematic, context.recipeID, context.isRecraft == true)
+    if type(schematic) ~= "table" then
+        return false
+    end
+
+    local rankOneByItemID = {}
+    for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
+        if IsRequiredRecipeReagentSlot(slot) and #slot.reagents > 1 then
+            local lowest = GetLowestRecipeReagent(slot)
+            local lowestItemID = tonumber(lowest and lowest.itemID)
+            if lowestItemID and lowestItemID > 0 then
+                for _, candidate in ipairs(slot.reagents) do
+                    local itemID = tonumber(candidate.itemID)
+                    if itemID and itemID > 0 and itemID ~= lowestItemID then
+                        rankOneByItemID[itemID] = lowestItemID
+                    end
+                end
+            end
+        end
+    end
+    if not next(rankOneByItemID) then
+        return false
+    end
+
+    -- On remappe, sans jamais ajouter d'entree. ForceRankOneCraftingReagents sait
+    -- completer un slot selectionnable manquant, ce qui est voulu a la
+    -- construction d'un contexte mais dangereux ici : une commande de patron peut
+    -- fournir ce slot, et y injecter un reactif ferait acheter au joueur ce que le
+    -- client apporte deja.
+    local changed = false
+    local normalizedCraftingReagents = NormalizeCraftingReagents(context.craftingReagents)
+    for _, reagentInfo in ipairs(normalizedCraftingReagents) do
+        local itemID = tonumber(reagentInfo.reagent and reagentInfo.reagent.itemID)
+        local target = itemID and rankOneByItemID[itemID] or nil
+        if target then
+            reagentInfo.reagent.itemID = target
+            changed = true
+        end
+    end
+    if changed then
+        context.craftingReagents = normalizedCraftingReagents
+    end
+
+    -- La liste de materiaux est remappee plutot que recalculee depuis le
+    -- schematic : quantityRequired varie selon le niveau de recette, que le
+    -- schematic relu ici ne porte pas. Les quantites sont donc conservees.
+    local mergedByItemID = {}
+    local remapped = {}
+    local reagentsChanged = false
+    for _, reagent in ipairs(context.reagents or {}) do
+        local itemID = tonumber(reagent and reagent.itemID) or 0
+        local quantity = tonumber(reagent and reagent.quantity) or 0
+        local target = rankOneByItemID[itemID]
+        if target then
+            reagentsChanged = true
+        else
+            target = itemID
+        end
+        if target > 0 and quantity > 0 then
+            local existing = mergedByItemID[target]
+            if existing then
+                existing.quantity = existing.quantity + quantity
+            else
+                existing = { itemID = target, quantity = quantity }
+                mergedByItemID[target] = existing
+                remapped[#remapped + 1] = existing
+            end
+        end
+    end
+    if reagentsChanged then
+        context.reagents = remapped
+    end
+    if changed or reagentsChanged then
+        DebugPrint("force-rank1 recipe=" .. tostring(context.recipeID))
+    end
+    return changed or reagentsChanged
+end
+
 local function AddRecipeToQueue(context, quantity)
     state.EnsureDB()
     quantity = ClampQuantity(quantity)
+    state.ForceRankOneContextReagents(context)
     local mode = NormalizeQueueMode(context and context.mode)
     local queueKind = context and context.queueKind == "patron" and "patron"
         or context and context.queueKind == "merge" and "merge"
@@ -3842,6 +4064,23 @@ local function IsInscriptionProfession(professionID)
         and SafeCall(C_TradeSkillUI.GetBaseProfessionInfo)
         or nil
     return info and CONFIG.INSCRIPTION_PROFESSION_IDS[tonumber(info.profession)] or false
+end
+
+-- CraftSalvage ne consomme qu'une seule pile. On prefere une pile en sac,
+-- la seule disponible loin d'une banque, puis on accepte la banque du
+-- personnage ou la Warbank comme le fait deja la preparation Shatter :
+-- bloquer Next alors que le stock existe rendait le milling inutilisable
+-- pour un stock range en Warbank.
+state.GetSalvageItemLocation = function(itemID, minimumQuantity)
+    local location, stackCount = GetItemLocationFromItemID(itemID, false, minimumQuantity)
+    if location then
+        return location, stackCount, false
+    end
+    location, stackCount = GetItemLocationFromItemID(itemID, true, minimumQuantity)
+    if location then
+        return location, stackCount, true
+    end
+    return nil, 0, false
 end
 
 local function IsMidnightMillingRecipe(recipeID)
@@ -4217,9 +4456,23 @@ local function GetQueuedConcentrationReservation(professionID, currencyID)
     return reserved
 end
 
+-- Accroche sur state plutot qu'un local de chunk : YayaQueue.lua est a 195/200
+-- variables locales et un depassement empeche l'addon entier de compiler.
+state.GetClaimedPatronOrderID = function()
+    if type(C_CraftingOrders) ~= "table" or type(C_CraftingOrders.GetClaimedOrder) ~= "function" then
+        return 0
+    end
+    local claimedOrder = SafeCall(C_CraftingOrders.GetClaimedOrder)
+    return tonumber(claimedOrder and claimedOrder.orderID) or 0
+end
+
 local function GetNextQueueEntry()
     state.EnsureDB()
     local currentProfessionID = state.GetCurrentProfessionID and state.GetCurrentProfessionID() or nil
+    -- La commande claim passe avant tout. Sans cette regle le tri pouvait
+    -- designer une autre entree patron, et le bouton restait bloque sur
+    -- "Next: autre commande" alors que la commande claim etait dans la file.
+    local claimedOrderID = state.GetClaimedPatronOrderID()
     local bestEntry
     local bestCraftsRemaining
     local bestIndex
@@ -4231,8 +4484,19 @@ local function GetNextQueueEntry()
             local bestProfessionID = bestEntry and tonumber(bestEntry.professionID) or nil
             local entryMatchesOpenProfession = currentProfessionID ~= nil and entryProfessionID == currentProfessionID
             local bestMatchesOpenProfession = currentProfessionID ~= nil and bestProfessionID == currentProfessionID
-            local entryIsRecycle = entry.queueKind == "recycle"
-            local bestIsRecycle = bestEntry and bestEntry.queueKind == "recycle"
+            -- Le milling est une recette salvage sans queueKind "recycle" : il
+            -- doit beneficier de la meme priorite, sinon il reste derriere les
+            -- crafts normaux.
+            local entryIsSalvage = entry.queueKind == "recycle" or entry.isSalvageRecipe == true
+            local bestIsSalvage = bestEntry ~= nil
+                and (bestEntry.queueKind == "recycle" or bestEntry.isSalvageRecipe == true)
+            local entryIsClaimedOrder = claimedOrderID > 0
+                and entry.queueKind == "patron"
+                and (tonumber(entry.orderID) or 0) == claimedOrderID
+            local bestIsClaimedOrder = bestEntry ~= nil
+                and claimedOrderID > 0
+                and bestEntry.queueKind == "patron"
+                and (tonumber(bestEntry.orderID) or 0) == claimedOrderID
             local entryIsMerge = entry.queueKind == "merge"
             local bestIsMerge = bestEntry and bestEntry.queueKind == "merge"
             local entryGearRank = state.craftGear.GetEntrySortRank(entry)
@@ -4243,8 +4507,10 @@ local function GetNextQueueEntry()
             local shouldReplace = false
             if not bestEntry then
                 shouldReplace = true
-            elseif entryIsRecycle ~= bestIsRecycle then
-                shouldReplace = entryIsRecycle
+            elseif entryIsClaimedOrder ~= bestIsClaimedOrder then
+                shouldReplace = entryIsClaimedOrder
+            elseif entryIsSalvage ~= bestIsSalvage then
+                shouldReplace = entryIsSalvage
             elseif entryMatchesOpenProfession ~= bestMatchesOpenProfession then
                 shouldReplace = entryMatchesOpenProfession
             elseif entryIsMerge ~= bestIsMerge then
@@ -4279,6 +4545,9 @@ local function GetSortedActiveQueueEntries()
     state.EnsureDB()
 
     local currentProfessionID = state.GetCurrentProfessionID and state.GetCurrentProfessionID() or nil
+    -- Meme cascade que GetNextQueueEntry, pour que la liste affichee et le bouton
+    -- Next designent toujours la meme entree.
+    local claimedOrderID = state.GetClaimedPatronOrderID()
     local candidates = {}
 
     for index, entry in ipairs(db.queue) do
@@ -4290,7 +4559,10 @@ local function GetSortedActiveQueueEntries()
                 remainingCount = remainingCount,
                 index = index,
                 matchesOpenProfession = currentProfessionID ~= nil and (tonumber(entry.professionID) or nil) == currentProfessionID,
-                isRecycle = entry.queueKind == "recycle",
+                isSalvage = entry.queueKind == "recycle" or entry.isSalvageRecipe == true,
+                isClaimedOrder = claimedOrderID > 0
+                    and entry.queueKind == "patron"
+                    and (tonumber(entry.orderID) or 0) == claimedOrderID,
                 gearRank = state.craftGear.GetEntrySortRank(entry),
                 hasKnownProfit = entry.profitKnown == true and type(entry.profitValue) == "number",
             }
@@ -4298,8 +4570,11 @@ local function GetSortedActiveQueueEntries()
     end
 
     table.sort(candidates, function(left, right)
-        if left.isRecycle ~= right.isRecycle then
-            return left.isRecycle
+        if left.isClaimedOrder ~= right.isClaimedOrder then
+            return left.isClaimedOrder
+        end
+        if left.isSalvage ~= right.isSalvage then
+            return left.isSalvage
         end
         if left.matchesOpenProfession ~= right.matchesOpenProfession then
             return left.matchesOpenProfession
@@ -5048,22 +5323,42 @@ local function GetPatronNextButtonState()
         end
 
         local itemID = tonumber(entry.salvageItemID) or 0
+        if itemID <= 0 then
+            -- Recette salvage reconnue mais objet d'entree inconnu : mieux vaut
+            -- le dire que de laisser le bouton pretendre pouvoir crafter.
+            return { entry = entry, text = "Next: objet a broyer inconnu", enabled = false }
+        end
         local itemQuantity = math.max(1, tonumber(entry.salvageItemQuantity) or 1)
         local craftsRemaining = select(1, GetEntryCraftsRemaining(entry))
-        local _, stackCount = GetItemLocationFromItemID(itemID, true, itemQuantity)
+        local _, stackCount, fromBank = state.GetSalvageItemLocation(itemID, itemQuantity)
         local craftAmount = math.min(craftsRemaining, math.floor((stackCount or 0) / itemQuantity))
+        DebugPrint(
+            "salvage-location recipe=" .. tostring(entry.recipeID)
+                .. " item=" .. tostring(itemID)
+                .. " stack=" .. tostring(stackCount or 0)
+                .. " needPerCraft=" .. tostring(itemQuantity)
+                .. " fromBank=" .. tostring(fromBank)
+                .. " immediate=" .. tostring(GetImmediateOwnedCount(itemID))
+                .. " total=" .. tostring(GetTotalOwnedCount(itemID))
+        )
         if craftAmount <= 0 then
-            return {
-                entry = entry,
-                text = IsMidnightMillingRecipe(entry.recipeID) and "Next: Argentleaf" or "Next: potions",
-                enabled = false,
-            }
+            local missingLabel = IsMidnightMillingRecipe(entry.recipeID) and "Next: Argentleaf" or "Next: potions"
+            -- Stock total, banques comprises : une pile trop petite n'est pas
+            -- un manque de matiere, CraftSalvage ne consomme que la pile designee.
+            if GetTotalOwnedCount(itemID) >= itemQuantity then
+                missingLabel = "Next: regroupe les piles"
+            end
+            return { entry = entry, text = missingLabel, enabled = false }
         end
 
         local actionLabel = IsMidnightMillingRecipe(entry.recipeID) and "Milling" or "Recycle"
+        -- La provenance reste visible : une pile prise en banque explique un
+        -- craft qui n'entamerait pas le stock des sacs.
+        local sourceSuffix = fromBank and " (banque)" or ""
         return {
             entry = entry,
-            text = craftAmount > 1 and ("Next: " .. actionLabel .. " x" .. craftAmount) or ("Next: " .. actionLabel),
+            text = (craftAmount > 1 and ("Next: " .. actionLabel .. " x" .. craftAmount)
+                or ("Next: " .. actionLabel)) .. sourceSuffix,
             enabled = true,
             action = "craft_salvage",
             craftAmount = craftAmount,
@@ -5203,7 +5498,10 @@ local function GetPatronNextButtonState()
 
     local claimedOrder = C_CraftingOrders.GetClaimedOrder()
     if claimedOrder and tonumber(claimedOrder.orderID) ~= tonumber(entry.orderID) then
-        return { entry = entry, text = "Next: autre commande", enabled = false }
+        -- La commande claim passe desormais en tete de file : arriver ici signifie
+        -- qu'elle n'y figure pas du tout, donc qu'aucune priorisation ne peut
+        -- debloquer le bouton. Il faut la relacher dans l'UI Blizzard.
+        return { entry = entry, text = "Next: relache la commande", enabled = false }
     end
     if not claimedOrder then
         return {
@@ -5360,7 +5658,7 @@ state.RunPatronNextAction = function()
         local craftAmount = math.max(1, math.floor(tonumber(stateInfo.craftAmount) or 1))
         local itemQuantity = math.max(1, tonumber(stateInfo.entry.salvageItemQuantity) or 1)
         local applyConcentration = NormalizeApplyConcentration(stateInfo.entry.applyConcentration)
-        local itemLocation = GetItemLocationFromItemID(itemID, true, itemQuantity)
+        local itemLocation = state.GetSalvageItemLocation(itemID, itemQuantity)
         if not itemLocation then
             state.ah.statusMessage = IsMidnightMillingRecipe(recipeID)
                 and "Argentleaf R1 introuvable"
@@ -5657,6 +5955,48 @@ end
 
 state.ClearPendingCraftEntries = function()
     wipe(state.pendingCraftEntries)
+end
+
+-- Pour une recette de metier, l'identifiant de sort est le recipeID. Un
+-- echec de cast portant un autre sort ne dit rien du craft en cours : le
+-- purger jetait le pending entry, et le craft reussi juste apres ne pouvait
+-- plus consommer son entree de file.
+state.GetSpellNameForDebug = function(spellID)
+    spellID = tonumber(spellID)
+    if not spellID then
+        return "?"
+    end
+    if C_Spell and type(C_Spell.GetSpellName) == "function" then
+        local name = SafeCall(C_Spell.GetSpellName, spellID)
+        if type(name) == "string" and name ~= "" then
+            return name
+        end
+    end
+    if type(GetSpellInfo) == "function" then
+        local name = SafeCall(GetSpellInfo, spellID)
+        if type(name) == "string" and name ~= "" then
+            return name
+        end
+    end
+    return "?"
+end
+
+state.IsPendingCraftSpell = function(spellID)
+    spellID = tonumber(spellID)
+    if not spellID then
+        return true
+    end
+    for _, entry in ipairs(state.pendingCraftEntries) do
+        if tonumber(entry.recipeID) == spellID then
+            return true
+        end
+    end
+    for _, batch in ipairs(state.pendingCraftBatches) do
+        if tonumber(batch.recipeID) == spellID then
+            return true
+        end
+    end
+    return false
 end
 
 local function QueuePendingCraftRecipe(recipeID, amount)
@@ -6067,7 +6407,9 @@ local function BuildCompleteRecipeReagents(schematic, craftingReagents, recipeIn
         -- the queue when the transaction only contains a partial allocation.
         if IsRequiredRecipeReagentSlot(slot) then
             local missingQuantity = math.max(0, (tonumber(slot.quantityRequired) or 0) - selectedQuantity)
-            local fallbackReagent = slot.reagents and slot.reagents[1] or nil
+            -- slot.reagents[1] n'est pas trie par qualite : prendre le premier
+            -- candidat pouvait injecter du rang 2 dans la liste d'achat.
+            local fallbackReagent = GetLowestRecipeReagent(slot)
             AddItem(fallbackReagent and fallbackReagent.itemID, missingQuantity)
         end
     end
@@ -6318,6 +6660,10 @@ local function GetConcentrationDumpState(schematicForm, headlessRecipeID)
         if type(schematic) == "table" then
             context.reagents = BuildCompleteRecipeReagents(schematic, context.craftingReagents, recipeInfo)
         end
+        -- L'allocation brute de Blizzard pioche dans toutes les banques, rang 2
+        -- compris, et ecrasait le contexte rang 1. AddRecipeToQueue le corrigerait
+        -- a la mise en file, mais le plan affiche resterait faux : on aligne ici.
+        state.ForceRankOneContextReagents(context)
     end
 
     return {
@@ -6394,9 +6740,62 @@ function YQQuality.ScheduleAutoQueueFavoriteConcentration(delay)
     end)
 end
 
+-- La statistique de metier d'un outil est tiree au hasard sur l'exemplaire :
+-- elle figure au tooltip du lien unique, alors que GetItemStats peut ne
+-- decrire que l'objet de base. Un outil lu "none" declenchait un rechargement
+-- d'objet qui n'arrivait jamais, et le scan restait bloque sur son etat vide.
+-- YayaWeeklyTracker lit deja ces memes outils par tooltip avec succes.
+state.craftGear.tooltipRoleAliases = {
+    multicraft = { "multicrafting", "multicraft", "multi-craft", "fabrication multiple" },
+    resourcefulness = { "resourcefulness", "resource", "ressource", "debrouillardise", "d\195\169brouillardise" },
+}
+state.craftGear.tooltipRoleGlobals = {
+    multicraft = { "ITEM_MOD_MULTICRAFT_RATING_SHORT", "ITEM_MOD_MULTICRAFT_RATING" },
+    resourcefulness = { "ITEM_MOD_RESOURCEFULNESS_RATING_SHORT", "ITEM_MOD_RESOURCEFULNESS_RATING" },
+}
+
+state.craftGear.GetRoleFromTooltip = function(link)
+    if type(link) ~= "string" or link == ""
+        or type(C_TooltipInfo) ~= "table"
+        or type(C_TooltipInfo.GetHyperlink) ~= "function"
+    then
+        return nil
+    end
+
+    local data = SafeCall(C_TooltipInfo.GetHyperlink, link)
+    if type(data) ~= "table" or type(data.lines) ~= "table" then
+        return nil
+    end
+
+    local function Normalize(text)
+        if type(text) ~= "string" then
+            return ""
+        end
+        text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+        return string.lower(text)
+    end
+
+    for _, line in ipairs(data.lines) do
+        local text = Normalize(line.leftText) .. " " .. Normalize(line.rightText)
+        if text ~= " " then
+            for _, role in ipairs({ "multicraft", "resourcefulness" }) do
+                if state.craftGear.MatchesRoleText(text, role) then
+                    return role
+                end
+            end
+        end
+    end
+    return nil
+end
+
 state.craftGear.GetRoleForLink = function(link)
     if type(link) ~= "string" or link == "" then
         return "none"
+    end
+
+    local tooltipRole = state.craftGear.GetRoleFromTooltip(link)
+    if tooltipRole then
+        return tooltipRole
     end
 
     local stats
@@ -6501,6 +6900,39 @@ state.craftGear.IsMainToolLink = function(link, itemID)
     return false
 end
 
+-- GetSkillLineForGear renvoie la ligne de metier de l'objet (Midnight, ou
+-- parfois la ligne de base), tandis que GetProfessionRecords ne retenait
+-- que la premiere ligne rencontree par metier, souvent celle d'une vieille
+-- extension. La jointure par skillLineID echouait donc en silence et aucun
+-- outil des sacs n'etait retenu. On rapproche desormais par professionID.
+state.craftGear.GetProfessionIDForSkillLine = function(skillLineID)
+    skillLineID = tonumber(skillLineID)
+    if not skillLineID then
+        return nil
+    end
+    state.craftGear.professionIDBySkillLine = state.craftGear.professionIDBySkillLine or {}
+    local cached = state.craftGear.professionIDBySkillLine[skillLineID]
+    if cached ~= nil then
+        return cached or nil
+    end
+    local info = type(C_TradeSkillUI) == "table"
+        and type(C_TradeSkillUI.GetProfessionInfoBySkillLineID) == "function"
+        and SafeCall(C_TradeSkillUI.GetProfessionInfoBySkillLineID, skillLineID)
+        or nil
+    local professionID = info and tonumber(info.profession) or nil
+    state.craftGear.professionIDBySkillLine[skillLineID] = professionID or false
+    return professionID
+end
+
+-- A role egal, le meilleur exemplaire gagne : prendre le premier trouve
+-- dans l'ordre des sacs pouvait equiper un outil de niveau inferieur.
+state.craftGear.GetCandidateRank = function(candidate)
+    local level = type(GetDetailedItemLevelInfo) == "function"
+        and tonumber(SafeCall(GetDetailedItemLevelInfo, candidate.link))
+        or nil
+    return level or 0
+end
+
 state.craftGear.GetProfessionRecords = function()
     local records = {}
     local seen = {}
@@ -6546,6 +6978,13 @@ state.craftGear.Scan = function()
         return
     end
 
+    local pendingItemIDs = {}
+    local function MarkPending(itemID, reason)
+        if itemID and not pendingItemIDs[itemID] then
+            pendingItemIDs[itemID] = reason or "?"
+        end
+    end
+
     local knownToolIDs = {}
     for _, profession in pairs(gearState.byProfession) do
         for _, tool in ipairs(profession.tools or {}) do
@@ -6555,7 +6994,7 @@ state.craftGear.Scan = function()
             knownToolIDs[profession.equipped.itemID] = true
         end
     end
-    local candidatesBySkillLine = {}
+    local candidatesByProfession = {}
     local hasPendingItemData = false
     for bagID = 0, 4 do
         local slotCount = type(C_Container) == "table"
@@ -6570,34 +7009,43 @@ state.craftGear.Scan = function()
                 local hasUsableLink = type(link) == "string" and link:find("item:", 1, true) ~= nil
                 if isMainTool and not hasUsableLink then
                     hasPendingItemData = true
+                    MarkPending(itemID, "no-link")
                     WarmItemData(itemID, true)
                 elseif isMainTool then
                     local skillLineID = type(C_TradeSkillUI.GetSkillLineForGear) == "function"
                         and tonumber(SafeCall(C_TradeSkillUI.GetSkillLineForGear, link))
                         or nil
-                    if skillLineID then
+                    local gearProfessionID = state.craftGear.GetProfessionIDForSkillLine(skillLineID)
+                    if gearProfessionID then
                         local role = state.craftGear.GetRoleForLink(link)
                         if role == "multicraft" or role == "resourcefulness" then
-                            candidatesBySkillLine[skillLineID] = candidatesBySkillLine[skillLineID] or {}
-                            candidatesBySkillLine[skillLineID][#candidatesBySkillLine[skillLineID] + 1] = {
+                            candidatesByProfession[gearProfessionID] = candidatesByProfession[gearProfessionID] or {}
+                            local bucket = candidatesByProfession[gearProfessionID]
+                            bucket[#bucket + 1] = {
                                 itemID = itemID,
                                 link = link,
                                 role = role,
+                                skillLineID = skillLineID,
                                 bagID = bagID,
                                 slotIndex = slotIndex,
                             }
                         else
-                            hasPendingItemData = WarmItemData(itemID, true)
-                                or knownToolIDs[itemID]
-                                or hasPendingItemData
+                            local waiting = WarmItemData(itemID, true) or knownToolIDs[itemID]
+                            if waiting then
+                                MarkPending(itemID, "bag-role-none")
+                            end
+                            hasPendingItemData = waiting or hasPendingItemData
                         end
                     else
-                        hasPendingItemData = WarmItemData(itemID, true)
-                            or knownToolIDs[itemID]
-                            or hasPendingItemData
+                        local waiting = WarmItemData(itemID, true) or knownToolIDs[itemID]
+                        if waiting then
+                            MarkPending(itemID, "bag-no-skillline")
+                        end
+                        hasPendingItemData = waiting or hasPendingItemData
                     end
                 elseif knownToolIDs[itemID] then
                     hasPendingItemData = true
+                    MarkPending(itemID, "bag-known-tool")
                     WarmItemData(itemID, true)
                 end
             end
@@ -6620,20 +7068,19 @@ state.craftGear.Scan = function()
         local equippedRole = state.craftGear.GetRoleForLink(equippedLink)
         if equippedItemID and equippedRole == "none" then
             local previous = gearState.byProfession[professionID]
-            hasPendingItemData = WarmItemData(equippedItemID, true)
+            local waiting = WarmItemData(equippedItemID, true)
                 or (
                     previous
                     and previous.equipped
                     and previous.equipped.itemID == equippedItemID
                     and previous.equipped.role ~= "none"
                 )
-                or hasPendingItemData
+            if waiting then
+                MarkPending(equippedItemID, "equipped-role-none")
+            end
+            hasPendingItemData = waiting or hasPendingItemData
         end
 
-        local roleSet = {}
-        if equippedRole == "multicraft" or equippedRole == "resourcefulness" then
-            roleSet[equippedRole] = true
-        end
         local profession = {
             professionID = professionID,
             skillLineID = record.skillLineID,
@@ -6646,22 +7093,52 @@ state.craftGear.Scan = function()
             tools = {},
             candidates = {},
         }
-        local candidates = candidatesBySkillLine[record.skillLineID] or {}
+        local candidates = candidatesByProfession[professionID] or {}
         for _, candidate in ipairs(candidates) do
             profession.tools[#profession.tools + 1] = candidate
-            profession.candidates[candidate.role] = profession.candidates[candidate.role] or candidate
-            roleSet[candidate.role] = true
+            local best = profession.candidates[candidate.role]
+            if not best
+                or state.craftGear.GetCandidateRank(candidate) > state.craftGear.GetCandidateRank(best)
+            then
+                profession.candidates[candidate.role] = candidate
+            end
         end
-        profession.active = roleSet.multicraft == true and roleSet.resourcefulness == true
+        -- Un seul outil a stat suffit : GetToolAction refuse deja l'action
+        -- quand le candidat du role demande manque ou est deja equipe.
+        -- Exiger les deux outils rendait le systeme inerte pour un
+        -- personnage qui n'en possede qu'un, et empechait le passage force
+        -- en Resourcefulness sur les commandes de patron.
+        profession.active = profession.candidates.multicraft ~= nil
+            or profession.candidates.resourcefulness ~= nil
         scannedByProfession[professionID] = profession
     end
 
-    if not hasPendingItemData then
-        gearState.transientRetryCount = 0
+    -- Sans etat precedent valide, preserver revient a garder une table vide :
+    -- aucun echange d'outil ne peut plus se declencher, et les trois relances
+    -- epuisees le figeaient definitivement. Un scan partiel est toujours
+    -- meilleur, GetToolAction refusant deja un role sans candidat.
+    local function CountUsableProfessions(byProfession)
+        local count = 0
+        for _, profession in pairs(byProfession or {}) do
+            if profession.active then
+                count = count + 1
+            end
+        end
+        return count
+    end
+    -- On ne preserve l'etat precedent que s'il est strictement meilleur : un
+    -- scan partiel egal ou superieur doit remplacer l'ancien, sinon la premiere
+    -- table vide restait figee et aucun echange d'outil ne pouvait plus partir.
+    local scannedUsable = CountUsableProfessions(scannedByProfession)
+    local currentUsable = CountUsableProfessions(gearState.byProfession)
+    local committed = not hasPendingItemData or scannedUsable >= currentUsable
+    if committed then
+        gearState.transientRetryCount = hasPendingItemData and (gearState.transientRetryCount or 0) or 0
         gearState.byProfession = scannedByProfession
         wipe(gearState.recipeRoles)
         gearState.generation = (gearState.generation or 0) + 1
-    else
+    end
+    if hasPendingItemData then
         if (gearState.transientRetryCount or 0) < 3 then
             gearState.transientRetryCount = (gearState.transientRetryCount or 0) + 1
             C_Timer.After(0.25, function()
@@ -6669,7 +7146,37 @@ state.craftGear.Scan = function()
             end)
         end
         if CONFIG.debugNextCraft then
-            DebugPrint("craft-gear preserve-last-good reason=item-data retry=" .. tostring(gearState.transientRetryCount))
+            local pendingParts = {}
+            for itemID, reason in pairs(pendingItemIDs) do
+                pendingParts[#pendingParts + 1] = tostring(itemID) .. ":" .. tostring(reason)
+            end
+            table.sort(pendingParts)
+            DebugPrint(
+                "craft-gear pending reason=item-data retry=" .. tostring(gearState.transientRetryCount)
+                    .. " committed=" .. tostring(committed)
+                    .. " items=" .. (#pendingParts > 0 and table.concat(pendingParts, ",") or "none")
+            )
+        end
+    end
+
+    if CONFIG.debugNextCraft then
+        local parts = {}
+        for professionID, profession in pairs(gearState.byProfession) do
+            parts[#parts + 1] = ("%s skillLine=%s active=%s equipped=%s/%s mc=%s rf=%s"):format(
+                tostring(professionID),
+                tostring(profession.skillLineID),
+                tostring(profession.active),
+                tostring(profession.equipped and profession.equipped.itemID),
+                tostring(profession.equipped and profession.equipped.role),
+                tostring(profession.candidates.multicraft and profession.candidates.multicraft.itemID),
+                tostring(profession.candidates.resourcefulness and profession.candidates.resourcefulness.itemID)
+            )
+        end
+        table.sort(parts)
+        local signature = #parts > 0 and table.concat(parts, " | ") or "none"
+        if signature ~= state.craftGear.debugSignature then
+            state.craftGear.debugSignature = signature
+            DebugPrint("craft-gear scan = " .. signature)
         end
     end
 
@@ -6697,10 +7204,23 @@ state.craftGear.ConfirmPendingTool = function()
     end
 
     local profession = state.craftGear.byProfession[tonumber(pending.professionID) or 0]
+    -- Le snapshot du scan peut etre en retard d'un rafraichissement, ou
+    -- preserve tel quel quand des donnees d'objet manquent : la confirmation
+    -- expirait alors que l'outil etait deja equipe. Le slot d'inventaire est
+    -- la source qui fait foi.
+    local toolSlot = profession and profession.toolSlot or nil
+    local liveItemID = toolSlot and type(GetInventoryItemID) == "function"
+        and tonumber(SafeCall(GetInventoryItemID, "player", toolSlot))
+        or nil
+    local liveRole = toolSlot and type(GetInventoryItemLink) == "function"
+        and state.craftGear.GetRoleForLink(SafeCall(GetInventoryItemLink, "player", toolSlot))
+        or nil
     local equipped = profession and profession.equipped
-    if equipped and equipped.role == pending.role
+    local liveMatch = liveRole == pending.role
+        and (not pending.itemID or not liveItemID or liveItemID == pending.itemID)
+    local scanMatch = equipped ~= nil and equipped.role == pending.role
         and (not pending.itemID or not equipped.itemID or equipped.itemID == pending.itemID)
-    then
+    if liveMatch or scanMatch then
         state.pendingCraftTool = nil
         ClearNextActionLock("tool-equipped")
         state.ah.statusMessage = "Outil " .. tostring(pending.role) .. " equipe"
@@ -6709,11 +7229,43 @@ state.craftGear.ConfirmPendingTool = function()
     end
 
     if pending.expiresAt and GetTime() >= pending.expiresAt then
+        DebugPrint(
+            "craft-gear equip timeout profession=" .. tostring(pending.professionID)
+                .. " wanted=" .. tostring(pending.role) .. "/" .. tostring(pending.itemID)
+                .. " slot=" .. tostring(toolSlot)
+                .. " liveItem=" .. tostring(liveItemID)
+                .. " liveRole=" .. tostring(liveRole)
+                .. " scanItem=" .. tostring(equipped and equipped.itemID)
+                .. " scanRole=" .. tostring(equipped and equipped.role)
+        )
         state.pendingCraftTool = nil
         ClearNextActionLock("tool-timeout")
         state.ah.statusMessage = "Outil non confirme"
         ScheduleRefresh()
     end
+end
+
+-- Les noms de bonus viennent du client, donc localises : sur un client
+-- francais "Fabrication multiple" et "Debrouillardise" ne contenaient aucun
+-- des motifs anglais recherches. Multicraft retombait alors sur
+-- canCreateMultiple, et Resourcefulness n'etait reconnu que via un alias
+-- "ingenios" qui designe en realite l'Ingeniosite : le role annonce etait
+-- faux. On compare desormais aux libelles du client, alias en secours.
+state.craftGear.MatchesRoleText = function(text, role)
+    for _, key in ipairs(state.craftGear.tooltipRoleGlobals[role] or {}) do
+        local localized = _G[key]
+        if type(localized) == "string" and localized ~= "" then
+            if text:find(string.lower(localized), 1, true) then
+                return true
+            end
+        end
+    end
+    for _, alias in ipairs(state.craftGear.tooltipRoleAliases[role] or {}) do
+        if text:find(alias, 1, true) then
+            return true
+        end
+    end
+    return false
 end
 
 state.craftGear.HasBonusStat = function(bonusStats, role)
@@ -6724,15 +7276,7 @@ state.craftGear.HasBonusStat = function(bonusStats, role)
             tostring(bonus.name or ""),
             tostring(bonus.bonusStat or ""),
         }, " "))
-        if role == "multicraft" and (text:find("multicraft", 1, true) or text:find("multi-craft", 1, true)) then
-            return true
-        end
-        if role == "resourcefulness"
-            and (text:find("resource", 1, true)
-                or text:find("ressource", 1, true)
-                or text:find("ingenios", 1, true)
-                or text:find("ingénios", 1, true))
-        then
+        if state.craftGear.MatchesRoleText(text, role) then
             return true
         end
     end
@@ -6757,7 +7301,7 @@ state.craftGear.GetRecipeRole = function(entry, transaction)
     }, "|")
     local cached = state.craftGear.recipeRoles[key]
     if cached and cached.generation == state.craftGear.generation then
-        return cached.role
+        return cached.role, cached
     end
 
     local recipeInfo = type(C_TradeSkillUI) == "table"
@@ -6791,12 +7335,19 @@ state.craftGear.GetRecipeRole = function(entry, transaction)
     end
 
     local supportsStats = recipeInfo and recipeInfo.supportsCraftingStats
-    local multicraft = state.craftGear.HasBonusStat(operationInfo and operationInfo.bonusStats, "multicraft")
-    if not multicraft and supportsStats == true and recipeInfo then
-        multicraft = recipeInfo.canCreateMultiple == true
-    end
-    local resourcefulness = supportsStats == true
-        and state.craftGear.HasBonusStat(operationInfo and operationInfo.bonusStats, "resourcefulness")
+    local bonusStats = operationInfo and operationInfo.bonusStats
+    -- Les statistiques exposees par l'API sont exactement celles affichees
+    -- par l'UI Blizzard : une recette qui ne peut pas multicrafter n'a pas
+    -- la ligne correspondante. Le repli sur recipeInfo.canCreateMultiple
+    -- decrivait le lot produit, pas la disponibilite du Multicraft, et
+    -- faisait equiper l'outil MC sur des recettes comme Bouquet of Herbs.
+    -- Il n'existait que parce que la comparaison de noms echouait en client
+    -- francais ; ce contournement n'a plus lieu d'etre.
+    local multicraft = supportsStats ~= false
+        and state.craftGear.HasBonusStat(bonusStats, "multicraft")
+        or false
+    local resourcefulness = supportsStats ~= false
+        and state.craftGear.HasBonusStat(bonusStats, "resourcefulness")
         or false
     local role
     if multicraft then
@@ -6805,13 +7356,65 @@ state.craftGear.GetRecipeRole = function(entry, transaction)
         role = "resourcefulness"
     elseif recipeInfo and supportsStats == false then
         role = "none"
+    elseif recipeInfo and operationInfo then
+        -- Donnees completes et aucune des deux statistiques : la recette ne
+        -- profite ni du Multicraft ni de la Debrouillardise. Un role inconnu
+        -- forcerait RF sur un patron pour rien.
+        role = "none"
     else
         role = "unknown"
     end
-    state.craftGear.recipeRoles[key] = {
+    if CONFIG.debugNextCraft then
+        local names = {}
+        for _, bonus in ipairs(bonusStats or {}) do
+            names[#names + 1] = tostring(bonus.bonusStatName or bonus.statName or bonus.name or "?")
+        end
+        DebugPrint(
+            "craft-gear recipe-role recipe=" .. tostring(recipeID)
+                .. " order=" .. tostring(orderID)
+                .. " supportsStats=" .. tostring(supportsStats)
+                .. " canCreateMultiple=" .. tostring(recipeInfo and recipeInfo.canCreateMultiple)
+                .. " bonus=" .. (#names > 0 and table.concat(names, "/") or "none")
+                .. " role=" .. tostring(role)
+        )
+    end
+    local record = {
         role = role,
+        multicraft = multicraft,
+        resourcefulness = resourcefulness,
         generation = state.craftGear.generation,
     }
+    state.craftGear.recipeRoles[key] = record
+    return role, record
+end
+
+state.craftGear.HasResourcefulnessTool = function(profession)
+    if not profession then
+        return false
+    end
+    if profession.candidates and profession.candidates.resourcefulness then
+        return true
+    end
+    return profession.equipped ~= nil and profession.equipped.role == "resourcefulness"
+end
+
+-- Le surplus Multicraft d'une commande de patron part au client : seul
+-- Resourcefulness a une valeur pour le crafteur. On force donc RF sur toute
+-- entree patron des qu'un outil RF est disponible, et on retombe sur le role
+-- expose par la recette sinon. GetRecipeRole reste inchange : il decrit la
+-- recette, pas l'entree de file, et sert aussi au dump de concentration.
+state.craftGear.GetDesiredRole = function(entry, transaction, profession)
+    local role, stats = state.craftGear.GetRecipeRole(entry, transaction)
+    -- Sur un patron on prefere RF des que la recette expose reellement la
+    -- Debrouillardise, meme si elle expose aussi le Multicraft dont le
+    -- surplus part au client. Un role encore inconnu vaut RF : la stat est
+    -- neutre au pire, alors qu'attendre reconduisait l'outil MC.
+    if entry and entry.queueKind == "patron"
+        and (role == "unknown" or (stats and stats.resourcefulness == true))
+        and state.craftGear.HasResourcefulnessTool(profession)
+    then
+        return "resourcefulness"
+    end
     return role
 end
 
@@ -6825,7 +7428,7 @@ state.craftGear.GetToolAction = function(entry, transaction)
         return nil
     end
 
-    local role = state.craftGear.GetRecipeRole(entry, transaction)
+    local role = state.craftGear.GetDesiredRole(entry, transaction, profession)
     if role ~= "multicraft" and role ~= "resourcefulness" then
         return nil
     end
@@ -6847,6 +7450,8 @@ state.craftGear.GetToolAction = function(entry, transaction)
         role = role,
         itemID = candidate.itemID,
         itemLink = candidate.link,
+        bagID = candidate.bagID,
+        slotIndex = candidate.slotIndex,
         professionID = professionID,
         text = role == "multicraft" and "Next: outil MC" or "Next: outil RF",
     }
@@ -6861,7 +7466,7 @@ state.craftGear.GetEntrySortRank = function(entry)
     if not profession or not profession.active then
         return 0
     end
-    local role = state.craftGear.GetRecipeRole(entry)
+    local role = state.craftGear.GetDesiredRole(entry, nil, profession)
     if (role ~= "multicraft" and role ~= "resourcefulness") or not profession.candidates[role] then
         return 0
     end
@@ -7655,11 +8260,26 @@ local function SelectKnownCraftSimReagents(recipeData, reserved)
     if requiredSlot and activeReagent and activeReagent.item then
         local activeItemID = activeReagent.item:GetItemID()
         if not GetUsableCraftSimReagentPrice(priceData, activeItemID, requiredSlot.maxQuantity or 1, reserved) then
+            -- IsOwnedSoulboundReagent valorise a 0 tout reactif lie deja detenu,
+            -- banque de guilde comprise : un rang 2 y raflait donc le "moins
+            -- cher". On borne la recherche a la plus basse qualite du slot. Quand
+            -- aucun candidat n'expose de qualite, rien n'est exclu.
+            local lowestSlotQuality
+            for _, possibleReagent in ipairs(requiredSlot.possibleReagents or {}) do
+                local quality = GetCraftSimReagentQuality({ item = possibleReagent.item })
+                if quality and (not lowestSlotQuality or quality < lowestSlotQuality) then
+                    lowestSlotQuality = quality
+                end
+            end
             local cheapestReagent
             local cheapestPrice
             for _, possibleReagent in ipairs(requiredSlot.possibleReagents or {}) do
                 local itemID = possibleReagent.item and possibleReagent.item:GetItemID() or nil
-                local itemPrice = itemID and GetUsableCraftSimReagentPrice(
+                local quality = GetCraftSimReagentQuality({ item = possibleReagent.item })
+                local excludedByQuality = lowestSlotQuality ~= nil
+                    and quality ~= nil
+                    and quality > lowestSlotQuality
+                local itemPrice = itemID and not excludedByQuality and GetUsableCraftSimReagentPrice(
                     priceData, itemID, requiredSlot.maxQuantity or 1, reserved
                 ) or nil
                 if itemPrice and (not cheapestPrice or itemPrice < cheapestPrice) then
@@ -8273,13 +8893,25 @@ local function UpdateCraftPanel(summary)
                 and nextState.action == "equip_tool"
                 and nextState.itemID
             then
+                -- Deux exemplaires du meme outil peuvent ne differer que par
+                -- leur statistique de metier tiree au hasard. Un attribut
+                -- "item:<id>" ou un lien laisse alors le client choisir, et il
+                -- peut equiper le mauvais. La forme "<sac> <slot>" du modele
+                -- securise designe l'exemplaire exact ; on ne retombe sur
+                -- l'itemID que si la position n'est pas connue.
+                local toolTarget = nextState.bagID and nextState.slotIndex
+                    and (tostring(nextState.bagID) .. " " .. tostring(nextState.slotIndex))
+                    or ("item:" .. tostring(nextState.itemID))
                 state.craft.nextButton:SetAttribute("type", "item")
-                state.craft.nextButton:SetAttribute("item", nextState.itemLink or ("item:" .. tostring(nextState.itemID)))
+                state.craft.nextButton:SetAttribute("item", toolTarget)
                 state.armedCraftTool = {
                     professionID = nextState.professionID,
                     role = nextState.role,
                     itemID = nextState.itemID,
                     itemLink = nextState.itemLink,
+                    bagID = nextState.bagID,
+                    slotIndex = nextState.slotIndex,
+                    target = toolTarget,
                 }
                 toolArmed = true
             end
@@ -8297,11 +8929,20 @@ local function UpdateCraftPanel(summary)
                 }
                 shatterArmed = true
             end
+            -- Passee la fenetre d'attente, une consommation restee sans
+            -- confirmation coupe le rearmement au lieu de bruler la suivante.
+            YQQuality.ResolveStalePendingIngenuityPhial()
             if not inCombat and not toolArmed
                 and not shatterArmed
                 and nextState.enabled
-                and (nextState.action == "craft_normal" or nextState.action == "craft")
+                -- craft_salvage doit etre arme comme les autres : sans lui le
+                -- milling affichait "Next: Milling", le clic repondait "Clique
+                -- Next: Phial", et ce libelle ne pouvait jamais apparaitre.
+                and (nextState.action == "craft_normal"
+                    or nextState.action == "craft"
+                    or nextState.action == "craft_salvage")
                 and nextState.entry
+                and not state.ingenuityPhialArmingBlocked
                 and YQQuality.GetConcentrationPhialState(nextState.entry)
                 and not (state.pendingIngenuityPhial and GetTime() < (state.pendingIngenuityPhial.expiresAt or 0))
             then
@@ -12730,7 +13371,9 @@ local function CreateCraftPanel()
     -- SetScript would replace it and leave the phial click inert.
     nextButton:HookScript("PreClick", function()
         local armedPhial = state.armedIngenuityPhial
-        if armedPhial and state.ingenuityBuffActive == true then
+        -- Relecture reelle de l'aura : le cache pouvait dater du dernier refresh
+        -- du panneau et laisser passer un clic alors que le buff est deja pose.
+        if armedPhial and YQQuality.RefreshIngenuityBuffState("pre-click") then
             -- The aura may have appeared after the last panel refresh. Clear
             -- the secure action before it can consume a now-unnecessary phial.
             state.armedIngenuityPhial = nil
@@ -12791,13 +13434,21 @@ local function CreateCraftPanel()
                 role = tool.role,
                 itemID = tool.itemID,
                 itemLink = tool.itemLink,
-                expiresAt = GetTime() + 4.0,
+                bagID = tool.bagID,
+                slotIndex = tool.slotIndex,
+                expiresAt = GetTime() + 6.0,
             }
             state.pendingCraftTool = pending
-            BeginNextActionLock("equip_tool", 0, 4.0)
+            BeginNextActionLock("equip_tool", 0, 6.0)
             state.ah.statusMessage = "Outil en cours d'equipement"
+            DebugPrint(
+                "craft-gear equip armed profession=" .. tostring(tool.professionID)
+                    .. " role=" .. tostring(tool.role)
+                    .. " item=" .. tostring(tool.itemID)
+                    .. " target=" .. tostring(tool.target)
+            )
             C_Timer.After(0.15, ScheduleRefresh)
-            C_Timer.After(4.2, function()
+            C_Timer.After(6.2, function()
                 if state.pendingCraftTool == pending then
                     state.craftGear.ConfirmPendingTool()
                 end
@@ -12810,6 +13461,8 @@ local function CreateCraftPanel()
                 demandItemID = armed.demandItemID,
                 itemID = armed.itemID,
                 expiresAt = GetTime() + 2.0,
+                -- Preuve de consommation quand l'aura n'est pas detectee.
+                beforeCount = YQQuality.GetIngenuityPhialCount(armed.demandItemID, GetImmediateOwnedCount),
             }
             state.armedIngenuityPhial = nil
             state.ah.statusMessage = "Phial en cours de consommation"
@@ -13876,7 +14529,18 @@ handle.SpellcastAborted = function(event, arg1, arg2, arg3)
                 state.autoFavoriteConcentration.tracker.reservationConsumedCrafts = 0
                 state.autoFavoriteConcentration.tracker.batchCraftsRemaining = 0
             end
-            DebugPrint("event=" .. tostring(event) .. " pendingEntries=" .. tostring(#state.pendingCraftEntries) .. " pendingBatches=" .. tostring(#state.pendingCraftBatches))
+            local abortedSpellID = tonumber(arg3)
+            if not state.IsPendingCraftSpell(abortedSpellID) then
+                -- Sort etranger au craft attendu : on ne touche a rien.
+                DebugPrint(
+                    "event=" .. tostring(event) .. " ignored spellID=" .. tostring(abortedSpellID)
+                        .. " name=" .. tostring(state.GetSpellNameForDebug(abortedSpellID))
+                        .. " pendingEntries=" .. tostring(#state.pendingCraftEntries)
+                        .. " pendingBatches=" .. tostring(#state.pendingCraftBatches)
+                )
+                return
+            end
+            DebugPrint("event=" .. tostring(event) .. " spellID=" .. tostring(abortedSpellID) .. " name=" .. tostring(state.GetSpellNameForDebug(abortedSpellID)) .. " pendingEntries=" .. tostring(#state.pendingCraftEntries) .. " pendingBatches=" .. tostring(#state.pendingCraftBatches))
             ClearPendingCraftBatches()
             state.ClearPendingCraftEntries()
             EndCraftClickLock()
