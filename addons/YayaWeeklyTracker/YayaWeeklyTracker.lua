@@ -7170,28 +7170,96 @@ trackerUI.BuildEntries = function(trackedRows)
     return entries
 end
 
-trackerUI.FormatEntry = function(entry)
-    if entry.displayText then
-        return entry.displayText
-    end
-
-    if entry.state == "todo" then
-        return ("%s: |cff7fff7fa faire|r"):format(entry.label)
-    end
-
-    return ("%s: |cffffcc66a debloquer|r"):format(entry.label)
-end
-
 trackerUI.EnsureTrackerLine = function(index)
     if trackerFrame.lines[index] then
         return trackerFrame.lines[index]
     end
 
-    local line = trackerFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    line:SetWidth(178)
-    line:SetJustifyH("LEFT")
-    trackerFrame.lines[index] = line
-    return line
+    -- Une entree etait un simple FontString large de 178 px : ni fond, ni
+    -- survol, ni infobulle, ni garde de debordement, et le libelle colle a son
+    -- statut dans une seule chaine alignee a gauche.
+    local row = YayaCore.UI.CreateRow(trackerFrame, {
+        height = YayaCore.UI.SIZE.rowHCompact,
+        labelFont = YayaCore.UI.FONT.body,
+        valueFont = YayaCore.UI.FONT.body,
+        tooltipAnchor = "ANCHOR_LEFT",
+    })
+    trackerFrame.lines[index] = row
+    return row
+end
+
+--- Peint une entree sur sa ligne : libelle a gauche, statut a droite.
+trackerUI.ApplyEntry = function(row, entry, index)
+    row.Reset()
+    row.SetStripe(index)
+
+    if entry.prominent then
+        YayaCore.UI.SetFont(row.label, YayaCore.UI.FONT.header)
+        row.label:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.category))
+    else
+        YayaCore.UI.SetFont(row.label, YayaCore.UI.FONT.body)
+        row.label:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.text))
+    end
+
+    -- Les entrees a texte compose gardent leur balisage : elles portent deja
+    -- leurs propres couleurs et compteurs.
+    if entry.displayText then
+        row.label:SetText(entry.displayText)
+        row.value:SetText("")
+        return
+    end
+
+    row.label:SetText(entry.label or "")
+    if entry.state == "todo" then
+        row.value:SetText("a faire")
+        row.SetTone("success")
+    else
+        row.value:SetText("a debloquer")
+        row.SetTone("warning")
+    end
+end
+
+-- Les boutons d'action, par champ et par reservoir. Declares en champs de table
+-- plutot qu'en locals : le chunk est a deux variables de la limite des 200 que
+-- Lua 5.1 autorise, et la depasser empeche l'addon entier de charger.
+trackerUI.actionButtonFields = {
+    "payoutButton",
+    "knowledgeButton",
+    "recipeButton",
+    "recipeMarlButton",
+    "treasureButton",
+    "toolEnchantPullButton",
+    "toolEnchantBuyButton",
+    "autoOpenButton",
+}
+
+trackerUI.actionButtonPools = {
+    "surplusReagentButtons",
+    "finishingReagentMergeButtons",
+    "warbankTreatiseButtons",
+    "toolEnchantApplyButtons",
+}
+
+--- Masque tout le contenu de la section, pour le repli.
+trackerUI.HideAllWidgets = function()
+    -- Les boutons sont securises : les masquer en combat est interdit. Les
+    -- lignes ne le sont pas, donc elles disparaissent quand meme.
+    local locked = InCombatLockdown and InCombatLockdown()
+    for _, field in ipairs(locked and {} or trackerUI.actionButtonFields) do
+        local button = trackerFrame[field]
+        if button then
+            button:Hide()
+        end
+    end
+    for _, field in ipairs(locked and {} or trackerUI.actionButtonPools) do
+        for _, button in ipairs(trackerFrame[field] or {}) do
+            button:Hide()
+        end
+    end
+    for _, row in ipairs(trackerFrame.lines or {}) do
+        row.Reset()
+        row:Hide()
+    end
 end
 
 trackerUI.SavePosition = function()
@@ -7385,24 +7453,20 @@ runtimeState.showTrackerDiagnostic = function(message)
     DebugLog("ShowTrackerDiagnostic %s", tostring(message))
     runtimeState.ensureVisibleDefaultPosition()
     trackerFrame:Show()
-    trackerFrame.title:SetText("Hebdo")
-    trackerFrame:SetHeight(38)
-    trackerFrame.bg:SetHeight(38)
+    trackerUI.HideAllWidgets()
 
-    local line = trackerUI.EnsureTrackerLine(1)
-    line:SetFontObject(GameFontHighlightSmall)
-    line:ClearAllPoints()
-    line:SetPoint("TOPLEFT", 6, -20)
-    line:SetText(message or "YWT: erreur")
-    line:Show()
+    -- Le titre vit desormais dans le bandeau de section tenu par YayaFrame :
+    -- la section n'a plus a le redessiner.
+    local row = trackerUI.EnsureTrackerLine(1)
+    YayaCore.UI.SetFont(row.label, YayaCore.UI.FONT.body)
+    row.label:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.danger))
+    row.label:SetText(message or "YWT: erreur")
+    row:ClearAllPoints()
+    row:SetPoint("TOPLEFT", trackerFrame, "TOPLEFT", 0, 0)
+    row:SetPoint("TOPRIGHT", trackerFrame, "TOPRIGHT", 0, 0)
+    row:Show()
 
-    for index = 2, #trackerFrame.lines do
-        local extraLine = trackerFrame.lines[index]
-        if extraLine then
-            extraLine:SetText("")
-            extraLine:Hide()
-        end
-    end
+    trackerFrame:SetHeight(YayaCore.UI.SIZE.rowHCompact + YayaCore.UI.PAD.xs)
     if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
         YayaFrameAPI:Refresh()
     end
@@ -7505,235 +7569,92 @@ UpdateTracker = function()
         DebugLog("UpdateTracker show frame with %d entries", #entries)
         trackerFrame:Show()
 
-        local offsetY = 20
-        local lineCount = math.max(#entries, #trackerFrame.lines)
-        for index = 1, lineCount do
-            local line = trackerUI.EnsureTrackerLine(index)
+        if trackerUI.collapsed then
+            trackerUI.HideAllWidgets()
+            trackerFrame:SetHeight(1)
+            if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
+                YayaFrameAPI:Refresh()
+            end
+            DebugLog("UpdateTracker collapsed")
+            return
+        end
+
+        -- Les widgets visibles sont collectes dans l'ordre d'affichage, puis
+        -- empiles en une passe. Chaque bouton devait auparavant connaitre tous
+        -- ses predecesseurs possibles : deux cents lignes de if/elseif ou
+        -- l'ajout d'un bouton obligeait a reprendre tous les suivants.
+        local stack = YayaCore.UI.StackLayout(trackerFrame)
+
+        for index = 1, math.max(#entries, #trackerFrame.lines) do
+            local row = trackerUI.EnsureTrackerLine(index)
             local entry = entries[index]
             if entry then
-                line:SetFontObject(entry.prominent and GameFontHighlight or GameFontHighlightSmall)
-                line:ClearAllPoints()
-                line:SetPoint("TOPLEFT", 6, -offsetY)
-                line:SetText(trackerUI.FormatEntry(entry))
-                line:Show()
-                local minimumLineHeight = entry.prominent and 18 or 14
-                local renderedLineHeight = line.GetStringHeight and line:GetStringHeight() or minimumLineHeight
-                offsetY = offsetY + math.max(minimumLineHeight, math.ceil(renderedLineHeight) + 2)
+                local rowHeight = YayaCore.UI.SIZE.rowHCompact
+                if entry.prominent then
+                    rowHeight = rowHeight + YayaCore.UI.PAD.sm
+                end
+                trackerUI.ApplyEntry(row, entry, index)
+                row:SetHeight(rowHeight)
+                row:Show()
+                stack.Add(row, 0, { height = rowHeight })
             else
-                line:SetText("")
-                line:Hide()
+                row.Reset()
+                row:Hide()
             end
         end
 
-        if hasPayoutButton then
-            trackerFrame.payoutButton:ClearAllPoints()
-            trackerFrame.payoutButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
-            offsetY = offsetY + 24
-        end
-
-        if hasKnowledgeButton then
-            trackerFrame.knowledgeButton:ClearAllPoints()
-            if hasPayoutButton then
-                trackerFrame.knowledgeButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
-            else
-                trackerFrame.knowledgeButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
+        local actions = {}
+        local function AddAction(button)
+            if button then
+                actions[#actions + 1] = button
             end
-            offsetY = offsetY + 24
         end
 
-        if hasRecipeButton then
-            trackerFrame.recipeButton:ClearAllPoints()
-            if hasKnowledgeButton then
-                trackerFrame.recipeButton:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
-            elseif hasPayoutButton then
-                trackerFrame.recipeButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
-            else
-                trackerFrame.recipeButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
-            end
-            offsetY = offsetY + 24
-        end
-
-        if hasRecipeMarlButton then
-            trackerFrame.recipeMarlButton:ClearAllPoints()
-            if hasRecipeButton then
-                trackerFrame.recipeMarlButton:SetPoint("TOPLEFT", trackerFrame.recipeButton, "BOTTOMLEFT", 0, -4)
-            elseif hasKnowledgeButton then
-                trackerFrame.recipeMarlButton:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
-            elseif hasPayoutButton then
-                trackerFrame.recipeMarlButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
-            else
-                trackerFrame.recipeMarlButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
-            end
-            offsetY = offsetY + 24
-        end
-
-        local lastSurplusButton
+        AddAction(hasPayoutButton and trackerFrame.payoutButton)
+        AddAction(hasKnowledgeButton and trackerFrame.knowledgeButton)
+        AddAction(hasRecipeButton and trackerFrame.recipeButton)
+        AddAction(hasRecipeMarlButton and trackerFrame.recipeMarlButton)
         for index = 1, surplusButtonCount do
-            local button = trackerFrame.surplusReagentButtons[index]
-            button:ClearAllPoints()
-            if lastSurplusButton then
-                button:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
-            elseif hasRecipeMarlButton then
-                button:SetPoint("TOPLEFT", trackerFrame.recipeMarlButton, "BOTTOMLEFT", 0, -4)
-            elseif hasRecipeButton then
-                button:SetPoint("TOPLEFT", trackerFrame.recipeButton, "BOTTOMLEFT", 0, -4)
-            elseif hasKnowledgeButton then
-                button:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
-            elseif hasPayoutButton then
-                button:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
-            else
-                button:SetPoint("TOPLEFT", 6, -(offsetY + 2))
-            end
-            lastSurplusButton = button
-            offsetY = offsetY + 24
+            AddAction(trackerFrame.surplusReagentButtons[index])
         end
-
-        local lastFinishingReagentMergeButton
         for index = 1, finishingReagentMergeButtonCount do
-            local button = trackerFrame.finishingReagentMergeButtons[index]
-            button:ClearAllPoints()
-            if lastFinishingReagentMergeButton then
-                button:SetPoint("TOPLEFT", lastFinishingReagentMergeButton, "BOTTOMLEFT", 0, -4)
-            elseif lastSurplusButton then
-                button:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
-            elseif hasRecipeMarlButton then
-                button:SetPoint("TOPLEFT", trackerFrame.recipeMarlButton, "BOTTOMLEFT", 0, -4)
-            elseif hasRecipeButton then
-                button:SetPoint("TOPLEFT", trackerFrame.recipeButton, "BOTTOMLEFT", 0, -4)
-            elseif hasKnowledgeButton then
-                button:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
-            elseif hasPayoutButton then
-                button:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
-            else
-                button:SetPoint("TOPLEFT", 6, -(offsetY + 2))
-            end
-            lastFinishingReagentMergeButton = button
-            offsetY = offsetY + 24
+            AddAction(trackerFrame.finishingReagentMergeButtons[index])
         end
-
-        local lastWarbankTreatiseButton
         for index = 1, warbankTreatiseButtonCount do
-            local button = trackerFrame.warbankTreatiseButtons[index]
-            button:ClearAllPoints()
-            if lastWarbankTreatiseButton then
-                button:SetPoint("TOPLEFT", lastWarbankTreatiseButton, "BOTTOMLEFT", 0, -4)
-            elseif lastFinishingReagentMergeButton then
-                button:SetPoint("TOPLEFT", lastFinishingReagentMergeButton, "BOTTOMLEFT", 0, -4)
-            elseif lastSurplusButton then
-                button:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
-            elseif hasRecipeMarlButton then
-                button:SetPoint("TOPLEFT", trackerFrame.recipeMarlButton, "BOTTOMLEFT", 0, -4)
-            elseif hasRecipeButton then
-                button:SetPoint("TOPLEFT", trackerFrame.recipeButton, "BOTTOMLEFT", 0, -4)
-            elseif hasKnowledgeButton then
-                button:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
-            elseif hasPayoutButton then
-                button:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
-            else
-                button:SetPoint("TOPLEFT", 6, -(offsetY + 2))
-            end
-            lastWarbankTreatiseButton = button
-            offsetY = offsetY + 24
+            AddAction(trackerFrame.warbankTreatiseButtons[index])
         end
-
-        if hasTreasureButton then
-            trackerFrame.treasureButton:ClearAllPoints()
-            if lastWarbankTreatiseButton then
-                trackerFrame.treasureButton:SetPoint("TOPLEFT", lastWarbankTreatiseButton, "BOTTOMLEFT", 0, -4)
-            elseif lastFinishingReagentMergeButton then
-                trackerFrame.treasureButton:SetPoint("TOPLEFT", lastFinishingReagentMergeButton, "BOTTOMLEFT", 0, -4)
-            elseif lastSurplusButton then
-                trackerFrame.treasureButton:SetPoint("TOPLEFT", lastSurplusButton, "BOTTOMLEFT", 0, -4)
-            elseif hasRecipeMarlButton then
-                trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.recipeMarlButton, "BOTTOMLEFT", 0, -4)
-            elseif hasRecipeButton then
-                trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.recipeButton, "BOTTOMLEFT", 0, -4)
-            elseif hasKnowledgeButton then
-                trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.knowledgeButton, "BOTTOMLEFT", 0, -4)
-            elseif hasPayoutButton then
-                trackerFrame.treasureButton:SetPoint("TOPLEFT", trackerFrame.payoutButton, "BOTTOMLEFT", 0, -4)
-            else
-                trackerFrame.treasureButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
-            end
-            offsetY = offsetY + 24
-        end
-
-        local lastActionButton
-        if hasTreasureButton then
-            lastActionButton = trackerFrame.treasureButton
-        elseif lastWarbankTreatiseButton then
-            lastActionButton = lastWarbankTreatiseButton
-        elseif lastFinishingReagentMergeButton then
-            lastActionButton = lastFinishingReagentMergeButton
-        elseif lastSurplusButton then
-            lastActionButton = lastSurplusButton
-        elseif hasRecipeMarlButton then
-            lastActionButton = trackerFrame.recipeMarlButton
-        elseif hasRecipeButton then
-            lastActionButton = trackerFrame.recipeButton
-        elseif hasKnowledgeButton then
-            lastActionButton = trackerFrame.knowledgeButton
-        elseif hasPayoutButton then
-            lastActionButton = trackerFrame.payoutButton
-        end
-
-        if hasToolEnchantPullButton then
-            trackerFrame.toolEnchantPullButton:ClearAllPoints()
-            if lastActionButton then
-                trackerFrame.toolEnchantPullButton:SetPoint("TOPLEFT", lastActionButton, "BOTTOMLEFT", 0, -4)
-            else
-                trackerFrame.toolEnchantPullButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
-            end
-            lastActionButton = trackerFrame.toolEnchantPullButton
-            offsetY = offsetY + 24
-        end
-
-        if hasToolEnchantBuyButton then
-            trackerFrame.toolEnchantBuyButton:ClearAllPoints()
-            if lastActionButton then
-                trackerFrame.toolEnchantBuyButton:SetPoint("TOPLEFT", lastActionButton, "BOTTOMLEFT", 0, -4)
-            else
-                trackerFrame.toolEnchantBuyButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
-            end
-            lastActionButton = trackerFrame.toolEnchantBuyButton
-            offsetY = offsetY + 24
-        end
-
-        local lastToolEnchantApplyButton
+        AddAction(hasTreasureButton and trackerFrame.treasureButton)
+        AddAction(hasToolEnchantPullButton and trackerFrame.toolEnchantPullButton)
+        AddAction(hasToolEnchantBuyButton and trackerFrame.toolEnchantBuyButton)
         for index = 1, toolEnchantApplyButtonCount do
-            local button = trackerFrame.toolEnchantApplyButtons[index]
-            button:ClearAllPoints()
-            if lastToolEnchantApplyButton then
-                button:SetPoint("TOPLEFT", lastToolEnchantApplyButton, "BOTTOMLEFT", 0, -4)
-            elseif lastActionButton then
-                button:SetPoint("TOPLEFT", lastActionButton, "BOTTOMLEFT", 0, -4)
-            else
-                button:SetPoint("TOPLEFT", 6, -(offsetY + 2))
-            end
-            lastToolEnchantApplyButton = button
-            offsetY = offsetY + 24
+            AddAction(trackerFrame.toolEnchantApplyButtons[index])
+        end
+        AddAction(hasAutoOpenButton and autoOpenButton)
+
+        -- CRITIQUE AUTOCLICKER. La pile est packee depuis le bas, a pas
+        -- constant : la frame est ancree BOTTOMLEFT et grandit vers le haut,
+        -- donc le dernier bouton reste toujours a UI.ACTION.bottomMargin du bord
+        -- inferieur. Un bouton qui disparait laisse sa place au suivant, au meme
+        -- pixel, la ou pointe l'autoclicker. UI.ACTION est partage avec le
+        -- panneau de YayaQueue pour que les deux frames alignent leurs slots.
+        for index, button in ipairs(actions) do
+            button:SetHeight(YayaCore.UI.ACTION.height)
+            stack.Add(
+                button,
+                index == 1 and YayaCore.UI.PAD.xs or YayaCore.UI.ACTION.gap,
+                { height = YayaCore.UI.ACTION.height }
+            )
         end
 
-        if hasAutoOpenButton then
-            autoOpenButton:ClearAllPoints()
-            if lastToolEnchantApplyButton then
-                autoOpenButton:SetPoint("TOPLEFT", lastToolEnchantApplyButton, "BOTTOMLEFT", 0, -4)
-            elseif lastActionButton then
-                autoOpenButton:SetPoint("TOPLEFT", lastActionButton, "BOTTOMLEFT", 0, -4)
-            else
-                autoOpenButton:SetPoint("TOPLEFT", 6, -(offsetY + 2))
-            end
+        if hasAutoOpenButton and autoOpenButton
+            and not (InCombatLockdown and InCombatLockdown()) then
             -- Ancre pose, on peut afficher : le bouton n'apparait jamais sans
             -- position. Le state driver [combat] hide reste maitre en combat.
-            if not (InCombatLockdown and InCombatLockdown()) then
-                autoOpenButton:Show()
-            end
-            offsetY = offsetY + 24
+            autoOpenButton:Show()
         end
 
-        local height = offsetY + 4
+        local height = stack.Finish(YayaCore.UI.ACTION.bottomMargin)
         trackerFrame:SetHeight(height)
-        trackerFrame.bg:SetHeight(height)
         if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
             YayaFrameAPI:Refresh()
         end
@@ -7754,7 +7675,10 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame = CreateFrame("Frame", addonName .. "Frame", YayaFrameAPI:GetFrame())
     DebugLog("CreateTrackerFrame %s", tostring(addonName .. "Frame"))
     trackerFrame:SetFrameStrata("MEDIUM")
-    trackerFrame:SetSize(190, 24)
+    -- Pas de largeur imposee : YayaFrame etire chaque section entre ses
+    -- gouttieres. Le contenu tenait dans 184 px a gauche d'un conteneur de
+    -- 200, donc la marge droite valait 16 px et la gauche 6.
+    trackerFrame:SetSize(1, 1)
     trackerFrame:SetClampedToScreen(true)
 
     trackerFrame.containerActionVisibilityFrame = CreateFrame(
@@ -7767,18 +7691,12 @@ trackerUI.CreateTrackerFrame = function()
         RegisterStateDriver(trackerFrame.containerActionVisibilityFrame, "visibility", "[combat] hide; show")
     end
 
-    trackerFrame.bg = trackerFrame:CreateTexture(nil, "BACKGROUND")
-    trackerFrame.bg:SetPoint("TOPLEFT")
-    trackerFrame.bg:SetPoint("TOPRIGHT")
-    trackerFrame.bg:SetHeight(24)
-    trackerFrame.bg:SetColorTexture(0, 0, 0, 0.55)
-
-    trackerFrame.title = trackerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    trackerFrame.title:SetPoint("TOPLEFT", 6, -5)
-    trackerFrame.title:SetText("Hebdo")
+    -- Ni fond ni titre ici : le conteneur porte le fond, et le bandeau de
+    -- section porte le titre. La section repeignait le meme noir a 55 % que
+    -- YayaFrame, ce qui portait l'opacite reelle a environ 80 %.
 
     trackerFrame.knowledgeButton = CreateFrame("Button", addonName .. "KnowledgeButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
-    trackerFrame.knowledgeButton:SetSize(178, 20)
+    trackerFrame.knowledgeButton:SetSize(178, YayaCore.UI.ACTION.height)
     trackerFrame.knowledgeButton:RegisterForClicks("AnyUp")
     trackerFrame.knowledgeButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.knowledgeButton:SetText("Utiliser KP")
@@ -7817,7 +7735,7 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.knowledgeButton:SetScript("OnLeave", GameTooltip_Hide)
 
     trackerFrame.recipeButton = CreateFrame("Button", addonName .. "RecipeButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
-    trackerFrame.recipeButton:SetSize(178, 20)
+    trackerFrame.recipeButton:SetSize(178, YayaCore.UI.ACTION.height)
     trackerFrame.recipeButton:RegisterForClicks("AnyUp")
     trackerFrame.recipeButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.recipeButton:SetText("Utiliser recette")
@@ -7841,7 +7759,7 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.recipeButton:SetScript("OnLeave", GameTooltip_Hide)
 
     trackerFrame.recipeMarlButton = CreateFrame("Button", addonName .. "RecipeMarlButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
-    trackerFrame.recipeMarlButton:SetSize(178, 20)
+    trackerFrame.recipeMarlButton:SetSize(178, YayaCore.UI.ACTION.height)
     trackerFrame.recipeMarlButton:RegisterForClicks("AnyUp")
     trackerFrame.recipeMarlButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.recipeMarlButton:SetText("Ouvrir interface marls")
@@ -7962,7 +7880,7 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.recipeMarlButton:SetScript("OnLeave", GameTooltip_Hide)
 
     trackerFrame.payoutButton = CreateFrame("Button", addonName .. "PayoutButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
-    trackerFrame.payoutButton:SetSize(178, 20)
+    trackerFrame.payoutButton:SetSize(178, YayaCore.UI.ACTION.height)
     trackerFrame.payoutButton:RegisterForClicks("AnyUp")
     trackerFrame.payoutButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.payoutButton:SetText("Ouvrir payout")
@@ -8001,7 +7919,7 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.payoutButton:SetScript("OnLeave", GameTooltip_Hide)
 
     trackerFrame.autoOpenButton = CreateFrame("Button", addonName .. "AutoOpenButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
-    trackerFrame.autoOpenButton:SetSize(178, 20)
+    trackerFrame.autoOpenButton:SetSize(178, YayaCore.UI.ACTION.height)
     trackerFrame.autoOpenButton:RegisterForClicks("AnyUp")
     trackerFrame.autoOpenButton:SetAttribute("useOnKeyDown", false)
     trackerFrame.autoOpenButton:SetText("Ouvrir conteneur")
@@ -8022,7 +7940,7 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.surplusReagentButtons = {}
     for index = 1, 11 do
         local button = CreateFrame("Button", addonName .. "SurplusReagentButton" .. index, trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
-        button:SetSize(178, 20)
+        button:SetSize(178, YayaCore.UI.ACTION.height)
         button:RegisterForClicks("AnyUp")
         button:SetAttribute("useOnKeyDown", false)
         button:SetText("Ouvrir surplus")
@@ -8052,7 +7970,7 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.finishingReagentMergeButtons = {}
     for index = 1, 3 do
         local button = CreateFrame("Button", addonName .. "FinishingReagentMergeButton" .. index, trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
-        button:SetSize(178, 20)
+        button:SetSize(178, YayaCore.UI.ACTION.height)
         button:RegisterForClicks("AnyUp", "AnyDown")
         button:SetAttribute("useOnKeyDown", false)
         button:SetText("Fusionner")
@@ -8083,7 +8001,7 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.warbankTreatiseButtons = {}
     for index = 1, 11 do
         local button = CreateFrame("Button", addonName .. "WarbankTreatiseButton" .. index, trackerFrame, "UIPanelButtonTemplate")
-        button:SetSize(178, 20)
+        button:SetSize(178, YayaCore.UI.ACTION.height)
         button:RegisterForClicks("AnyUp")
         button:SetText("Récupérer traité")
         button:Hide()
@@ -8107,7 +8025,7 @@ trackerUI.CreateTrackerFrame = function()
     end
 
     trackerFrame.treasureButton = CreateFrame("Button", addonName .. "TreasureButton", trackerFrame, "UIPanelButtonTemplate")
-    trackerFrame.treasureButton:SetSize(178, 20)
+    trackerFrame.treasureButton:SetSize(178, YayaCore.UI.ACTION.height)
     trackerFrame.treasureButton:RegisterForClicks("AnyUp")
     trackerFrame.treasureButton:SetText("TomTom tresors")
     trackerFrame.treasureButton:Hide()
@@ -8126,7 +8044,7 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.treasureButton:SetScript("OnLeave", GameTooltip_Hide)
 
     trackerFrame.toolEnchantPullButton = CreateFrame("Button", addonName .. "ToolEnchantPullButton", trackerFrame, "UIPanelButtonTemplate")
-    trackerFrame.toolEnchantPullButton:SetSize(178, 20)
+    trackerFrame.toolEnchantPullButton:SetSize(178, YayaCore.UI.ACTION.height)
     trackerFrame.toolEnchantPullButton:RegisterForClicks("AnyUp", "AnyDown")
     trackerFrame.toolEnchantPullButton:SetText("Pull enchants Warbank")
     trackerFrame.toolEnchantPullButton:Hide()
@@ -8151,7 +8069,7 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.toolEnchantPullButton:SetScript("OnLeave", GameTooltip_Hide)
 
     trackerFrame.toolEnchantBuyButton = CreateFrame("Button", addonName .. "ToolEnchantBuyButton", trackerFrame, "UIPanelButtonTemplate")
-    trackerFrame.toolEnchantBuyButton:SetSize(178, 20)
+    trackerFrame.toolEnchantBuyButton:SetSize(178, YayaCore.UI.ACTION.height)
     trackerFrame.toolEnchantBuyButton:RegisterForClicks("AnyUp", "AnyDown")
     trackerFrame.toolEnchantBuyButton:SetText("Acheter enchants YQ")
     trackerFrame.toolEnchantBuyButton:Hide()
@@ -8178,7 +8096,7 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.toolEnchantApplyButtons = {}
     for index = 1, 11 do
         local button = CreateFrame("Button", addonName .. "ToolEnchantApplyButton" .. index, trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
-        button:SetSize(178, 20)
+        button:SetSize(178, YayaCore.UI.ACTION.height)
         button:RegisterForClicks("AnyUp")
         button:SetAttribute("useOnKeyDown", false)
         button:SetText("Appliquer enchantement")
@@ -8215,6 +8133,13 @@ trackerUI.CreateTrackerFrame = function()
     end
 
     YayaFrameAPI:AttachSection(addonName, trackerFrame, 20)
+    YayaFrameAPI:SetSectionTitle(addonName, "Hebdo")
+    YayaFrameAPI:SetSectionCollapseHandler(addonName, function(collapsed)
+        trackerUI.collapsed = collapsed
+        UpdateTracker()
+    end)
+    trackerUI.collapsed = YayaFrameAPI:IsSectionCollapsed(addonName) == true
+
     trackerUI.ApplyCombatVisibility()
     DebugLog("CreateTrackerFrame done")
 end

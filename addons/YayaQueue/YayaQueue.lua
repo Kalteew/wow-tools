@@ -5,11 +5,16 @@ local db
 
 local CONFIG = {
     MAX_QUEUE_QTY = 9999,
-    MAX_CRAFT_LINES = 4,
-    MAX_AH_LINES = 10,
-    CRAFT_PANEL_EXPANDED_HEIGHT = 260,
-    CRAFT_PANEL_COLLAPSED_HEIGHT = 88,
-    CRAFT_PANEL_LINE_HEIGHT = 16,
+    -- La liste des taches est scrollable : le nombre de lignes visibles est un
+    -- reglage de l'utilisateur, plus un plafond code en dur. Le panneau
+    -- n'affichait que trois taches detaillees, la quatrieme ligne etant
+    -- confisquee par un resume "+N autres", et sa hauteur ne dependait pas du
+    -- nombre de taches.
+    CRAFT_PANEL_WIDTH = 274,
+    CRAFT_NEXT_WIDTH = 120,
+    CRAFT_ROWS_DEFAULT = 8,
+    CRAFT_ROWS_MIN = 2,
+    CRAFT_ROWS_MAX = 24,
     FIRST_CRAFT_COST_LIMIT = 1000 * 10000,
     FIRST_CRAFT_EXCLUDED_ITEM_IDS = {
         [190456] = true, -- Artisan's Mettle
@@ -3158,22 +3163,6 @@ local function SetPanelHeightKeepingBottomLeft(frame, height)
     )
 end
 
-local function ResolveCraftAnchor()
-    local candidates = {
-        ProfessionsFrame and ProfessionsFrame.CraftingPage and ProfessionsFrame.CraftingPage.SchematicForm,
-        ProfessionsFrame and ProfessionsFrame.CraftingPage,
-        ProfessionsFrame,
-    }
-
-    for _, candidate in ipairs(candidates) do
-        if candidate then
-            return candidate
-        end
-    end
-
-    return nil
-end
-
 local function GetCraftingSchematicForm()
     return ProfessionsFrame and ProfessionsFrame.CraftingPage and ProfessionsFrame.CraftingPage.SchematicForm
 end
@@ -4538,39 +4527,147 @@ local function BuildQueueSummary()
     return summary
 end
 
-local function BuildCraftLines(summary)
-    local lines = {}
+-- Helpers du panneau de file. Regroupes dans une table plutot qu'en locals de
+-- chunk : YayaQueue.lua est a quelques variables de la limite des 200 que Lua
+-- 5.1 autorise, et la depasser empeche l'addon entier de charger.
+local craftUI = {}
+
+-- Teinte du badge de type, en tete de chaque ligne de la file.
+local CRAFT_KIND_TONE = {
+    mailbox = "warning",
+    acquire = "category",
+    hv = "accent",
+    vendor = "success",
+    craft = "text",
+    recycle = "muted",
+    merge = "muted",
+    milling = "muted",
+}
+
+--- Decrit la file sous forme de taches structurees.
+--
+-- Renvoyait des chaines plates : ni itemID, ni icone, ni infobulle, ni action
+-- par ligne n'etaient possibles. Chaque tache porte desormais son objet, ce qui
+-- permet de rendre une vraie ligne cliquable.
+local function BuildCraftTasks(summary)
+    local tasks = {}
+
+    local function Add(kind, badge, count, task)
+        tasks[#tasks + 1] = {
+            index = #tasks + 1,
+            kind = kind,
+            badge = badge,
+            count = math.max(0, tonumber(count) or 0),
+            name = task.name,
+            itemID = tonumber(task.itemID),
+            quality = YQQuality.GetTaskQualityText(task),
+        }
+    end
 
     for _, task in ipairs(summary.mailboxTasks) do
-        table.insert(lines, "Mailbox " .. task.missing .. "x " .. task.name .. YQQuality.GetTaskQualityText(task))
+        Add("mailbox", "Mailbox", task.missing, task)
     end
     for _, task in ipairs(summary.acquireTasks) do
-        table.insert(lines, "Acquérir " .. task.missing .. "x " .. task.name .. YQQuality.GetTaskQualityText(task))
+        Add("acquire", "Acquérir", task.missing, task)
     end
     for _, task in ipairs(summary.auctionTasks) do
-        table.insert(lines, "HV " .. task.missing .. "x " .. task.name .. YQQuality.GetTaskQualityText(task))
+        Add("hv", "HV", task.missing, task)
     end
     for _, task in ipairs(summary.vendorTasks) do
-        table.insert(lines, "Marchand " .. task.missing .. "x " .. task.name .. YQQuality.GetTaskQualityText(task))
+        Add("vendor", "Marchand", task.missing, task)
     end
     for _, task in ipairs(summary.craftTasks) do
-        local qualityText = YQQuality.GetTaskQualityText(task)
+        local kind, badge = "craft", "Craft"
         if task.queueKind == "recycle" then
-            table.insert(lines, "Recycle " .. task.remainingCount .. "x " .. task.name .. qualityText)
+            kind, badge = "recycle", "Recycle"
         elseif task.queueKind == "merge" then
-            table.insert(lines, "Fusion " .. task.remainingCount .. "x " .. task.name .. qualityText)
+            kind, badge = "merge", "Fusion"
         elseif task.isSalvageRecipe and IsMidnightMillingRecipe(task.recipeID) then
-            table.insert(lines, "Milling " .. task.remainingCount .. "x " .. task.name .. qualityText)
-        else
-            table.insert(lines, "Craft " .. task.remainingCount .. "x " .. task.name .. qualityText)
+            kind, badge = "milling", "Milling"
         end
+        Add(kind, badge, task.remainingCount, task)
     end
 
-    if #lines == 0 then
-        lines[1] = "Queue vide"
-    end
+    return tasks
+end
 
-    return lines
+--- Libelle affiche d'une tache : badge colore, nom, qualite.
+local function FormatCraftTask(task)
+    return ("%s %s%s"):format(
+        YayaCore.UI.Colorize(CRAFT_KIND_TONE[task.kind] or "text", task.badge),
+        task.name or "?",
+        task.quality or ""
+    )
+end
+
+--- Nombre de lignes visibles dans la liste, borne et persiste.
+function craftUI.GetVisibleRows()
+    local rows = tonumber(db and db.craftVisibleRows) or CONFIG.CRAFT_ROWS_DEFAULT
+    return math.max(CONFIG.CRAFT_ROWS_MIN, math.min(CONFIG.CRAFT_ROWS_MAX, math.floor(rows)))
+end
+
+--- Hauteur du panneau hors liste : en-tete, ligne de contexte, bande d'action.
+--
+-- Les offsets du bas etaient codes en dur -- le bloc marchand a 108 et 84 px du
+-- bord inferieur -- et n'etaient jamais recalcules quand il etait masque, ce qui
+-- laissait une centaine de pixels vides en permanence.
+function craftUI.GetChromeHeight(hasVendor)
+    local UI = YayaCore.UI
+    local height = UI.SIZE.headerH
+        + UI.SIZE.rowHCompact
+        + UI.PAD.sm * 2
+        + UI.ACTION.height
+        + UI.ACTION.bottomMargin
+    if hasVendor then
+        height = height + UI.ACTION.height + UI.ACTION.gap
+    end
+    return height
+end
+
+--- Lie une tache a sa ligne recyclee par le ScrollBox.
+function craftUI.InitRow(row, task)
+    local UI = YayaCore.UI
+    UI.DecorateRow(row, {
+        height = UI.SIZE.rowH,
+        icon = true,
+        valueWidth = 40,
+        leftInset = UI.PAD.sm,
+        rightInset = UI.PAD.sm,
+        tooltipAnchor = "ANCHOR_RIGHT",
+    })
+
+    row.Reset()
+    row.SetStripe(task.index or 1)
+    row.label:SetText(FormatCraftTask(task))
+    row.value:SetText("x" .. tostring(task.count))
+    row.SetTone("textMuted")
+
+    if task.itemID then
+        -- Le nom peut arriver apres coup : le libelle est recompose a l'arrivee,
+        -- et le jeton de generation protege contre le recyclage entre-temps.
+        row.SetItemTarget(task.itemID, nil, function(name)
+            task.name = name
+            row.label:SetText(FormatCraftTask(task))
+        end)
+    else
+        row.SetTooltip(task.badge, task.name)
+    end
+end
+
+--- Enregistre le nombre de lignes deduit de la hauteur apres redimensionnement.
+function craftUI.CommitResize(panel)
+    if not db then
+        return
+    end
+    local vendorButton = state.craft.vendorButton
+    local available = panel:GetHeight()
+        - craftUI.GetChromeHeight(vendorButton and vendorButton:IsShown())
+    local rows = math.floor((available / YayaCore.UI.SIZE.rowH) + 0.5)
+    db.craftVisibleRows = math.max(
+        CONFIG.CRAFT_ROWS_MIN,
+        math.min(CONFIG.CRAFT_ROWS_MAX, rows)
+    )
+    SavePanelPoint(panel)
 end
 
 function YQQuality.DebugCraftState(stage, recipeID, details)
@@ -5802,17 +5899,6 @@ local function GetNextPurchasableTask(summary)
     return nil, nil
 end
 
-local function SetLineText(lines, maxLines, values)
-    local extra = #values - maxLines
-    for index = 1, maxLines do
-        local value = values[index]
-        if index == maxLines and extra > 0 then
-            value = "+" .. extra .. " autres"
-        end
-        lines[index]:SetText(value or "")
-    end
-    return math.min(#values, maxLines)
-end
 
 local function BuyMerchantQuantity(index, quantity)
     local maxStack = math.max(1, GetMerchantItemMaxStackCompat(index) or quantity or 1)
@@ -8179,40 +8265,32 @@ YQQuality.ScheduleAutoQueueFirstCrafts = function(delay)
 end
 
 local function UpdateVendorButtons(summary)
-    if not state.craft.panel then
+    local button = state.craft.vendorButton
+    if not button then
         return
     end
-
-    for _, button in ipairs(state.craft.vendorButtons or {}) do
-        button:Hide()
-    end
-    if state.craft.vendorTitle then
-        state.craft.vendorTitle:Hide()
-    end
+    button:Hide()
+    button.tasks = nil
 
     if not MerchantFrame or not MerchantFrame:IsShown() then
         return
     end
 
     local tasks = GetCurrentMerchantTasks(summary)
-
-    local button = state.craft.vendorButtons[1]
-    if button and #tasks > 0 then
-        button.tasks = tasks
-        if #tasks == 1 then
-            button:SetText(
-                "Acheter " .. tasks[1].missing .. "x " .. tasks[1].name
-                    .. YQQuality.GetTaskQualityText(tasks[1])
-            )
-        else
-            button:SetText("Tout acheter (" .. #tasks .. " composants)")
-        end
-        button:Show()
+    if #tasks == 0 then
+        return
     end
 
-    if #tasks > 0 and state.craft.vendorTitle then
-        state.craft.vendorTitle:Show()
+    button.tasks = tasks
+    if #tasks == 1 then
+        button:SetText(
+            "Acheter " .. tasks[1].missing .. "x " .. tasks[1].name
+                .. YQQuality.GetTaskQualityText(tasks[1])
+        )
+    else
+        button:SetText("Tout acheter (" .. #tasks .. " composants)")
     end
+    button:Show()
 end
 
 local function SummaryHasTasks(summary)
@@ -8228,36 +8306,45 @@ local function UpdateCraftPanel(summary)
         return
     end
 
+    local UI = YayaCore.UI
     local hasTasks = SummaryHasTasks(summary)
     local context = GetCurrentRecipeContext()
-    if context then
-        state.craft.selectedText:SetText(context.recipeName)
-    else
-        state.craft.selectedText:SetText("")
-    end
+    local tasks = BuildCraftTasks(summary)
 
-    if state.craft.todoTitle then
-        state.craft.todoTitle:SetShown(hasTasks)
-    end
-    for _, line in ipairs(state.craft.lines) do
-        line:SetShown(hasTasks)
-    end
-
-    local displayedLineCount = SetLineText(
-        state.craft.lines,
-        CONFIG.MAX_CRAFT_LINES,
-        BuildCraftLines(summary)
-    )
-    if hasTasks then
-        local unusedLineCount = math.max(0, CONFIG.MAX_CRAFT_LINES - displayedLineCount)
-        SetPanelHeightKeepingBottomLeft(
-            state.craft.panel,
-            CONFIG.CRAFT_PANEL_EXPANDED_HEIGHT - unusedLineCount * CONFIG.CRAFT_PANEL_LINE_HEIGHT
-        )
-    else
-        SetPanelHeightKeepingBottomLeft(state.craft.panel, CONFIG.CRAFT_PANEL_COLLAPSED_HEIGHT)
-    end
+    -- Le bloc marchand doit etre resolu avant la hauteur : il occupe un slot en
+    -- flux au-dessus de la bande d'action.
     UpdateVendorButtons(summary)
+    local hasVendor = state.craft.vendorButton and state.craft.vendorButton:IsShown()
+
+    local bottomAnchor = hasVendor and state.craft.vendorButton or state.craft.actionAnchor
+    state.craft.listHost:ClearAllPoints()
+    state.craft.listHost:SetPoint("TOPLEFT", state.craft.caption, "BOTTOMLEFT", 0, -UI.PAD.sm)
+    state.craft.listHost:SetPoint("TOPRIGHT", state.craft.caption, "BOTTOMRIGHT", 0, -UI.PAD.sm)
+    state.craft.listHost:SetPoint("BOTTOM", bottomAnchor, "TOP", 0, UI.PAD.sm)
+    state.craft.listHost:SetShown(hasTasks)
+
+    if state.craft.list then
+        state.craft.list.SetItems(tasks)
+    end
+
+    local caption = context and context.recipeName or ""
+    if #tasks > 0 then
+        local suffix = UI.Colorize("muted", ("%d tache%s"):format(#tasks, #tasks > 1 and "s" or ""))
+        caption = caption ~= "" and (caption .. "  " .. suffix) or suffix
+    elseif caption == "" then
+        caption = UI.Colorize("muted", "Queue vide")
+    end
+    state.craft.caption:SetText(caption)
+
+    -- La hauteur suit le nombre de taches, plafonne au nombre de lignes
+    -- visibles choisi par l'utilisateur : au-dela, la liste scrolle. Elle etait
+    -- plafonnee a 260 px et ne pouvait que retrecir, donc cent taches donnaient
+    -- le meme panneau que quatre.
+    local height = craftUI.GetChromeHeight(hasVendor)
+    if hasTasks then
+        height = height + UI.SIZE.rowH * math.min(craftUI.GetVisibleRows(), math.max(1, #tasks))
+    end
+    SetPanelHeightKeepingBottomLeft(state.craft.panel, height)
 
     local nextState = GetPatronNextButtonState()
     if state.craft.nextButton then
@@ -8544,36 +8631,75 @@ local function CaptureSearchCache(itemID)
     state.searchCache[itemID] = cache
 end
 
-local function UpdateAuctionLines(summary)
-    local lines = {}
+--- Decrit les achats HV sous forme de taches structurees.
+--
+-- Definie ici, et non a cote des autres helpers de craftUI, pour capturer les
+-- locals FormatMoneyEstimate et state declares plus haut : une fonction definie
+-- avant eux les resoudrait comme des globales.
+function craftUI.BuildAuctionTasks(summary)
+    local tasks = {}
     local totalEstimate = 0
     local hasUnknownEstimate = false
 
     for _, task in ipairs(summary.auctionTasks) do
         local cache = state.searchCache[task.itemID]
-        local suffix = "?"
         local estimateText = "?"
-        if cache then
-            suffix = tostring(cache.available or 0)
-            if cache.unitPrice and cache.unitPrice > 0 then
-                local itemEstimate = cache.unitPrice * task.missing
-                estimateText = FormatMoneyEstimate(itemEstimate) .. " (" .. FormatMoneyEstimate(cache.unitPrice) .. "/u)"
-                totalEstimate = totalEstimate + itemEstimate
-            end
-        end
-        if estimateText == "?" then
+        if cache and cache.unitPrice and cache.unitPrice > 0 then
+            local itemEstimate = cache.unitPrice * task.missing
+            estimateText = FormatMoneyEstimate(itemEstimate)
+                .. " (" .. FormatMoneyEstimate(cache.unitPrice) .. "/u)"
+            totalEstimate = totalEstimate + itemEstimate
+        else
             hasUnknownEstimate = true
         end
-        table.insert(
-            lines,
-            task.missing .. "x " .. task.name .. YQQuality.GetTaskQualityText(task)
-                .. " [" .. suffix .. "] ~ " .. estimateText
+
+        tasks[#tasks + 1] = {
+            index = #tasks + 1,
+            itemID = task.itemID,
+            name = task.name,
+            quality = YQQuality.GetTaskQualityText(task),
+            missing = task.missing,
+            available = cache and tostring(cache.available or 0) or "?",
+            estimate = estimateText,
+            known = estimateText ~= "?",
+        }
+    end
+
+    return tasks, totalEstimate, hasUnknownEstimate
+end
+
+--- Lie un achat HV a sa ligne recyclee.
+function craftUI.InitAuctionRow(row, task)
+    local UI = YayaCore.UI
+    UI.DecorateRow(row, {
+        height = UI.SIZE.rowH,
+        icon = true,
+        valueWidth = 170,
+        tooltipAnchor = "ANCHOR_RIGHT",
+    })
+
+    local function Label()
+        return ("%dx %s%s  %s"):format(
+            task.missing or 0,
+            task.name or "?",
+            task.quality or "",
+            UI.Colorize("muted", "[" .. tostring(task.available) .. "]")
         )
     end
 
-    if #lines == 0 then
-        lines[1] = "Aucun achat HV"
-    end
+    row.Reset()
+    row.SetStripe(task.index or 1)
+    row.value:SetText(task.estimate)
+    row.SetTone(task.known and "text" or "textMuted")
+    row.label:SetText(Label())
+    row.SetItemTarget(task.itemID, nil, function(name)
+        task.name = name
+        row.label:SetText(Label())
+    end)
+end
+
+local function UpdateAuctionLines(summary)
+    local tasks, totalEstimate, hasUnknownEstimate = craftUI.BuildAuctionTasks(summary)
 
     if state.ah.totalText then
         if #summary.auctionTasks == 0 then
@@ -8587,7 +8713,12 @@ local function UpdateAuctionLines(summary)
         end
     end
 
-    SetLineText(state.ah.lines, CONFIG.MAX_AH_LINES, lines)
+    if state.ah.list then
+        state.ah.list.SetItems(tasks)
+    end
+    if state.ah.emptyText then
+        state.ah.emptyText:SetShown(#tasks == 0)
+    end
 end
 
 local function UpdateAuctionButton(summary)
@@ -11540,12 +11671,9 @@ function YQQuality.EnsureSelector(schematicForm)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
     frame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
-    frame:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 },
-    })
+    -- Meme habillage que le panneau de file. Cette fenetre etait la seule du
+    -- depot en DialogBox : l'addon presentait donc deux styles differents.
+    YayaCore.UI.ApplyPanelBackdrop(frame)
     frame.schematicForm = schematicForm
 
     frame.title = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
@@ -12649,81 +12777,122 @@ local function CreateCraftPanel()
         return
     end
 
+    local UI = YayaCore.UI
     local panel = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    panel:SetSize(274, CONFIG.CRAFT_PANEL_EXPANDED_HEIGHT)
+    panel:SetSize(
+        CONFIG.CRAFT_PANEL_WIDTH,
+        craftUI.GetChromeHeight(false) + UI.SIZE.rowH * craftUI.GetVisibleRows()
+    )
     panel:SetFrameStrata("HIGH")
     panel:SetClampedToScreen(true)
     panel:SetMovable(true)
-    panel:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true,
-        tileSize = 16,
-        edgeSize = 12,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 },
-    })
-    panel:SetBackdropColor(0.05, 0.05, 0.05, 0.92)
+    panel:SetResizable(true)
+    -- CRITIQUE AUTOCLICKER : la souris n'est jamais activee sur le corps du
+    -- panneau. Il est en strata HIGH au-dessus de la frame partagee, donc une
+    -- surface cliquable ici intercepterait les clics destines aux boutons du
+    -- tracker hebdomadaire poses dessous. Seuls l'en-tete, la poignee de
+    -- redimensionnement, la liste et les boutons du panneau reagissent.
+    UI.ApplyPanelBackdrop(panel)
 
-    local dragHandle = CreateFrame("Frame", nil, panel)
-    dragHandle:SetPoint("TOPLEFT", 6, -6)
-    dragHandle:SetPoint("TOPRIGHT", -66, -6)
-    dragHandle:SetHeight(18)
-    dragHandle:EnableMouse(true)
-    dragHandle:RegisterForDrag("LeftButton")
-    dragHandle:SetFrameLevel(panel:GetFrameLevel())
-    dragHandle:SetScript("OnDragStart", function()
-        panel:StartMoving()
-    end)
-    dragHandle:SetScript("OnDragStop", function()
-        panel:StopMovingOrSizing()
-        SavePanelPoint(panel)
-    end)
-
-    local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    title:SetPoint("TOPLEFT", dragHandle, "TOPLEFT", 4, -1)
-    title:SetText("YayaQueue")
-
-    local resetButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    resetButton:SetSize(48, 18)
-    resetButton:SetPoint("TOPRIGHT", -10, -6)
-    resetButton:SetFrameStrata("HIGH")
-    resetButton:SetFrameLevel((panel:GetFrameLevel() or 1) + 5)
-    resetButton:SetText("Reset")
-    resetButton:SetScript("OnClick", ResetQueue)
-
-    local selectedText = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    selectedText:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -10)
-    selectedText:SetPoint("RIGHT", panel, "RIGHT", -10, 0)
-    selectedText:SetJustifyH("LEFT")
-    selectedText:SetText("")
-
-    local todoTitle = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    todoTitle:SetPoint("TOPLEFT", selectedText, "BOTTOMLEFT", 0, -10)
-    todoTitle:SetText("A faire")
-
-    local lines = {}
-    for index = 1, CONFIG.MAX_CRAFT_LINES do
-        local line = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        if index == 1 then
-            line:SetPoint("TOPLEFT", todoTitle, "BOTTOMLEFT", 0, -6)
-        else
-            line:SetPoint("TOPLEFT", lines[index - 1], "BOTTOMLEFT", 0, -4)
-        end
-        line:SetPoint("RIGHT", panel, "RIGHT", -10, 0)
-        line:SetJustifyH("LEFT")
-        line:SetText("")
-        lines[index] = line
+    if type(panel.SetResizeBounds) == "function" then
+        panel:SetResizeBounds(
+            CONFIG.CRAFT_PANEL_WIDTH,
+            craftUI.GetChromeHeight(true) + UI.SIZE.rowH * CONFIG.CRAFT_ROWS_MIN,
+            CONFIG.CRAFT_PANEL_WIDTH,
+            craftUI.GetChromeHeight(true) + UI.SIZE.rowH * CONFIG.CRAFT_ROWS_MAX
+        )
     end
 
-    local statusText = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    statusText:SetPoint("BOTTOMLEFT", 10, 10)
-    statusText:SetPoint("RIGHT", panel, "RIGHT", -140, 0)
-    statusText:SetJustifyH("LEFT")
-    statusText:SetText("")
+    local header = UI.CreateHeader(panel, "YayaQueue", {
+        moveTarget = panel,
+        isLocked = function()
+            return db and db.panelLocked == true
+        end,
+        onMoveStopped = function()
+            SavePanelPoint(panel)
+        end,
+    })
+
+    local lockButton = UI.CreateGlyphButton(header, "lock", { locked = db and db.panelLocked })
+    if lockButton then
+        header.AddButton(lockButton)
+        lockButton:SetScript("OnClick", function()
+            state.EnsureDB()
+            db.panelLocked = not (db.panelLocked == true)
+            lockButton.SetLocked(db.panelLocked)
+        end)
+        lockButton.SetTooltip("Verrouiller la position", "Empeche le deplacement du panneau.")
+    end
+
+    local resetButton = UI.CreateGlyphButton(header, "reset")
+    if resetButton then
+        header.AddButton(resetButton)
+        resetButton:SetScript("OnClick", ResetQueue)
+        resetButton.SetTooltip("Vider la file", "Retire toutes les taches en attente.")
+    end
+
+    -- Le bord haut redimensionne. La frame est ancree en bas, donc StartSizing
+    -- sur le haut fait grandir le panneau vers le haut sans jamais deplacer la
+    -- bande d'action.
+    local resizeGrip = CreateFrame("Frame", nil, panel)
+    resizeGrip:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
+    resizeGrip:SetPoint("TOPRIGHT", panel, "TOPRIGHT", 0, 0)
+    resizeGrip:SetHeight(UI.PAD.sm)
+    resizeGrip:SetFrameLevel((panel:GetFrameLevel() or 1) + 10)
+    resizeGrip:EnableMouse(true)
+    resizeGrip:RegisterForDrag("LeftButton")
+    resizeGrip:SetScript("OnDragStart", function()
+        if db and db.panelLocked then
+            return
+        end
+        panel:StartSizing("TOP")
+    end)
+    resizeGrip:SetScript("OnDragStop", function()
+        panel:StopMovingOrSizing()
+        craftUI.CommitResize(panel)
+        ScheduleRefresh()
+    end)
+
+    -- Ligne de contexte : recette selectionnee et nombre de taches.
+    local caption = panel:CreateFontString(nil, "OVERLAY", UI.FONT.muted)
+    caption:SetPoint("TOPLEFT", header, "BOTTOMLEFT", UI.PAD.md, -UI.PAD.xs)
+    caption:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", -UI.PAD.md, -UI.PAD.xs)
+    caption:SetHeight(UI.SIZE.rowHCompact)
+    UI.BoundLabel(caption)
+
+    -- Ancre de la bande d'action. Frame sans souris : elle sert de repere
+    -- geometrique, pas de surface cliquable.
+    local actionAnchor = CreateFrame("Frame", nil, panel)
+    actionAnchor:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", UI.PAD.lg, UI.ACTION.bottomMargin)
+    actionAnchor:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -UI.PAD.lg, UI.ACTION.bottomMargin)
+    actionAnchor:SetHeight(UI.ACTION.height)
+
+    local listHost = CreateFrame("Frame", nil, panel)
+    listHost:SetPoint("TOPLEFT", caption, "BOTTOMLEFT", 0, -UI.PAD.sm)
+    listHost:SetPoint("TOPRIGHT", caption, "BOTTOMRIGHT", 0, -UI.PAD.sm)
+    listHost:SetPoint("BOTTOM", actionAnchor, "TOP", 0, UI.PAD.sm)
+
+    local list = UI.CreateScrollList(listHost, {
+        rowHeight = UI.SIZE.rowH,
+        initializer = craftUI.InitRow,
+    })
+    if list then
+        list.container:SetAllPoints(listHost)
+    else
+        DebugPrint("craft-panel scrollbox indisponible")
+    end
+
+    local statusText = panel:CreateFontString(nil, "OVERLAY", UI.FONT.muted)
+    statusText:SetPoint("LEFT", actionAnchor, "LEFT", 0, 0)
+    statusText:SetPoint("RIGHT", actionAnchor, "RIGHT", -(CONFIG.CRAFT_NEXT_WIDTH + UI.PAD.sm), 0)
+    UI.BoundLabel(statusText)
 
     local nextButton = CreateFrame("Button", nil, panel, "SecureActionButtonTemplate,UIPanelButtonTemplate")
-    nextButton:SetSize(120, 22)
-    nextButton:SetPoint("BOTTOMRIGHT", -10, 8)
+    -- CRITIQUE AUTOCLICKER : slot 1 de la bande d'action, aux dimensions de
+    -- UI.ACTION partagees avec le tracker hebdomadaire, pour que les deux
+    -- frames superposees alignent exactement leurs slots.
+    nextButton:SetSize(CONFIG.CRAFT_NEXT_WIDTH, UI.ACTION.height)
+    nextButton:SetPoint("BOTTOMRIGHT", actionAnchor, "BOTTOMRIGHT", 0, 0)
     nextButton:SetText("Next")
     nextButton:RegisterForClicks("AnyUp", "AnyDown")
     -- HookScript preserves SecureActionButtonTemplate's native item handler.
@@ -12844,38 +13013,30 @@ local function CreateCraftPanel()
     nextButton:SetScript("OnLeave", GameTooltip_Hide)
     nextButton:Hide()
 
-    local vendorTitle = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    vendorTitle:SetPoint("BOTTOMLEFT", 10, 108)
-    vendorTitle:SetPoint("RIGHT", panel, "RIGHT", -10, 0)
-    vendorTitle:SetJustifyH("LEFT")
-    vendorTitle:SetText("Acheter ici")
-    vendorTitle:Hide()
-
-    local vendorButtons = {}
-    for index = 1, 1 do
-        local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-        button:SetSize(248, 20)
-        if index == 1 then
-            button:SetPoint("BOTTOMLEFT", 10, 84)
-        else
-            button:SetPoint("BOTTOMLEFT", vendorButtons[index - 1], "TOPLEFT", 0, 4)
-        end
-        button:SetScript("OnClick", function(self)
-            BuyVendorTasks(self.tasks)
-        end)
-        button:Hide()
-        vendorButtons[index] = button
-    end
+    -- Le bloc marchand passe en flux juste au-dessus de la bande d'action. Il
+    -- etait a offset fixe (108 et 84 px du bas) et n'etait pas recalcule quand
+    -- il etait masque : ce sont ces pixels qui restaient vides. Il n'est pas
+    -- cible par l'autoclicker, donc le deplacer est sans consequence.
+    local vendorButton = UI.CreateButton(panel, "", { height = UI.ACTION.height })
+    vendorButton:SetPoint("BOTTOMLEFT", actionAnchor, "TOPLEFT", 0, UI.ACTION.gap)
+    vendorButton:SetPoint("BOTTOMRIGHT", actionAnchor, "TOPRIGHT", 0, UI.ACTION.gap)
+    vendorButton:SetScript("OnClick", function(self)
+        BuyVendorTasks(self.tasks)
+    end)
+    vendorButton:Hide()
 
     state.craft.panel = panel
+    state.craft.header = header
+    state.craft.lockButton = lockButton
     state.craft.resetButton = resetButton
+    state.craft.resizeGrip = resizeGrip
+    state.craft.caption = caption
+    state.craft.actionAnchor = actionAnchor
+    state.craft.listHost = listHost
+    state.craft.list = list
     state.craft.nextButton = nextButton
-    state.craft.selectedText = selectedText
-    state.craft.todoTitle = todoTitle
-    state.craft.lines = lines
     state.craft.statusText = statusText
-    state.craft.vendorTitle = vendorTitle
-    state.craft.vendorButtons = vendorButtons
+    state.craft.vendorButton = vendorButton
 
     ApplyPanelPoint(panel)
 end
@@ -12888,15 +13049,7 @@ local function CreateAuctionFrame()
     local frame = CreateFrame("Frame", nil, AuctionHouseFrame, "BackdropTemplate")
     frame:SetPoint("TOPLEFT", AuctionHouseFrame, "TOPLEFT", 16, -78)
     frame:SetPoint("BOTTOMRIGHT", AuctionHouseFrame, "BOTTOMRIGHT", -16, 16)
-    frame:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true,
-        tileSize = 16,
-        edgeSize = 12,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 },
-    })
-    frame:SetBackdropColor(0.05, 0.05, 0.05, 0.92)
+    YayaCore.UI.ApplyPanelBackdrop(frame)
     frame:Hide()
 
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -12933,19 +13086,24 @@ local function CreateAuctionFrame()
     totalText:SetJustifyH("LEFT")
     totalText:SetText("Total estime: ?")
 
-    local lines = {}
-    for index = 1, CONFIG.MAX_AH_LINES do
-        local line = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        if index == 1 then
-            line:SetPoint("TOPLEFT", totalText, "BOTTOMLEFT", 0, -10)
-        else
-            line:SetPoint("TOPLEFT", lines[index - 1], "BOTTOMLEFT", 0, -8)
-        end
-        line:SetPoint("RIGHT", frame, "RIGHT", -14, 0)
-        line:SetJustifyH("LEFT")
-        line:SetText("")
-        lines[index] = line
+    -- La fenetre occupe tout le cadre de l'hotel des ventes mais n'affichait que
+    -- dix lignes, la dixieme etant confisquee par un resume "+N autres".
+    local listHost = CreateFrame("Frame", nil, frame)
+    listHost:SetPoint("TOPLEFT", totalText, "BOTTOMLEFT", 0, -YayaCore.UI.PAD.lg)
+    listHost:SetPoint("RIGHT", frame, "RIGHT", -14, 0)
+
+    local list = YayaCore.UI.CreateScrollList(listHost, {
+        rowHeight = YayaCore.UI.SIZE.rowH,
+        initializer = craftUI.InitAuctionRow,
+    })
+    if list then
+        list.container:SetAllPoints(listHost)
     end
+
+    local emptyText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
+    emptyText:SetPoint("CENTER", listHost, "CENTER", 0, 0)
+    emptyText:SetText("Aucun achat HV")
+    emptyText:Hide()
 
     local statusText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     statusText:SetPoint("BOTTOMLEFT", 14, 16)
@@ -12961,8 +13119,12 @@ local function CreateAuctionFrame()
                 state.OnAuctionActionClick()
     end)
 
+    listHost:SetPoint("BOTTOM", actionButton, "TOP", 0, YayaCore.UI.PAD.lg)
+
     state.ah.frame = frame
-    state.ah.lines = lines
+    state.ah.listHost = listHost
+    state.ah.list = list
+    state.ah.emptyText = emptyText
     state.ah.statusText = statusText
     state.ah.totalText = totalText
     state.ah.actionButton = actionButton
@@ -14571,6 +14733,29 @@ SlashCmdList.YAYAQUEUE = function(message)
     end
     if command == "options" then
         YQQuality.OpenOptions()
+        return
+    end
+    if command == "lock" then
+        state.EnsureDB()
+        db.panelLocked = not (db.panelLocked == true)
+        if state.craft.lockButton then
+            state.craft.lockButton.SetLocked(db.panelLocked)
+        end
+        Print("Position du panneau " .. (db.panelLocked and "verrouillee" or "deverrouillee") .. ".")
+        return
+    end
+    local rowsArgument = command:match("^rows%s+(%d+)$")
+    if command == "rows" or rowsArgument then
+        state.EnsureDB()
+        if rowsArgument then
+            db.craftVisibleRows = tonumber(rowsArgument)
+        end
+        Print(("Lignes visibles : %d (de %d a %d)."):format(
+            craftUI.GetVisibleRows(),
+            CONFIG.CRAFT_ROWS_MIN,
+            CONFIG.CRAFT_ROWS_MAX
+        ))
+        ScheduleRefresh()
         return
     end
     if command == "optimizer test" or command == "opttest" then

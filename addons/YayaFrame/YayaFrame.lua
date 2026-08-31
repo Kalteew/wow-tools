@@ -12,10 +12,21 @@ local DEFAULT_POSITION = {
 local MIN_WIDTH = 200
 local MAX_WIDTH = 520
 
+-- YayaCore.UI porte les tokens partages de la suite. L'acces est defensif :
+-- si UI.lua disparaissait du TOC, le conteneur doit degrader vers son ancien
+-- aplat plutot que cesser de charger.
+local UI = _G.YayaCore and _G.YayaCore.UI
+local GUTTER = UI and UI.PAD.sm or 4
+local HEADER_HEIGHT = UI and UI.SIZE.headerH or 22
+local SECTION_HEADER_HEIGHT = UI and UI.SIZE.rowHCompact or 16
+local DIVIDER_HEIGHT = UI and UI.SIZE.divider or 1
+
 local api = {}
 local sections = {}
 local rootFrame
 local visibilityFrame
+local headerFrame
+local lockButton
 local pendingHideInCombat
 local layoutScheduled = false
 local layoutInProgress = false
@@ -39,6 +50,13 @@ local function CopyLegacyPosition(target, source)
     target.x = source.x
     target.y = source.y
     return true
+end
+
+--- Etat de repli des sections, indexe par identifiant.
+local function GetCollapsedStore()
+    local db = GetDB()
+    db.collapsed = db.collapsed or {}
+    return db.collapsed
 end
 
 local function GetBottomLeftPosition()
@@ -69,7 +87,7 @@ end
 
 --- Largeur souhaitee du conteneur, deduite de la plus large des sections.
 local function ComputeWidth()
-    local widest = MIN_WIDTH
+    local widest = 0
     for _, section in ipairs(sections) do
         local frame = section.frame
         if frame and frame:IsShown() then
@@ -81,7 +99,35 @@ local function ComputeWidth()
             end
         end
     end
-    return math.min(MAX_WIDTH, math.max(MIN_WIDTH, math.floor(widest + 0.5)))
+    -- La largeur demandee est celle du contenu : le conteneur y ajoute ses deux
+    -- gouttieres, puis borne le tout.
+    return math.min(MAX_WIDTH, math.max(MIN_WIDTH, math.floor(widest + 2 * GUTTER + 0.5)))
+end
+
+--- Chrome d'une section : bandeau de titre repliable et separateur.
+--
+-- YayaFrame ne dessine que l'en-tete et le chevron. Replier previent la section
+-- via son rappel : c'est elle qui masque son contenu et ramene sa hauteur. Le
+-- conteneur ne se bat donc jamais avec le Show/Hide que le tracker
+-- hebdomadaire applique deja a sa propre frame.
+local function EnsureSectionChrome(section)
+    if section.header or not (UI and rootFrame) then
+        return section.header
+    end
+
+    section.header = UI.CreateHeader(rootFrame, section.title or section.id, {
+        anchor = false,
+        height = SECTION_HEADER_HEIGHT,
+        titleColor = UI.COLOR.category,
+        ruleColor = UI.COLOR.divider,
+        collapsible = true,
+        collapsed = GetCollapsedStore()[section.id] == true,
+        onClick = function()
+            api:ToggleSection(section.id)
+        end,
+    })
+    section.divider = UI.CreateDivider(rootFrame)
+    return section.header
 end
 
 local function Layout()
@@ -95,34 +141,60 @@ local function Layout()
 
     table.sort(sections, SortSections)
 
-    local width = ComputeWidth()
-    local totalHeight = 0
-    local hasVisibleSection = false
+    rootFrame:SetWidth(ComputeWidth())
+
+    local collapsedStore = GetCollapsedStore()
+    local offsetY = headerFrame and HEADER_HEIGHT or 0
+    local shownCount = 0
+
     for _, section in ipairs(sections) do
         local frame = section.frame
         if frame and frame:IsShown() then
-            totalHeight = totalHeight + math.max(1, frame:GetHeight())
-            hasVisibleSection = true
-        end
-    end
+            shownCount = shownCount + 1
+            local header = EnsureSectionChrome(section)
 
-    local height = math.max(1, totalHeight)
-    rootFrame:SetWidth(width)
-    rootFrame:SetHeight(height)
-    rootFrame.bg:SetHeight(height)
+            -- Un filet separe deux sections consecutives ; la premiere n'en a
+            -- pas besoin, l'en-tete du conteneur la borne deja.
+            if section.divider then
+                if shownCount > 1 then
+                    section.divider:ClearAllPoints()
+                    section.divider:SetPoint("TOPLEFT", rootFrame, "TOPLEFT", GUTTER, -offsetY)
+                    section.divider:SetPoint("TOPRIGHT", rootFrame, "TOPRIGHT", -GUTTER, -offsetY)
+                    section.divider:Show()
+                    offsetY = offsetY + DIVIDER_HEIGHT
+                else
+                    section.divider:Hide()
+                end
+            end
 
-    local offsetY = 0
-    for _, section in ipairs(sections) do
-        local frame = section.frame
-        if frame and frame:IsShown() then
+            if header then
+                header.SetCollapsed(collapsedStore[section.id] == true)
+                header:ClearAllPoints()
+                header:SetPoint("TOPLEFT", rootFrame, "TOPLEFT", 0, -offsetY)
+                header:SetPoint("TOPRIGHT", rootFrame, "TOPRIGHT", 0, -offsetY)
+                header:Show()
+                offsetY = offsetY + SECTION_HEADER_HEIGHT
+            end
+
             frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", rootFrame, "TOPLEFT", 0, -offsetY)
-            frame:SetPoint("TOPRIGHT", rootFrame, "TOPRIGHT", 0, -offsetY)
+            frame:SetPoint("TOPLEFT", rootFrame, "TOPLEFT", GUTTER, -offsetY)
+            frame:SetPoint("TOPRIGHT", rootFrame, "TOPRIGHT", -GUTTER, -offsetY)
             offsetY = offsetY + math.max(1, frame:GetHeight())
+        elseif section.header then
+            section.header:Hide()
+            if section.divider then
+                section.divider:Hide()
+            end
         end
     end
 
-    if hasVisibleSection then
+    local height = math.max(1, offsetY)
+    rootFrame:SetHeight(height)
+    if rootFrame.bg then
+        rootFrame.bg:SetHeight(height)
+    end
+
+    if shownCount > 0 then
         rootFrame:Show()
     else
         rootFrame:Hide()
@@ -152,6 +224,20 @@ local function RequestLayout()
     end)
 end
 
+--- Repose la frame sur son coin bas-gauche et enregistre la position.
+--
+-- Toutes les frames de la suite sont ancrees BOTTOMLEFT et grandissent vers le
+-- haut : le bord bas ne bouge jamais, donc les boutons d'action gardent leur
+-- position ecran quand le contenu change.
+local function StopMovingAndSave(frame)
+    frame:StopMovingOrSizing()
+    local x, y = GetBottomLeftPosition()
+    if x and y then
+        SetBottomLeftPosition(x, y)
+    end
+    api:SavePosition()
+end
+
 local function CreateFrames()
     if rootFrame then
         return
@@ -161,26 +247,54 @@ local function CreateFrames()
     visibilityFrame:SetAllPoints(UIParent)
     visibilityFrame:Show()
 
-    rootFrame = CreateFrame("Frame", addonName .. "Frame", visibilityFrame)
+    rootFrame = CreateFrame("Frame", addonName .. "Frame", visibilityFrame, "BackdropTemplate")
     rootFrame:SetFrameStrata("MEDIUM")
     rootFrame:SetSize(MIN_WIDTH, 1)
     rootFrame:SetClampedToScreen(true)
     rootFrame:SetMovable(true)
-    rootFrame:EnableMouse(true)
-    rootFrame:RegisterForDrag("LeftButton")
-    rootFrame:SetScript("OnDragStart", rootFrame.StartMoving)
-    rootFrame:SetScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
-        local x, y = GetBottomLeftPosition()
-        if x and y then
-            SetBottomLeftPosition(x, y)
-        end
-        api:SavePosition()
-    end)
 
-    rootFrame.bg = rootFrame:CreateTexture(nil, "BACKGROUND")
-    rootFrame.bg:SetAllPoints()
-    rootFrame.bg:SetColorTexture(0, 0, 0, 0.55)
+    if UI then
+        UI.ApplyPanelBackdrop(rootFrame)
+    else
+        rootFrame.bg = rootFrame:CreateTexture(nil, "BACKGROUND")
+        rootFrame.bg:SetAllPoints()
+        rootFrame.bg:SetColorTexture(0, 0, 0, 0.55)
+    end
+
+    headerFrame = UI and UI.CreateHeader(rootFrame, "Yaya", {
+        moveTarget = rootFrame,
+        isLocked = function()
+            return api:IsLocked()
+        end,
+        onMoveStopped = function()
+            StopMovingAndSave(rootFrame)
+        end,
+    }) or nil
+
+    if headerFrame then
+        -- La souris n'est plus activee sur tout le conteneur : il attrapait les
+        -- glissers accidentels et interceptait les clics destines aux frames
+        -- posees dessous, dont le panneau de YayaQueue.
+        rootFrame:EnableMouse(false)
+
+        lockButton = UI.CreateGlyphButton(headerFrame, "lock", { locked = api:IsLocked() })
+        if lockButton then
+            headerFrame.AddButton(lockButton)
+            lockButton:SetScript("OnClick", function()
+                api:SetLocked(not api:IsLocked())
+            end)
+            lockButton.SetTooltip(
+                "Verrouiller la position",
+                "Empeche le deplacement de la frame partagee."
+            )
+        end
+    else
+        -- Sans en-tete, tout le conteneur redevient la poignee, comme avant.
+        rootFrame:EnableMouse(true)
+        rootFrame:RegisterForDrag("LeftButton")
+        rootFrame:SetScript("OnDragStart", rootFrame.StartMoving)
+        rootFrame:SetScript("OnDragStop", StopMovingAndSave)
+    end
 
     api:ApplyPosition()
     api:ApplyScale()
@@ -236,6 +350,92 @@ function api:AttachSection(id, frame, order)
     end
 
     self:Refresh()
+end
+
+--- Titre affiche dans l'en-tete d'une section.
+--
+-- Sans appel, l'identifiant sert de titre. Les sections qui portaient leur
+-- propre libelle (le "Hebdo" du tracker, la ligne "Session") le remontent ici
+-- et recuperent la hauteur correspondante.
+function api:SetSectionTitle(id, title)
+    local section = self:RegisterSection(id)
+    if not section then
+        return
+    end
+    section.title = title
+    if section.header and section.header.title then
+        section.header.title:SetText(title or id)
+    end
+    return section
+end
+
+--- Cree si besoin le bandeau d'une section et le renvoie.
+--
+-- Une section y pose ses propres boutons -- reinitialisation, actions -- au lieu
+-- de les loger dans son contenu, ou ils consommaient une ligne.
+function api:EnsureSectionHeader(id)
+    self:EnsureFrame()
+    for _, section in ipairs(sections) do
+        if section.id == id then
+            return EnsureSectionChrome(section)
+        end
+    end
+end
+
+--- Enregistre le rappel appele quand la section est repliee ou depliee.
+--
+-- La section reste maitresse de son rendu : elle masque son contenu et ramene
+-- sa hauteur elle-meme. Le conteneur ne touche jamais a la visibilite de la
+-- frame d'une section.
+function api:SetSectionCollapseHandler(id, handler)
+    local section = self:RegisterSection(id)
+    if not section then
+        return
+    end
+    section.onCollapse = handler
+    return section
+end
+
+function api:IsSectionCollapsed(id)
+    return GetCollapsedStore()[id] == true
+end
+
+--- Replie ou deplie une section, et previent celle-ci.
+function api:SetSectionCollapsed(id, collapsed)
+    collapsed = collapsed and true or false
+    GetCollapsedStore()[id] = collapsed or nil
+
+    for _, section in ipairs(sections) do
+        if section.id == id then
+            if section.header and type(section.header.SetCollapsed) == "function" then
+                section.header.SetCollapsed(collapsed)
+            end
+            if type(section.onCollapse) == "function" then
+                section.onCollapse(collapsed)
+            end
+            break
+        end
+    end
+
+    RequestLayout()
+end
+
+function api:ToggleSection(id)
+    self:SetSectionCollapsed(id, not self:IsSectionCollapsed(id))
+end
+
+--- Indique si la position du conteneur est figee.
+function api:IsLocked()
+    return GetDB().locked == true
+end
+
+--- Fige ou libere la position du conteneur.
+function api:SetLocked(locked)
+    GetDB().locked = locked and true or false
+    if lockButton and type(lockButton.SetLocked) == "function" then
+        lockButton.SetLocked(GetDB().locked)
+    end
+    return GetDB().locked
 end
 
 --- Declare la largeur souhaitee d'une section.
@@ -397,8 +597,13 @@ SlashCmdList.YAYAFRAME = function(message)
     elseif command == "reset" then
         api:ResetPosition()
         print("|cff00ff98YayaFrame:|r position reinitialisee")
+    elseif command == "lock" then
+        api:SetLocked(not api:IsLocked())
+        print(("|cff00ff98YayaFrame:|r position %s"):format(
+            api:IsLocked() and "verrouillee" or "deverrouillee"
+        ))
     else
-        print("|cff00ff98YayaFrame:|r /yframe scale <0.5-2.0> | /yframe reset")
+        print("|cff00ff98YayaFrame:|r /yframe scale <0.5-2.0> | /yframe lock | /yframe reset")
     end
 end
 

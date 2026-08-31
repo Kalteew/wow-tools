@@ -2,7 +2,7 @@
 ## Title: Yaya Session Tracker
 ## Notes: Session GPH tracker with loot and internal mail filtering.
 ## Author: Codex
-## Version: 0.2.0
+## Version: 0.3.0
 ## SavedVariables: YayaSessionTrackerDB
 ## Dependencies: YayaCore, YayaFrame
 ## OptionalDeps: TradeSkillMaster, YayaContainerValues

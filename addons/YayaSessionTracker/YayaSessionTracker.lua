@@ -28,6 +28,7 @@ local DEFAULT_POSITION = {
 
 local eventFrame
 local trackerFrame
+local trackerCollapsed = false
 local updateTicker
 local activeSession
 local lastMoney
@@ -1717,39 +1718,79 @@ local function HandleLootMessage(message)
     RecordItemGain(itemString, itemLink, quantity)
 end
 
-local function BuildFrameLines()
+--- Infobulle de la ligne Loot : les meilleurs objets de la session.
+--
+-- BuildSessionSnapshot calculait deja topItems et bestItem sans que rien ne les
+-- affiche jamais. Les voici, sans cout de collecte supplementaire.
+local function ApplyLootTooltip(row, topItems)
+    if not topItems or #topItems == 0 then
+        row.SetTooltip("Loot de la session", "Aucun objet valorise pour l'instant.")
+        return
+    end
+
+    local lines = {}
+    for _, item in ipairs(topItems) do
+        lines[#lines + 1] = ("%s x%d  %s"):format(
+            item.itemName or item.itemString or "?",
+            item.quantity or 0,
+            FormatGoldCompact(item.totalValue or 0)
+        )
+    end
+    row.SetTooltip("Meilleurs objets de la session", table.concat(lines, "|n"))
+end
+
+--- Contenu de la section, une entree par ligne.
+--
+-- Chaque valeur a sa propre colonne alignee a droite. Auparavant le libelle et
+-- la valeur etaient concatenes dans une seule chaine alignee a gauche, donc les
+-- chiffres ne s'alignaient pas d'une ligne a l'autre.
+local function BuildFrameRows()
     if not activeSession then
         return {
-            "No session",
-            "GPH 0g",
-            "Time 00:00",
-            "Gold 0g",
-            "Loot 0g",
-            "",
+            { label = "Etat", value = "inactive", tone = "textMuted" },
         }
     end
 
     local snapshot = BuildSessionSnapshot(activeSession)
-    local lines = {
-        "Session",
-        "GPH " .. FormatGoldCompact(snapshot.gph),
-        "Time " .. FormatDurationCompact(snapshot.durationSeconds),
-        "Gold " .. FormatGoldCompact(snapshot.rawGold),
-        "Loot " .. FormatGoldCompact(snapshot.itemValue),
-        "",
+    local rows = {
+        { label = "GPH", value = FormatGoldCompact(snapshot.gph), tone = "success" },
+        { label = "Time", value = FormatDurationCompact(snapshot.durationSeconds) },
+        { label = "Gold", value = FormatGoldCompact(snapshot.rawGold) },
+        { label = "Loot", value = FormatGoldCompact(snapshot.itemValue), topItems = snapshot.topItems },
+        { label = "Total", value = FormatGoldCompact(snapshot.totalValue), tone = "accent" },
     }
 
-    local nextLine = 6
     if snapshot.corrosiveCoin > 0 then
-        lines[nextLine] = "Coin/h " .. BreakUpLargeNumbers(snapshot.corrosiveCoinPerHour or 0)
-        nextLine = nextLine + 1
+        rows[#rows + 1] = {
+            label = "Coin/h",
+            value = BreakUpLargeNumbers(snapshot.corrosiveCoinPerHour or 0),
+        }
     end
 
     if not IsPlayerAtMaxLevel() then
-        lines[nextLine] = "XP/h " .. BreakUpLargeNumbers(snapshot.xph or 0)
+        rows[#rows + 1] = {
+            label = "XP/h",
+            value = BreakUpLargeNumbers(snapshot.xph or 0),
+        }
     end
 
-    return lines
+    return rows
+end
+
+local function EnsureTrackerRow(index)
+    local existing = trackerFrame.rows[index]
+    if existing then
+        return existing
+    end
+
+    local row = YayaCore.UI.CreateRow(trackerFrame, {
+        height = YayaCore.UI.SIZE.rowHCompact,
+        labelFont = YayaCore.UI.FONT.muted,
+        valueFont = YayaCore.UI.FONT.body,
+        tooltipAnchor = "ANCHOR_LEFT",
+    })
+    trackerFrame.rows[index] = row
+    return row
 end
 
 function UpdateFrame()
@@ -1757,9 +1798,37 @@ function UpdateFrame()
         return
     end
 
-    local lines = BuildFrameLines()
-    for index, fontString in ipairs(trackerFrame.lines) do
-        fontString:SetText(lines[index] or "")
+    if trackerCollapsed then
+        for _, row in ipairs(trackerFrame.rows) do
+            row:Hide()
+        end
+        trackerFrame:SetHeight(1)
+    else
+        local rows = BuildFrameRows()
+        local stack = YayaCore.UI.StackLayout(trackerFrame)
+
+        for index, data in ipairs(rows) do
+            local row = EnsureTrackerRow(index)
+            row.Reset()
+            row.label:SetText(data.label)
+            row.value:SetText(data.value)
+            row.SetTone(data.tone)
+            row.SetStripe(index)
+            if data.topItems then
+                ApplyLootTooltip(row, data.topItems)
+            end
+            row:Show()
+            stack.Add(row, 0, { height = YayaCore.UI.SIZE.rowHCompact })
+        end
+
+        for index = #rows + 1, #trackerFrame.rows do
+            trackerFrame.rows[index]:Hide()
+        end
+
+        -- La hauteur suit le nombre de lignes reellement affichees. Elle etait
+        -- figee a 106 px, donc la section reservait de la place pour des lignes
+        -- absentes.
+        trackerFrame:SetHeight(stack.Finish(YayaCore.UI.PAD.xs))
     end
 
     PersistActiveSession()
@@ -1775,37 +1844,39 @@ local function CreateTrackerFrame()
 
     trackerFrame = CreateFrame("Frame", addonName .. "Frame", YayaFrameAPI:GetFrame())
     trackerFrame:SetFrameStrata("MEDIUM")
-    trackerFrame:SetSize(132, 106)
-    trackerFrame:SetClampedToScreen(true)
-
-    trackerFrame.bg = trackerFrame:CreateTexture(nil, "BACKGROUND")
-    trackerFrame.bg:SetAllPoints()
-    trackerFrame.bg:SetColorTexture(0, 0, 0, 0.55)
-
-    trackerFrame.resetButton = CreateFrame("Button", nil, trackerFrame, "UIPanelButtonTemplate")
-    trackerFrame.resetButton:SetSize(18, 18)
-    trackerFrame.resetButton:SetPoint("TOPRIGHT", -4, -4)
-    trackerFrame.resetButton:SetText("R")
-    trackerFrame.resetButton:SetScript("OnClick", ResetSession)
-    trackerFrame.resetButton:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-        GameTooltip:SetText("Reset session")
-        GameTooltip:Show()
-    end)
-    trackerFrame.resetButton:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
-
-    trackerFrame.lines = {}
-    for index = 1, 7 do
-        local line = trackerFrame:CreateFontString(nil, "OVERLAY", index == 1 and "GameFontNormalSmall" or "GameFontHighlightSmall")
-        line:SetPoint("TOPLEFT", 6, -5 - ((index - 1) * 14))
-        line:SetWidth(102)
-        line:SetJustifyH("LEFT")
-        trackerFrame.lines[index] = line
-    end
+    -- Pas de fond ici : celui du conteneur suffit. La section en repeignait un
+    -- identique par-dessus, ce qui portait l'opacite reelle a environ 80 %.
+    --
+    -- Pas de largeur non plus : YayaFrame etire chaque section entre ses
+    -- gouttieres. Les 132 px declares etaient morts, et le SetWidth(102) des
+    -- lignes laissait la moitie de la place inutilisee.
+    trackerFrame:SetSize(1, 1)
+    trackerFrame.rows = {}
 
     YayaFrameAPI:AttachSection(addonName, trackerFrame, 10)
+    YayaFrameAPI:SetSectionTitle(addonName, "Session")
+    YayaFrameAPI:SetSectionCollapseHandler(addonName, function(collapsed)
+        trackerCollapsed = collapsed
+        UpdateFrame()
+    end)
+    trackerCollapsed = YayaFrameAPI:IsSectionCollapsed(addonName) == true
+
+    -- Le bouton de reinitialisation remonte dans le bandeau de la section : il
+    -- occupait un coin du contenu, a cote d'un texte large de 102 px.
+    local header = type(YayaFrameAPI.EnsureSectionHeader) == "function"
+        and YayaFrameAPI:EnsureSectionHeader(addonName)
+    if header and type(header.AddButton) == "function" then
+        trackerFrame.resetButton = YayaCore.UI.CreateGlyphButton(header, "reset")
+        if trackerFrame.resetButton then
+            header.AddButton(trackerFrame.resetButton)
+            trackerFrame.resetButton:SetScript("OnClick", ResetSession)
+            trackerFrame.resetButton.SetTooltip(
+                "Reinitialiser la session",
+                "Remet a zero l'or, le loot, la duree et l'XP."
+            )
+        end
+    end
+
     UpdateFrame()
 end
 

@@ -8,7 +8,9 @@ Addon Retail simple pour :
 - arrêter proprement les auto-queues d’ouverture si une préparation échoue, sans boucle de relance ni blocage du scan des premières fabrications
 - afficher cette frame comme une fenêtre flottante déplaçable, avec une icône par réactif et les quantités réparties par qualité
 - afficher toujours `dump conc.` sur une recette visible, puis le griser si la concentration restante après les réservations de la queue ne permet pas d'ajouter au moins un craft
-- garder la fenêtre de queue compacte : jusqu'à 3 tâches sont détaillées, puis le reste est résumé par `+X autres`
+- afficher la file dans une liste scrollable de lignes riches (icône d'objet, infobulle, quantité en colonne), sans plafond de tâches détaillées
+- régler le nombre de lignes visibles en tirant le bord **haut** du panneau, ou avec `/yq rows <n>` ; la valeur est conservée entre les sessions
+- verrouiller la position du panneau avec le cadenas de l'en-tête ou `/yq lock`, et vider la file avec le bouton `R`
 - ancrer le coin inférieur gauche de la fenêtre pour que ses changements de hauteur s'étendent vers le haut et la droite
 - inclure le réactif actuellement sélectionné dans les slots requis sélectionnables (par exemple Mote of Primal Energy), même si l’API de transaction l’omet
 - ajouter en une fois les first crafts connus non realises dont le cout CraftSim est strictement inferieur a 1000 po

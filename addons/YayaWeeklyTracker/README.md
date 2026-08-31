@@ -25,7 +25,8 @@ Resume `Midnight` :
 
 - l'addon n'affiche que les metiers `Midnight` appris sur le personnage
 - si les donnees de metier ne sont pas encore chargees, l'addon ouvre puis referme un des metiers appris au prochain appui clavier pour initialiser leur suivi
-- chaque ligne est compacte, par exemple `Alch: T8/8 loot 2/2 hebdo traite DMF`
+- chaque ligne est compacte, par exemple `Alch: T8/8 loot 2/2 hebdo traite DMF`, avec le statut dans sa propre colonne à droite et une zébrure une ligne sur deux
+- la section se replie depuis le chevron de son bandeau `Hebdo`, et l'état est conservé entre les sessions
 - les lignes longues se replient avec une hauteur adaptee, sans chevaucher la ligne suivante
 - si rien ne reste a faire pour un metier suivi, la ligne affiche `ok` tant qu'une autre action garde la frame ouverte
 - si tous les metiers suivis sont `ok` et qu'aucune autre ligne ou bouton ne reste, la frame est masquee

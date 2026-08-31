@@ -15,7 +15,8 @@ Ce que suit le MVP :
 - valorisation via `TSM_API.GetCustomPriceValue(...)`
 - utilise aussi la moyenne de `YayaContainerValues` quand l'item est un container suivi
 - les items gris sont valorises au prix vendeur
-- bouton `R` sur la frame pour reset la session
+- bouton `R` dans le bandeau `Session` pour reinitialiser la session
+- valeurs alignees a droite dans leur propre colonne, ligne `Total` (or + loot), et les cinq meilleurs objets de la session dans l'infobulle de la ligne `Loot`
 - activites stockees pour :
 - `Shadowlands mission table`
 - `Replenish the Reservoir`
