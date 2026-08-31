@@ -2,7 +2,7 @@
 ## Title: Yaya Weekly Tracker
 ## Notes: Small weekly tracker near the player frame.
 ## Author: Codex
-## Version: 0.3.0
+## Version: 0.3.1
 ## Dependencies: YayaCore, YayaFrame
 ## OptionalDeps: TomTom, YayaQueue, YayaContainerValues, TradeSkillMaster
 ## SavedVariables: YayaWeeklyTrackerAccountDB
