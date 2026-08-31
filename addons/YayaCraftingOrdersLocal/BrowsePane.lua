@@ -2464,9 +2464,24 @@ local function BuildRequiredReagents(orderData, reagentSlotSchematics, suppliedR
 		end
 
 		if #slotData.options > 0 then
+			-- La mise en file automatique et les listes d'achat n'engagent que le
+			-- rang 1. Sommer toutes les qualites -- banque de guilde comprise --
+			-- mettait shortage a 0 grace a un stock de rang 2, et le manque de
+			-- rang 1 disparaissait. Le stock des autres qualites reste visible via
+			-- option.otherQualityOwnedCount.
+			local lowestQuality
+			for _, option in ipairs(slotData.options) do
+				local quality = option.reagentQuality
+				if quality and (not lowestQuality or quality < lowestQuality) then
+					lowestQuality = quality
+				end
+			end
 			local availableTotal = 0
 			for _, option in ipairs(slotData.options) do
-				availableTotal = availableTotal + (option.ownedCount or 0)
+				local quality = option.reagentQuality
+				if not lowestQuality or not quality or quality <= lowestQuality then
+					availableTotal = availableTotal + (option.ownedCount or 0)
+				end
 			end
 			slotData.availableTotal = availableTotal
 			slotData.shortage = math.max(0, slotData.quantityRequired - availableTotal)
@@ -4089,6 +4104,21 @@ function Pane:HasEnoughConcentrationForOrder(orderData, queueApi)
 	return available - reserved >= required
 end
 
+-- La mise en file automatique n'engage que du rang 1 (lowestMaterialPlan). Si la
+-- qualite exigee par la commande n'est pas atteignable avec ce plan, la mettre en
+-- file produirait un craft incapable de la remplir : on la laisse de cote plutot
+-- que de substituer du rang 2.
+function Pane:CanAutoQueueAtRankOne(orderData)
+	local requirement = orderData and orderData.qualityRequirement
+	if not requirement or requirement.showInList == false then
+		return true
+	end
+	if requirement.state == "none" then
+		return false
+	end
+	return requirement.lowestPlan ~= nil and requirement.reachablePlan == requirement.lowestPlan
+end
+
 function Pane:ShouldAutoQueuePatronOrder(orderData, queueApi)
 	return orderData
 		and orderData.orderID
@@ -4098,6 +4128,7 @@ function Pane:ShouldAutoQueuePatronOrder(orderData, queueApi)
 		and (orderData.profitValue or 0) > 0
 		and orderData.recipeInfo
 		and orderData.recipeInfo.recipeID
+		and self:CanAutoQueueAtRankOne(orderData)
 		and self:HasEnoughConcentrationForOrder(orderData, queueApi or self:GetYayaQueueAPI())
 end
 
