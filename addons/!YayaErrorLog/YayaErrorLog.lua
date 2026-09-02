@@ -13,6 +13,16 @@
 -- et manquerait les fautes commises pendant son chunk et dans son handler
 -- ADDON_LOADED. C'est la convention de !BugGrabber, pour la meme raison.
 --
+-- Pourquoi la capture est avare. seterrorhandler fait de cet addon le
+-- proprietaire du chemin d'execution de *toutes* les fautes du jeu, et le client
+-- facture a !YayaErrorLog le temps qui y passe, gestionnaires chaines compris,
+-- quel que soit l'addon fautif. Un tiers qui leve une erreur a chaque image
+-- epuise donc le budget de scripts non securises du journal : le client repond
+-- « insecure scripts exceeded execution limit for addon !YayaErrorLog » puis
+-- suspend ses scripts, et l'outil charge de rendre compte de la panne se coupe
+-- le premier. D'ou la regle tenue partout plus bas : compter un incident est
+-- toujours execute, capturer sa pile ne l'est presque jamais.
+--
 -- Le journal vit dans les SavedVariables : il est relisible depuis le disque
 -- apres la session. Attention, WoW n'ecrit ce fichier qu'au /reload ou a la
 -- deconnexion.
@@ -38,6 +48,13 @@ local SAMPLES_PER_SIGNATURE = 3
 local MAX_SIGNATURES = 120
 local SIGNATURE_MAX_LENGTH = 200
 local SESSION_LIMIT = 60
+-- Piles capturees par tranche de temps, et duree de cette tranche en secondes.
+-- C'est le garde-fou de derniere ligne : l'echantillonnage par signature ne
+-- borne rien quand la rafale change de message a chaque occurrence, alors que ce
+-- plafond tient quoi qu'il arrive. Huit piles par seconde suffisent largement a
+-- diagnostiquer, et laissent le budget d'execution intact.
+local DETAIL_BUDGET = 8
+local DETAIL_WINDOW = 1
 -- Motif reconnaissant les frames de cet addon dans une pile, pour les ecarter :
 -- son gestionnaire d'erreurs et son handler d'evenement figurent en tete de
 -- pile, et les retenir ferait accuser le journal a la place du fautif.
@@ -81,11 +98,19 @@ end
 YayaErrorLog.FirstAddonFrame = FirstAddonFrame
 
 --- Identifiant stable d'un incident, utilise comme cle de comptage.
-local function BuildSignature(kind, message, stack)
+--
+-- La pile n'entre volontairement pas dans la signature. Ce n'est pas un detail
+-- d'implementation : c'est ce qui permet de decider du sort d'un incident avant
+-- d'avoir paye debugstack, seule operation reellement couteuse du chemin. Le
+-- message d'une faute Lua porte deja le fichier fautif, seul son numero de ligne
+-- etant neutralise ; pour une action bloquee, le nom de la fonction protegee
+-- distingue les incidents. Ce que l'on perd est mince — deux fautes de meme
+-- message a deux lignes d'un meme fichier se confondent — et la pile reste
+-- enregistree dans les exemplaires conserves, la ou elle sert : le diagnostic.
+local function BuildSignature(kind, message)
     local signature = table.concat({
         tostring(kind or "?"),
         NormalizeMessage(message),
-        FirstAddonFrame(stack) or "?",
     }, "|")
     if #signature > SIGNATURE_MAX_LENGTH then
         signature = signature:sub(1, SIGNATURE_MAX_LENGTH)
@@ -203,12 +228,59 @@ local pendingEntries = {}
 -- Verrou de reentrance. Une faute levee dans l'enregistrement lui-meme
 -- repasserait par le gestionnaire d'erreurs et boucherait la pile.
 local recording = false
+-- Nombre d'incidents distincts suivis dans db.counters. Le tenir a jour evite de
+-- reparcourir la table a chaque nouvelle signature : c'etait le dernier travail
+-- proportionnel a la taille du journal sur le chemin chaud.
+local signatureCount = 0
+-- Fenetre courante du budget de capture.
+local windowStart, windowCount = nil, 0
+
+-- Horloge du budget. GetTime ne bouge qu'entre deux images du client : la
+-- fenetre compte donc en pratique les captures par image, soit la granularite
+-- meme du budget que surveille le client. Hors du jeu aucune horloge n'existe et
+-- le bridage ne s'applique pas : les tests exercent le comptage, pas la rafale.
+local function Clock()
+    if type(GetTime) == "function" then
+        return GetTime()
+    end
+    return nil
+end
+
+--- Consomme un jeton de capture detaillee, ou refuse.
+local function TakeDetailToken()
+    local now = Clock()
+    if not now then
+        return true
+    end
+    if not windowStart or (now - windowStart) >= DETAIL_WINDOW then
+        windowStart, windowCount = now, 0
+    end
+    if windowCount >= DETAIL_BUDGET then
+        return false
+    end
+    windowCount = windowCount + 1
+    return true
+end
+
+--- Resynchronise le compteur de signatures avec le journal attache.
+--
+-- Necessaire a chaque changement de table de stockage : les SavedVariables
+-- reviennent peuplees d'une session a l'autre.
+local function RecountSignatures()
+    signatureCount = 0
+    if db and type(db.counters) == "table" then
+        for _ in pairs(db.counters) do
+            signatureCount = signatureCount + 1
+        end
+    end
+    return signatureCount
+end
 
 local function NewEntry(kind, fields)
     local stack = fields.stack
     return {
         kind = kind,
-        stamp = (type(time) == "function") and time() or nil,
+        stamp = fields.stamp or ((type(time) == "function") and time() or nil),
         clock = (type(date) == "function") and date("%H:%M:%S") or nil,
         addon = fields.addon and tostring(fields.addon) or nil,
         protectedFunction = fields.protectedFunction and tostring(fields.protectedFunction) or nil,
@@ -217,66 +289,126 @@ local function NewEntry(kind, fields)
         stack = stack and tostring(stack) or nil,
         zone = fields.zone,
         combat = fields.combat,
-        signature = BuildSignature(kind, fields.message or fields.protectedFunction, stack),
+        signature = fields.signature or BuildSignature(kind, fields.message or fields.protectedFunction),
     }
 end
 YayaErrorLog.NewEntry = NewEntry
 
-local function CountSignatures()
-    local count = 0
-    if db and type(db.counters) == "table" then
-        for _ in pairs(db.counters) do
-            count = count + 1
+--- Incremente le compteur d'une signature, ou refuse au-dela du plafond.
+local function TouchCounter(signature, kind, sample, stamp)
+    db.counters = db.counters or {}
+    local counter = db.counters[signature]
+    if not counter then
+        if signatureCount >= MAX_SIGNATURES then
+            db.droppedSignatures = (db.droppedSignatures or 0) + 1
+            return nil
         end
+        counter = {
+            count = 0,
+            first = stamp,
+            kind = kind,
+            sample = sample,
+        }
+        db.counters[signature] = counter
+        signatureCount = signatureCount + 1
     end
-    return count
+    counter.count = counter.count + 1
+    counter.last = stamp
+    return counter
 end
 
-local function StoreEntry(entry)
+local function StoreDetail(entry)
     if not db then
         -- Meme borne que le journal persistant : une boucle de fautes avant
         -- ADDON_LOADED ne doit pas gonfler indefiniment.
         PushBounded(pendingEntries, entry, ENTRY_LIMIT)
         return
     end
-
-    db.counters = db.counters or {}
-    local counter = db.counters[entry.signature]
-    if not counter then
-        if CountSignatures() >= MAX_SIGNATURES then
-            db.droppedSignatures = (db.droppedSignatures or 0) + 1
-            return
-        end
-        counter = {
-            count = 0,
-            first = entry.stamp,
-            kind = entry.kind,
-            frame = entry.frame,
-            sample = entry.message or entry.protectedFunction,
-        }
-        db.counters[entry.signature] = counter
-    end
-    counter.count = counter.count + 1
-    counter.last = entry.stamp
-
-    if counter.count <= SAMPLES_PER_SIGNATURE then
-        db.entries = db.entries or {}
-        PushBounded(db.entries, entry, ENTRY_LIMIT)
-    end
+    db.entries = db.entries or {}
+    PushBounded(db.entries, entry, ENTRY_LIMIT)
 end
 
-local function Record(kind, fields)
-    StoreEntry(NewEntry(kind, fields or {}))
+--- Enregistre un incident : comptage systematique, detail conditionnel.
+--
+-- Le comptage est le seul travail toujours execute, et il coute deux
+-- substitutions sur le message plus un acces de table. Tout le reste : pile,
+-- zone, etat de combat, entree detaillee, est soumis d'abord a
+-- l'echantillonnage par signature, ensuite au budget de la fenetre courante.
+-- C'est cette asymetrie qui laisse une faute levee a chaque image rester comptee
+-- dans le journal sans epuiser le budget d'execution de l'addon.
+--
+-- `enrich`, si elle est fournie, n'est appelee que lorsque l'entree detaillee va
+-- reellement etre conservee ; elle complete `fields` sur place.
+local function Record(kind, fields, enrich)
+    fields = fields or {}
+    local stamp = fields.stamp or ((type(time) == "function") and time() or nil)
+    fields.stamp = stamp
+    local sample = fields.message or fields.protectedFunction
+    local signature = BuildSignature(kind, sample)
+    fields.signature = signature
+
+    local counter
+    if db then
+        counter = TouchCounter(signature, kind, sample, stamp)
+        if not counter then
+            return
+        end
+        if counter.count > SAMPLES_PER_SIGNATURE then
+            return
+        end
+    end
+
+    if not TakeDetailToken() then
+        -- L'incident reste compte, seule sa pile manque. Le compteur ci-dessous
+        -- le dit au rapport : sans lui, un journal maigre pendant une rafale
+        -- passerait pour un journal vide.
+        if db then
+            db.throttled = (db.throttled or 0) + 1
+        end
+        return
+    end
+
+    if enrich then
+        enrich(fields)
+    end
+
+    local entry = NewEntry(kind, fields)
+    if counter and not counter.frame then
+        counter.frame = entry.frame
+    end
+    StoreDetail(entry)
 end
 YayaErrorLog.Record = Record
 
+--- Reinjecte dans le journal une entree mise de cote avant ADDON_LOADED.
+--
+-- Son contexte est deja collecte : il ne reste qu'a compter et a ranger, sans
+-- repasser par le budget de capture qu'elle a deja paye.
+local function AdoptEntry(entry)
+    if type(entry) ~= "table" or not db then
+        return
+    end
+    local sample = entry.message or entry.protectedFunction
+    local signature = entry.signature or BuildSignature(entry.kind, sample)
+    local counter = TouchCounter(signature, entry.kind, sample, entry.stamp)
+    if not counter then
+        return
+    end
+    if not counter.frame then
+        counter.frame = entry.frame
+    end
+    if counter.count <= SAMPLES_PER_SIGNATURE then
+        StoreDetail(entry)
+    end
+end
+
 --- Enregistre sans jamais laisser echapper d'erreur.
-local function SafeRecord(kind, fields)
+local function SafeRecord(kind, fields, enrich)
     if recording then
         return
     end
     recording = true
-    pcall(Record, kind, fields)
+    pcall(Record, kind, fields, enrich)
     recording = false
 end
 YayaErrorLog.SafeRecord = SafeRecord
@@ -284,6 +416,7 @@ YayaErrorLog.SafeRecord = SafeRecord
 --- Rattache une table de stockage, pour les tests hors du jeu.
 function YayaErrorLog.SetStore(store)
     db = store
+    RecountSignatures()
     return db
 end
 
@@ -347,21 +480,24 @@ local function InCombat()
     return type(InCombatLockdown) == "function" and InCombatLockdown() and true or false
 end
 
---- Rassemble le contexte d'un incident sans jamais pouvoir lever.
+--- Complete un incident avec son contexte, sans jamais pouvoir lever.
 --
 -- Cette collecte s'execute a l'interieur du gestionnaire d'erreurs global : une
 -- faute ici, meme improbable, laisserait le gestionnaire inutilisable pour toute
 -- la session. Chaque source est donc isolee, et son echec coute au pire un champ
 -- manquant.
-local function SafeContext()
-    local context = {}
+--
+-- Elle est passee a SafeRecord comme fonction, et non appelee avant lui : c'est
+-- debugstack qui coute, et seuls les incidents dont l'entree detaillee est
+-- conservee doivent le payer.
+local function SafeContext(fields)
     local ok, value = pcall(CaptureStack)
-    context.stack = ok and value or nil
+    fields.stack = ok and value or nil
     ok, value = pcall(CurrentZone)
-    context.zone = ok and value or nil
+    fields.zone = ok and value or nil
     ok, value = pcall(InCombat)
-    context.combat = ok and value or nil
-    return context
+    fields.combat = ok and value or nil
+    return fields
 end
 
 local function AdoptDB()
@@ -370,13 +506,15 @@ local function AdoptDB()
     db.entries = db.entries or {}
     db.counters = db.counters or {}
     db.sessions = db.sessions or {}
+    RecountSignatures()
 
     -- Les fautes mises de cote avant ADDON_LOADED rejoignent le journal, dans
     -- l'ordre ou elles se sont produites.
-    for _, entry in ipairs(ReadBounded(pendingEntries)) do
-        StoreEntry(entry)
-    end
+    local pending = ReadBounded(pendingEntries)
     pendingEntries = {}
+    for _, entry in ipairs(pending) do
+        AdoptEntry(entry)
+    end
 end
 
 local function RecordSession()
@@ -397,9 +535,7 @@ end
 local previousHandler = (type(geterrorhandler) == "function") and geterrorhandler() or nil
 if type(seterrorhandler) == "function" then
     seterrorhandler(function(err)
-        local context = SafeContext()
-        context.message = err
-        SafeRecord("lua-error", context)
+        SafeRecord("lua-error", { message = err }, SafeContext)
         if previousHandler then
             return previousHandler(err)
         end
@@ -425,10 +561,10 @@ frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         RecordSession()
         return
     end
-    local context = SafeContext()
-    context.addon = arg1
-    context.protectedFunction = arg2
-    SafeRecord(event, context)
+    -- ADDON_ACTION_BLOCKED est l'evenement le plus bavard du client : il peut
+    -- arriver a chaque image tant que l'addon fautif insiste. Le contexte n'est
+    -- donc collecte que si SafeRecord decide de conserver l'entree.
+    SafeRecord(event, { addon = arg1, protectedFunction = arg2 }, SafeContext)
 end)
 
 -- ---------------------------------------------------------------------------
@@ -499,6 +635,9 @@ local function BuildReport()
     lines[#lines + 1] = ("%d incident(s), %d type(s) distinct(s)."):format(total, #ordered)
     if db.droppedSignatures then
         lines[#lines + 1] = ("Types distincts non suivis (plafond atteint) : %d"):format(db.droppedSignatures)
+    end
+    if db.throttled then
+        lines[#lines + 1] = ("Incidents comptes sans pile (budget de capture) : %d"):format(db.throttled)
     end
 
     lines[#lines + 1] = ""
@@ -601,6 +740,8 @@ SlashCmdList["YAYAERRORLOG"] = function(input)
             db.entries = {}
             db.counters = {}
             db.droppedSignatures = nil
+            db.throttled = nil
+            RecountSignatures()
         end
         Print("Journal vide.")
         return
@@ -655,6 +796,9 @@ SlashCmdList["YAYAERRORLOG"] = function(input)
         total = total + (item.counter.count or 0)
     end
     Print(("%d incident(s) sur %d type(s) distinct(s). /yerr dump pour le detail copiable."):format(total, #ordered))
+    if db.throttled then
+        Print(("  %d incident(s) comptes sans pile : le budget de capture etait epuise."):format(db.throttled))
+    end
     for index = 1, math.min(8, #ordered) do
         local counter = ordered[index].counter
         Print(("  x%d [%s] %s %s"):format(
