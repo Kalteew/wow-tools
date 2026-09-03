@@ -2,7 +2,7 @@
 ## Title: Yaya Addon Profiles
 ## Notes: Reapplies Simple Addon Manager profiles assigned to characters.
 ## Author: Codex
-## Version: 1.13.1
+## Version: 1.14.0
 ## Dependencies: YayaCore
 ## RequiredDeps: SimpleAddonManager
 ## SavedVariables: YayaAddonProfilesDB
