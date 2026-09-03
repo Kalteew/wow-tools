@@ -276,14 +276,12 @@ local MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID = {
             y = 72.9,
         },
         {
+            -- Achetee a l'hotel des ventes : aucun vendeur a pointer, donc ni waypoint ni cout Moxie/Marl.
             label = "Vicious Thalassian Flask of Honor",
             optionKey = "trackRecipeViciousThalassianFlaskHonor",
             spellID = 1230883,
             itemID = 257417,
-            moxieCost = 150,
-            mapID = 2395,
-            x = 34.04,
-            y = 81.20,
+            auctionHouse = true,
         },
         {
             label = "Concentrated Silvermoon Health Potion",
@@ -5278,9 +5276,12 @@ trackerUI.GetMidnightRecipeStatus = function(row)
                 runtimeState.midnightRecipeStatePending = true
             elseif not known and (recipeItems.countsByItemID[recipe.itemID] or 0) == 0 then
                 result.missingRecipes[#result.missingRecipes + 1] = recipe
-                result.requiredMoxie = result.requiredMoxie + (recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST)
-                result.requiredVoidlightMarl = result.requiredVoidlightMarl
-                    + (recipe.voidlightMarlCost or runtimeState.midnightRecipeVoidlightMarlCost)
+                -- Une recette achetee a l'hotel des ventes ne coute aucune monnaie de metier.
+                if not recipe.auctionHouse then
+                    result.requiredMoxie = result.requiredMoxie + (recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST)
+                    result.requiredVoidlightMarl = result.requiredVoidlightMarl
+                        + (recipe.voidlightMarlCost or runtimeState.midnightRecipeVoidlightMarlCost)
+                end
             end
         end
     end
@@ -5314,18 +5315,24 @@ trackerUI.BuildMidnightKnowledgeBookWaypointPlan = function(trackedRows)
             signatureParts[#signatureParts + 1] = tostring(row.skillLineID) .. ":" .. tostring(book.questID)
         end
         local recipeStatus = trackerUI.GetMidnightRecipeStatus(row)
+        -- Budget cumule : ne pointer un vendeur que si la Moxie restante paie encore la recette.
+        local affordableMoxie = recipeStatus.currentMoxie or 0
         for _, recipe in ipairs(recipeStatus.missingRecipes) do
-            local key = ("%s:%s:%s:%s"):format(recipe.mapID, recipe.x, recipe.y, recipe.label)
-            if not seen[key] then
-                seen[key] = true
-                plan[#plan + 1] = {
-                    mapID = recipe.mapID,
-                    x = recipe.x / 100,
-                    y = recipe.y / 100,
-                    title = ("YWT recette - %s"):format(recipe.label),
-                }
+            local moxieCost = recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST
+            if not recipe.auctionHouse and recipe.mapID and affordableMoxie >= moxieCost then
+                affordableMoxie = affordableMoxie - moxieCost
+                local key = ("%s:%s:%s:%s"):format(recipe.mapID, recipe.x, recipe.y, recipe.label)
+                if not seen[key] then
+                    seen[key] = true
+                    plan[#plan + 1] = {
+                        mapID = recipe.mapID,
+                        x = recipe.x / 100,
+                        y = recipe.y / 100,
+                        title = ("YWT recette - %s"):format(recipe.label),
+                    }
+                end
+                signatureParts[#signatureParts + 1] = tostring(row.skillLineID) .. ":recipe:" .. tostring(recipe.itemID)
             end
-            signatureParts[#signatureParts + 1] = tostring(row.skillLineID) .. ":recipe:" .. tostring(recipe.itemID)
         end
     end
 
@@ -5534,7 +5541,9 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
 
     local recipeStatus = trackerUI.GetMidnightRecipeStatus(row)
     for _, recipe in ipairs(recipeStatus.missingRecipes) do
-        oneTimeTokens[#oneTimeTokens + 1] = ("recette (%s)"):format(recipe.label)
+        oneTimeTokens[#oneTimeTokens + 1] = recipe.auctionHouse
+            and ("recette HV (%s)"):format(recipe.label)
+            or ("recette (%s)"):format(recipe.label)
     end
 
     local toolStatus = (trackProfessionTools or trackProfessionToolEnchants)

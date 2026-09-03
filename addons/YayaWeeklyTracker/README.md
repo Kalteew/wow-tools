@@ -48,6 +48,7 @@ Resume `Midnight` :
 - apres confirmation que l'outil porte bien le nouvel `enchantID`, le bouton retire une unite de cet enchantement de la demande directe YayaQueue ; un clic annule ou echoue ne retire rien
 - le rappel `moxie x` reste affiche meme si aucun tresor, livre ou recette ne reste dans `One time`
 - les recettes manquantes suivies sont `Potion of Recklessness`, `Vicious Thalassian Flask of Honor`, `Concentrated Silvermoon Health Potion`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; leur etat connu utilise le tooltip Blizzard du personnage courant, comme Yaya Vendor Filter, puis les API metier en secours ; une recette ayant un cout Abundance n'est suivie qu'a partir du niveau 90
+- `Vicious Thalassian Flask of Honor` est marquee comme achat hotel des ventes (`auctionHouse`) : elle s'affiche en `recette HV (...)`, sans waypoint TomTom ni cout Moxie ou `Voidlight Marl` dans les rappels
 - une recette suivie non apprise mais deja presente dans les sacs est retiree de `One time` ; un bouton `Utiliser recette` permet de la consommer directement
 - le transfert de `Voidlight Marl` depuis les autres personnages est temporairement desactive ; son bouton reste masque pendant la stabilisation du flux Blizzard
 - `Lost Legends` est suivie comme weekly par personnage des legendes Haranir
@@ -59,7 +60,8 @@ Resume `Midnight` :
 - si `TomTom` est installe, l'addon ajoute automatiquement au login les waypoints des tresors `Midnight` encore non recuperes pour les metiers du personnage courant
 - les waypoints sont refresh quand un tresor passe en `fait`
 - si TomTom est installe, un waypoint temporaire est aussi pose vers chaque vendeur de livre KP manquant (`Voidstorm`, `Silvermoon`, `Harandar`, `Zul'Aman`, `Coiled Isle` ou `Abundance`)
-- si TomTom est installe, un waypoint temporaire est aussi pose vers le vendeur des recettes suivies manquantes
+- si TomTom est installe, un waypoint temporaire est aussi pose vers le vendeur des recettes suivies manquantes, uniquement quand la Moxie du metier suffit a les acheter : le budget est consomme recette par recette dans l'ordre de la liste, donc une Moxie insuffisante ne pose aucun point inutile et le point reapparait des que la Moxie remonte
+- une recette sans vendeur (achat hotel des ventes) ne recoit jamais de waypoint et ne consomme pas ce budget Moxie
 - l'addon n'impose pas la `CrazyArrow` de TomTom; il pose seulement les markers carte/minimap
 - un bouton `Ouvrir payout` apparait si un `Artisan's Consortium Payout` est detecte dans les sacs; chaque clic cible un payout encore present et un clic excedentaire reste sans effet
 - le meme bouton ouvre aussi tous les conteneurs Midnight ouvrables recenses dans la whitelist : caches, coffres, sacs, pochettes, satchels, offres, boites Prey et conteneurs de la Coiled Isle / Vaults of Atal'Utek, en alternant les slots disponibles
