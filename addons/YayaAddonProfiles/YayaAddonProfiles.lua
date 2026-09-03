@@ -11,20 +11,23 @@ local DisableAddOnCompat = AddOns.DisableAddOn or DisableAddOn
 local SaveAddOnsCompat = AddOns.SaveAddOns or SaveAddOns
 local GetAddOnDependenciesCompat = AddOns.GetAddOnDependencies or GetAddOnDependencies
 
+local UI = YayaCore.UI
+
 local DB
 local currentCharacterId
 local currentCharacterGuid
 local mainFrame
 local selectedProfileName
-local profileButtons = {}
-local characterRows = {}
-local scrollChild
+local profileList
+local characterList
 local statusText
 local selectedProfileText
 local selectAllButton
 local selectUnassignedButton
 local clearSelectionButton
 local bulkApplyButton
+local promptReloadCheck
+local sortHeaders = {}
 local selectedCharacterIds = {}
 local characterIdsByIndex = {}
 local lastSelectedCharacterIndex
@@ -34,6 +37,17 @@ local ToggleSelectedCharacter
 local Debug
 local SaveAddonSettings
 local DEBUG_LOG_LIMIT = 80
+
+-- Geometrie propre a cette fenetre. Tout ce que les tokens partages couvrent
+-- (marges, hauteurs de ligne, bande d'action) est lu directement sur UI.
+local LAYOUT = {
+	frameW = 720,
+	frameH = 520,
+	profileW = 176,
+	checkW = 18,
+	levelW = 34,
+	assignmentW = 160,
+}
 local REGION_CODES = {
 	[1] = "US",
 	[2] = "KR",
@@ -43,7 +57,7 @@ local REGION_CODES = {
 }
 
 local function Print(message)
-	DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffYayaAddonProfiles|r: " .. message)
+	DEFAULT_CHAT_FRAME:AddMessage(UI.HEX.accent .. "YayaAddonProfiles" .. UI.HEX.stop .. ": " .. message)
 end
 
 StaticPopupDialogs["YAYA_ADDON_PROFILES_RELOAD"] = {
@@ -141,21 +155,33 @@ end
 local function EnsureDb()
 	YayaAddonProfilesDB = YayaAddonProfilesDB or {}
 	DB = YayaAddonProfilesDB
-	DB.version = 3
 	DB.assignments = DB.assignments or {}
 	DB.characters = DB.characters or {}
 	if DB.debug == nil then
 		DB.debug = true
 	end
+	-- Defaut silencieux : la liste d'addons est sauvegardee et prend effet a la
+	-- prochaine connexion, sans fenetre de confirmation.
+	if DB.promptReload == nil then
+		DB.promptReload = false
+	end
+	DB.sortKey = DB.sortKey or "name"
+	if DB.sortDesc == nil then
+		DB.sortDesc = false
+	end
 	DB.debugLog = DB.debugLog or {}
 end
 
-local function RememberCharacter(characterId, guid, classFile, color)
+-- Fusion champ par champ : un argument nil ne doit jamais effacer une valeur
+-- connue, car SeedKnownCharacters rappelle cette fonction sans classe ni niveau.
+local function RememberCharacter(characterId, guid, classFile, color, level, seenAt)
 	local character = DB.characters[characterId] or {}
 	character.id = characterId
 	character.guid = guid or character.guid
 	character.class = classFile or character.class
 	character.color = color or character.color or "ffffffff"
+	character.level = level or character.level
+	character.lastSeen = seenAt or character.lastSeen
 	DB.characters[characterId] = character
 	return character
 end
@@ -178,6 +204,95 @@ local function SeedKnownCharacters()
 			end
 		end
 	end
+end
+
+-- Choisit l'identifiant a conserver entre deux entrees du meme personnage.
+-- GetCharacterId compose son identifiant avec GetRealmName, qui rend le royaume
+-- avec ses espaces : c'est la forme qui sera regeneree a chaque connexion, donc
+-- la forme canonique. Le reste du departage est deterministe pour ne pas
+-- dependre de l'ordre de parcours de pairs.
+local function PreferredCharacterId(left, right)
+	local leftSpaced = left:find(" ", 1, true) ~= nil
+	local rightSpaced = right:find(" ", 1, true) ~= nil
+	if leftSpaced ~= rightSpaced then
+		return leftSpaced and left or right
+	end
+	if #left ~= #right then
+		return #left > #right and left or right
+	end
+	return left < right and left or right
+end
+
+-- Verse l'entree source dans l'entree conservee sans jamais ecraser une valeur
+-- connue par un nil. Le niveau ne redescend jamais : le maximum est le bon.
+local function MergeCharacterInto(keepId, dropId)
+	local keep = DB.characters[keepId]
+	local drop = DB.characters[dropId]
+	if not keep or not drop or keepId == dropId then
+		return false
+	end
+
+	keep.guid = keep.guid or drop.guid
+	keep.class = keep.class or drop.class
+	if keep.color == nil or keep.color == "ffffffff" then
+		keep.color = drop.color or keep.color
+	end
+
+	local level = math.max(keep.level or 0, drop.level or 0)
+	keep.level = level > 0 and level or nil
+
+	if drop.lastSeen and (not keep.lastSeen or drop.lastSeen > keep.lastSeen) then
+		keep.lastSeen = drop.lastSeen
+	end
+	if not DB.assignments[keepId] then
+		DB.assignments[keepId] = DB.assignments[dropId]
+	end
+
+	DB.characters[dropId] = nil
+	DB.assignments[dropId] = nil
+	selectedCharacterIds[dropId] = nil
+	return true
+end
+
+-- SeedKnownCharacters compose ses identifiants a partir des cles de royaume de
+-- SimpleAddonManager, tantot avec espaces tantot sans : le meme personnage
+-- pouvait exister sous deux entrees. Le seeding peut recreer un doublon apres
+-- coup, donc la fusion tourne a chaque connexion et pas seulement une fois.
+-- Effacer une cle existante pendant un parcours pairs est permis en Lua ; en
+-- ajouter une ne l'est pas, et rien n'en ajoute ici.
+local function MergeDuplicateCharacters()
+	local firstPass = (DB.version or 0) < 4
+	local byGuid = {}
+	local mergedPairs = {}
+
+	for characterId, character in pairs(DB.characters) do
+		local guid = character.guid
+		if guid then
+			local known = byGuid[guid]
+			if not known then
+				byGuid[guid] = characterId
+			else
+				local keepId = PreferredCharacterId(known, characterId)
+				local dropId = (keepId == known) and characterId or known
+				if MergeCharacterInto(keepId, dropId) then
+					mergedPairs[#mergedPairs + 1] = dropId .. " -> " .. keepId
+				end
+				byGuid[guid] = keepId
+			end
+		end
+	end
+
+	DB.version = 4
+
+	if #mergedPairs > 0 then
+		RecordDebug("merge-duplicates", {
+			merged = #mergedPairs,
+			pairs = mergedPairs,
+			firstPass = firstPass,
+		})
+		Debug("Doublons de personnages fusionnes : " .. #mergedPairs .. ".")
+	end
+	return #mergedPairs
 end
 
 local function SortedProfileNames()
@@ -382,16 +497,25 @@ local function ProfileMatches(profileName)
 end
 
 local function PromptReload()
-	if reloadQueued then
-		Debug("Confirmation de reload deja affichee.")
-		return
-	end
+	-- La trace est ecrite dans les deux modes : elle dit qu'une correction attend
+	-- la prochaine connexion, et OnPlayerLogin la relit.
 	DB.reloadRequired = {
 		time = time(),
 		character = currentCharacterId,
 		profile = DB.debugLastApply and DB.debugLastApply.profile,
 	}
 	RecordDebug("reload-required", DB.reloadRequired)
+
+	if DB.promptReload ~= true then
+		RecordDebug("reload-silent", DB.reloadRequired)
+		Debug("Mode silencieux : profil sauvegarde, actif a la prochaine connexion.")
+		return
+	end
+
+	if reloadQueued then
+		Debug("Confirmation de reload deja affichee.")
+		return
+	end
 
 	-- reloadQueued etait pose avant l'affichage et le retour de StaticPopup_Show
 	-- n'etait pas inspecte : quand les quatre emplacements de popup sont occupes
@@ -469,7 +593,12 @@ local function ApplyProfile(profileName, announce)
 		end
 		Debug("Configuration d'addons sauvegardee immediatement.")
 		if announce then
-			Print("Profil " .. profileName .. " sauvegarde. Reload facultatif ; sinon il sera actif a la prochaine connexion.")
+			if DB.promptReload == true then
+				Print("Profil " .. profileName
+					.. " sauvegarde. Reload facultatif ; sinon il sera actif a la prochaine connexion.")
+			else
+				Print("Profil " .. profileName .. " sauvegarde. Il sera actif a la prochaine connexion.")
+			end
 		end
 		PromptReload()
 	end
@@ -520,22 +649,76 @@ local function AssignProfile(characterId, profileName)
 	return true
 end
 
+-- Comparateur de la liste de personnages. Le departage final par identifiant est
+-- indispensable : les identifiants etant uniques, il fait de la relation un
+-- ordre strict total, sans quoi table.sort leve "invalid order function for
+-- sorting" sur certaines permutations.
+local function CompareCharacters(left, right)
+	local key = DB.sortKey or "name"
+	local desc = DB.sortDesc == true
+
+	if key == "level" then
+		-- Un niveau inconnu finit la liste dans les deux sens.
+		local leftKnown = left.level ~= nil
+		local rightKnown = right.level ~= nil
+		if leftKnown ~= rightKnown then
+			return leftKnown
+		end
+		if leftKnown and left.level ~= right.level then
+			if desc then
+				return left.level > right.level
+			end
+			return left.level < right.level
+		end
+	elseif key == "profile" then
+		-- Un personnage sans profil finit la liste dans les deux sens.
+		local leftProfile = DB.assignments[left.id]
+		local rightProfile = DB.assignments[right.id]
+		if (leftProfile ~= nil) ~= (rightProfile ~= nil) then
+			return leftProfile ~= nil
+		end
+		if leftProfile then
+			local leftKey = leftProfile:lower()
+			local rightKey = rightProfile:lower()
+			if leftKey ~= rightKey then
+				if desc then
+					return leftKey > rightKey
+				end
+				return leftKey < rightKey
+			end
+		end
+	else
+		local leftKey = left.id:lower()
+		local rightKey = right.id:lower()
+		if leftKey ~= rightKey then
+			if desc then
+				return leftKey > rightKey
+			end
+			return leftKey < rightKey
+		end
+	end
+
+	return left.id < right.id
+end
+
 local function SortedCharacters()
 	local characters = {}
-	for id, character in pairs(DB.characters) do
+	for _, character in pairs(DB.characters) do
 		table.insert(characters, character)
 	end
-	table.sort(characters, function(left, right)
-		return left.id:lower() < right.id:lower()
-	end)
+	table.sort(characters, CompareCharacters)
 	return characters
 end
 
-local function CreateButton(parent, text, width, height)
-	local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	button:SetSize(width, height)
-	button:SetText(text)
-	return button
+-- Sens par defaut au premier clic sur une colonne : le nom et le profil se
+-- lisent de A a Z, le niveau du plus haut au plus bas.
+local function SetSortKey(key)
+	if DB.sortKey == key then
+		DB.sortDesc = not (DB.sortDesc == true)
+	else
+		DB.sortKey = key
+		DB.sortDesc = (key == "level")
+	end
 end
 
 local function GetSelectedCharacterCount()
@@ -569,6 +752,20 @@ local function SelectUnassignedCharacters()
 	end
 end
 
+-- Niveau maximum de l'extension courante, resolu une fois : il ne sert qu'a
+-- teindre la colonne de niveau, son absence n'est pas une erreur.
+local maxPlayerLevel
+
+local function ResolveMaxPlayerLevel()
+	if type(GetMaxLevelForPlayerExpansion) == "function" then
+		local ok, level = pcall(GetMaxLevelForPlayerExpansion)
+		if ok and type(level) == "number" and level > 0 then
+			return level
+		end
+	end
+	return nil
+end
+
 local function RefreshUi()
 	if not mainFrame then
 		return
@@ -581,87 +778,73 @@ local function RefreshUi()
 	if not selectedProfileName then
 		selectedProfileName = profileNames[1]
 	end
+
 	local selectedCount = GetSelectedCharacterCount()
-	selectedProfileText:SetText("Profil choisi : " .. (selectedProfileName or "aucun") .. " | " .. selectedCount .. " selectionne(s)")
+	selectedProfileText:SetText("Profil choisi : " .. (selectedProfileName or "aucun")
+		.. " | " .. selectedCount .. " selectionne(s)")
 	bulkApplyButton:SetText("Attribuer (" .. selectedCount .. ")")
 	bulkApplyButton:SetEnabled(selectedProfileName ~= nil and selectedCount > 0)
+	promptReloadCheck:SetChecked(DB.promptReload == true)
 
-	for index, profileName in ipairs(profileNames) do
-		local button = profileButtons[index]
-		if not button then
-			button = CreateButton(mainFrame, "", 170, 24)
-			button:SetPoint("TOPLEFT", mainFrame, "TOPLEFT", 18, -74 - ((index - 1) * 27))
-			profileButtons[index] = button
+	local assignedCounts = {}
+	for _, profileName in pairs(DB.assignments) do
+		assignedCounts[profileName] = (assignedCounts[profileName] or 0) + 1
+	end
+
+	if profileList then
+		local profileItems = {}
+		for index, profileName in ipairs(profileNames) do
+			profileItems[index] = {
+				name = profileName,
+				index = index,
+				selected = profileName == selectedProfileName,
+				assigned = assignedCounts[profileName] or 0,
+			}
 		end
-		button.profileName = profileName
-		button:SetText(profileName)
-		button:SetEnabled(profileName ~= selectedProfileName)
-		button:SetScript("OnClick", function(self)
-			selectedProfileName = self.profileName
-			RefreshUi()
-		end)
-		button:Show()
-	end
-	for index = #profileNames + 1, #profileButtons do
-		profileButtons[index]:Hide()
+		profileList.SetItems(profileItems)
 	end
 
+	-- La ScrollBox recycle ses lignes : l'index de selection ne peut plus vivre
+	-- sur la frame. Il voyage dans un objet d'affichage, jamais dans l'entree
+	-- persistee, qui partirait telle quelle dans les SavedVariables.
 	local characters = SortedCharacters()
+	local previousCount = #characterIdsByIndex
+	local characterItems = {}
 	for index, character in ipairs(characters) do
 		characterIdsByIndex[index] = character.id
-		local row = characterRows[index]
-		if not row then
-			row = CreateFrame("Frame", nil, scrollChild)
-			row:SetSize(400, 26)
-			row:EnableMouse(true)
-			row.select = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-			row.select:SetPoint("LEFT", 0, 0)
-			row.select:SetSize(24, 24)
-			row.name = row:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-			row.name:SetPoint("LEFT", row.select, "RIGHT", 2, 0)
-			row.name:SetWidth(185)
-			row.name:SetJustifyH("LEFT")
-			row.name:SetWordWrap(false)
-			row.name:SetMaxLines(1)
-			row.assignment = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-			row.assignment:SetPoint("LEFT", row.name, "RIGHT", 6, 0)
-			row.assignment:SetWidth(178)
-			row.assignment:SetJustifyH("LEFT")
-			row.assignment:SetWordWrap(false)
-			row.assignment:SetMaxLines(1)
-			row:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-				GameTooltip:SetText(self.character.id)
-				GameTooltip:AddLine("Profil : " .. (DB.assignments[self.character.id] or "aucun"), 1, 1, 1)
-				GameTooltip:Show()
-			end)
-			row:SetScript("OnLeave", GameTooltip_Hide)
-			characterRows[index] = row
-		end
-		row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -((index - 1) * 27))
-		row.character = character
-		row.characterIndex = index
-		row.name:SetText("|c" .. (character.color or "ffffffff") .. character.id .. "|r")
-		row.assignment:SetText(DB.assignments[character.id] or "-")
-		row.select:SetChecked(selectedCharacterIds[character.id] == true)
-		row.select:SetScript("OnClick", function(self)
-			local parent = self:GetParent()
-			ToggleSelectedCharacter(parent.character.id, parent.characterIndex)
-		end)
-		row:Show()
+		characterItems[index] = {
+			id = character.id,
+			character = character,
+			index = index,
+		}
 	end
-	for index = #characters + 1, #characterRows do
-		characterRows[index]:Hide()
+	for index = #characters + 1, previousCount do
 		characterIdsByIndex[index] = nil
 	end
-	scrollChild:SetHeight(math.max(1, #characters * 27))
+	if characterList then
+		characterList.SetItems(characterItems)
+	end
 
+	for _, sortHeader in ipairs(sortHeaders) do
+		local active = sortHeader.sortKey == (DB.sortKey or "name")
+		local suffix = ""
+		if active then
+			suffix = DB.sortDesc and " v" or " ^"
+		end
+		sortHeader.text:SetText(sortHeader.sortLabel .. suffix)
+		sortHeader.text:SetTextColor(UI.Unpack(active and UI.COLOR.accent or UI.COLOR.textMuted))
+	end
+
+	-- ProfileMatches parcourt toute la liste d'addons et la cloture transitive de
+	-- leurs dependances : un seul appel, alors que RefreshUi part a chaque clic
+	-- de case.
 	local assigned = DB.assignments[currentCharacterId]
-	local active, reason = assigned and ProfileMatches(assigned) or false, nil
+	local active, reason = false, nil
 	if assigned then
 		active, reason = ProfileMatches(assigned)
 	end
-	statusText:SetText("Ce perso : " .. currentCharacterId .. " | " .. (assigned and (active and "conforme" or (reason or "correction au prochain login")) or "sans profil"))
+	statusText:SetText("Ce perso : " .. currentCharacterId .. " | "
+		.. (assigned and (active and "conforme" or (reason or "correction au prochain login")) or "sans profil"))
 end
 
 ToggleSelectedCharacter = function(characterId, characterIndex)
@@ -715,75 +898,403 @@ local function ToggleUi()
 	end
 end
 
+-- ---------------------------------------------------------------------------
+-- Lignes de liste
+--
+-- UI.DecorateRow remet OnClick a nil dans Reset pour qu'une ligne recyclee ne
+-- garde pas de fermeture perimee : les gestionnaires sont donc des fonctions
+-- stables, rebranchees a chaque liaison, qui relisent l'etat porte par la ligne.
+-- ---------------------------------------------------------------------------
+
+local function OnProfileRowClick(self)
+	if self.yapProfileName then
+		selectedProfileName = self.yapProfileName
+		RefreshUi()
+	end
+end
+
+local function InitProfileRow(row, item)
+	UI.DecorateRow(row, {
+		height = UI.SIZE.rowH,
+		leftInset = UI.PAD.md,
+		rightInset = UI.PAD.md,
+	})
+
+	row.Reset()
+	row.yapProfileName = item.name
+	row.label:SetText(item.name)
+	row:SetScript("OnClick", OnProfileRowClick)
+
+	if item.selected then
+		row.bg:SetColorTexture(UI.Unpack(UI.COLOR.selected))
+		row.label:SetTextColor(UI.Unpack(UI.COLOR.accent))
+	else
+		row.SetStripe(item.index)
+		row.label:SetTextColor(UI.Unpack(UI.COLOR.text))
+	end
+
+	row.SetTooltip(item.name, item.assigned .. " personnage(s) sur ce profil.")
+end
+
+local function ResetProfileRow(row)
+	if row.Reset then
+		row.Reset()
+	end
+	row.yapProfileName = nil
+end
+
+local function OnCharacterRowClick(self)
+	local item = self.yapItem
+	if item then
+		ToggleSelectedCharacter(item.id, item.index)
+	end
+end
+
+local function OnCharacterCheckClick(self)
+	local item = self.row and self.row.yapItem
+	if item then
+		ToggleSelectedCharacter(item.id, item.index)
+	end
+end
+
+local function InitCharacterRow(row, item)
+	local nameInset = UI.PAD.sm + LAYOUT.checkW + UI.PAD.md
+
+	UI.DecorateRow(row, {
+		height = UI.SIZE.rowH,
+		leftInset = nameInset,
+		rightInset = UI.PAD.sm,
+		valueWidth = LAYOUT.assignmentW,
+	})
+
+	if not row.yapColumns then
+		row.yapColumns = true
+
+		row.yapCheck = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+		row.yapCheck:SetSize(LAYOUT.checkW, LAYOUT.checkW)
+		row.yapCheck:SetPoint("LEFT", row, "LEFT", UI.PAD.sm, 0)
+		row.yapCheck.row = row
+		row.yapCheck:SetScript("OnClick", OnCharacterCheckClick)
+
+		row.yapLevel = row:CreateFontString(nil, "OVERLAY", UI.FONT.body)
+		row.yapLevel:SetPoint("RIGHT", row.value, "LEFT", -UI.PAD.md, 0)
+		row.yapLevel:SetWidth(LAYOUT.levelW)
+		UI.BoundLabel(row.yapLevel, "RIGHT")
+
+		-- Le libelle de DecorateRow court jusqu'a la colonne de valeur : le
+		-- reborner pour degager la colonne de niveau.
+		row.label:ClearAllPoints()
+		row.label:SetPoint("LEFT", row, "LEFT", nameInset, 0)
+		row.label:SetPoint("RIGHT", row.yapLevel, "LEFT", -UI.PAD.md, 0)
+
+		-- Le profil assigne se lit comme un libelle, pas comme une valeur.
+		row.value:SetJustifyH("LEFT")
+	end
+
+	local character = item.character
+	local assignment = DB.assignments[item.id]
+	local level = character.level
+
+	row.Reset()
+	row.yapItem = item
+	row:SetScript("OnClick", OnCharacterRowClick)
+	row.SetStripe(item.index)
+
+	row.label:SetText("|c" .. (character.color or "ffffffff") .. character.id .. "|r")
+	row.value:SetText(assignment or "-")
+	row.value:SetTextColor(UI.Unpack(assignment and UI.COLOR.text or UI.COLOR.textMuted))
+	row.yapCheck:SetChecked(selectedCharacterIds[item.id] == true)
+
+	row.yapLevel:SetText(level and tostring(level) or "-")
+	if not level then
+		row.yapLevel:SetTextColor(UI.Unpack(UI.COLOR.textMuted))
+	elseif maxPlayerLevel and level >= maxPlayerLevel then
+		row.yapLevel:SetTextColor(UI.Unpack(UI.COLOR.accent))
+	else
+		row.yapLevel:SetTextColor(UI.Unpack(UI.COLOR.text))
+	end
+
+	local body = "Profil : " .. (assignment or "aucun")
+		.. "|nNiveau : " .. (level and tostring(level) or "inconnu")
+	if character.lastSeen then
+		body = body .. "|nVu le : " .. character.lastSeen
+	end
+	row.SetTooltip(character.id, body)
+end
+
+local function ResetCharacterRow(row)
+	if row.Reset then
+		row.Reset()
+	end
+	row.yapItem = nil
+	if row.yapLevel then
+		row.yapLevel:SetText("")
+	end
+	if row.yapCheck then
+		row.yapCheck:SetChecked(false)
+	end
+end
+
+-- ---------------------------------------------------------------------------
+-- Fenetre
+-- ---------------------------------------------------------------------------
+
+local function SaveFramePoint()
+	if not mainFrame then
+		return
+	end
+	local point, _, relativePoint, x, y = mainFrame:GetPoint()
+	if not point then
+		return
+	end
+	DB.framePoint = {
+		point = point,
+		relativePoint = relativePoint or point,
+		x = x or 0,
+		y = y or 0,
+	}
+end
+
+local function RestoreFramePoint()
+	mainFrame:ClearAllPoints()
+	local saved = DB.framePoint
+	if type(saved) == "table" and saved.point then
+		mainFrame:SetPoint(saved.point, UIParent, saved.relativePoint or saved.point, saved.x or 0, saved.y or 0)
+	else
+		mainFrame:SetPoint("CENTER")
+	end
+end
+
+-- En-tete de colonne cliquable. Le sens actif se lit au suffixe ASCII et a la
+-- couleur : les polices du client ne rendent pas les fleches Unicode.
+local function CreateSortHeader(parent, key, label)
+	local button = CreateFrame("Button", nil, parent)
+	button:SetHeight(UI.SIZE.rowHCompact)
+	button.sortKey = key
+	button.sortLabel = label
+	button.text = button:CreateFontString(nil, "ARTWORK", UI.FONT.header)
+	button.text:SetAllPoints()
+	UI.BoundLabel(button.text, key == "level" and "RIGHT" or "LEFT")
+	button:SetScript("OnClick", function(self)
+		SetSortKey(self.sortKey)
+		RefreshUi()
+	end)
+	sortHeaders[#sortHeaders + 1] = button
+	return button
+end
+
+local function CreateSectionTitle(parent, text)
+	local title = parent:CreateFontString(nil, "ARTWORK", UI.FONT.header)
+	title:SetHeight(UI.SIZE.rowHCompact)
+	title:SetTextColor(UI.Unpack(UI.COLOR.category))
+	title:SetText(text)
+	UI.BoundLabel(title)
+	return title
+end
+
 local function CreateUi()
-	mainFrame = CreateFrame("Frame", ADDON_NAME .. "Frame", UIParent, "BasicFrameTemplateWithInset")
-	mainFrame:SetSize(650, 470)
-	mainFrame:SetPoint("CENTER")
+	mainFrame = CreateFrame("Frame", ADDON_NAME .. "Frame", UIParent, "BackdropTemplate")
+	mainFrame:SetSize(LAYOUT.frameW, LAYOUT.frameH)
+	mainFrame:SetClampedToScreen(true)
 	mainFrame:SetMovable(true)
 	mainFrame:EnableMouse(true)
-	mainFrame:RegisterForDrag("LeftButton")
-	mainFrame:SetScript("OnDragStart", mainFrame.StartMoving)
-	mainFrame:SetScript("OnDragStop", mainFrame.StopMovingOrSizing)
 	mainFrame:Hide()
+	UI.ApplyPanelBackdrop(mainFrame)
+	RestoreFramePoint()
 	table.insert(UISpecialFrames, mainFrame:GetName())
 
-	local title = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-	title:SetPoint("TOP", 0, -6)
-	title:SetText("Yaya Addon Profiles")
+	-- Le deplacement passe par le bandeau seul, comme partout dans la suite.
+	local header = UI.CreateHeader(mainFrame, "Yaya Addon Profiles", {
+		moveTarget = mainFrame,
+		onMoveStopped = SaveFramePoint,
+	})
 
-	statusText = mainFrame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-	statusText:SetPoint("TOPLEFT", mainFrame, "TOPLEFT", 18, -36)
-	statusText:SetWidth(614)
-	statusText:SetJustifyH("LEFT")
-	statusText:SetWordWrap(false)
+	-- AddButton empile de droite a gauche : la croix, ajoutee en premier, reste
+	-- le bouton le plus a droite.
+	local closeButton = CreateFrame("Button", nil, header, "UIPanelCloseButton")
+	closeButton:SetSize(UI.SIZE.glyph, UI.SIZE.glyph)
+	closeButton:SetScript("OnClick", function()
+		mainFrame:Hide()
+	end)
+	header.AddButton(closeButton)
 
-	local profileHeader = mainFrame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-	profileHeader:SetPoint("TOPLEFT", mainFrame, "TOPLEFT", 18, -56)
-	profileHeader:SetText("Profils SAM")
+	local resetPositionButton = UI.CreateGlyphButton(header, "reset")
+	if resetPositionButton then
+		header.AddButton(resetPositionButton)
+		resetPositionButton:SetScript("OnClick", function()
+			DB.framePoint = nil
+			RestoreFramePoint()
+		end)
+		resetPositionButton.SetTooltip("Replacer la fenetre",
+			"Remet la fenetre au centre de l'ecran.")
+	end
 
-	local charactersHeader = mainFrame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-	charactersHeader:SetPoint("TOPLEFT", mainFrame, "TOPLEFT", 205, -56)
-	charactersHeader:SetText("Personnages connus — selectionne, puis attribue en lot")
+	statusText = mainFrame:CreateFontString(nil, "ARTWORK", UI.FONT.muted)
+	statusText:SetPoint("TOPLEFT", header, "BOTTOMLEFT", UI.PAD.lg, -UI.PAD.sm)
+	statusText:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", -UI.PAD.lg, -UI.PAD.sm)
+	statusText:SetHeight(UI.SIZE.rowHCompact)
+	UI.BoundLabel(statusText)
 
-	selectedProfileText = mainFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	selectedProfileText:SetPoint("TOPLEFT", mainFrame, "TOPLEFT", 205, -75)
-	selectedProfileText:SetWidth(400)
-	selectedProfileText:SetJustifyH("LEFT")
-	selectedProfileText:SetWordWrap(false)
-	selectedProfileText:SetMaxLines(1)
+	-- Repere geometrique de la bande d'action, sans souris.
+	local actionAnchor = CreateFrame("Frame", nil, mainFrame)
+	actionAnchor:SetPoint("BOTTOMLEFT", mainFrame, "BOTTOMLEFT", UI.PAD.lg, UI.ACTION.bottomMargin)
+	actionAnchor:SetPoint("BOTTOMRIGHT", mainFrame, "BOTTOMRIGHT", -UI.PAD.lg, UI.ACTION.bottomMargin)
+	actionAnchor:SetHeight(UI.ACTION.height)
 
-	selectUnassignedButton = CreateButton(mainFrame, "Sans profil", 94, 22)
-	selectAllButton = CreateButton(mainFrame, "Tout", 48, 22)
-	selectAllButton:SetPoint("TOPLEFT", mainFrame, "TOPLEFT", 205, -95)
+	bulkApplyButton = UI.CreateButton(mainFrame, "Attribuer", { width = 200 })
+	bulkApplyButton:SetPoint("RIGHT", actionAnchor, "RIGHT", 0, 0)
+	bulkApplyButton:SetScript("OnClick", ApplySelectedProfile)
+
+	promptReloadCheck = CreateFrame("CheckButton", nil, mainFrame, "UICheckButtonTemplate")
+	promptReloadCheck:SetSize(UI.ACTION.height, UI.ACTION.height)
+	promptReloadCheck:SetPoint("LEFT", actionAnchor, "LEFT", 0, 0)
+	local promptLabel = promptReloadCheck.Text or promptReloadCheck.text
+	if not promptLabel then
+		promptLabel = promptReloadCheck:CreateFontString(nil, "ARTWORK", UI.FONT.body)
+		promptLabel:SetPoint("LEFT", promptReloadCheck, "RIGHT", UI.PAD.xs, 1)
+		promptReloadCheck.Text = promptLabel
+	end
+	promptLabel:SetText("Proposer le reload apres application")
+	UI.SetFont(promptLabel, UI.FONT.body)
+	promptReloadCheck:SetScript("OnClick", function(self)
+		DB.promptReload = self:GetChecked() and true or false
+		Print("Proposition de reload " .. (DB.promptReload and "activee" or "desactivee") .. ".")
+	end)
+	promptReloadCheck:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Proposer le reload")
+		GameTooltip:AddLine("Decoche : la liste d'addons est sauvegardee et s'applique"
+			.. " a la prochaine connexion, sans fenetre de confirmation.", 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	promptReloadCheck:SetScript("OnLeave", GameTooltip_Hide)
+
+	-- Colonne gauche : profils SimpleAddonManager.
+	local profileTitle = CreateSectionTitle(mainFrame, "Profils SAM")
+	profileTitle:SetPoint("TOPLEFT", statusText, "BOTTOMLEFT", 0, -UI.PAD.sm)
+	profileTitle:SetWidth(LAYOUT.profileW)
+
+	local profileHost = CreateFrame("Frame", nil, mainFrame)
+	profileHost:SetPoint("TOPLEFT", profileTitle, "BOTTOMLEFT", 0, -UI.PAD.xs)
+	profileHost:SetPoint("BOTTOM", actionAnchor, "TOP", 0, UI.PAD.sm)
+	profileHost:SetWidth(LAYOUT.profileW)
+
+	local divider = mainFrame:CreateTexture(nil, "ARTWORK")
+	divider:SetColorTexture(UI.Unpack(UI.COLOR.divider))
+	divider:SetWidth(UI.SIZE.divider)
+	divider:SetPoint("TOPLEFT", profileTitle, "TOPRIGHT", UI.PAD.lg, 0)
+	divider:SetPoint("BOTTOMLEFT", profileHost, "BOTTOMRIGHT", UI.PAD.lg, 0)
+
+	profileList = UI.CreateScrollList(profileHost, {
+		rowHeight = UI.SIZE.rowH,
+		initializer = InitProfileRow,
+		resetter = ResetProfileRow,
+	})
+	if profileList then
+		profileList.container:SetAllPoints(profileHost)
+	else
+		Debug("ScrollBox indisponible : la liste de profils n'est pas affichee.")
+	end
+
+	-- Colonne droite : personnages connus.
+	--
+	-- Un conteneur porte la largeur de la colonne, ce qui permet d'ancrer chaque
+	-- element par TOPLEFT et TOPRIGHT sur une seule reference. Melanger TOPLEFT
+	-- sur la colonne gauche et RIGHT sur le bord de la fenetre imposerait deux
+	-- positions verticales contradictoires au meme widget.
+	local rightColumn = CreateFrame("Frame", nil, mainFrame)
+	rightColumn:SetPoint("TOPLEFT", profileTitle, "TOPRIGHT",
+		UI.PAD.lg + UI.SIZE.divider + UI.PAD.lg, 0)
+	rightColumn:SetPoint("BOTTOMRIGHT", actionAnchor, "TOPRIGHT", 0, UI.PAD.sm)
+
+	local charactersTitle = CreateSectionTitle(rightColumn, "Personnages connus")
+	charactersTitle:SetPoint("TOPLEFT", rightColumn, "TOPLEFT", 0, 0)
+	charactersTitle:SetPoint("TOPRIGHT", rightColumn, "TOPRIGHT", 0, 0)
+
+	local selectionBar = CreateFrame("Frame", nil, rightColumn)
+	selectionBar:SetPoint("TOPLEFT", charactersTitle, "BOTTOMLEFT", 0, -UI.PAD.xs)
+	selectionBar:SetPoint("TOPRIGHT", charactersTitle, "BOTTOMRIGHT", 0, -UI.PAD.xs)
+	selectionBar:SetHeight(UI.ACTION.height)
+
+	selectAllButton = UI.CreateButton(selectionBar, "Tout", { width = 56 })
+	selectAllButton:SetPoint("TOPLEFT", selectionBar, "TOPLEFT", 0, 0)
 	selectAllButton:SetScript("OnClick", function()
 		SelectAllCharacters()
 		RefreshUi()
 	end)
 
-	selectUnassignedButton:SetSize(82, 22)
-	selectUnassignedButton:SetPoint("LEFT", selectAllButton, "RIGHT", 8, 0)
+	selectUnassignedButton = UI.CreateButton(selectionBar, "Sans profil", { width = 92 })
+	selectUnassignedButton:SetPoint("TOPLEFT", selectAllButton, "TOPRIGHT", UI.PAD.sm, 0)
 	selectUnassignedButton:SetScript("OnClick", function()
 		SelectUnassignedCharacters()
 		RefreshUi()
 	end)
 
-	clearSelectionButton = CreateButton(mainFrame, "Aucun", 60, 22)
-	clearSelectionButton:SetPoint("LEFT", selectUnassignedButton, "RIGHT", 8, 0)
+	clearSelectionButton = UI.CreateButton(selectionBar, "Aucun", { width = 66 })
+	clearSelectionButton:SetPoint("TOPLEFT", selectUnassignedButton, "TOPRIGHT", UI.PAD.sm, 0)
 	clearSelectionButton:SetScript("OnClick", function()
 		ClearSelectedCharacters()
 		RefreshUi()
 	end)
 
-	bulkApplyButton = CreateButton(mainFrame, "Attribuer", 186, 22)
-	bulkApplyButton:SetPoint("LEFT", clearSelectionButton, "RIGHT", 8, 0)
-	bulkApplyButton:SetScript("OnClick", ApplySelectedProfile)
+	selectedProfileText = selectionBar:CreateFontString(nil, "ARTWORK", UI.FONT.muted)
+	selectedProfileText:SetPoint("TOPLEFT", clearSelectionButton, "TOPRIGHT", UI.PAD.md, 0)
+	selectedProfileText:SetPoint("TOPRIGHT", selectionBar, "TOPRIGHT", 0, 0)
+	selectedProfileText:SetHeight(UI.ACTION.height)
+	UI.BoundLabel(selectedProfileText, "RIGHT")
 
-	local scrollFrame = CreateFrame("ScrollFrame", nil, mainFrame, "UIPanelScrollFrameTemplate")
-	scrollFrame:SetPoint("TOPLEFT", mainFrame, "TOPLEFT", 205, -124)
-	scrollFrame:SetPoint("BOTTOMRIGHT", mainFrame, "BOTTOMRIGHT", -32, 18)
-	scrollChild = CreateFrame("Frame", nil, scrollFrame)
-	scrollChild:SetSize(400, 1)
-	scrollFrame:SetScrollChild(scrollChild)
+	-- L'hote de liste reserve lui-meme la hauteur de la bande d'en-tetes : celle-ci
+	-- s'ancre ensuite sur la largeur reelle du contenu, gouttiere de barre de
+	-- defilement exclue, ce qui lui interdit de porter l'ancrage vertical de l'hote.
+	local headerGap = UI.PAD.xs + UI.SIZE.rowHCompact + UI.PAD.xs
+
+	local characterHost = CreateFrame("Frame", nil, rightColumn)
+	characterHost:SetPoint("TOPLEFT", selectionBar, "BOTTOMLEFT", 0, -headerGap)
+	characterHost:SetPoint("TOPRIGHT", selectionBar, "BOTTOMRIGHT", 0, -headerGap)
+	characterHost:SetPoint("BOTTOM", rightColumn, "BOTTOM", 0, 0)
+
+	characterList = UI.CreateScrollList(characterHost, {
+		rowHeight = UI.SIZE.rowH,
+		initializer = InitCharacterRow,
+		resetter = ResetCharacterRow,
+	})
+
+	local headerRow = CreateFrame("Frame", nil, rightColumn)
+	headerRow:SetHeight(UI.SIZE.rowHCompact)
+	if characterList then
+		characterList.container:SetAllPoints(characterHost)
+		headerRow:SetPoint("BOTTOMLEFT", characterList.frame, "TOPLEFT", 0, UI.PAD.xs)
+		headerRow:SetPoint("BOTTOMRIGHT", characterList.frame, "TOPRIGHT", 0, UI.PAD.xs)
+	else
+		headerRow:SetPoint("BOTTOMLEFT", characterHost, "TOPLEFT", 0, UI.PAD.xs)
+		headerRow:SetPoint("BOTTOMRIGHT", characterHost, "TOPRIGHT", 0, UI.PAD.xs)
+
+		local unavailable = characterHost:CreateFontString(nil, "ARTWORK", UI.FONT.muted)
+		unavailable:SetPoint("TOPLEFT", characterHost, "TOPLEFT", UI.PAD.md, -UI.PAD.md)
+		unavailable:SetPoint("TOPRIGHT", characterHost, "TOPRIGHT", -UI.PAD.md, -UI.PAD.md)
+		unavailable:SetHeight(UI.SIZE.rowH)
+		unavailable:SetText("Liste indisponible : ce client n'expose pas les modeles de defilement.")
+		unavailable:SetJustifyH("LEFT")
+		Debug("ScrollBox indisponible : la liste de personnages n'est pas affichee.")
+	end
+
+	local assignmentHeader = CreateSortHeader(headerRow, "profile", "Profil")
+	assignmentHeader:SetWidth(LAYOUT.assignmentW)
+	assignmentHeader:SetPoint("RIGHT", headerRow, "RIGHT", -UI.PAD.sm, 0)
+
+	local levelHeader = CreateSortHeader(headerRow, "level", "Niv.")
+	levelHeader:SetWidth(LAYOUT.levelW)
+	levelHeader:SetPoint("RIGHT", assignmentHeader, "LEFT", -UI.PAD.md, 0)
+
+	local nameHeader = CreateSortHeader(headerRow, "name", "Nom")
+	nameHeader:SetPoint("LEFT", headerRow, "LEFT", UI.PAD.sm + LAYOUT.checkW + UI.PAD.md, 0)
+	nameHeader:SetPoint("RIGHT", levelHeader, "LEFT", -UI.PAD.md, 0)
+
+	local headerRule = headerRow:CreateTexture(nil, "ARTWORK")
+	headerRule:SetColorTexture(UI.Unpack(UI.COLOR.divider))
+	headerRule:SetHeight(UI.SIZE.divider)
+	headerRule:SetPoint("BOTTOMLEFT", headerRow, "BOTTOMLEFT", 0, -UI.PAD.xs)
+	headerRule:SetPoint("BOTTOMRIGHT", headerRow, "BOTTOMRIGHT", 0, -UI.PAD.xs)
 end
 
 local function PrintHelp()
@@ -791,6 +1302,7 @@ local function PrintHelp()
 	Print("/yap profile <profil> : attribue le profil SAM au perso courant")
 	Print("/yap set <perso-royaume> <profil> : attribution hors ligne")
 	Print("/yap status : affiche l'attribution courante")
+	Print("/yap reload [on|off] : proposer le reload, ou sauvegarder pour la prochaine connexion")
 	Print("/yap debug [on|off] : affiche ou active le diagnostic")
 end
 
@@ -822,6 +1334,20 @@ local function HandleSlashCommand(message)
 		Print("Profil de " .. currentCharacterId .. " : " .. (DB.assignments[currentCharacterId] or "aucun"))
 		return
 	end
+	if command == "reload" then
+		if rest == "on" then
+			DB.promptReload = true
+			Print("Proposition de reload activee.")
+		elseif rest == "off" then
+			DB.promptReload = false
+			Print("Proposition de reload desactivee.")
+		else
+			Print("Proposition de reload " .. (DB.promptReload and "activee" or "desactivee")
+				.. ". Sans elle, le profil est sauvegarde pour la prochaine connexion.")
+		end
+		RefreshUi()
+		return
+	end
 	if command == "debug" then
 		if rest == "on" then
 			DB.debug = true
@@ -842,10 +1368,15 @@ local function OnPlayerLogin()
 	EnsureDb()
 	currentCharacterId = GetCharacterId()
 	currentCharacterGuid = UnitGUID("player")
+	maxPlayerLevel = ResolveMaxPlayerLevel()
 	local _, classFile = UnitClass("player")
 	local color = RAID_CLASS_COLORS[classFile]
-	RememberCharacter(currentCharacterId, currentCharacterGuid, classFile, color and color.colorStr)
+	-- Seule source de niveau disponible : SimpleAddonManager ne le stocke pas,
+	-- donc chaque personnage renseigne le sien a sa propre connexion.
+	RememberCharacter(currentCharacterId, currentCharacterGuid, classFile,
+		color and color.colorStr, UnitLevel("player"), date("%Y-%m-%d %H:%M"))
 	SeedKnownCharacters()
+	MergeDuplicateCharacters()
 	CreateUi()
 
 	SLASH_YAYAADDONPROFILES1 = "/yap"
@@ -890,6 +1421,20 @@ local function OnPlayerEnteringWorld()
 	end)
 end
 
+local function OnPlayerLevelUp(newLevel)
+	-- UnitLevel peut avoir une frame de retard sur l'evenement : l'argument
+	-- porte deja le nouveau niveau.
+	local level = tonumber(newLevel) or UnitLevel("player")
+	if not level or not currentCharacterId then
+		return
+	end
+	RememberCharacter(currentCharacterId, currentCharacterGuid, nil, nil, level,
+		date("%Y-%m-%d %H:%M"))
+	if mainFrame and mainFrame:IsShown() then
+		RefreshUi()
+	end
+end
+
 function YayaAddonProfiles_OnAddonCompartmentClick()
 	if mainFrame then
 		ToggleUi()
@@ -899,10 +1444,25 @@ end
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-eventFrame:SetScript("OnEvent", function(_, event)
+eventFrame:RegisterEvent("PLAYER_LEVEL_UP")
+eventFrame:SetScript("OnEvent", function(_, event, ...)
 	if event == "PLAYER_LOGIN" then
 		OnPlayerLogin()
 	elseif event == "PLAYER_ENTERING_WORLD" then
 		OnPlayerEnteringWorld()
+	elseif event == "PLAYER_LEVEL_UP" then
+		OnPlayerLevelUp(...)
 	end
 end)
+
+-- Surface de test hors jeu : le harnais charge ce chunk avec des bouchons et
+-- appelle directement des fonctions autrement locales.
+YayaAddonProfiles_Internal = {
+	EnsureDb = EnsureDb,
+	RememberCharacter = RememberCharacter,
+	PreferredCharacterId = PreferredCharacterId,
+	MergeDuplicateCharacters = MergeDuplicateCharacters,
+	CompareCharacters = CompareCharacters,
+	SortedCharacters = SortedCharacters,
+	SetSortKey = SetSortKey,
+}
