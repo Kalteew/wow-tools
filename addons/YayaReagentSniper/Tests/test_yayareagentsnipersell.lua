@@ -247,20 +247,53 @@ local function Cancel(auction, market, settings)
     return Sell.ShouldCancel(auction, market, operation, ITEM)
 end
 
-local cancel, motive = Cancel({ unitPrice = 20000 }, { lowestOther = 15000 })
-equals("sous-cote : on annule", cancel, true)
+-- Critere de TSM : le lot le moins cher contient-il mes unites ?
+local cancel, motive = Cancel(
+    { unitPrice = 20000 },
+    { lowestPrice = 20000, lowestIsPlayer = true, lowestOther = 25000, targetPrice = 25000 }
+)
+equals("en tete de file : on garde meme avec des vendeurs au meme prix", cancel, false)
+
+cancel, motive = Cancel(
+    { unitPrice = 20000 },
+    { lowestPrice = 20000, lowestIsPlayer = false, lowestOther = 20000, targetPrice = 20000 }
+)
+equals("un autre vendeur est devant au meme prix : on annule", cancel, true)
+check("la position en file est motivee", type(motive) == "string" and motive:find("devant") ~= nil, motive)
+
+cancel = Cancel(
+    { unitPrice = 20000 },
+    { lowestPrice = 20000, lowestOther = 20000, targetPrice = 20000 }
+)
+equals("position inconnue au meme prix : on garde", cancel, false)
+
+cancel, motive = Cancel(
+    { unitPrice = 20000 },
+    { lowestPrice = 15000, lowestIsPlayer = false, lowestOther = 15000, targetPrice = 15000 }
+)
+equals("sous-cote et repost moins cher : on annule", cancel, true)
 check("la sous-cotation est motivee", type(motive) == "string" and motive:find("moins cher") ~= nil, motive)
 
-cancel = Cancel({ unitPrice = 20000 }, { lowestOther = 25000 })
-equals("moins cher que la concurrence : on garde", cancel, false)
+cancel, motive = Cancel(
+    { unitPrice = 20000 },
+    { lowestPrice = 15000, lowestIsPlayer = false, lowestOther = 15000, targetPrice = 20000 }
+)
+equals("sous-cote mais repost au meme prix : on garde", cancel, false)
+check("le refus est motive", type(motive) == "string" and motive:find("ferait pas mieux") ~= nil, motive)
 
-cancel, motive = Cancel({ unitPrice = 20000 }, { lowestOther = 20000, hasOtherAtSamePrice = true })
-equals("egalite avec un autre vendeur : on annule (LIFO)", cancel, true)
+cancel = Cancel(
+    { unitPrice = 20000 },
+    { lowestPrice = 15000, lowestIsPlayer = false, lowestOther = 15000 }
+)
+equals("sous-cote sans repost possible : on garde", cancel, false)
 
-cancel = Cancel({ unitPrice = 20000 }, { lowestOther = 20000, hasOtherAtSamePrice = false })
+cancel = Cancel(
+    { unitPrice = 20000 },
+    { lowestPrice = 20000, lowestIsPlayer = true, lowestOther = 25000, targetPrice = 25000 }
+)
 equals("seul au prix mini : on garde", cancel, false)
 
-cancel, motive = Cancel({ unitPrice = 20000 }, { lowestOther = 15000 }, { cancelUndercut = false })
+cancel, motive = Cancel({ unitPrice = 20000 }, { lowestPrice = 15000, lowestIsPlayer = false, targetPrice = 15000 }, { cancelUndercut = false })
 equals("cancelUndercut a false : on n'annule pas la sous-cotation", cancel, false)
 
 cancel = Cancel(
@@ -286,7 +319,7 @@ equals("cancelRepost a false : pas d'annulation pour reposter", cancel, false)
 
 cancel, motive = Cancel(
     { unitPrice = 20000, timeLeftSeconds = 600 },
-    { lowestOther = 15000 },
+    { lowestPrice = 15000, lowestIsPlayer = false, targetPrice = 15000 },
     { ignoreLowDuration = 1 }
 )
 equals("duree restante sous le seuil : on garde", cancel, false)
@@ -294,22 +327,23 @@ check("la duree courte est motivee", type(motive) == "string" and motive:find("D
 
 cancel = Cancel(
     { unitPrice = 20000, timeLeftSeconds = 3600 },
-    { lowestOther = 15000 },
+    { lowestPrice = 15000, lowestIsPlayer = false, targetPrice = 15000 },
     { ignoreLowDuration = 1 }
 )
 equals("duree restante au-dessus du seuil : on annule", cancel, true)
 
 cancel = Cancel(
     { unitPrice = 20000, timeLeftSeconds = 600 },
-    { lowestOther = 15000 },
+    { lowestPrice = 15000, lowestIsPlayer = false, targetPrice = 15000 },
     { ignoreLowDuration = 0 }
 )
 equals("ignoreLowDuration a 0 : la duree n'ecarte rien", cancel, true)
 
-cancel = Cancel({ unitPrice = 20000 }, { lowestOther = 15000 }, { cancelUndercut = false, cancelRepost = false })
+cancel = Cancel({ unitPrice = 20000 }, { lowestPrice = 15000, lowestIsPlayer = false, targetPrice = 15000 }, { cancelUndercut = false, cancelRepost = false })
 equals("les deux drapeaux a false : jamais d'annulation", cancel, false)
 
 equals("sans marche connu : on garde", (Sell.ShouldCancel({ unitPrice = 20000 }, {}, nil, ITEM)), false)
+equals("enchere seule sur le marche : on garde", (Sell.ShouldCancel({ unitPrice = 20000 }, { targetPrice = 20000 }, nil, ITEM)), false)
 equals("enchere sans prix : on garde", (Sell.ShouldCancel({}, { lowestOther = 1 }, nil, ITEM)), false)
 
 -- ---------------------------------------------------------------------------

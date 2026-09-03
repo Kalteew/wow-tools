@@ -34,6 +34,7 @@ Resume `Midnight` :
 - `T` = tresors restants
 - `loot` = connaissances restantes via coffres/loots cette semaine
 - `dez` = connaissances restantes via desenchantement pour l'Enchantement
+- `catchup inactif` = le catch-up Enchantement attend encore la weekly, les 2 loots ou les 6 drops de désenchantement ; `catchup x/X` = points de catch-up restants / plafond ; la ligne disparait quand il n'y a plus de catch-up
 - `hebdo` = rappel quete hebdo trainer
 - `traite` = rappel traite hebdo si le metier est a `25+` et que l'option `Tracker les traites (inscription)` est active
 - `DMF` = Darkmoon Faire active et quete metier pas encore faite ce mois-ci

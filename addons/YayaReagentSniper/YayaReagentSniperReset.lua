@@ -143,7 +143,7 @@ local EnterPause
 local ValidateFreshResetPlan
 local RefreshBlacklistPanel
 local HandleCommodityResults
-local IsCancelRepostEnabled
+local IsSellModeEnabled
 
 local function GetCatalogOption(key)
 	for _, option in ipairs(CATALOG_OPTIONS) do
@@ -238,19 +238,31 @@ local function CollectCatalogItemIDs(selection)
 		return itemIDs, false
 	end
 	local enabledTypes = scan.db and scan.db.catalogTypes or {}
+	-- Le tri se fait a l'interieur de chaque extension : un tri global sur les
+	-- itemID melangerait les extensions et remonterait les plus anciennes en
+	-- premier, leurs identifiants etant les plus petits.
 	local function AddIDs(ids)
 		if not ids then
 			return
 		end
+		local batch = {}
 		for _, itemID in ipairs(ids) do
 			itemID = tonumber(itemID)
 			if itemID and itemID > 0 and not seen[itemID] then
 				seen[itemID] = true
-				itemIDs[#itemIDs + 1] = itemID
+				batch[#batch + 1] = itemID
 			end
 		end
+		table.sort(batch)
+		for _, itemID in ipairs(batch) do
+			itemIDs[#itemIDs + 1] = itemID
+		end
 	end
-	for _, option in ipairs(CATALOG_OPTIONS) do
+	-- CATALOG_OPTIONS va de la plus ancienne extension a la plus recente : on la
+	-- remonte a l'envers pour scanner Midnight en premier. Un objet partage entre
+	-- deux extensions est ainsi retenu sous la plus recente qui le contient.
+	for index = #CATALOG_OPTIONS, 1, -1 do
+		local option = CATALOG_OPTIONS[index]
 		if option.key ~= "all" then
 			local entry = expansions[option.key]
 			local rawIDs = entry and type(entry.rawItemIDs) == "table" and entry.rawItemIDs or nil
@@ -273,7 +285,6 @@ local function CollectCatalogItemIDs(selection)
 			end
 		end
 	end
-	table.sort(itemIDs)
 	return itemIDs, hasCatalog
 end
 
@@ -416,7 +427,14 @@ local function GetDB()
 	db.minScore = Clamp(db.minScore or 0, 0, 100)
 	db.sound = db.sound == true
 	db.continuous = db.continuous == true
-	db.cancelRepost = db.cancelRepost == true
+	-- L'ancienne case unique se scinde en deux : on reporte son etat sur les deux.
+	if db.cancelRepost ~= nil then
+		db.autoCancel = db.autoCancel == nil and db.cancelRepost == true or db.autoCancel
+		db.autoPost = db.autoPost == nil and db.cancelRepost == true or db.autoPost
+		db.cancelRepost = nil
+	end
+	db.autoCancel = db.autoCancel == true
+	db.autoPost = db.autoPost == true
 	db.catalogTypes = type(db.catalogTypes) == "table" and db.catalogTypes or {}
 	db.catalogTypes.raw = db.catalogTypes.raw ~= false
 	db.catalogTypes.prepared = db.catalogTypes.prepared ~= false
@@ -846,7 +864,7 @@ local function RefreshGoldLock()
 	end
 	-- Le mode Cancel & Repost survit au seuil d'or : il ne coupe que les achats,
 	-- lesquels sont deja refuses par l'etat du bouton d'action.
-	local blocked = IsBelowGoldThreshold() and not IsCancelRepostEnabled()
+	local blocked = IsBelowGoldThreshold() and not IsSellModeEnabled()
 	if blocked then
 		SetButtonEnabled(frame.scanButton, false)
 		SetButtonEnabled(frame.pauseButton, false)
@@ -868,7 +886,7 @@ local function EnforceGoldThreshold()
 	end
 	-- En mode Cancel & Repost, le seuil ne coupe que les achats : la vente prend
 	-- le relais au lieu d'arreter le scan.
-	if IsCancelRepostEnabled() then
+	if IsSellModeEnabled() then
 		scan.sellOnly = true
 		if scan.running and (scan.phase == "browse" or scan.phase == "deep") and scan.sellStage == nil then
 			Reset:BeginSellPhase(false)
@@ -2192,7 +2210,12 @@ local function RotateCandidates(candidates)
 		return candidates
 	end
 	local state = GetRotationState()
-	local startIndex = ((state.nextIndex - 1) % total) + 1
+	-- En « Toutes extensions », l'ordre est volontairement fixe : chaque cycle
+	-- doit repartir des extensions les plus recentes. La reprise en cours de
+	-- liste ne vaut que pour une extension precise, ou elle sert a retenter les
+	-- composants laisses de cote par un scan interrompu.
+	local pinned = scan.db and scan.db.expansion == "all"
+	local startIndex = pinned and 1 or (((state.nextIndex - 1) % total) + 1)
 	local rotated = {}
 	for offset = 0, total - 1 do
 		local sourceIndex = ((startIndex + offset - 1) % total) + 1
@@ -2842,6 +2865,15 @@ local function ReadDepth(active)
 	for index = previousCount + 1, count do
 		local info = C_AuctionHouse.GetCommoditySearchResultInfo(active.candidate.itemID, index)
 		if info and info.unitPrice and info.unitPrice > 0 and info.quantity and info.quantity > 0 then
+			if index == 1 then
+				-- Critere d'undercut de TSM : le lot le moins cher contient-il mes
+				-- unites ? Si oui je suis en tete de file, quel que soit le nombre de
+				-- vendeurs a ce prix. C'est la seule facon de trancher une egalite de
+				-- prix, l'ordre interne d'un palier n'etant pas expose.
+				active.lowestPrice = info.unitPrice
+				active.lowestIsPlayer = (tonumber(info.numOwnerItems) or 0) > 0
+					or info.containsOwnerItem == true
+			end
 			local price = info.unitPrice
 			local previousQuantity = tiersByPrice[price] or 0
 			local quantity = previousQuantity + info.quantity
@@ -2975,6 +3007,8 @@ local function FinishDeepCandidate(complete)
 			tiers = active.tiers or {},
 			ownAuctionQuantity = active.ownAuctionQuantity or 0,
 			purchaseVerifiedAt = result and result.purchaseVerifiedAt or nil,
+			lowestPrice = active.lowestPrice,
+			lowestIsPlayer = active.lowestIsPlayer,
 			scanAt = GetTime(),
 		}
 		if active.candidate.minPrice and active.candidate.minPrice > 0 then
@@ -3440,8 +3474,11 @@ end
 -- Mode Cancel & Repost
 -- ---------------------------------------------------------------------------
 
-IsCancelRepostEnabled = function()
-	return scan.db and scan.db.cancelRepost == true and type(YayaReagentSniperSell) == "table"
+IsSellModeEnabled = function()
+	if type(YayaReagentSniperSell) ~= "table" or not scan.db then
+		return false
+	end
+	return scan.db.autoCancel == true or scan.db.autoPost == true
 end
 
 -- Etat du marche d'un objet, vu depuis le cache de profondeur : les paliers y
@@ -3451,7 +3488,10 @@ local function GetSellMarket(itemID, myPrice)
 	if not cached or GetTime() - (cached.scanAt or 0) > CONSTANTS.MAX_SCAN_AGE then
 		return nil
 	end
-	local market = {}
+	local market = {
+		lowestPrice = cached.lowestPrice,
+		lowestIsPlayer = cached.lowestIsPlayer,
+	}
 	local tiers = cached.tiers or {}
 	for index = 1, #tiers do
 		local tier = tiers[index]
@@ -3499,32 +3539,46 @@ local function BuildSellTargets()
 	end
 
 	-- Annulations : une cible par enchere.
-	for itemID, records in pairs(scan.ownAuctionRecords) do
-		if not IsBlacklisted(itemID) then
-			local itemString = "i:" .. tostring(itemID)
-			local operation = Sell.GetAuctioningOperation(itemString)
-			for index = 1, #records do
-				local record = records[index]
-				local market = GetSellMarket(itemID, record.unitPrice)
-				if market then
-					local repostPrice = Sell.ComputePostPrice({
-						itemString = itemString,
-						operation = operation,
-						marketPrice = market.lowestOther,
-					})
-					market.targetPrice = repostPrice
-					local shouldCancel, reason = Sell.ShouldCancel(record, market, operation, itemString)
-					if shouldCancel then
-						scan.sellTargets[#scan.sellTargets + 1] = {
-							kind = "cancel",
-							itemID = itemID,
+	if scan.db.autoCancel then
+		for itemID, records in pairs(scan.ownAuctionRecords) do
+			if not IsBlacklisted(itemID) then
+				local itemString = "i:" .. tostring(itemID)
+				local operation = Sell.GetAuctioningOperation(itemString)
+				for index = 1, #records do
+					local record = records[index]
+					local market = GetSellMarket(itemID, record.unitPrice)
+					if market then
+						local repostPrice = Sell.ComputePostPrice({
 							itemString = itemString,
-							auctionID = record.auctionID,
-							quantity = record.quantity,
-							unitPrice = record.unitPrice,
-							targetPrice = repostPrice,
-							reason = reason,
-						}
+							operation = operation,
+							marketPrice = market.lowestOther,
+						})
+						market.targetPrice = repostPrice
+						local shouldCancel, reason = Sell.ShouldCancel(record, market, operation, itemString)
+						if type(YayaReagentSniperTrace) == "function" then
+							YayaReagentSniperTrace(
+								"RESET_SELL_CHECK",
+								"item=%s mine=%s lowest=%s head=%s target=%s cancel=%s",
+								tostring(itemID),
+								tostring(record.unitPrice),
+								tostring(market.lowestPrice),
+								tostring(market.lowestIsPlayer),
+								tostring(repostPrice),
+								tostring(shouldCancel)
+							)
+						end
+						if shouldCancel then
+							scan.sellTargets[#scan.sellTargets + 1] = {
+								kind = "cancel",
+								itemID = itemID,
+								itemString = itemString,
+								auctionID = record.auctionID,
+								quantity = record.quantity,
+								unitPrice = record.unitPrice,
+								targetPrice = repostPrice,
+								reason = reason,
+							}
+						end
 					end
 				end
 			end
@@ -3532,32 +3586,34 @@ local function BuildSellTargets()
 	end
 
 	-- Mises en vente : ce qui dort dans les sacs, hors reserve de craft.
-	local reservations = Sell.GetCraftingReservations()
-	for itemID, entry in pairs(scan.sellBagItems or {}) do
-		if not IsBlacklisted(itemID) then
-			local itemString = "i:" .. tostring(itemID)
-			local operation = Sell.GetAuctioningOperation(itemString)
-			local market = GetSellMarket(itemID)
-			local quantity = Sell.GetPostQuantity(operation, entry.quantity, itemString, reservations[itemID] or 0)
-			if quantity > 0 then
-				local price, reason = Sell.ComputePostPrice({
-					itemString = itemString,
-					operation = operation,
-					marketPrice = market and market.lowestOther or nil,
-				})
-				if price and price > 0 then
-					scan.sellTargets[#scan.sellTargets + 1] = {
-						kind = "post",
-						itemID = itemID,
+	if scan.db.autoPost then
+		local reservations = Sell.GetCraftingReservations()
+		for itemID, entry in pairs(scan.sellBagItems or {}) do
+			if not IsBlacklisted(itemID) then
+				local itemString = "i:" .. tostring(itemID)
+				local operation = Sell.GetAuctioningOperation(itemString)
+				local market = GetSellMarket(itemID)
+				local quantity = Sell.GetPostQuantity(operation, entry.quantity, itemString, reservations[itemID] or 0)
+				if quantity > 0 then
+					local price, reason = Sell.ComputePostPrice({
 						itemString = itemString,
-						quantity = quantity,
-						unitPrice = price,
+						operation = operation,
 						marketPrice = market and market.lowestOther or nil,
-						duration = Sell.ReadSetting(operation, "duration"),
-						location = entry.location,
-						hasOperation = operation ~= nil,
-						reason = reason,
-					}
+					})
+					if price and price > 0 then
+						scan.sellTargets[#scan.sellTargets + 1] = {
+							kind = "post",
+							itemID = itemID,
+							itemString = itemString,
+							quantity = quantity,
+							unitPrice = price,
+							marketPrice = market and market.lowestOther or nil,
+							duration = Sell.ReadSetting(operation, "duration"),
+							location = entry.location,
+							hasOperation = operation ~= nil,
+							reason = reason,
+						}
+					end
 				end
 			end
 		end
@@ -3849,7 +3905,7 @@ function Reset:ExecuteSellPost(target)
 end
 
 function Reset:BeginSellPhase(auctionsAreFresh)
-	if not IsCancelRepostEnabled() then
+	if not IsSellModeEnabled() then
 		return false
 	end
 	scan.phase = "sell"
@@ -4022,7 +4078,7 @@ function Reset:StartScan(ignoreActionCooldown)
 	scan.pausedActive = nil
 	scan.resumeAfterPurchase = false
 	scan.completedAt = nil
-	scan.sellOnly = IsCancelRepostEnabled() and IsBelowGoldThreshold() or false
+	scan.sellOnly = IsSellModeEnabled() and IsBelowGoldThreshold() or false
 	scan.sellStage = nil
 	scan.sellQuerySent = false
 	wipe(scan.sellTargets)
@@ -4623,7 +4679,7 @@ local function CreateUI(parent)
 	frame.settingsPanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
 	frame.settingsPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -58)
 	frame.settingsPanel:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -16, -58)
-	frame.settingsPanel:SetHeight(210)
+	frame.settingsPanel:SetHeight(224)
 	frame.settingsPanel:SetFrameLevel(frame:GetFrameLevel() + 20)
 	frame.settingsPanel:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 10 })
 	frame.settingsPanel:SetBackdropColor(0.025, 0.03, 0.04, 0.99)
@@ -4673,28 +4729,46 @@ local function CreateUI(parent)
 	LayoutSettings()
 	local sound = CreateFrame("CheckButton", nil, frame.settingsContent, "UICheckButtonTemplate")
 	sound:SetSize(24, 24)
-	sound:SetPoint("TOPLEFT", frame.settingsContent, "TOPLEFT", 8, -140)
+	sound:SetPoint("TOPLEFT", frame.settingsContent, "TOPLEFT", 8, -152)
 	sound.label = sound:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	sound.label:SetPoint("LEFT", sound, "RIGHT", 3, 0)
 	sound.label:SetText("Son à chaque nouvelle ligne")
-	local cancelRepost = CreateFrame("CheckButton", nil, frame.settingsContent, "UICheckButtonTemplate")
-	cancelRepost:SetSize(24, 24)
-	cancelRepost:SetPoint("LEFT", deepRefresh, "RIGHT", 14, -8)
-	cancelRepost.label = cancelRepost:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	cancelRepost.label:SetPoint("LEFT", cancelRepost, "RIGHT", 3, 0)
-	cancelRepost.label:SetText("Mode Cancel & Repost")
-	cancelRepost:SetScript("OnEnter", function(button)
-		GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
-		GameTooltip:AddLine("Annuler et remettre en vente", 1, 0.82, 0.25)
-		GameTooltip:AddLine("À la fin de chaque cycle, le même bouton propose d’annuler tes enchères sous-cotées puis de remettre en vente les commodités de tes sacs, au prix de tes opérations Auctioning TSM.", 0.85, 0.85, 0.85, true)
-		GameTooltip:AddLine("Sous le seuil d’or, seule la vente tourne. Une enchère annulée revient par courrier : passe à la boîte aux lettres avant de la remettre en vente.", 0.65, 0.75, 1, true)
-		GameTooltip:Show()
-	end)
-	cancelRepost:SetScript("OnLeave", function(button)
-		if GameTooltip:IsOwned(button) then
-			GameTooltip:Hide()
-		end
-	end)
+	-- Les deux moities du mode sont independantes : une enchere annulee revient
+	-- par courrier, on peut donc vouloir remettre en vente sans annuler.
+	local function CreateSellToggle(label, anchor, offsetY, tooltipTitle, tooltipBody)
+		local check = CreateFrame("CheckButton", nil, frame.settingsContent, "UICheckButtonTemplate")
+		check:SetSize(24, 24)
+		check:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 14, offsetY)
+		check.label = check:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		check.label:SetPoint("LEFT", check, "RIGHT", 3, 0)
+		check.label:SetText(label)
+		check:SetScript("OnEnter", function(button)
+			GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+			GameTooltip:AddLine(tooltipTitle, 1, 0.82, 0.25)
+			GameTooltip:AddLine(tooltipBody, 0.85, 0.85, 0.85, true)
+			GameTooltip:Show()
+		end)
+		check:SetScript("OnLeave", function(button)
+			if GameTooltip:IsOwned(button) then
+				GameTooltip:Hide()
+			end
+		end)
+		return check
+	end
+	local autoCancel = CreateSellToggle(
+		"Annuler les sous-cotées",
+		deepRefresh,
+		0,
+		"Annuler les enchères sous-cotées",
+		"À la fin de chaque cycle, le bouton d’action propose d’annuler tes enchères de commodités dépassées, en respectant cancelUndercut, cancelRepost et ignoreLowDuration de tes opérations Auctioning TSM. L’objet annulé revient par courrier."
+	)
+	local autoPost = CreateSellToggle(
+		"Remettre en vente",
+		deepRefresh,
+		-24,
+		"Remettre en vente depuis les sacs",
+		"Le bouton d’action propose de mettre en vente les commodités de tes sacs, au prix de ton opération Auctioning TSM ou, à défaut, en undercut du marché sans jamais descendre sous le plancher automatique."
+	)
 	frame.settingInputs = {
 		roi = roi.input,
 		profit = profit.input,
@@ -4706,7 +4780,8 @@ local function CreateUI(parent)
 		goldThreshold = goldThreshold.input,
 		deepRefresh = deepRefresh.input,
 		sound = sound,
-		cancelRepost = cancelRepost,
+		autoCancel = autoCancel,
+		autoPost = autoPost,
 	}
 	frame.applySettings = CreateFrame("Button", nil, frame.settingsContent, "UIPanelButtonTemplate")
 	frame.applySettings:SetSize(94, 24)
@@ -4723,7 +4798,8 @@ local function CreateUI(parent)
 		scan.db.goldThreshold = Clamp(frame.settingInputs.goldThreshold:GetText(), 0, 100000000)
 		scan.db.deepRefreshMinutes = Clamp(frame.settingInputs.deepRefresh:GetText(), 0, 720)
 		scan.db.sound = frame.settingInputs.sound:GetChecked() == true
-		scan.db.cancelRepost = frame.settingInputs.cancelRepost:GetChecked() == true
+		scan.db.autoCancel = frame.settingInputs.autoCancel:GetChecked() == true
+		scan.db.autoPost = frame.settingInputs.autoPost:GetChecked() == true
 		frame.settingsPanel:Hide()
 		local goldBlocked = EnforceGoldThreshold()
 		Reset:RebuildFromCache()
@@ -4833,7 +4909,8 @@ local function CreateUI(parent)
 		frame.settingInputs.goldThreshold:SetText(tostring(scan.db.goldThreshold))
 		frame.settingInputs.deepRefresh:SetText(tostring(scan.db.deepRefreshMinutes))
 		frame.settingInputs.sound:SetChecked(scan.db.sound)
-		frame.settingInputs.cancelRepost:SetChecked(scan.db.cancelRepost)
+		frame.settingInputs.autoCancel:SetChecked(scan.db.autoCancel)
+		frame.settingInputs.autoPost:SetChecked(scan.db.autoPost)
 		local shown = not frame.settingsPanel:IsShown()
 		frame.settingsPanel:SetShown(shown)
 		if shown then

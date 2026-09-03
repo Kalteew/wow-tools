@@ -335,6 +335,7 @@ local MIDNIGHT_TREATISES_BY_SKILL_LINE_ID = {
 runtimeState = runtimeState or {}
 runtimeState.minimumMidnightProfessionLevel = 80
 runtimeState.minimumMidnightAbundanceLevel = 90
+runtimeState.midnightEnchantingCatchUpCurrencyID = 3198
 runtimeState.unspentKnowledgeWarningThreshold = 5
 runtimeState.currencyQuantities = {}
 runtimeState.midnightSeasonalResourceTracking = {
@@ -2767,6 +2768,48 @@ local function CountRemainingTrackedQuests(questIDs)
     end
 
     return math.max(total - completed, 0), total
+end
+
+trackerUI.GetMidnightEnchantingCatchUpStatus = function(row, remainingWeeklyLoots, remainingDisenchants)
+    if not row or row.skillLineID ~= 2909 then
+        return nil
+    end
+
+    local config = row.config or EMPTY_TABLE
+    local hasTrainerWeeklyCompleted = IsAnyQuestDone(config.trainerWeeklyQuestIDs or EMPTY_TABLE)
+    if (remainingWeeklyLoots or 0) > 0
+        or (remainingDisenchants or 0) > 0
+        or not hasTrainerWeeklyCompleted then
+        return { active = false }
+    end
+
+    local info = SafeCall(
+        C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo,
+        runtimeState.midnightEnchantingCatchUpCurrencyID
+    )
+    if type(info) ~= "table" then
+        return nil
+    end
+
+    local maximum = tonumber(info.maxQuantity) or 0
+    local earned = tonumber(info.quantity)
+    if earned == nil then
+        earned = tonumber(info.totalEarned)
+    end
+    if maximum <= 0 or earned == nil then
+        return nil
+    end
+
+    local remaining = math.max(maximum - earned, 0)
+    if remaining <= 0 then
+        return nil
+    end
+
+    return {
+        active = true,
+        remaining = remaining,
+        total = maximum,
+    }
 end
 
 local function GetContainerItemCountCompat(bagID, slotIndex)
@@ -5615,6 +5658,19 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         and hasTrainerWeeklyUnlocked
         and (not config.trainerWeeklyQuestIDs or not hasTrainerWeeklyCompleted) then
         tokens[#tokens + 1] = "hebdo"
+    end
+
+    if trackProfessionDisenchants and row.skillLineID == 2909 then
+        local catchUp = trackerUI.GetMidnightEnchantingCatchUpStatus(
+            row,
+            remainingWeeklyLoots,
+            remainingDisenchants
+        )
+        if catchUp then
+            tokens[#tokens + 1] = catchUp.active
+                and ("catchup %d/%d"):format(catchUp.remaining, catchUp.total)
+                or "catchup inactif"
+        end
     end
 
     local hasTreatiseUnlocked = row.skillLevel >= (config.treatiseMinSkill or math.huge)

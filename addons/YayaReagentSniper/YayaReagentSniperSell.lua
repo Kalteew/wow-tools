@@ -278,19 +278,30 @@ function Sell.ShouldCancel(auction, market, operation, itemString)
 	end
 
 	local lowestOther = tonumber(market.lowestOther)
+	local lowestPrice = tonumber(market.lowestPrice)
+	local target = tonumber(market.targetPrice)
+
+	-- Critere d'undercut de TSM (MakeCancelDecision) : si le lot le moins cher
+	-- contient mes unites, je suis en tete de file et ne suis pas sous-cote,
+	-- quel que soit le nombre de vendeurs a ce prix.
 	if ReadSetting(operation, "cancelUndercut") ~= false then
-		if lowestOther and lowestOther < myPrice then
-			return true, "Sous-cote : un autre vendeur est moins cher."
+		if lowestPrice and lowestPrice < myPrice then
+			-- Un prix strictement plus bas existe. Annuler ne sert que si la remise
+			-- en vente peut effectivement descendre : sinon le plancher ou le
+			-- minPrice de l'operation nous y ramenerait au meme prix.
+			if target and target < myPrice then
+				return true, "Sous-cote : un autre vendeur est moins cher."
+			end
+			return false, "Sous-cote, mais la remise en vente ne ferait pas mieux."
 		end
-		-- En Retail (LIFO), une enchere posee au meme prix apres la mienne passe
-		-- devant : TSM la traite comme une sous-cotation.
-		if market.hasOtherAtSamePrice then
-			return true, "Sous-cote : un autre vendeur est au meme prix."
+		if lowestPrice and lowestPrice == myPrice and market.lowestIsPlayer == false then
+			-- Meme prix, mais la file place un autre vendeur devant : en LIFO, une
+			-- remise en vente au meme prix nous replace en tete.
+			return true, "Sous-cote : un autre vendeur est devant au meme prix."
 		end
 	end
 
 	if ReadSetting(operation, "cancelRepost") ~= false then
-		local target = tonumber(market.targetPrice)
 		if target and target > myPrice then
 			local repostThreshold = EvaluatePrice(ReadSetting(operation, "cancelRepostThreshold"), itemString) or 10000
 			if (target - myPrice) >= repostThreshold then
