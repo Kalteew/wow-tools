@@ -45,11 +45,48 @@ Les frames de cet addon sont ecartees de la ligne fautive retenue : c'est son
 gestionnaire d'erreurs qui ouvre la pile, et sans ce filtrage chaque incident lui
 serait impute. La pile complete reste enregistree telle quelle.
 
-Les incidents sont regroupes par signature (type, message normalise, premiere
-ligne d'addon dans la pile). Seuls les trois premiers exemplaires d'une
-signature conservent leur pile complete ; au-dela, seul le compteur augmente.
-Sans ce regroupement, une faute dans un ticker 0,5 s noierait le journal en une
-minute.
+Les incidents sont regroupes par signature : le type et le message normalise
+(adresses de table et nombres neutralises). Seuls les trois premiers exemplaires
+d'une signature conservent leur pile complete ; au-dela, seul le compteur
+augmente. Sans ce regroupement, une faute dans un ticker 0,5 s noierait le
+journal en une minute.
+
+La pile n'entre pas dans la signature, et ce n'est pas un detail : voir plus bas.
+
+## Le budget d'execution, contrainte dimensionnante
+
+`seterrorhandler` fait de cet addon le proprietaire du chemin d'execution de
+*toutes* les fautes du jeu. Le client lui facture le temps qui y passe,
+gestionnaires chaines compris, **quel que soit l'addon fautif**. Un tiers qui
+leve une erreur a chaque image epuise donc le budget de scripts non securises du
+journal, et le client repond :
+
+```
+Interface/AddOns/!YayaErrorLog/YayaErrorLog.lua:-1: insecure scripts exceeded
+execution limit for addon !YayaErrorLog
+```
+
+avant de suspendre ses scripts. L'outil charge de rendre compte de la panne se
+coupe alors le premier, et le `-1` en guise de numero de ligne dit bien que
+l'attribution se fait par addon, pas par instruction.
+
+D'ou la regle tenue dans tout le code : **compter un incident est toujours
+execute, capturer sa pile ne l'est presque jamais.**
+
+- Le comptage coute deux substitutions sur le message et un acces de table.
+  C'est pourquoi la signature se passe de la pile : le message d'une faute Lua
+  porte deja le fichier fautif, seul son numero de ligne etant neutralise, et le
+  nom de la fonction protegee suffit pour une action bloquee. On y perd de quoi
+  distinguer deux fautes de meme message a deux lignes d'un meme fichier ; on y
+  gagne de pouvoir decider du sort d'un incident **avant** d'avoir paye
+  `debugstack`.
+- La collecte du contexte — pile, zone, etat de combat — est passee en fonction
+  et n'est appelee que si l'entree detaillee va reellement etre conservee.
+- Un plafond de huit piles par seconde tient meme quand l'echantillonnage par
+  signature ne borne rien, cas d'une rafale dont le message change a chaque
+  occurrence. Les incidents comptes sans pile a cause de ce plafond sont
+  rapportes a part, pour qu'un journal maigre pendant une tempete ne passe pas
+  pour un journal vide.
 
 ## Commandes
 
@@ -85,3 +122,9 @@ incident puis lire le fichier sans recharger l'interface ne donne rien.
 - `YayaCore` est optionnel : son `RingBuffer` est utilise s'il est charge, sinon
   un repli equivalent prend le relais, pour que cet addon reste utilisable dans
   un profil minimal servant a isoler un addon suspect.
+- Le chainage vers le gestionnaire precedent reste facture a cet addon, et rien
+  ici ne peut y changer quoi que ce soit : c'est le prix de ne priver ni BugSack
+  ni le dialogue du client. Si l'avertissement « execution limit » revient malgre
+  la capture avare decrite plus haut, le coup part de ce chainage, donc de la
+  rafale d'erreurs elle-meme — le journal designe alors l'addon a desactiver, et
+  c'est la seule sortie.

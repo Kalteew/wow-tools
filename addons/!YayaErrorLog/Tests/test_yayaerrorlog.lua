@@ -129,17 +129,22 @@ print("BuildSignature")
 
 equals(
     "deux occurrences du meme bug partagent leur signature",
-    Log.BuildSignature("lua-error", "Core.lua:358: bad argument", STACK),
-    Log.BuildSignature("lua-error", "Core.lua:358: bad argument", STACK)
+    Log.BuildSignature("lua-error", "Core.lua:358: bad argument"),
+    Log.BuildSignature("lua-error", "Core.lua:358: bad argument")
 )
 
 check(
-    "deux lignes fautives differentes donnent deux signatures",
-    Log.BuildSignature("lua-error", "boom", STACK)
-        ~= Log.BuildSignature("lua-error", "boom", "Interface/AddOns/Other/Other.lua:1: in function `x'")
+    "deux messages differents donnent deux signatures",
+    Log.BuildSignature("lua-error", "attempt to call a nil value")
+        ~= Log.BuildSignature("lua-error", "attempt to index a nil value")
 )
 
-check("la signature est tronquee", #Log.BuildSignature("lua-error", string.rep("x", 500), STACK) <= 200)
+check(
+    "deux types differents donnent deux signatures",
+    Log.BuildSignature("lua-error", "boom") ~= Log.BuildSignature("ADDON_ACTION_BLOCKED", "boom")
+)
+
+check("la signature est tronquee", #Log.BuildSignature("lua-error", string.rep("x", 500)) <= 200)
 
 -- ---------------------------------------------------------------------------
 -- Journal borne, repli sans YayaCore
@@ -199,7 +204,7 @@ for _ = 1, 10 do
     Log.Record("lua-error", { message = "Core.lua:358: bad argument", stack = STACK })
 end
 
-local signature = Log.BuildSignature("lua-error", "Core.lua:358: bad argument", STACK)
+local signature = Log.BuildSignature("lua-error", "Core.lua:358: bad argument")
 equals("les occurrences sont comptees", db.counters[signature].count, 10)
 equals("le detail est echantillonne", #db.entries, 3)
 equals(
@@ -216,6 +221,51 @@ Log.Record("ADDON_ACTION_FORBIDDEN", {
 local ordered = Log.OrderedCounters()
 equals("les incidents sont classes par frequence", ordered[1].counter.count, 10)
 equals("le second incident est suivi aussi", #ordered, 2)
+
+-- ---------------------------------------------------------------------------
+-- Cout de la capture
+-- ---------------------------------------------------------------------------
+
+-- Le vrai enjeu de la signature sans pile. Le client facture a cet addon le
+-- temps passe dans son gestionnaire d'erreurs, quel que soit l'addon fautif :
+-- une faute levee a chaque image doit rester comptee sans que sa pile soit
+-- capturee a chaque fois, faute de quoi le client suspend le journal lui-meme
+-- (« insecure scripts exceeded execution limit »).
+
+print("Capture paresseuse du contexte")
+
+local lazy = Log.SetStore({ entries = {}, counters = {}, sessions = {} })
+local enriched = 0
+local function enrich(fields)
+    enriched = enriched + 1
+    fields.stack = STACK
+    fields.zone = "Silvermoon City"
+end
+
+for _ = 1, 50 do
+    Log.Record("lua-error", { message = "Core.lua:358: bad argument" }, enrich)
+end
+
+local lazySignature = Log.BuildSignature("lua-error", "Core.lua:358: bad argument")
+equals("les 50 occurrences sont comptees", lazy.counters[lazySignature].count, 50)
+equals("le contexte n'est collecte que pour les exemplaires conserves", enriched, 3)
+equals("le detail reste echantillonne", #lazy.entries, 3)
+equals(
+    "la ligne fautive vient du contexte collecte",
+    lazy.counters[lazySignature].frame,
+    "Interface/AddOns/AbundanceTracker/Core.lua:358"
+)
+equals("le contexte enrichit bien l'entree", Log.ReadBounded(lazy.entries)[1].zone, "Silvermoon City")
+
+-- Un incident jamais conserve ne coute donc rien de plus qu'un increment.
+local other = 0
+for _ = 1, 20 do
+    Log.Record("ADDON_ACTION_BLOCKED", { protectedFunction = "UseAction()" }, function(fields)
+        other = other + 1
+        fields.stack = STACK
+    end)
+end
+equals("chaque signature dispose de ses propres exemplaires", other, 3)
 
 print("Describe")
 
@@ -240,15 +290,51 @@ print("Plafond des signatures")
 
 local capped = Log.SetStore({ entries = {}, counters = {}, sessions = {} })
 for index = 1, 130 do
-    -- Une pile distincte par tour : la ligne fautive fait partie de la
-    -- signature, un simple numero dans le message serait normalise.
-    Log.Record("lua-error", {
-        message = "boom",
-        stack = ("Interface/AddOns/Fake%d/File.lua:1: in function `x'"):format(index),
-    })
+    -- Un message distinct par tour. La variation passe par des lettres : les
+    -- chiffres sont neutralises par la normalisation, et la pile n'entre plus
+    -- dans la signature.
+    Log.Record("lua-error", { message = "boom " .. string.rep("z", index) })
 end
 check("le plafond est applique", capped.droppedSignatures and capped.droppedSignatures > 0, capped.droppedSignatures)
 equals("aucun incident distinct au-dela du plafond", #Log.OrderedCounters(), 120)
+
+-- ---------------------------------------------------------------------------
+-- Budget de capture
+-- ---------------------------------------------------------------------------
+
+-- Dernier garde-fou, et le seul qui tienne quand la rafale change de message a
+-- chaque occurrence : l'echantillonnage par signature ne borne alors rien, et
+-- chaque incident reclamerait sa pile. Le budget ne s'active qu'en presence
+-- d'une horloge, d'ou l'injection de GetTime pour cette section.
+
+print("Budget de capture")
+
+local frozen = 1000
+_G.GetTime = function()
+    return frozen
+end
+
+local bursty = Log.SetStore({ entries = {}, counters = {}, sessions = {} })
+local captured = 0
+local function burstEnrich(fields)
+    captured = captured + 1
+    fields.stack = STACK
+end
+
+for index = 1, 40 do
+    -- Un message distinct par tour : sans budget, chacun capturerait sa pile.
+    Log.Record("lua-error", { message = "boom " .. string.rep("q", index) }, burstEnrich)
+end
+
+equals("le budget plafonne les captures d'une meme fenetre", captured, 8)
+equals("les incidents restent tous comptes", #Log.OrderedCounters(), 40)
+equals("les captures refusees sont rapportees", bursty.throttled, 32)
+
+frozen = frozen + 2
+Log.Record("lua-error", { message = "boom hors fenetre" }, burstEnrich)
+equals("la fenetre suivante rouvre le budget", captured, 9)
+
+_G.GetTime = nil
 
 -- ---------------------------------------------------------------------------
 -- Le chunk ne s'installe pas hors du jeu
