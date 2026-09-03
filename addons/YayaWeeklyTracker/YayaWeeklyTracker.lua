@@ -5668,7 +5668,7 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         )
         if catchUp then
             tokens[#tokens + 1] = catchUp.active
-                and ("catchup %d/%d"):format(catchUp.remaining, catchUp.total)
+                and ("catchup restant : %d"):format(catchUp.remaining)
                 or "catchup inactif"
         end
     end
