@@ -56,6 +56,12 @@ UI.COLOR = {
     danger    = { 1.00, 0.40, 0.40, 1.00 },
     critical  = { 1.00, 0.20, 0.20, 1.00 },
     category  = { 0.84, 0.70, 0.41, 1.00 },
+
+    -- Verrou engage. Meme valeur que warning : un cadenas ferme est un etat
+    -- signale, pas une erreur. Sans ce token, la branche lock de
+    -- UI.CreateGlyphButton retombait sur textMuted et le cadenas ferme
+    -- s'affichait exactement de la meme couleur que l'ouvert.
+    locked    = { 1.00, 0.80, 0.40, 1.00 },
 }
 
 -- Equivalents en balisage inline. Reprennent les valeurs deja employees par
@@ -109,6 +115,14 @@ UI.SIZE = {
     headerH     = 22,
     glyph       = 18,
     divider     = 1,
+
+    -- Largeur utile d'une section de YayaFrame : les 200 px minimaux du
+    -- conteneur moins ses deux gouttieres. Sert de repli pour mesurer un texte
+    -- avant que les ancres du conteneur ne soient resolues.
+    contentW    = 192,
+    -- Bouton carre portant une icone et non un libelle : trop grand pour glyph,
+    -- qui vise les commandes de bandeau, trop petit pour ACTION.height.
+    iconButton  = 26,
 }
 
 UI.FONT = {
@@ -116,6 +130,23 @@ UI.FONT = {
     header = "GameFontNormalSmall",
     body   = "GameFontHighlightSmall",
     muted  = "GameFontDisableSmall",
+    -- Titre d'un canevas Settings. Le client titre ses propres panneaux avec
+    -- cette police : s'en ecarter rendrait le panneau Yaya etranger a la
+    -- fenetre qui l'accueille.
+    heading = "GameFontNormalLarge",
+}
+
+-- Texte sur plusieurs lignes. Les lignes de metier de YayaWeeklyTracker font
+-- couramment 100 a 140 caracteres pour 176 px utiles : sans plafond elles
+-- mangeraient toute la frame, sans repli tout ce qui depasse la premiere ligne
+-- est perdu sans recours.
+UI.TEXT = {
+    maxLines = 3,          -- plafond de lignes par defaut
+    spacing  = 0,          -- interligne additionnel ; 0 = celui de la police
+    lineH    = 12,         -- repli quand la police ne repond pas
+    charW    = 4.6,        -- repli de mesure hors du jeu, pour des tests stables
+    more     = "+%d",      -- marqueur de debordement ; le reste va en infobulle
+    nbsp     = "\194\160", -- U+00A0 : espace qui ne casse pas la ligne
 }
 
 -- ATTENTION -- CRITIQUE AUTOCLICKER. Ne pas modifier sans le dire.
@@ -219,6 +250,218 @@ function UI.BoundLabel(fontString, justify)
     return fontString
 end
 
+--- Retire le balisage d'affichage pour obtenir le texte reellement rendu.
+--
+-- Sert a mesurer et a composer une infobulle : les sequences de couleur, les
+-- textures et les hyperliens occupent des octets mais aucun pixel.
+function UI.StripMarkup(text)
+    text = tostring(text or "")
+    text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    text = text:gsub("|T.-|t", ""):gsub("|A.-|a", "")
+    text = text:gsub("|H.-|h(.-)|h", "%1")
+    text = text:gsub(UI.TEXT.nbsp, " ")
+    return text
+end
+
+--- Largeur rendue d'un texte, balisage exclu.
+--
+-- Un FontString cache et mutualise sert de reglet. GetStringWidth est la seule
+-- mesure synchrone : elle ne depend que de la police et de la chaine. A
+-- l'inverse GetStringHeight sur une largeur derivee d'ancres, GetNumLines et
+-- IsTruncated ont tous besoin d'une passe de rendu deja faite.
+function UI.MeasureWidth(text, fontName)
+    text = tostring(text or "")
+    if type(UIParent) ~= "table" or type(UIParent.CreateFontString) ~= "function" then
+        -- Hors du jeu : estimation stable, pour que les tests soient reproductibles.
+        return #UI.StripMarkup(text) * UI.TEXT.charW
+    end
+    UI.measureStrings = UI.measureStrings or {}
+    fontName = fontName or UI.FONT.body
+    local ruler = UI.measureStrings[fontName]
+    if not ruler then
+        ruler = UIParent:CreateFontString(nil, "BACKGROUND", fontName)
+        ruler:SetWordWrap(false)
+        ruler:Hide()
+        UI.measureStrings[fontName] = ruler
+    end
+    ruler:SetText(text)
+    return tonumber(ruler:GetStringWidth()) or 0
+end
+
+--- Hauteur d'une ligne de texte, interligne additionnel exclu.
+function UI.LineHeight(fontString)
+    if type(fontString) == "table" then
+        if type(fontString.GetLineHeight) == "function" then
+            local ok, value = pcall(fontString.GetLineHeight, fontString)
+            value = ok and tonumber(value) or nil
+            if value and value > 0 then
+                return value
+            end
+        end
+        if type(fontString.GetFont) == "function" then
+            local ok, _, size = pcall(fontString.GetFont, fontString)
+            size = ok and tonumber(size) or nil
+            if size and size > 0 then
+                return math.ceil(size * 1.25)
+            end
+        end
+    end
+    return UI.TEXT.lineH
+end
+
+--- Largeur exploitable d'une region, avec repli.
+--
+-- Une region qui tire sa largeur de deux ancres rend 0 ou sa taille de creation
+-- tant que la passe de mise en page du conteneur n'a pas eu lieu.
+function UI.ResolveWidth(region, fallback)
+    local width = 0
+    if type(region) == "table" and type(region.GetWidth) == "function" then
+        local ok, value = pcall(region.GetWidth, region)
+        width = (ok and tonumber(value)) or 0
+    end
+    if width < 8 then
+        return tonumber(fallback) or 0
+    end
+    return width
+end
+
+--- Repartit des jetons sur au plus maxLines lignes, sans jamais couper un jeton.
+--
+-- Le moteur de rendu coupe aux espaces : "catchup restant : 3" se casserait
+-- entre "restant" et ":". Les coupures sont donc calculees ici et posees en \n.
+-- Le client n'a plus aucune decision a prendre, et surtout le nombre de lignes
+-- est connu AVANT que le texte soit pose : c'est ce qui rend la hauteur exacte
+-- des le premier passage, sans attendre une passe de rendu.
+--
+-- tokens         : liste de chaines, balisage de couleur compris
+-- opts.width     : largeur utile en pixels (<= 0 desactive la coupure)
+-- opts.maxLines  : plafond (defaut UI.TEXT.maxLines)
+-- opts.prefix    : texte colle en tete de la premiere ligne
+-- opts.separator : separateur entre jetons (defaut " ")
+-- opts.font      : police de mesure (defaut UI.FONT.body)
+-- opts.measure   : mesure injectable, pour les tests hors du jeu
+--
+-- Renvoie le texte, le nombre de lignes, et le nombre de jetons non affiches.
+function UI.PackLines(tokens, opts)
+    opts = opts or {}
+    tokens = tokens or {}
+    local width = tonumber(opts.width) or 0
+    local maxLines = math.max(1, math.floor(tonumber(opts.maxLines) or UI.TEXT.maxLines))
+    local separator = opts.separator or " "
+    local measure = opts.measure
+    if type(measure) ~= "function" then
+        measure = function(value) return UI.MeasureWidth(value, opts.font) end
+    end
+
+    local function Pack(reserve)
+        local lines, current, used = {}, opts.prefix or "", 0
+        for index = 1, #tokens do
+            local last = (#lines + 1) >= maxLines
+            local room = width - ((last and reserve) or 0)
+            local candidate = current ~= ""
+                and (current .. separator .. tokens[index])
+                or tokens[index]
+            -- current == "" : un jeton plus large que la ligne est place seul
+            -- plutot que perdu, quitte a se faire elider par le client.
+            if width <= 0 or current == "" or measure(candidate) <= room then
+                current, used = candidate, index
+            elseif not last then
+                lines[#lines + 1] = current
+                current, used = tokens[index], index
+            else
+                break
+            end
+        end
+        lines[#lines + 1] = current
+        return lines, #tokens - used
+    end
+
+    -- Deux passes : la premiere dit s'il y a debordement, la seconde reserve la
+    -- place du marqueur. Reserver a l'aveugle couterait une place meme quand
+    -- tout tient.
+    local lines, hidden = Pack(0)
+    if hidden > 0 then
+        lines, hidden = Pack(measure(separator .. UI.TEXT.more:format(#tokens)))
+        if hidden > 0 then
+            lines[#lines] = lines[#lines] .. separator .. UI.TEXT.more:format(hidden)
+        end
+    end
+    return table.concat(lines, "\n"), #lines, hidden
+end
+
+--- Passe un FontString en texte multi-lignes plafonne.
+--
+-- La largeur DOIT etre explicite : un FontString qui tire la sienne de deux
+-- ancres n'a pas de largeur resolue au moment ou on lui pose son texte, donc ni
+-- sa coupure ni sa hauteur ne seraient justes.
+function UI.WrapLabel(fontString, opts)
+    if type(fontString) ~= "table" then
+        return fontString
+    end
+    opts = opts or {}
+    if type(fontString.SetWidth) == "function" then
+        fontString:SetWidth(math.max(1, tonumber(opts.width) or 1))
+    end
+    if type(fontString.SetWordWrap) == "function" then
+        fontString:SetWordWrap(true)
+    end
+    if type(fontString.SetMaxLines) == "function" then
+        fontString:SetMaxLines(math.max(1, math.floor(tonumber(opts.maxLines) or UI.TEXT.maxLines)))
+    end
+    if type(fontString.SetSpacing) == "function" then
+        fontString:SetSpacing(tonumber(opts.spacing) or UI.TEXT.spacing)
+    end
+    if type(fontString.SetJustifyH) == "function" then
+        fontString:SetJustifyH(opts.justify or "LEFT")
+    end
+    return fontString
+end
+
+--- Pose un texte deja decoupe et rend la hauteur a reserver, en entier.
+--
+-- lines vient de UI.PackLines : c'est la seule valeur certaine a cet instant.
+-- GetStringHeight ne sert que de second avis, et on garde le maximum des deux.
+-- L'asymetrie le justifie : une hauteur surestimee coute quelques pixels, une
+-- hauteur sous-estimee fait chevaucher les lignes.
+function UI.FitLabel(fontString, text, lines, maxLines, spacing)
+    if type(fontString) ~= "table" then
+        return 0, 0
+    end
+    maxLines = math.max(1, math.floor(tonumber(maxLines) or UI.TEXT.maxLines))
+    spacing = tonumber(spacing) or UI.TEXT.spacing
+    if type(fontString.SetText) == "function" then
+        fontString:SetText(text or "")
+    end
+
+    local lineHeight = UI.LineHeight(fontString)
+    local step = lineHeight + spacing
+    local count = math.max(1, math.floor(tonumber(lines) or 1))
+
+    if type(fontString.GetStringHeight) == "function" then
+        local ok, measured = pcall(fontString.GetStringHeight, fontString)
+        measured = ok and tonumber(measured) or nil
+        if measured and measured > 0 and step > 0 then
+            count = math.max(count, math.floor((measured + spacing) / step + 0.5))
+        end
+    end
+
+    count = math.max(1, math.min(maxLines, count))
+    return math.ceil(count * step - spacing), count
+end
+
+--- Le libelle est-il visiblement coupe ?
+--
+-- IsTruncated est pose par le moteur au moment du dessin : la valeur n'a de sens
+-- qu'apres une passe de rendu, donc a l'entree de la souris, jamais au moment ou
+-- le texte est ecrit.
+function UI.IsLabelTruncated(fontString)
+    if type(fontString) ~= "table" or type(fontString.IsTruncated) ~= "function" then
+        return false
+    end
+    local ok, truncated = pcall(fontString.IsTruncated, fontString)
+    return ok and truncated == true
+end
+
 --- Applique une police de UI.FONT a un FontString.
 --
 -- SetFontObject attend un objet Font. Le nom global est resolu ici pour ne pas
@@ -231,14 +474,21 @@ function UI.SetFont(fontString, name)
     return fontString
 end
 
---- Cree un separateur horizontal de 1 px.
+--- Cree un separateur de 1 px.
+--
+-- opts.vertical : pose une largeur au lieu d'une hauteur. L'appelant fournit
+-- l'autre dimension par ses ancres, comme pour le filet horizontal.
 function UI.CreateDivider(parent, opts)
     if type(parent) ~= "table" or type(parent.CreateTexture) ~= "function" then
         return nil
     end
     opts = opts or {}
     local line = parent:CreateTexture(nil, "ARTWORK")
-    line:SetHeight(UI.SIZE.divider)
+    if opts.vertical then
+        line:SetWidth(UI.SIZE.divider)
+    else
+        line:SetHeight(UI.SIZE.divider)
+    end
     line:SetColorTexture(UI.Unpack(opts.color or UI.COLOR.divider))
     return line
 end
@@ -351,6 +601,58 @@ local function AttachTooltip(frame, title, body, anchor)
     end, { anchor = anchor })
 end
 
+--- Borne le libelle interne d'un bouton et conserve son texte complet.
+--
+-- Le ButtonText d'un UIPanelButtonTemplate est ancre au centre, sans largeur,
+-- sans SetWordWrap ni SetMaxLines : un libelle trop long deborde de part et
+-- d'autre du bouton, et rien ne le rattrape si le parent ne clippe pas.
+--
+-- button.fullLabel garde le texte d'origine ; l'infobulle ne s'ouvre que si le
+-- libelle est reellement coupe a l'ecran.
+function UI.BindButtonLabel(button, text, opts)
+    if type(button) ~= "table" or type(button.GetFontString) ~= "function" then
+        return button
+    end
+    opts = opts or {}
+    local ok, label = pcall(button.GetFontString, button)
+    if not ok or type(label) ~= "table" then
+        return button
+    end
+
+    if text ~= nil then
+        button.fullLabel = tostring(text)
+    end
+
+    if not button.yayaBoundLabel then
+        button.yayaBoundLabel = true
+        label:ClearAllPoints()
+        label:SetPoint("LEFT", button, "LEFT", opts.leftInset or UI.PAD.sm, 0)
+        label:SetPoint("RIGHT", button, "RIGHT", -(opts.rightInset or UI.PAD.sm), 0)
+        UI.BoundLabel(label, opts.justify or "CENTER")
+
+        --- Change le libelle en gardant sa version complete pour l'infobulle.
+        function button.SetLabel(value)
+            button.fullLabel = tostring(value or "")
+            if type(button.SetText) == "function" then
+                button:SetText(button.fullLabel)
+            end
+        end
+
+        if YayaCore.Tooltip and type(YayaCore.Tooltip.Attach) == "function" then
+            YayaCore.Tooltip.Attach(button, function(tooltip, self)
+                local fontString = self:GetFontString()
+                if not UI.IsLabelTruncated(fontString) then
+                    return false
+                end
+                tooltip:SetText(self.fullLabel or "")
+                return true
+            end, { anchor = opts.anchor or "ANCHOR_RIGHT" })
+        end
+    end
+
+    return button
+end
+
 --- Bouton d'action standard, aux dimensions de UI.ACTION.
 --
 -- opts.width   : largeur
@@ -366,13 +668,40 @@ function UI.CreateButton(parent, text, opts)
     if opts.width then
         button:SetWidth(opts.width)
     end
+    -- Police reduite des barres d'outils, ou le bouton cotoie ceux du client.
+    if opts.small then
+        if type(button.SetNormalFontObject) == "function" then
+            pcall(button.SetNormalFontObject, button, _G.GameFontNormalSmall)
+        end
+        if type(button.SetHighlightFontObject) == "function" then
+            pcall(button.SetHighlightFontObject, button, _G.GameFontHighlightSmall)
+        end
+    end
+    -- Un bouton desactive n'emet plus OnEnter : sans cela, l'infobulle qui
+    -- explique justement pourquoi il est desactive devient inatteignable.
+    if opts.motionWhileDisabled and type(button.SetMotionScriptsWhileDisabled) == "function" then
+        pcall(button.SetMotionScriptsWhileDisabled, button, true)
+    end
     if text and type(button.SetText) == "function" then
         button:SetText(text)
     end
+    UI.BindButtonLabel(button, text)
 
     --- Cable une infobulle sans reimplementer OnEnter/OnLeave.
     function button.SetTooltip(title, body, anchor)
         AttachTooltip(button, title, body, anchor or "ANCHOR_TOP")
+    end
+
+    --- Infobulle dont le contenu est relu a chaque survol.
+    --
+    -- provider(tooltip, button) remplit l'infobulle ; renvoyer false l'annule.
+    -- Indispensable aux boutons dont le texte depend de l'etat courant : une
+    -- chaine figee a la creation y serait perimee des le premier changement.
+    function button.SetTooltipProvider(provider, anchor)
+        if not (YayaCore.Tooltip and type(YayaCore.Tooltip.Attach) == "function") then
+            return
+        end
+        YayaCore.Tooltip.Attach(button, provider, { anchor = anchor or "ANCHOR_TOP" })
     end
 
     if opts.tooltip then
@@ -432,6 +761,144 @@ end
 -- ---------------------------------------------------------------------------
 -- Fabriques : en-tete
 -- ---------------------------------------------------------------------------
+
+--- Case a cocher, avec son libelle, sa zone de clic et son infobulle.
+--
+-- Le depot repetait vingt-trois fois la meme danse : creer la case, retrouver
+-- son FontString sous deux noms possibles, en fabriquer un si le template n'en
+-- livre pas, puis etendre la zone cliquable au libelle a la main.
+--
+-- opts.radio      : UIRadioButtonTemplate au lieu de UICheckButtonTemplate
+-- opts.size       : cote de la case (defaut UI.SIZE.headerH)
+-- opts.font       : police du libelle (defaut UI.FONT.body)
+-- opts.labelWidth : largeur imposee du libelle
+-- opts.hitLabel   : etend la zone cliquable au libelle (defaut true)
+-- opts.icon       : texture ou fileID affiche a la place du libelle
+-- opts.iconSize   : cote de cette icone (defaut UI.SIZE.icon)
+-- opts.checked    : etat initial
+-- opts.tooltip    : { title, body, anchor }
+-- opts.onClick    : fonction(checked, button)
+--
+-- button.label porte le FontString, deja borne ; button.icon la texture.
+function UI.CreateCheckbox(parent, text, opts)
+    if type(parent) ~= "table" or type(CreateFrame) ~= "function" then
+        return nil
+    end
+    opts = opts or {}
+    local template = opts.radio and "UIRadioButtonTemplate" or "UICheckButtonTemplate"
+    local button = CreateFrame("CheckButton", opts.name, parent, template)
+    local size = opts.size or UI.SIZE.headerH
+    button:SetSize(size, size)
+
+    if opts.icon then
+        button.icon = button:CreateTexture(nil, "ARTWORK")
+        local iconSize = opts.iconSize or UI.SIZE.icon
+        button.icon:SetSize(iconSize, iconSize)
+        button.icon:SetPoint("LEFT", button, "RIGHT", UI.PAD.sm, 0)
+        button.icon:SetTexture(opts.icon)
+    else
+        -- Certains templates livrent deja leur FontString, sous deux noms
+        -- possibles selon la version du client. En creer un second
+        -- afficherait le libelle en double.
+        local label = button.Text or button.text
+        if not label then
+            label = button:CreateFontString(nil, "OVERLAY", opts.font or UI.FONT.body)
+            label:SetPoint("LEFT", button, "RIGHT", UI.PAD.sm, 0)
+        elseif opts.font then
+            UI.SetFont(label, opts.font)
+        end
+        button.label = label
+        if label then
+            label:SetText(text or "")
+            if opts.labelWidth then
+                label:SetWidth(opts.labelWidth)
+            end
+            UI.BoundLabel(label, "LEFT")
+        end
+    end
+
+    -- Le libelle fait partie de la cible : viser une case de 22 px est inutilement
+    -- precis quand le texte a cote dit la meme chose. GetStringWidth n'a de sens
+    -- qu'apres SetText.
+    if opts.hitLabel ~= false and button.label
+        and type(button.SetHitRectInsets) == "function" then
+        local width = tonumber(opts.labelWidth)
+        if not width and type(button.label.GetStringWidth) == "function" then
+            local ok, measured = pcall(button.label.GetStringWidth, button.label)
+            width = ok and tonumber(measured) or nil
+        end
+        if width and width > 0 then
+            pcall(button.SetHitRectInsets, button, 0, -(width + UI.PAD.sm), 0, 0)
+        end
+    end
+
+    if type(button.SetChecked) == "function" then
+        button:SetChecked(opts.checked and true or false)
+    end
+
+    if type(opts.onClick) == "function" then
+        button:SetScript("OnClick", function(self)
+            local checked = type(self.GetChecked) == "function" and self:GetChecked() or false
+            opts.onClick(checked and true or false, self)
+        end)
+    end
+
+    --- Cable une infobulle sans reimplementer OnEnter/OnLeave.
+    function button.SetTooltip(title, body, anchor)
+        AttachTooltip(button, title, body, anchor or "ANCHOR_RIGHT")
+    end
+
+    --- Infobulle dont le contenu est relu a chaque survol.
+    function button.SetTooltipProvider(provider, anchor)
+        if not (YayaCore.Tooltip and type(YayaCore.Tooltip.Attach) == "function") then
+            return
+        end
+        YayaCore.Tooltip.Attach(button, provider, { anchor = anchor or "ANCHOR_RIGHT" })
+    end
+
+    if opts.tooltip then
+        button.SetTooltip(opts.tooltip.title, opts.tooltip.body, opts.tooltip.anchor)
+    end
+
+    return button
+end
+
+--- Croix de fermeture du rail d'en-tete.
+--
+-- UIPanelCloseButton ferme son parent. Cree sous le bandeau, il masquerait donc
+-- le bandeau et non la fenetre : la cible est explicite.
+--
+-- Appelee EN PREMIER, elle reste le bouton le plus a droite du rail, puisque
+-- header.AddButton empile de droite a gauche.
+--
+-- opts.size    : cote (defaut UI.SIZE.glyph)
+-- opts.onClick : rappel execute avant le masquage
+-- opts.attach  : false pour placer le bouton soi-meme
+function UI.CreateCloseButton(header, frameToClose, opts)
+    if type(header) ~= "table" or type(CreateFrame) ~= "function" then
+        return nil
+    end
+    opts = opts or {}
+    local button = CreateFrame("Button", opts.name, header, "UIPanelCloseButton")
+    local size = opts.size or UI.SIZE.glyph
+    button:SetSize(size, size)
+
+    button:SetScript("OnClick", function(self)
+        if type(opts.onClick) == "function" then
+            opts.onClick(self)
+        end
+        local target = frameToClose or header:GetParent()
+        if target and type(target.Hide) == "function" then
+            target:Hide()
+        end
+    end)
+
+    if opts.attach ~= false and type(header.AddButton) == "function" then
+        header.AddButton(button)
+    end
+
+    return button
+end
 
 --- Bandeau de titre : chrome de frame, ou en-tete de section repliable.
 --
@@ -600,8 +1067,9 @@ function UI.DecorateRow(row, opts)
         leftInset = leftInset + iconSize + UI.PAD.sm
     end
 
+    local rightInset = opts.rightInset or UI.PAD.md
     row.value = row:CreateFontString(nil, "OVERLAY", opts.valueFont or UI.FONT.body)
-    row.value:SetPoint("RIGHT", row, "RIGHT", -(opts.rightInset or UI.PAD.md), 0)
+    row.value:SetPoint("RIGHT", row, "RIGHT", -rightInset, 0)
     if opts.valueWidth then
         row.value:SetWidth(opts.valueWidth)
     end
@@ -620,16 +1088,63 @@ function UI.DecorateRow(row, opts)
         row.bg:SetColorTexture(UI.Unpack(odd and UI.COLOR.rowOdd or UI.COLOR.rowEven))
     end
 
-    --- Teinte le libelle et la valeur avec un token de couleur.
+    --- Teinte la valeur avec un token de couleur.
     function row.SetTone(tone)
         local color = UI.COLOR[tone or "text"] or UI.COLOR.text
         row.value:SetTextColor(UI.Unpack(color))
+    end
+
+    --- Teinte le libelle avec un token de couleur.
+    function row.SetLabelTone(tone)
+        local color = UI.COLOR[tone or "text"] or UI.COLOR.text
+        row.label:SetTextColor(UI.Unpack(color))
+    end
+
+    --- Largeur utile du libelle pour une largeur de ligne donnee.
+    function row.LabelWidth(rowWidth)
+        return math.max(1, math.floor(
+            (tonumber(rowWidth) or 0) - leftInset - rightInset - UI.PAD.sm))
+    end
+
+    --- Bascule le libelle entre une ligne et plusieurs lignes bornees.
+    --
+    -- En multi-lignes l'ancre droite cede la place a une largeur explicite :
+    -- c'est la seule facon d'obtenir une coupure et une hauteur justes des le
+    -- SetText, sans attendre la passe de mise en page du conteneur.
+    function row.SetLabelWrap(maxLines, width)
+        maxLines = math.max(1, math.floor(tonumber(maxLines) or 1))
+        row.label:ClearAllPoints()
+        row.label:SetPoint("LEFT", row, "LEFT", leftInset, 0)
+        if maxLines <= 1 then
+            row.labelWrapped = nil
+            row.label:SetWidth(0)
+            if type(row.label.SetSpacing) == "function" then
+                row.label:SetSpacing(0)
+            end
+            row.label:SetPoint("RIGHT", row.value, "LEFT", -UI.PAD.sm, 0)
+            return UI.BoundLabel(row.label, "LEFT")
+        end
+        row.labelWrapped = true
+        return UI.WrapLabel(row.label, {
+            width = width or row.LabelWidth(row:GetWidth()),
+            maxLines = maxLines,
+        })
     end
 
     --- Infobulle libre, pour une ligne qui ne porte pas d'objet.
     function row.SetTooltip(title, body)
         row.tooltipTitle = title
         row.tooltipBody = body
+    end
+
+    --- Infobulle qui ne s'ouvre que si le libelle est coupe a l'ecran.
+    --
+    -- IsTruncated n'est renseigne qu'apres le dessin : la condition est donc
+    -- evaluee a l'entree de la souris, jamais ici.
+    function row.SetTruncatedTooltip(title, body)
+        row.tooltipTitle = title
+        row.tooltipBody = body
+        row.tooltipWhenTruncated = true
     end
 
     --- Rattache un objet a la ligne : icone et infobulle native, sans toucher
@@ -694,7 +1209,11 @@ function UI.DecorateRow(row, opts)
         row.itemLink = nil
         row.tooltipTitle = nil
         row.tooltipBody = nil
+        row.tooltipWhenTruncated = nil
+        row.hiddenTokenCount = nil
+        row.SetLabelWrap(1)
         row.label:SetText("")
+        row.label:SetTextColor(UI.Unpack(UI.COLOR.text))
         row.value:SetText("")
         row.value:SetTextColor(UI.Unpack(UI.COLOR.text))
         if row.icon then
@@ -719,7 +1238,8 @@ function UI.DecorateRow(row, opts)
             GameTooltip:Show()
             return
         end
-        if self.tooltipTitle then
+        if self.tooltipTitle
+            and (not self.tooltipWhenTruncated or UI.IsLabelTruncated(self.label)) then
             GameTooltip:SetOwner(self, self.tooltipAnchor)
             GameTooltip:SetText(self.tooltipTitle)
             if self.tooltipBody then
@@ -833,6 +1353,23 @@ function UI.CreateScrollList(parent, opts)
         end
         list.provider = CreateDataProvider(items)
         scrollFrame:SetDataProvider(list.provider)
+    end
+
+    --- Redessine les lignes sans toucher au jeu de donnees.
+    --
+    -- SetItems vide puis reinsere le fournisseur : c'est un brassage complet des
+    -- donnees pour un simple repeint, qui perd au passage la position de
+    -- defilement. Refresh ne redemande que le rendu.
+    function list.Refresh()
+        if type(scrollFrame.FullUpdate) ~= "function" then
+            return false
+        end
+        local immediate = ScrollBoxConstants and ScrollBoxConstants.UpdateImmediately
+        if immediate == nil then
+            immediate = true
+        end
+        scrollFrame:FullUpdate(immediate)
+        return true
     end
 
     return list

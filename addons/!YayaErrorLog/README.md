@@ -93,7 +93,7 @@ execute, capturer sa pile ne l'est presque jamais.**
 | Commande | Effet |
 | --- | --- |
 | `/yerr` | resume : nombre d'incidents et les huit plus frequents |
-| `/yerr dump` | fenetre copiable avec le recapitulatif et les piles |
+| `/yerr dump` | fenetre copiable avec le recapitulatif et les piles ; elle se deplace par son bandeau, se ferme par sa croix ou par Echap, et adopte le chrome de la suite Yaya quand YayaCore est charge |
 | `/yerr probe` | teste pourquoi un `RegisterEvent` est refuse : aspect interdit sur la frame, ou evenement restreint |
 | `/yerr test` | declenche une erreur volontaire, pour verifier que la capture fonctionne |
 | `/yerr clear` | vide le journal |

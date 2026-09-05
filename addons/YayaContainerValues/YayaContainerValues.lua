@@ -24,7 +24,8 @@ local lastBagSnapshot
 local lastBagSlots
 
 local function Print(message)
-    DEFAULT_CHAT_FRAME:AddMessage(("|cff4cc9f0YayaContainerValues|r: %s"):format(tostring(message)))
+    DEFAULT_CHAT_FRAME:AddMessage(("%sYayaContainerValues|r: %s"):format(
+        YayaCore.UI.HEX.accent, tostring(message)))
 end
 
 local function Now()

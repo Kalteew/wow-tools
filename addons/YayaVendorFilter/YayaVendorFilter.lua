@@ -26,7 +26,9 @@ local DEFAULTS = {
 }
 
 local function Print(message)
-    DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99YayaVendorFilter|r " .. message)
+    -- Menthe de la suite, valeur de YayaCore.UI.HEX.accent. Litteral assume :
+    -- cet addon reste autonome, sans dependance declaree.
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ff98YayaVendorFilter|r " .. message)
 end
 
 local function SafeCall(func, ...)

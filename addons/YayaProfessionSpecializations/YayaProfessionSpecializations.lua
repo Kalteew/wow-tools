@@ -18,7 +18,10 @@ end
 
 local function Reply(message)
     if DEFAULT_CHAT_FRAME then
-        DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99" .. addonName .. "|r: " .. tostring(message))
+        -- Menthe de la suite, valeur de YayaCore.UI.HEX.accent. Litteral
+        -- assume : cet addon ne dessine aucune frame et n'a aucune raison
+        -- de dependre de YayaCore pour une couleur de chat.
+        DEFAULT_CHAT_FRAME:AddMessage("|cff00ff98" .. addonName .. "|r: " .. tostring(message))
     end
 end
 

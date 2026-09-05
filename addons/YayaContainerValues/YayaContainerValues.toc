@@ -2,7 +2,7 @@
 ## Title: YayaContainerValues
 ## Notes: Estimates container values from observed openings and TSM prices.
 ## Author: Yaya
-## Version: 0.1.2
+## Version: 0.1.3
 ## Dependencies: YayaCore
 ## OptionalDeps: TradeSkillMaster
 ## SavedVariables: YayaContainerValuesDB

@@ -3454,7 +3454,9 @@ function Pane:ShowIconTooltip(iconFrame)
 	if not data.isKnown and data.unknownRecipeLines then
 		local addonTitle = ns.GetAddonMetadata and ns.GetAddonMetadata(ns.ADDON_NAME, "Title") or nil
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddLine(("|cff4cc9f0%s|r"):format(addonTitle or L.ADDON_TITLE or ns.ADDON_NAME), 0.95, 0.95, 0.95, true)
+		GameTooltip:AddLine(("%s%s|r"):format(
+			ns.UI and ns.UI.HEX.accent or "|cff00ff98",
+			addonTitle or L.ADDON_TITLE or ns.ADDON_NAME), 0.95, 0.95, 0.95, true)
 		for _, line in ipairs(data.unknownRecipeLines) do
 			GameTooltip:AddLine(line, 0.95, 0.95, 0.95, true)
 		end
@@ -3791,12 +3793,27 @@ function Pane:CreateRow(index, row)
 		row:SetPoint("RIGHT", self.scrollChild, "RIGHT", -2, 0)
 	end
 	row:SetHighlightAtlas("talents-pvpflyout-rowhighlight")
-	row:GetHighlightTexture():SetVertexColor(0.12, 0.48, 0.95)
+	if ns.UI then
+		-- Seules les trois composantes de teinte : l'alpha du token et le
+		-- SetAlpha ci-dessous se multiplieraient, et 0.12 fois 0.75 rendrait
+		-- la surbrillance invisible.
+		local hover = ns.UI.COLOR.hover
+		row:GetHighlightTexture():SetVertexColor(hover[1], hover[2], hover[3])
+	else
+		row:GetHighlightTexture():SetVertexColor(0.12, 0.48, 0.95)
+	end
 	row:GetHighlightTexture():SetAlpha(0.75)
 
 	row.background = row:CreateTexture(nil, "BACKGROUND")
 	row.background:SetAllPoints()
-	row.background:SetColorTexture(1, 1, 1, row.rowIndex % 2 == 0 and 0.025 or 0.01)
+	if ns.UI then
+		-- Unpack rend quatre valeurs : une expression and/or n'en garderait
+		-- qu'une, et la couleur serait fausse.
+		row.background:SetColorTexture(ns.UI.Unpack(
+			row.rowIndex % 2 == 1 and ns.UI.COLOR.rowOdd or ns.UI.COLOR.rowEven))
+	else
+		row.background:SetColorTexture(1, 1, 1, row.rowIndex % 2 == 0 and 0.025 or 0.01)
+	end
 
 	row.checkbox = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
 	row.checkbox:SetPoint("TOPLEFT", row, "TOPLEFT", 2, -12)
@@ -6098,7 +6115,12 @@ function Pane:ApplyRowData(row, elementData)
 	row.order = order
 	row:Show()
 	if row.background then
-		row.background:SetColorTexture(1, 1, 1, index % 2 == 0 and 0.025 or 0.01)
+		if ns.UI then
+			row.background:SetColorTexture(
+				ns.UI.Unpack(index % 2 == 1 and ns.UI.COLOR.rowOdd or ns.UI.COLOR.rowEven))
+		else
+			row.background:SetColorTexture(1, 1, 1, index % 2 == 0 and 0.025 or 0.01)
+		end
 	end
 	row.checkbox:SetChecked(not not self.selectedOrderIDs[order.orderID])
 

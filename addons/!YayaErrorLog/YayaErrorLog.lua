@@ -449,9 +449,19 @@ if type(CreateFrame) ~= "function" then
     return
 end
 
+-- YayaCore est declare en OptionalDeps et le reste : ce journal sert a isoler
+-- un addon suspect, donc il doit fonctionner dans un profil ou plus rien
+-- d'autre n'est charge. Chaque valeur a son repli.
+local UI = _G.YayaCore and _G.YayaCore.UI
+local ACCENT = (UI and UI.HEX.accent) or "|cff00ff98"
+local PAD = (UI and UI.PAD.lg) or 10
+-- Largeur reservee a la barre de defilement d'UIPanelScrollFrameTemplate, que
+-- le template pose hors du contenu.
+local SCROLLBAR_GUTTER = 26
+
 local function Print(message)
     if type(DEFAULT_CHAT_FRAME) == "table" and type(DEFAULT_CHAT_FRAME.AddMessage) == "function" then
-        DEFAULT_CHAT_FRAME:AddMessage("|cffff8040YayaErrorLog|r: " .. tostring(message))
+        DEFAULT_CHAT_FRAME:AddMessage(ACCENT .. "YayaErrorLog|r: " .. tostring(message))
     end
 end
 
@@ -582,38 +592,75 @@ local function EnsureDumpFrame()
     dumpFrame:SetSize(760, 460)
     dumpFrame:SetPoint("CENTER")
     dumpFrame:SetFrameStrata("DIALOG")
-    dumpFrame:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true,
-        tileSize = 16,
-        edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 },
-    })
-    dumpFrame:SetBackdropColor(0.05, 0.05, 0.08, 0.95)
+    if UI then
+        UI.ApplyPanelBackdrop(dumpFrame)
+    else
+        dumpFrame:SetBackdrop({
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Buttons\\WHITE8X8",
+            edgeSize = 1,
+            insets = { left = 1, right = 1, top = 1, bottom = 1 },
+        })
+        dumpFrame:SetBackdropColor(0.04, 0.05, 0.05, 0.92)
+        dumpFrame:SetBackdropBorderColor(0.24, 0.28, 0.27, 0.90)
+    end
     dumpFrame:SetMovable(true)
     dumpFrame:EnableMouse(true)
     dumpFrame:SetClampedToScreen(true)
-    dumpFrame:RegisterForDrag("LeftButton")
-    dumpFrame:SetScript("OnDragStart", dumpFrame.StartMoving)
-    dumpFrame:SetScript("OnDragStop", dumpFrame.StopMovingOrSizing)
 
-    local title = dumpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", 0, -10)
-    title:SetText("YayaErrorLog")
+    -- Echap ferme la fenetre comme n'importe quelle fenetre du client.
+    -- OnEscapePressed sur la zone de texte ne couvrait que le cas ou le curseur
+    -- s'y trouvait deja.
+    if type(UISpecialFrames) == "table" then
+        UISpecialFrames[#UISpecialFrames + 1] = dumpFrame:GetName()
+    end
 
-    local close = CreateFrame("Button", nil, dumpFrame, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", -2, -2)
+    local header, contentTop
+    if UI then
+        -- Le glisser ne vit que dans le bandeau : sur toute la surface, il
+        -- attrapait les glissers accidentels dans le texte.
+        header = UI.CreateHeader(dumpFrame, "YayaErrorLog", { moveTarget = dumpFrame })
+        UI.CreateCloseButton(header, dumpFrame)
+        contentTop = header
+    else
+        dumpFrame:RegisterForDrag("LeftButton")
+        dumpFrame:SetScript("OnDragStart", dumpFrame.StartMoving)
+        dumpFrame:SetScript("OnDragStop", dumpFrame.StopMovingOrSizing)
+
+        local title = dumpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        title:SetPoint("TOP", 0, -10)
+        title:SetText("YayaErrorLog")
+
+        local close = CreateFrame("Button", nil, dumpFrame, "UIPanelCloseButton")
+        close:SetPoint("TOPRIGHT", -2, -2)
+    end
 
     local scroll = CreateFrame("ScrollFrame", "YayaErrorLogDumpScroll", dumpFrame, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 14, -36)
-    scroll:SetPoint("BOTTOMRIGHT", -32, 14)
+    if contentTop then
+        scroll:SetPoint("TOPLEFT", contentTop, "BOTTOMLEFT", PAD, -PAD)
+        scroll:SetPoint("TOPRIGHT", contentTop, "BOTTOMRIGHT", -SCROLLBAR_GUTTER, -PAD)
+        scroll:SetPoint("BOTTOM", dumpFrame, "BOTTOM", 0, PAD)
+    else
+        scroll:SetPoint("TOPLEFT", 14, -36)
+        scroll:SetPoint("BOTTOMRIGHT", -32, 14)
+    end
 
     dumpEdit = CreateFrame("EditBox", nil, scroll)
     dumpEdit:SetMultiLine(true)
     dumpEdit:SetAutoFocus(false)
     dumpEdit:SetFontObject("ChatFontNormal")
-    dumpEdit:SetWidth(700)
+    -- La largeur etait figee a 700 pour une zone de defilement d'environ
+    -- 714 px : les lignes de pile revenaient a la ligne quatorze pixels trop
+    -- tot, et une gouttiere morte restait a droite. Elle suit desormais la
+    -- zone reelle, y compris si la fenetre change de taille.
+    local function FitEditWidth(width)
+        width = tonumber(width) or scroll:GetWidth() or 0
+        dumpEdit:SetWidth(math.max(1, math.floor(width)))
+    end
+    scroll:SetScript("OnSizeChanged", function(_, width)
+        FitEditWidth(width)
+    end)
+    FitEditWidth()
     dumpEdit:SetScript("OnEscapePressed", function()
         dumpFrame:Hide()
     end)

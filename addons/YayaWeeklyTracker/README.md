@@ -29,23 +29,24 @@ Resume `Midnight` :
 - si les donnees de metier ne sont pas encore chargees, l'addon ouvre puis referme un des metiers appris au prochain appui clavier pour initialiser leur suivi
 - chaque ligne est compacte, par exemple `Alch: T8/8 loot 2/2 hebdo traite DMF`, avec le statut dans sa propre colonne à droite et une zébrure une ligne sur deux
 - la section se replie depuis le chevron de son bandeau `Hebdo`, et l'état est conservé entre les sessions
-- les lignes longues se replient avec une hauteur adaptee, sans chevaucher la ligne suivante
+- une ligne de metier s'etale sur trois lignes de texte au plus, decoupees entre jetons et jamais au milieu de l'un d'eux ; au-dela, un marqueur `+N` compte ce qui n'est pas affiche
+- la ligne ne porte que des compteurs : les noms entiers de recettes, de livres et d'outils sont dans l'infobulle, qui donne le detail complet au survol
 - si rien ne reste a faire pour un metier suivi, la ligne affiche `ok` tant qu'une autre action garde la frame ouverte
 - si tous les metiers suivis sont `ok` et qu'aucune autre ligne ou bouton ne reste, la frame est masquee
 - si la moxie depasse `600`, la ligne affiche sa valeur en orange, par exemple `moxie 612`
 - `T` = tresors restants
 - `loot` = connaissances restantes via coffres/loots cette semaine
 - `dez` = connaissances restantes via desenchantement pour l'Enchantement
-- `catchup inactif` = le catch-up Enchantement attend encore la weekly, les 2 loots ou les 6 drops de désenchantement ; `catchup restant : x` = points de catch-up restants ; la ligne disparait quand il n'y a plus de catch-up
+- `catchup inactif` = le catch-up Enchantement attend encore la weekly, les 2 loots ou les 6 drops de désenchantement ; `catchup x` = points de catch-up restants ; la ligne disparait quand il n'y a plus de catch-up
 - `hebdo` = rappel quete hebdo trainer
 - `traite` = rappel traite hebdo si le metier est a `25+` et que l'option `Tracker les traites (inscription)` est active
 - `DMF` = Darkmoon Faire active et quete metier pas encore faite ce mois-ci
-- `KP x a placer` en rouge = plus de `5` points de connaissance non depenses dans ce metier
-- `+10KP (zone)` = livre de connaissance Midnight encore non consomme ; les livres d'Abundance sont suivis a partir du niveau 90 pour Enchantement, Herboristerie, Minage et Depeçage ; si le livre est deja dans les sacs, le rappel est masque au profit du bouton `Utiliser KP`
+- `KP x` en rouge = plus de `5` points de connaissance non depenses dans ce metier
+- `+10KP xN` = livres de connaissance Midnight encore non consommes, leurs noms etant listes dans l'infobulle de la ligne ; les livres d'Abundance sont suivis a partir du niveau 90 pour Enchantement, Herboristerie, Minage et Depeçage ; si le livre est deja dans les sacs, le rappel est masque au profit du bouton `Utiliser KP`
 - `moxie x/y` et `abondance x/y` = recapitulatif du cout des livres manquants ; la valeur passe en rouge si la monnaie manque
 - si `Outils metiers` est active, les outils de metier rares ou superieurs, soulbound, equipes ou presents dans les sacs, sont verifies pour chaque metier Midnight appris ; un metier sans outil bleu/violet equipe affiche `outil non equipe`
 - la meme option ajoute un rappel independant `outil RF absent` par metier Midnight suivi tant qu'aucun outil de statistique `Resourcefulness` n'est possede, equipe ou en sac ; il s'ajoute a `outil non equipe` au lieu de le remplacer, et reste masque tant que le scan des outils est incomplet
-- si `Enchantements des outils` est active, YWT lit la stat aleatoire du tooltip du lien unique de chaque outil possede (jamais la stat generique de l'item de base) : un outil Multicrafting demande l'enchantement Multicrafting, un outil sans enchantement affiche `outil sans enchant MC x1`, et un outil avec une mauvaise stat apparait dans `One time` (`outil MC x1`, `outil RF x1`, etc.) ; les boutons Warbank/YayaQueue utilisent ce meme enchantement cible ; les deux options sont actives par defaut
+- si `Enchantements des outils` est active, YWT lit la stat aleatoire du tooltip du lien unique de chaque outil possede (jamais la stat generique de l'item de base) : un outil Multicrafting demande l'enchantement Multicrafting, les outils sans enchantement sont comptes dans `ench xN` et ceux a recuperer dans `outil xN`, le detail par outil etant donne par l'infobulle ; les boutons Warbank/YayaQueue utilisent ce meme enchantement cible ; les deux options sont actives par defaut
 - les six stats d'outil Midnight sont gerees : Perception (`243965`), Resourcefulness (`243967`), Finesse (`243993`), Multicrafting (`243995`), Ingenuity (`244025`) et Deftness (`244023`) ; l'enchantement est valide par son `enchantID`, donc un rang 1 ou une mauvaise stat reste a corriger
 - `Pull enchants Warbank` retire seulement la quantite necessaire des stacks connus de la Warbank ; son affichage est recalcule a l'ouverture de l'onglet Warbank et le bouton reste desactive si son contenu n'est pas connu
 - `Acheter enchants YQ` ajoute uniquement les deficits non deja demandes dans YayaQueue, en tenant compte des sacs et de la Warbank ; le calcul est relance apres ajout
@@ -54,7 +55,7 @@ Resume `Midnight` :
 - apres confirmation que l'outil porte bien le nouvel `enchantID`, le bouton retire une unite de cet enchantement de la demande directe YayaQueue ; un clic annule ou echoue ne retire rien
 - le rappel `moxie x` reste affiche meme si aucun tresor, livre ou recette ne reste dans `One time`
 - les recettes manquantes suivies sont `Potion of Recklessness`, `Vicious Thalassian Flask of Honor`, `Concentrated Silvermoon Health Potion`, `Enchant Tool - Haranir Multicrafting` et `Gleeful Glamour - Haranir`, avec leur cout Moxie si necessaire ; leur etat connu utilise le tooltip Blizzard du personnage courant, comme Yaya Vendor Filter, puis les API metier en secours ; une recette ayant un cout Abundance n'est suivie qu'a partir du niveau 90
-- `Vicious Thalassian Flask of Honor` est marquee comme achat hotel des ventes (`auctionHouse`) : elle s'affiche en `recette HV (...)`, sans waypoint TomTom ni cout Moxie ou `Voidlight Marl` dans les rappels
+- `Vicious Thalassian Flask of Honor` est marquee comme achat hotel des ventes (`auctionHouse`) : elle est comptee dans `recHV xN`, son nom apparaissant dans l'infobulle, sans waypoint TomTom ni cout Moxie ou `Voidlight Marl` dans les rappels
 - une recette suivie non apprise mais deja presente dans les sacs est retiree de `One time` ; un bouton `Utiliser recette` permet de la consommer directement
 - le transfert de `Voidlight Marl` depuis les autres personnages est temporairement desactive ; son bouton reste masque pendant la stabilisation du flux Blizzard
 - `Lost Legends` est suivie comme weekly par personnage des legendes Haranir

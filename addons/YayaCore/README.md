@@ -10,6 +10,54 @@ appelle desormais ce module, les sites d'appel existants ne changent pas.
 
 ## Modules
 
+### `YayaCore.UI`
+
+Le design system de la suite : la source de verite unique pour les couleurs,
+les espacements, les polices et les fabriques de widgets. Il remplace sept
+teintes de fond concurrentes, trois recettes de zebrure, deux familles de
+backdrop et trois familles d'accent.
+
+**Regle d'acces.** Consommer par acces de champ (`YayaCore.UI.PAD.md`), qui ne
+coute aucune variable locale, ou au plus **un** `local UI = YayaCore.UI` par
+fichier. `YayaWeeklyTracker.lua` et `YayaQueue.lua` sont a 198 et 196 variables
+locales de chunk sur les 200 que Lua 5.1 autorise ; depasser la limite empeche
+l'addon entier de charger, sans message clair en jeu.
+
+**Tokens.** `UI.COLOR` (17 couleurs RGBA, accent menthe), `UI.HEX` (les memes en
+balisage inline), `UI.PAD` (`xs 2` a `xl 14`), `UI.SIZE` (hauteurs de ligne,
+icones, `contentW 192` pour la largeur utile d'une section), `UI.FONT` (quatre
+roles plus `heading` pour les canevas Settings), `UI.BACKDROP` (recette unique,
+filet de 1 px), `UI.TEXT` (texte multi-lignes plafonne).
+
+`UI.ACTION` porte la geometrie des boutons d'action et **conditionne
+l'autoclicker de l'utilisateur** : la modifier oblige a repointer l'autoclicker.
+Voir l'avertissement en tete de `UI.lua`.
+
+**Couleur et texte.** `Colorize(tone, text)`, `Unpack(color, alpha)`,
+`SetFont(fontString, name)`, `BoundLabel(fontString, justify)` pour borner un
+libelle a une ligne, `StripMarkup(text)`, `MeasureWidth(text, font)`,
+`LineHeight(fontString)`, `ResolveWidth(region, fallback)`.
+
+**Texte sur plusieurs lignes.** `PackLines(tokens, opts)` repartit des jetons
+sur au plus `maxLines` lignes en posant lui-meme les retours a la ligne, donc
+sans jamais couper un jeton et en connaissant le nombre de lignes **avant**
+d'ecrire le texte ; `WrapLabel(fontString, opts)` bascule un libelle en
+multi-lignes avec une largeur explicite ; `FitLabel(...)` pose le texte et rend
+la hauteur a reserver ; `IsLabelTruncated(fontString)` ne vaut qu'apres une
+passe de rendu, donc a l'entree de la souris.
+
+**Fabriques.** `ApplyPanelBackdrop(frame, opts)`, `CreateDivider(parent, opts)`
+(`opts.vertical` pour un filet vertical), `CreateButton(parent, text, opts)`,
+`BindButtonLabel(button, text)` qui borne le libelle interne d'un bouton et
+rend son texte complet au survol, `CreateGlyphButton(parent, kind, opts)` pour
+les commandes `R` et cadenas du bandeau, `CreateCheckbox(parent, text, opts)`,
+`CreateCloseButton(header, frameToClose, opts)`, `CreateHeader(parent, title,
+opts)`, `CreateRow` / `DecorateRow`, `CreateScrollList(parent, opts)` et
+`StackLayout(parent, opts)`.
+
+Toutes les fabriques **degradent en `nil`** plutot que de lever quand le client
+n'expose pas ce qu'elles demandent : l'appelant doit traiter ce cas.
+
 ### `YayaCore.ActionBinding`
 
 Raccourci Blizzard `Yaya > Action suivante (YQ / YWT)`, sans touche imposee.
