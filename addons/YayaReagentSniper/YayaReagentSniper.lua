@@ -1,5 +1,10 @@
 local addonName = ...
 
+-- YayaCore est declare en Dependencies dans le TOC, donc le module de design
+-- est charge avant ce fichier. Une seule locale pour tout le fichier : la
+-- limite des 200 par chunk laisse ici une marge confortable.
+local UI = YayaCore.UI
+
 local QUERY_TIMEOUT = 5
 local BETWEEN_QUERIES = 0.1
 local BETWEEN_CYCLES = 0.05
@@ -2651,6 +2656,24 @@ local function HandleAuctionEvent(_, event, value, unitPrice, totalPrice)
 	end
 end
 
+--- Message et token de couleur de l'etat vide, selon l'etat des besoins.
+--
+-- Sortie pure, donc verifiable hors du jeu : c'est le seul morceau de cette
+-- interface qui se teste sans client.
+local function EmptyResultsStatus(needsState)
+	if needsState == "covered" then
+		return "|TInterface\\RaidFrame\\ReadyCheck-Ready:24|t Rien à sniper — besoins déjà couverts", "success"
+	elseif needsState == "empty" then
+		return "Groupe vide — aucune cible Shopping TSM", "textMuted"
+	elseif needsState == "filtered" then
+		return "Aucun restock — manque inférieur au seuil", "warning"
+	elseif needsState == "invalid" then
+		return "Aucune cible valide — vérifie les opérations Shopping TSM", "danger"
+	end
+	return "Aucune opportunité pour le moment", "textMuted"
+end
+state.EmptyResultsStatus = EmptyResultsStatus
+
 local function IsResultBlocked(result)
 	if not result then
 		return true
@@ -2857,22 +2880,9 @@ UpdateView = function()
 	UpdateScanStats()
 	state.frame.resultCount:SetText(format("Opportunités : %d", #state.results))
 	if state.frame.emptyResults then
-		if state.needsState == "covered" then
-			state.frame.emptyResults:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:24|t Rien à sniper — besoins déjà couverts")
-			state.frame.emptyResults:SetTextColor(0.35, 1, 0.35, 1)
-		elseif state.needsState == "empty" then
-			state.frame.emptyResults:SetText("Groupe vide — aucune cible Shopping TSM")
-			state.frame.emptyResults:SetTextColor(0.6, 0.6, 0.6, 1)
-		elseif state.needsState == "filtered" then
-			state.frame.emptyResults:SetText("Aucun restock — manque inférieur au seuil")
-			state.frame.emptyResults:SetTextColor(0.75, 0.75, 0.35, 1)
-		elseif state.needsState == "invalid" then
-			state.frame.emptyResults:SetText("Aucune cible valide — vérifie les opérations Shopping TSM")
-			state.frame.emptyResults:SetTextColor(1, 0.35, 0.2, 1)
-		else
-			state.frame.emptyResults:SetText("Aucune opportunité pour le moment")
-			state.frame.emptyResults:SetTextColor(0.6, 0.6, 0.6, 1)
-		end
+		local message, tone = EmptyResultsStatus(state.needsState)
+		state.frame.emptyResults:SetText(message)
+		state.frame.emptyResults:SetTextColor(UI.Unpack(UI.COLOR[tone]))
 		state.frame.emptyResults:SetShown(#state.results == 0)
 	end
 	RefreshRows()
@@ -2897,15 +2907,7 @@ local function CreateFrames()
 	local frame = CreateFrame("Frame", addonName .. "Frame", AuctionHouseFrame, "BackdropTemplate")
 	frame:SetPoint("TOPLEFT", AuctionHouseFrame, "TOPLEFT", 16, -78)
 	frame:SetPoint("BOTTOMRIGHT", AuctionHouseFrame, "BOTTOMRIGHT", -16, 16)
-	frame:SetBackdrop({
-		bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-		tile = true,
-		tileSize = 16,
-		edgeSize = 12,
-		insets = { left = 2, right = 2, top = 2, bottom = 2 },
-	})
-	frame:SetBackdropColor(0.04, 0.04, 0.04, 0.94)
+	UI.ApplyPanelBackdrop(frame)
 	frame:Hide()
 
 	local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -2920,8 +2922,7 @@ local function CreateFrames()
 	groupPanel:SetWidth(250)
 	groupPanel:SetPoint("TOPLEFT", help, "BOTTOMLEFT", 0, -8)
 	groupPanel:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 10)
-	groupPanel:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 8 })
-	groupPanel:SetBackdropColor(0.02, 0.02, 0.02, 0.75)
+	UI.ApplyPanelBackdrop(groupPanel, { color = UI.COLOR.header })
 	local groupTitle = groupPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	groupTitle:SetPoint("TOPLEFT", 10, -8)
 	groupTitle:SetText("Groupes avec Shopping")
@@ -3098,8 +3099,8 @@ local function CreateFrames()
 		if row.SetClipsChildren then
 			row:SetClipsChildren(true)
 		end
-		row:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background" })
-		row:SetBackdropColor(0.06, 0.06, 0.06, index % 2 == 0 and 0.62 or 0.38)
+		row:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8" })
+		row:SetBackdropColor(UI.Unpack(index % 2 == 1 and UI.COLOR.rowOdd or UI.COLOR.rowEven))
 		if index == 1 then
 			row:SetPoint("TOPLEFT", resultsContent, "TOPLEFT", 4, -2)
 		else
@@ -3108,7 +3109,7 @@ local function CreateFrames()
 		row:SetPoint("RIGHT", resultsContent, "RIGHT", -4, 0)
 		row.hover = row:CreateTexture(nil, "BACKGROUND")
 		row.hover:SetAllPoints()
-		row.hover:SetColorTexture(1, 0.82, 0.18, 0.10)
+		row.hover:SetColorTexture(UI.Unpack(UI.COLOR.hover))
 		row.hover:Hide()
 		row.itemCell = CreateFrame("Frame", nil, row)
 		row.itemCell:SetSize(158, 30)

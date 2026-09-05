@@ -1,5 +1,8 @@
 local addonName = ...
 
+-- Le module de design, en une seule locale de chunk pour tout le fichier.
+local UI = YayaCore.UI
+
 local Reset = {}
 YayaReagentSniperReset = Reset
 
@@ -2064,14 +2067,14 @@ local function CreateRow(index)
 	end
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
-	row.bg:SetColorTexture(0.055, 0.055, 0.065, index % 2 == 0 and 0.78 or 0.58)
+	row.bg:SetColorTexture(UI.Unpack(index % 2 == 1 and UI.COLOR.rowOdd or UI.COLOR.rowEven))
 	row.hover = row:CreateTexture(nil, "BORDER")
 	row.hover:SetAllPoints()
-	row.hover:SetColorTexture(0.95, 0.78, 0.18, 0.10)
+	row.hover:SetColorTexture(UI.Unpack(UI.COLOR.hover))
 	row.hover:Hide()
 	row.selected = row:CreateTexture(nil, "BORDER")
 	row.selected:SetAllPoints()
-	row.selected:SetColorTexture(0.2, 0.55, 0.95, 0.18)
+	row.selected:SetColorTexture(UI.Unpack(UI.COLOR.selected))
 	row.selected:Hide()
 
 	row.icon = row:CreateTexture(nil, "ARTWORK")
@@ -4399,15 +4402,7 @@ local function CreateUI(parent)
 	local frame = CreateFrame("Frame", addonName .. "ResetFrame", parent, "BackdropTemplate")
 	frame:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -78)
 	frame:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -16, 16)
-	frame:SetBackdrop({
-		bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-		tile = true,
-		tileSize = 16,
-		edgeSize = 12,
-		insets = { left = 2, right = 2, top = 2, bottom = 2 },
-	})
-	frame:SetBackdropColor(0.025, 0.03, 0.04, 0.97)
+	UI.ApplyPanelBackdrop(frame)
 	frame:Hide()
 
 	frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -4583,8 +4578,7 @@ local function CreateUI(parent)
 	frame.detail:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 12)
 	frame.detail:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14, 12)
 	frame.detail:SetHeight(64)
-	frame.detail:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 8 })
-	frame.detail:SetBackdropColor(0.035, 0.04, 0.05, 0.92)
+	UI.ApplyPanelBackdrop(frame.detail, { color = UI.COLOR.header })
 	frame.detailTitle = frame.detail:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	frame.detailTitle:SetPoint("TOPLEFT", frame.detail, "TOPLEFT", 10, -8)
 	frame.detailTitle:SetPoint("RIGHT", frame.detail, "RIGHT", -200, 0)
@@ -4681,8 +4675,7 @@ local function CreateUI(parent)
 	frame.settingsPanel:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -16, -58)
 	frame.settingsPanel:SetHeight(224)
 	frame.settingsPanel:SetFrameLevel(frame:GetFrameLevel() + 20)
-	frame.settingsPanel:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 10 })
-	frame.settingsPanel:SetBackdropColor(0.025, 0.03, 0.04, 0.99)
+	UI.ApplyPanelBackdrop(frame.settingsPanel)
 	frame.settingsTab = CreateFrame("Button", nil, frame.settingsPanel, "UIPanelButtonTemplate")
 	frame.settingsTab:SetSize(92, 24)
 	frame.settingsTab:SetPoint("TOPLEFT", frame.settingsPanel, "TOPLEFT", 8, -6)
@@ -4853,8 +4846,8 @@ local function CreateUI(parent)
 			if not row then
 				row = CreateFrame("Frame", nil, frame.blacklistContentFrame, "BackdropTemplate")
 				row:SetHeight(26)
-				row:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background" })
-				row:SetBackdropColor(0.08, 0.08, 0.09, 0.75)
+				row:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8" })
+				row:SetBackdropColor(UI.Unpack(UI.COLOR.header))
 				row.icon = row:CreateTexture(nil, "ARTWORK")
 				row.icon:SetSize(20, 20)
 				row.icon:SetPoint("LEFT", row, "LEFT", 4, 0)
