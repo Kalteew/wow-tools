@@ -28,6 +28,9 @@ dist/
 tmp-*.html
 *.log
 scripts/**/patch-status.json
+# Espaces de travail des outils locaux : audits, sauvegardes, validations Lua
+.tmp/
+outputs/
 # Vidages de pile Git Bash, produits par les outils locaux
 *.stackdump
 
