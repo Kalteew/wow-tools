@@ -1343,16 +1343,38 @@ function UI.CreateScrollList(parent, opts)
     scrollFrame:SetDataProvider(list.provider)
 
     --- Remplace le contenu de la liste.
-    function list.SetItems(items)
+    --- Remplace le contenu de la liste, en gardant la position de defilement.
+    --
+    -- Flush vide le fournisseur avant de le remplir : le ScrollBox voit passer
+    -- une liste vide et ramene son defilement tout en haut. Un simple repeint
+    -- apres un clic renvoyait donc l'utilisateur au debut de la liste, alors
+    -- qu'il regardait la trentieme ligne.
+    --
+    -- resetScroll : true pour revenir volontairement en haut, quand le contenu
+    -- affiche n'a plus rien a voir avec le precedent.
+    function list.SetItems(items, resetScroll)
         items = items or {}
+
+        local percentage
+        if not resetScroll and type(scrollFrame.GetScrollPercentage) == "function" then
+            local ok, value = pcall(scrollFrame.GetScrollPercentage, scrollFrame)
+            percentage = ok and tonumber(value) or nil
+        end
+
         local provider = list.provider
         if provider and type(provider.Flush) == "function" and type(provider.InsertTable) == "function" then
             provider:Flush()
             provider:InsertTable(items)
-            return
+        else
+            list.provider = CreateDataProvider(items)
+            scrollFrame:SetDataProvider(list.provider)
         end
-        list.provider = CreateDataProvider(items)
-        scrollFrame:SetDataProvider(list.provider)
+
+        -- Une liste plus courte qu'avant fait clamper le client : inutile de
+        -- borner nous-memes.
+        if percentage and percentage > 0 and type(scrollFrame.SetScrollPercentage) == "function" then
+            pcall(scrollFrame.SetScrollPercentage, scrollFrame, percentage)
+        end
     end
 
     --- Redessine les lignes sans toucher au jeu de donnees.

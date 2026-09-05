@@ -35,6 +35,11 @@ local reloadQueued = false
 local pendingLoginProfile
 local ToggleSelectedCharacter
 local Debug
+-- Signatures du dernier jeu d'elements pousse dans chaque liste. Elles disent
+-- si un rafraichissement change reellement le contenu ou se contente de le
+-- repeindre.
+local lastProfileSignature
+local lastCharacterSignature
 local SaveAddonSettings
 local DEBUG_LOG_LIMIT = 80
 
@@ -801,7 +806,14 @@ local function RefreshUi()
 				assigned = assignedCounts[profileName] or 0,
 			}
 		end
-		profileList.SetItems(profileItems)
+		-- Un clic ne change ni les profils ni leur ordre : seul l'etat que
+		-- l'initialiseur relit bouge. Rejouer SetItems viderait le fournisseur
+		-- pour rien, et le ScrollBox ramenerait la liste tout en haut.
+		local signature = table.concat(profileNames, "\30")
+		if signature ~= lastProfileSignature or not profileList.Refresh() then
+			profileList.SetItems(profileItems)
+		end
+		lastProfileSignature = signature
 	end
 
 	-- La ScrollBox recycle ses lignes : l'index de selection ne peut plus vivre
@@ -822,7 +834,15 @@ local function RefreshUi()
 		characterIdsByIndex[index] = nil
 	end
 	if characterList then
-		characterList.SetItems(characterItems)
+		-- Meme raisonnement : cocher un personnage ne retire ni n'ajoute
+		-- personne, et ne change pas l'ordre. La signature porte les
+		-- identifiants dans leur ordre d'affichage, donc deux jeux egaux
+		-- garantissent aussi des index de zebrure identiques.
+		local signature = table.concat(characterIdsByIndex, "\30", 1, #characters)
+		if signature ~= lastCharacterSignature or not characterList.Refresh() then
+			characterList.SetItems(characterItems)
+		end
+		lastCharacterSignature = signature
 	end
 
 	for _, sortHeader in ipairs(sortHeaders) do
