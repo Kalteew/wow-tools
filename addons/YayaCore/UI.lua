@@ -774,6 +774,7 @@ end
 -- opts.labelWidth : largeur imposee du libelle
 -- opts.hitLabel   : etend la zone cliquable au libelle (defaut true)
 -- opts.icon       : texture ou fileID affiche a la place du libelle
+-- opts.iconSize   : cote de cette icone (defaut UI.SIZE.icon)
 -- opts.checked    : etat initial
 -- opts.tooltip    : { title, body, anchor }
 -- opts.onClick    : fonction(checked, button)
@@ -791,7 +792,8 @@ function UI.CreateCheckbox(parent, text, opts)
 
     if opts.icon then
         button.icon = button:CreateTexture(nil, "ARTWORK")
-        button.icon:SetSize(UI.SIZE.icon, UI.SIZE.icon)
+        local iconSize = opts.iconSize or UI.SIZE.icon
+        button.icon:SetSize(iconSize, iconSize)
         button.icon:SetPoint("LEFT", button, "RIGHT", UI.PAD.sm, 0)
         button.icon:SetTexture(opts.icon)
     else

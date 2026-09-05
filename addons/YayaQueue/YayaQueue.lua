@@ -2412,72 +2412,61 @@ YQQuality.EnsureOptions = function()
         return
     end
 
+    local UI = YayaCore.UI
+
+    -- Canevas Settings : le client peint son propre fond, donc pas de backdrop
+    -- ici. Le titre reprend en revanche la police dont le client titre ses
+    -- propres panneaux, sinon celui-ci jurerait avec la fenetre qui l'accueille.
     local panel = CreateFrame("Frame")
     panel.name = "YayaQueue"
 
-    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", 16, -16)
+    local stack = UI.StackLayout(panel, { left = UI.PAD.xl, top = UI.PAD.xl })
+
+    local title = panel:CreateFontString(nil, "ARTWORK", UI.FONT.heading)
     title:SetText("YayaQueue")
+    stack.Add(title, 0, { height = UI.SIZE.headerH, stretch = false })
 
-    local description = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+    -- Une description doit pouvoir s'enrouler : pas de BoundLabel ici.
+    local description = panel:CreateFontString(nil, "ARTWORK", UI.FONT.body)
     description:SetText("Options pour les crafts avec concentration.")
+    stack.Add(description, UI.PAD.sm, { height = UI.SIZE.rowHCompact, stretch = false })
 
-    local usePhialCheckbox = CreateFrame("CheckButton", addonName .. "ConcentrationPhialEnabled", panel, "UICheckButtonTemplate")
-    usePhialCheckbox:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -14)
-    local usePhialLabel = usePhialCheckbox.Text or usePhialCheckbox.text
-    if not usePhialLabel then
-        usePhialLabel = usePhialCheckbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        usePhialLabel:SetPoint("LEFT", usePhialCheckbox, "RIGHT", 2, 1)
-        usePhialCheckbox.Text = usePhialLabel
-    end
-    usePhialLabel:SetText("Utiliser automatiquement une phial avant les crafts concentration")
-    usePhialCheckbox:SetScript("OnClick", function(self)
-        state.EnsureDB()
-        db.concentrationPhialEnabled = self:GetChecked() == true
-        ScheduleRefresh()
-    end)
+    -- Chaque case etait precedee de six lignes identiques : retrouver le
+    -- FontString du template sous deux noms possibles, en fabriquer un s'il
+    -- manque, le positionner. La fabrique partagee s'en charge.
+    local usePhialCheckbox = UI.CreateCheckbox(panel,
+        "Utiliser automatiquement une phial avant les crafts concentration", {
+            name = addonName .. "ConcentrationPhialEnabled",
+            onClick = function(checked)
+                state.EnsureDB()
+                db.concentrationPhialEnabled = checked
+                ScheduleRefresh()
+            end,
+        })
+    stack.Add(usePhialCheckbox, UI.PAD.lg, { height = UI.SIZE.headerH, stretch = false })
 
-    local checkbox = CreateFrame("CheckButton", addonName .. "ConcentrationPhialRank2", panel, "UICheckButtonTemplate")
-    checkbox:SetPoint("TOPLEFT", usePhialCheckbox, "BOTTOMLEFT", 0, -6)
-    local label = checkbox.Text or checkbox.text
-    if not label then
-        label = checkbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        label:SetPoint("LEFT", checkbox, "RIGHT", 2, 1)
-        checkbox.Text = label
-    end
-    label:SetText("Préférer acheter la phial d’ingéniosité rang 2")
-    checkbox:SetScript("OnClick", function(self)
-        state.EnsureDB()
-        db.concentrationPhialRank = self:GetChecked() and 2 or 1
-        state.ah.statusMessage = self:GetChecked() and "Phial R2 preferee" or "Phial R1 preferee"
-        ScheduleRefresh()
-    end)
+    local checkbox = UI.CreateCheckbox(panel,
+        "Préférer acheter la phial d’ingéniosité rang 2", {
+            name = addonName .. "ConcentrationPhialRank2",
+            onClick = function(checked)
+                state.EnsureDB()
+                db.concentrationPhialRank = checked and 2 or 1
+                state.ah.statusMessage = checked and "Phial R2 preferee" or "Phial R1 preferee"
+                ScheduleRefresh()
+            end,
+        })
+    stack.Add(checkbox, UI.PAD.sm, { height = UI.SIZE.headerH, stretch = false })
 
-    local purchaseHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    purchaseHeader:SetPoint("TOPLEFT", checkbox, "BOTTOMLEFT", 4, -12)
+    local purchaseHeader = panel:CreateFontString(nil, "ARTWORK", UI.FONT.header)
     purchaseHeader:SetText("Quantité achetée chez le marchand")
+    purchaseHeader:SetTextColor(UI.Unpack(UI.COLOR.category))
+    UI.BoundLabel(purchaseHeader, "LEFT")
+    stack.Add(purchaseHeader, UI.PAD.lg, { height = UI.SIZE.rowHCompact, stretch = false })
 
-    local purchaseByTen = CreateFrame("CheckButton", addonName .. "ConcentrationPhialPurchaseTen", panel, "UIRadioButtonTemplate")
-    purchaseByTen:SetPoint("TOPLEFT", purchaseHeader, "BOTTOMLEFT", 0, -5)
-    local purchaseByTenLabel = purchaseByTen.Text or purchaseByTen.text
-    if not purchaseByTenLabel then
-        purchaseByTenLabel = purchaseByTen:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        purchaseByTenLabel:SetPoint("LEFT", purchaseByTen, "RIGHT", 2, 1)
-        purchaseByTen.Text = purchaseByTenLabel
-    end
-    purchaseByTenLabel:SetText("Par 10 (buffer)")
-
-    local purchaseByOne = CreateFrame("CheckButton", addonName .. "ConcentrationPhialPurchaseOne", panel, "UIRadioButtonTemplate")
-    purchaseByOne:SetPoint("TOPLEFT", purchaseByTen, "BOTTOMLEFT", 0, -4)
-    local purchaseByOneLabel = purchaseByOne.Text or purchaseByOne.text
-    if not purchaseByOneLabel then
-        purchaseByOneLabel = purchaseByOne:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        purchaseByOneLabel:SetPoint("LEFT", purchaseByOne, "RIGHT", 2, 1)
-        purchaseByOne.Text = purchaseByOneLabel
-    end
-    purchaseByOneLabel:SetText("Par 1 (au plus juste)")
-
+    -- Les deux radios ne forment pas un groupe gere par la fabrique :
+    -- SetPhialPurchaseQuantity coche et decoche deja les deux, et inventer un
+    -- gestionnaire de groupe pour deux boutons serait du zele.
+    local purchaseByTen, purchaseByOne
     local function SetPhialPurchaseQuantity(quantity)
         state.EnsureDB()
         db.concentrationPhialPurchaseQuantity = quantity == 1 and 1 or CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE
@@ -2486,45 +2475,49 @@ YQQuality.EnsureOptions = function()
         ScheduleRefresh()
     end
 
-    purchaseByTen:SetScript("OnClick", function()
-        SetPhialPurchaseQuantity(CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE)
-    end)
-    purchaseByOne:SetScript("OnClick", function()
-        SetPhialPurchaseQuantity(1)
-    end)
+    purchaseByTen = UI.CreateCheckbox(panel, "Par 10 (buffer)", {
+        name = addonName .. "ConcentrationPhialPurchaseTen",
+        radio = true,
+        onClick = function()
+            SetPhialPurchaseQuantity(CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE)
+        end,
+    })
+    stack.Add(purchaseByTen, UI.PAD.xs, { height = UI.SIZE.headerH, stretch = false })
 
-    local refundCheckbox = CreateFrame("CheckButton", addonName .. "AutoQueueIngenuityRefund", panel, "UICheckButtonTemplate")
-    refundCheckbox:SetPoint("TOPLEFT", purchaseByOne, "BOTTOMLEFT", 0, -6)
-    local refundLabel = refundCheckbox.Text or refundCheckbox.text
-    if not refundLabel then
-        refundLabel = refundCheckbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        refundLabel:SetPoint("LEFT", refundCheckbox, "RIGHT", 2, 1)
-        refundCheckbox.Text = refundLabel
-    end
-    refundLabel:SetText("Réinjecter un craft après un remboursement d’ingéniosité")
-    refundCheckbox:SetScript("OnClick", function(self)
-        state.EnsureDB()
-        db.autoQueueIngenuityRefund = self:GetChecked() == true
-        if not db.autoQueueIngenuityRefund and state.autoFavoriteConcentration.tracker then
-            state.autoFavoriteConcentration.tracker.awaitingCraft = false
-            state.autoFavoriteConcentration.tracker.craftConfirmed = false
-        end
-        ScheduleRefresh()
-    end)
+    purchaseByOne = UI.CreateCheckbox(panel, "Par 1 (au plus juste)", {
+        name = addonName .. "ConcentrationPhialPurchaseOne",
+        radio = true,
+        onClick = function()
+            SetPhialPurchaseQuantity(1)
+        end,
+    })
+    stack.Add(purchaseByOne, UI.PAD.xs, { height = UI.SIZE.headerH, stretch = false })
 
-    local resetQuantityCheckbox = CreateFrame("CheckButton", addonName .. "ResetQuantityOnRecipeChange", panel, "UICheckButtonTemplate")
-    resetQuantityCheckbox:SetPoint("TOPLEFT", refundCheckbox, "BOTTOMLEFT", 0, -6)
-    local resetQuantityLabel = resetQuantityCheckbox.Text or resetQuantityCheckbox.text
-    if not resetQuantityLabel then
-        resetQuantityLabel = resetQuantityCheckbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        resetQuantityLabel:SetPoint("LEFT", resetQuantityCheckbox, "RIGHT", 2, 1)
-        resetQuantityCheckbox.Text = resetQuantityLabel
-    end
-    resetQuantityLabel:SetText("Réinitialiser la quantité lors d’un changement de recette")
-    resetQuantityCheckbox:SetScript("OnClick", function(self)
-        state.EnsureDB()
-        db.resetQuantityOnRecipeChange = self:GetChecked() == true
-    end)
+    local refundCheckbox = UI.CreateCheckbox(panel,
+        "Réinjecter un craft après un remboursement d’ingéniosité", {
+            name = addonName .. "AutoQueueIngenuityRefund",
+            onClick = function(checked)
+                state.EnsureDB()
+                db.autoQueueIngenuityRefund = checked
+                if not db.autoQueueIngenuityRefund and state.autoFavoriteConcentration.tracker then
+                    state.autoFavoriteConcentration.tracker.awaitingCraft = false
+                    state.autoFavoriteConcentration.tracker.craftConfirmed = false
+                end
+                ScheduleRefresh()
+            end,
+        })
+    stack.Add(refundCheckbox, UI.PAD.lg, { height = UI.SIZE.headerH, stretch = false })
+
+    local resetQuantityCheckbox = UI.CreateCheckbox(panel,
+        "Réinitialiser la quantité lors d’un changement de recette", {
+            name = addonName .. "ResetQuantityOnRecipeChange",
+            onClick = function(checked)
+                state.EnsureDB()
+                db.resetQuantityOnRecipeChange = checked
+            end,
+        })
+    stack.Add(resetQuantityCheckbox, UI.PAD.sm, { height = UI.SIZE.headerH, stretch = false })
+    stack.Finish(UI.PAD.xl)
     panel:SetScript("OnShow", function()
         state.EnsureDB()
         usePhialCheckbox:SetChecked(db.concentrationPhialEnabled ~= false)
@@ -12317,10 +12310,10 @@ function YQQuality.EnsureSelector(schematicForm)
     YayaCore.UI.ApplyPanelBackdrop(frame)
     frame.schematicForm = schematicForm
 
-    frame.title = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    frame.title = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.header)
     frame.title:SetPoint("TOPLEFT", 12, -10)
     frame.title:SetText("YQ — Optimisation des réactifs")
-    frame.title:SetTextColor(1, 0.82, 0)
+    frame.title:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.accent))
     frame.closeButton = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     frame.closeButton:SetPoint("TOPRIGHT", -2, -2)
     frame.closeButton:SetScript("OnClick", function() frame.userClosed = true; frame:Hide() end)
@@ -12335,10 +12328,10 @@ function YQQuality.EnsureSelector(schematicForm)
     frame.marketText:SetJustifyH("LEFT")
     frame.marketText:SetText("Minbuyout : ?   Profit est. : ?")
 
-    frame.qualityChoiceLabel = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    frame.qualityChoiceLabel = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.header)
     frame.qualityChoiceLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -86)
     frame.qualityChoiceLabel:SetText("Choix de qualité")
-    frame.qualityChoiceLabel:SetTextColor(1, 0.82, 0)
+    frame.qualityChoiceLabel:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.accent))
 
     frame.qualityButtons = {}
     for quality = 1, 5 do
@@ -12363,57 +12356,47 @@ function YQQuality.EnsureSelector(schematicForm)
         frame.qualityButtons[quality] = button
     end
 
-    frame.concentration = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
-    frame.concentration:SetSize(24, 24)
+    frame.concentration = YayaCore.UI.CreateCheckbox(frame, nil, {
+        size = 24,
+        icon = 5747318,
+        iconSize = 22,
+        checked = false,
+        tooltip = { title = "Utiliser la concentration" },
+        onClick = function(checked)
+            if state.craft.qualityTarget then
+                state.craft.qualityTarget.useConcentration = checked
+                state.craft.qualityPreferences.useConcentration = checked
+            end
+            YQQuality.UpdateSelector()
+        end,
+    })
     frame.concentration:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -114)
-    frame.concentration:SetChecked(false)
     frame.concentration:SetHitRectInsets(0, -28, 0, 0)
-    frame.concentration.icon = frame:CreateTexture(nil, "ARTWORK")
-    frame.concentration.icon:SetSize(22, 22)
-    frame.concentration.icon:SetPoint("LEFT", frame.concentration, "RIGHT", 2, 0)
-    frame.concentration.icon:SetTexture(5747318)
-    frame.concentration:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Utiliser la concentration")
-        GameTooltip:Show()
-    end)
-    frame.concentration:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    frame.concentration:SetScript("OnClick", function(self)
-        if state.craft.qualityTarget then
-            local useConcentration = self:GetChecked() == true
-            state.craft.qualityTarget.useConcentration = useConcentration
-            state.craft.qualityPreferences.useConcentration = useConcentration
-        end
-        YQQuality.UpdateSelector()
-    end)
 
-    frame.finishing = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
-    frame.finishing:SetSize(24, 24)
+    frame.finishing = YayaCore.UI.CreateCheckbox(frame, "Finishing", {
+        size = 24,
+        font = YayaCore.UI.FONT.body,
+        hitLabel = false,
+        tooltip = {
+            title = "Finishing reagents",
+            body = "Optimise les finishing +skill débloqués avec les réactifs de base et la missive sélectionnée.",
+        },
+        onClick = function(checked)
+            if state.craft.qualityTarget then
+                state.craft.qualityTarget.useFinishing = checked
+                state.craft.qualityPreferences.useFinishing = checked
+            end
+            YQQuality.UpdateSelector()
+        end,
+    })
     frame.finishing:SetPoint("TOPLEFT", frame, "TOPLEFT", 104, -114)
     frame.finishing:SetHitRectInsets(0, -56, 0, 0)
-    frame.finishing.label = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    frame.finishing.label:SetPoint("LEFT", frame.finishing, "RIGHT", 1, 0)
-    frame.finishing.label:SetText("Finishing")
-    frame.finishing:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Finishing reagents")
-        GameTooltip:AddLine("Optimise les finishing +skill débloqués avec les réactifs de base et la missive sélectionnée.", 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    frame.finishing:SetScript("OnLeave", GameTooltip_Hide)
-    frame.finishing:SetScript("OnClick", function(self)
-        if state.craft.qualityTarget then
-            state.craft.qualityTarget.useFinishing = self:GetChecked() == true
-            state.craft.qualityPreferences.useFinishing = state.craft.qualityTarget.useFinishing
-        end
-        YQQuality.UpdateSelector()
-    end)
 
     frame.goldStar = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
     frame.goldStar:SetSize(24, 24)
     frame.goldStar:SetPoint("TOPLEFT", frame, "TOPLEFT", 216, -114)
     frame.goldStar:SetHitRectInsets(0, -52, 0, 0)
-    frame.goldStar.label = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    frame.goldStar.label = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.body)
     frame.goldStar.label:SetPoint("LEFT", frame.goldStar, "RIGHT", 1, 0)
     frame.goldStar.label:SetText("Gold Star +50")
     frame.goldStar:SetScript("OnEnter", function(self)
@@ -12433,10 +12416,10 @@ function YQQuality.EnsureSelector(schematicForm)
         YQQuality.UpdateSelector()
     end)
 
-    frame.reagentHeader = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    frame.reagentHeader = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.header)
     frame.reagentHeader:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -144)
     frame.reagentHeader:SetText("Réactifs")
-    frame.reagentHeader:SetTextColor(1, 0.82, 0)
+    frame.reagentHeader:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.accent))
     frame.reagentQualityHeaders = {}
     for quality = 1, 3 do
         local header = frame:CreateTexture(nil, "ARTWORK")
@@ -12445,9 +12428,9 @@ function YQQuality.EnsureSelector(schematicForm)
     end
     frame.reagentRows = {}
 
-    frame.optionalHeader = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    frame.optionalHeader = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.header)
     frame.optionalHeader:SetText("Réactifs optionnels")
-    frame.optionalHeader:SetTextColor(1, 0.82, 0)
+    frame.optionalHeader:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.accent))
     frame.optionalHeader:Hide()
     frame.categoryHeaders = {}
     frame.categoryLabels = {
@@ -12457,17 +12440,17 @@ function YQQuality.EnsureSelector(schematicForm)
         embellishments = "Embellishments",
     }
     for _, category in ipairs({ "sparks", "crests", "missives", "embellishments" }) do
-        local header = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-        header:SetTextColor(1, 0.82, 0)
+        local header = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.header)
+        header:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.accent))
         header:SetText(frame.categoryLabels[category])
         header:Hide()
         frame.categoryHeaders[category] = header
     end
     frame.optionalRows = {}
 
-    frame.finishingHeader = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    frame.finishingHeader = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.header)
     frame.finishingHeader:SetText("Finishing retenu")
-    frame.finishingHeader:SetTextColor(1, 0.82, 0)
+    frame.finishingHeader:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.accent))
     frame.finishingHeader:Hide()
     frame.finishingNone = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     frame.finishingNone:SetText("Aucun — le moins cher est retenu")
@@ -13709,36 +13692,34 @@ local function CreateAuctionFrame()
     YayaCore.UI.ApplyPanelBackdrop(frame)
     frame:Hide()
 
-    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local title = frame:CreateFontString(nil, "OVERLAY", YayaCore.UI.FONT.title)
     title:SetPoint("TOPLEFT", 14, -12)
     title:SetText("YayaQueue")
+    YayaCore.UI.BoundLabel(title, "LEFT")
 
-    local helpText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    helpText:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    local helpText = frame:CreateFontString(nil, "OVERLAY", YayaCore.UI.FONT.muted)
+    helpText:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -YayaCore.UI.PAD.md)
     helpText:SetPoint("RIGHT", frame, "RIGHT", -14, 0)
     helpText:SetJustifyH("LEFT")
     helpText:SetText("Rechercher tout puis acheter suivant.")
 
-    local soundCheckbox = CreateFrame("CheckButton", addonName .. "AuctionPriceWarningSound", frame, "UICheckButtonTemplate")
-    soundCheckbox:SetPoint("TOPLEFT", helpText, "BOTTOMLEFT", -4, -4)
-    local soundLabel = soundCheckbox.Text or soundCheckbox.text
-    if not soundLabel then
-        soundLabel = soundCheckbox:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        soundLabel:SetPoint("LEFT", soundCheckbox, "RIGHT", 2, 1)
-        soundCheckbox.Text = soundLabel
-    end
-    soundLabel:SetText("Jouer un son si le prix est trop haut")
-    soundCheckbox:SetScript("OnClick", function(self)
-        state.EnsureDB()
-        db.auctionPriceWarningSoundEnabled = self:GetChecked() == true
-    end)
+    local soundCheckbox = YayaCore.UI.CreateCheckbox(frame,
+        "Jouer un son si le prix est trop haut", {
+            name = addonName .. "AuctionPriceWarningSound",
+            font = YayaCore.UI.FONT.body,
+            onClick = function(checked)
+                state.EnsureDB()
+                db.auctionPriceWarningSoundEnabled = checked
+            end,
+        })
+    soundCheckbox:SetPoint("TOPLEFT", helpText, "BOTTOMLEFT", -4, -YayaCore.UI.PAD.sm)
     frame:SetScript("OnShow", function()
         state.EnsureDB()
         soundCheckbox:SetChecked(db.auctionPriceWarningSoundEnabled ~= false)
     end)
 
-    local totalText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    totalText:SetPoint("TOPLEFT", soundCheckbox, "BOTTOMLEFT", 0, -6)
+    local totalText = frame:CreateFontString(nil, "OVERLAY", YayaCore.UI.FONT.header)
+    totalText:SetPoint("TOPLEFT", soundCheckbox, "BOTTOMLEFT", 0, -YayaCore.UI.PAD.md)
     totalText:SetPoint("RIGHT", frame, "RIGHT", -14, 0)
     totalText:SetJustifyH("LEFT")
     totalText:SetText("Total estime: ?")
@@ -13757,23 +13738,21 @@ local function CreateAuctionFrame()
         list.container:SetAllPoints(listHost)
     end
 
-    local emptyText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
+    local emptyText = frame:CreateFontString(nil, "OVERLAY", YayaCore.UI.FONT.heading)
     emptyText:SetPoint("CENTER", listHost, "CENTER", 0, 0)
     emptyText:SetText("Aucun achat HV")
     emptyText:Hide()
 
-    local statusText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    local statusText = frame:CreateFontString(nil, "OVERLAY", YayaCore.UI.FONT.muted)
     statusText:SetPoint("BOTTOMLEFT", 14, 16)
     statusText:SetPoint("RIGHT", frame, "RIGHT", -160, 0)
     statusText:SetJustifyH("LEFT")
     statusText:SetText("")
 
-    local actionButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    actionButton:SetSize(130, 24)
+    local actionButton = YayaCore.UI.CreateButton(frame, "Rechercher tout", { width = 130 })
     actionButton:SetPoint("BOTTOMRIGHT", -14, 12)
-    actionButton:SetText("Rechercher tout")
     actionButton:SetScript("OnClick", function()
-                state.OnAuctionActionClick()
+        state.OnAuctionActionClick()
     end)
 
     listHost:SetPoint("BOTTOM", actionButton, "TOP", 0, YayaCore.UI.PAD.lg)

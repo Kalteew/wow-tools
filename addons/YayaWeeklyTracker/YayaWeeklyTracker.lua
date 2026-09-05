@@ -7657,94 +7657,86 @@ trackerUI.RegisterOptions = function()
     panel.optionsScrollFrame = scrollFrame
     panel.optionsScrollChild = scrollChild
 
-    local title = scrollChild:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", 16, -16)
+    -- L'empilement remplace la chaine d'ancres ou chaque controle nommait son
+    -- predecesseur : la hauteur du contenu devient une somme, connue tout de
+    -- suite, au lieu d'une mesure GetTop/GetBottom indisponible avant le
+    -- premier rendu et qui retombait sur un repli de six cents pixels.
+    local stack = YayaCore.UI.StackLayout(scrollChild, {
+        left = YayaCore.UI.PAD.xl,
+        top = YayaCore.UI.PAD.xl,
+    })
+
+    local title = scrollChild:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.heading)
     title:SetText(panel.name)
+    stack.Add(title, 0, { height = YayaCore.UI.SIZE.headerH, stretch = false })
 
-    local description = scrollChild:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+    local description = scrollChild:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.body)
     description:SetText("Reglages partages par tout le compte.")
+    stack.Add(description, YayaCore.UI.PAD.sm,
+        { height = YayaCore.UI.SIZE.rowHCompact, stretch = false })
 
-    local function AddSection(titleText, anchor)
-        local section = scrollChild:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-        section:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -14)
-        section:SetText("|cffffd100" .. titleText .. "|r")
+    local function AddSection(titleText)
+        local section = scrollChild:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.header)
+        section:SetText(titleText)
+        section:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.category))
+        YayaCore.UI.BoundLabel(section, "LEFT")
+        stack.Add(section, YayaCore.UI.PAD.lg,
+            { height = YayaCore.UI.SIZE.rowHCompact, stretch = false })
 
-        local divider = scrollChild:CreateTexture(nil, "ARTWORK")
-        divider:SetColorTexture(0.45, 0.34, 0.12, 0.65)
-        divider:SetPoint("LEFT", section, "RIGHT", 8, 0)
-        divider:SetPoint("RIGHT", scrollChild, "RIGHT", -18, 0)
-        divider:SetHeight(1)
+        local divider = YayaCore.UI.CreateDivider(scrollChild)
+        divider:SetPoint("LEFT", section, "RIGHT", YayaCore.UI.PAD.md, 0)
+        divider:SetPoint("RIGHT", scrollChild, "RIGHT", -YayaCore.UI.PAD.xl, 0)
         return section
     end
 
-    local checkbox = CreateFrame("CheckButton", addonName .. "HideInCombatCheckbox", scrollChild, "UICheckButtonTemplate")
-    local displaySection = AddSection("Affichage", description)
-    checkbox:SetPoint("TOPLEFT", displaySection, "BOTTOMLEFT", 0, -8)
-    local checkboxLabel = checkbox.Text or checkbox.text
-    if not checkboxLabel then
-        checkboxLabel = checkbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        checkboxLabel:SetPoint("LEFT", checkbox, "RIGHT", 2, 1)
-        checkbox.Text = checkboxLabel
-    end
-    checkboxLabel:SetText("Cacher integralement la frame en combat")
-    checkbox:SetScript("OnClick", function(self)
-        GetAccountDB().hideInCombat = self:GetChecked() and true or false
-        trackerUI.ApplyCombatVisibility()
-    end)
+    AddSection("Affichage")
+
+    local checkbox = YayaCore.UI.CreateCheckbox(scrollChild,
+        "Cacher integralement la frame en combat", {
+            name = addonName .. "HideInCombatCheckbox",
+            onClick = function(checked)
+                GetAccountDB().hideInCombat = checked
+                trackerUI.ApplyCombatVisibility()
+            end,
+        })
+    stack.Add(checkbox, YayaCore.UI.PAD.sm,
+        { height = YayaCore.UI.SIZE.headerH, stretch = false })
 
     panel.trackingCheckboxes = {}
-    local previousCheckbox = checkbox
     local previousCategory
     for index, option in ipairs(runtimeState.trackingOptions) do
         if option.category ~= previousCategory then
             previousCategory = option.category
-            local section = AddSection(option.category, previousCheckbox)
-            previousCheckbox = section
+            AddSection(option.category)
         end
 
-        local trackingCheckbox = CreateFrame(
-            "CheckButton",
-            addonName .. "TrackingCheckbox" .. index,
-            scrollChild,
-            "UICheckButtonTemplate"
-        )
-        trackingCheckbox:SetPoint("TOPLEFT", previousCheckbox, "BOTTOMLEFT", 0, -6)
+        local trackingCheckbox = YayaCore.UI.CreateCheckbox(scrollChild, option.label, {
+            name = addonName .. "TrackingCheckbox" .. index,
+            onClick = function(checked, self)
+                GetAccountDB()[self.optionKey] = checked
+                if self.optionKey == "autoOpenContainers"
+                    and _G.YayaWeeklyTrackerAutoOpen
+                    and type(_G.YayaWeeklyTrackerAutoOpen.Refresh) == "function"
+                then
+                    _G.YayaWeeklyTrackerAutoOpen.Refresh()
+                end
+                ScheduleTrackerRefresh(0, false)
+            end,
+        })
         trackingCheckbox.optionKey = option.key
-        local trackingLabel = trackingCheckbox.Text or trackingCheckbox.text
-        if not trackingLabel then
-            trackingLabel = trackingCheckbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-            trackingLabel:SetPoint("LEFT", trackingCheckbox, "RIGHT", 2, 1)
-            trackingCheckbox.Text = trackingLabel
-        end
-        trackingLabel:SetText(option.label)
-        trackingCheckbox:SetScript("OnClick", function(self)
-            GetAccountDB()[self.optionKey] = self:GetChecked() and true or false
-            if self.optionKey == "autoOpenContainers"
-                and _G.YayaWeeklyTrackerAutoOpen
-                and type(_G.YayaWeeklyTrackerAutoOpen.Refresh) == "function"
-            then
-                _G.YayaWeeklyTrackerAutoOpen.Refresh()
-            end
-            ScheduleTrackerRefresh(0, false)
-        end)
+        stack.Add(trackingCheckbox, YayaCore.UI.PAD.sm,
+            { height = YayaCore.UI.SIZE.headerH, stretch = false })
         panel.trackingCheckboxes[index] = trackingCheckbox
-        previousCheckbox = trackingCheckbox
     end
+
+    local contentHeight = stack.Finish(YayaCore.UI.PAD.xl)
 
     local function UpdateScrollChildSize()
         local width = scrollFrame:GetWidth() or 0
         if width > 0 then
             scrollChild:SetWidth(width)
         end
-
-        local contentTop = scrollChild:GetTop()
-        local lastBottom = previousCheckbox:GetBottom()
-        if contentTop and lastBottom then
-            scrollChild:SetHeight(math.max(1, contentTop - lastBottom + 18))
-        else
-            scrollChild:SetHeight(600)
-        end
+        scrollChild:SetHeight(contentHeight)
     end
     scrollFrame:SetScript("OnSizeChanged", UpdateScrollChildSize)
 

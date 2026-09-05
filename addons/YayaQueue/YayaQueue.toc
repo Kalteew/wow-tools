@@ -2,7 +2,7 @@
 ## Title: YayaQueue
 ## Notes: Queue craft needs from professions to AH and vendor tasks.
 ## Author: Yaya
-## Version: 0.6.1
+## Version: 0.7.0
 ## Dependencies: YayaCore
 ## OptionalDeps: Auctionator, TradeSkillMaster, LibAHTab, CraftSim, YayaCraftedPrice
 ## SavedVariables: YayaQueueDB
