@@ -2,7 +2,7 @@
 ## Title: Yaya Reagent Sniper
 ## Notes: Sniper de réactifs et analyse de resets par catalogue de récolte.
 ## Author: Yaya
-## Version: 0.9.0
+## Version: 0.9.1
 ## Dependencies: YayaCore
 ## OptionalDeps: TradeSkillMaster, Auctionator, LibAHTab
 ## SavedVariables: YayaReagentSniperDB

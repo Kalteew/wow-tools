@@ -2,7 +2,7 @@
 ## Title: Yaya Profession Specializations
 ## Notes: Dumps profession specialization trees to SavedVariables.
 ## Author: Codex
-## Version: 0.1.0
+## Version: 0.1.1
 ## SavedVariables: YayaProfessionSpecializationsDB
 
 YayaProfessionSpecializations.lua

@@ -263,7 +263,8 @@ end
 
 local function Print(message)
 	local title = (ns.L and ns.L.ADDON_TITLE) or addonName
-	DEFAULT_CHAT_FRAME:AddMessage(("|cff4cc9f0%s|r: %s"):format(title, tostring(message)))
+	DEFAULT_CHAT_FRAME:AddMessage(("%s%s|r: %s"):format(
+		ns.UI and ns.UI.HEX.accent or "|cff00ff98", title, tostring(message)))
 end
 
 function ns.IsDebugEnabled()

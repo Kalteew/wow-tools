@@ -1309,7 +1309,7 @@ function YQQuality.InstallProfessionSpecMassPurchaseHook()
 end
 
 local function Print(message)
-    DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99" .. addonName .. "|r: " .. message)
+    DEFAULT_CHAT_FRAME:AddMessage(YayaCore.UI.HEX.accent .. addonName .. "|r: " .. message)
 end
 
 local function AppendPersistentDebugLog(prefix, message)

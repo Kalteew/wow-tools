@@ -37,7 +37,7 @@ local function ChatPrint(formatString, ...)
 			message = formatted
 		end
 	end
-	DEFAULT_CHAT_FRAME:AddMessage("|cff4cc9f0YayaCraftedPrice|r " .. message)
+	DEFAULT_CHAT_FRAME:AddMessage(YayaCore.UI.HEX.accent .. "YayaCraftedPrice|r " .. message)
 end
 
 local function DebugPrint(formatString, ...)

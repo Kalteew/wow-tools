@@ -1548,7 +1548,7 @@ local function PrintPersistentDebugLog(limit)
     )
     for index = 1, #lines do
         if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
-            DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99YWT|r: " .. lines[index])
+            DEFAULT_CHAT_FRAME:AddMessage(YayaCore.UI.HEX.accent .. "YWT|r: " .. lines[index])
         elseif print then
             print("YWT: " .. lines[index])
         end
@@ -1573,7 +1573,7 @@ local function DebugLog(message, ...)
     AppendPersistentDebugLog("YWT DEBUG " .. text)
 
     if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
-        DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99YWT DEBUG|r " .. text)
+        DEFAULT_CHAT_FRAME:AddMessage(YayaCore.UI.HEX.accent .. "YWT DEBUG|r " .. text)
         return
     end
 

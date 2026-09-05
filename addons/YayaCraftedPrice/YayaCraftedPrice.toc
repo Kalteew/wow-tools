@@ -1,7 +1,7 @@
 ## Interface: 120100
 ## Title: YayaCraftedPrice
 ## Author: Yaya
-## Version: 0.2.2
+## Version: 0.2.3
 ## Dependencies: YayaCore
 ## Notes: Persists craft-cost snapshots and exposes smartAvgCrafted to TSM.
 ## Category: Professions

@@ -172,7 +172,7 @@ local function DiagnosticLog(category, message, ...)
 		table.remove(log, 1)
 	end
 	if db.debug and print then
-		print("|cff33ff99YRS DIAG|r " .. line)
+		print(UI.HEX.accent .. "YRS DIAG|r " .. line)
 	end
 end
 

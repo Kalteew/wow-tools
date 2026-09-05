@@ -3454,7 +3454,9 @@ function Pane:ShowIconTooltip(iconFrame)
 	if not data.isKnown and data.unknownRecipeLines then
 		local addonTitle = ns.GetAddonMetadata and ns.GetAddonMetadata(ns.ADDON_NAME, "Title") or nil
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddLine(("|cff4cc9f0%s|r"):format(addonTitle or L.ADDON_TITLE or ns.ADDON_NAME), 0.95, 0.95, 0.95, true)
+		GameTooltip:AddLine(("%s%s|r"):format(
+			ns.UI and ns.UI.HEX.accent or "|cff00ff98",
+			addonTitle or L.ADDON_TITLE or ns.ADDON_NAME), 0.95, 0.95, 0.95, true)
 		for _, line in ipairs(data.unknownRecipeLines) do
 			GameTooltip:AddLine(line, 0.95, 0.95, 0.95, true)
 		end
