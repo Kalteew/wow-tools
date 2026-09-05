@@ -35,10 +35,8 @@ local reloadQueued = false
 local pendingLoginProfile
 local ToggleSelectedCharacter
 local Debug
--- Signatures du dernier jeu d'elements pousse dans chaque liste. Elles disent
--- si un rafraichissement change reellement le contenu ou se contente de le
--- repeindre.
-local lastProfileSignature
+-- Signature du dernier jeu de personnages pousse dans la liste. Elle dit si un
+-- rafraichissement change reellement le contenu ou se contente de le repeindre.
 local lastCharacterSignature
 local SaveAddonSettings
 local DEBUG_LOG_LIMIT = 80
@@ -806,14 +804,13 @@ local function RefreshUi()
 				assigned = assignedCounts[profileName] or 0,
 			}
 		end
-		-- Un clic ne change ni les profils ni leur ordre : seul l'etat que
-		-- l'initialiseur relit bouge. Rejouer SetItems viderait le fournisseur
-		-- pour rien, et le ScrollBox ramenerait la liste tout en haut.
-		local signature = table.concat(profileNames, "\30")
-		if signature ~= lastProfileSignature or not profileList.Refresh() then
-			profileList.SetItems(profileItems)
-		end
-		lastProfileSignature = signature
+		-- Toujours repousser les elements ici, contrairement a la liste des
+		-- personnages : l'initialiseur des profils lit item.selected et
+		-- item.assigned, deux valeurs figees dans l'element au moment ou il est
+		-- construit. Un simple repeint garderait la surbrillance sur l'ancien
+		-- profil et empecherait d'en choisir un autre. SetItems preserve deja
+		-- la position de defilement.
+		profileList.SetItems(profileItems)
 	end
 
 	-- La ScrollBox recycle ses lignes : l'index de selection ne peut plus vivre
@@ -834,10 +831,17 @@ local function RefreshUi()
 		characterIdsByIndex[index] = nil
 	end
 	if characterList then
-		-- Meme raisonnement : cocher un personnage ne retire ni n'ajoute
-		-- personne, et ne change pas l'ordre. La signature porte les
-		-- identifiants dans leur ordre d'affichage, donc deux jeux egaux
-		-- garantissent aussi des index de zebrure identiques.
+		-- Ici le repeint suffit, et c'est une propriete de l'initialiseur, pas
+		-- une intuition : InitCharacterRow relit la selection, l'attribution et
+		-- le niveau depuis l'etat vivant, jamais depuis l'element. Cocher un
+		-- personnage ne retire ni n'ajoute personne et ne change pas l'ordre,
+		-- donc les elements deja dans le fournisseur restent exacts.
+		--
+		-- La signature porte les identifiants dans leur ordre d'affichage :
+		-- deux jeux egaux garantissent aussi des index de zebrure identiques.
+		-- Des qu'un initialiseur lira une valeur figee dans l'element, il
+		-- faudra repasser par SetItems, comme la liste des profils juste
+		-- au-dessus.
 		local signature = table.concat(characterIdsByIndex, "\30", 1, #characters)
 		if signature ~= lastCharacterSignature or not characterList.Refresh() then
 			characterList.SetItems(characterItems)
