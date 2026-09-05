@@ -5624,11 +5624,32 @@ end
 trackerUI.BuildMidnightProfessionTokens = function(row)
     local config = row and row.config or nil
     if not config then
-        return EMPTY_TABLE
+        -- Deux valeurs, sinon l'appelant recoit nil pour oneTimeTokens et leve
+        -- sur sa longueur des qu'une ligne arrive sans config.
+        return EMPTY_TABLE, EMPTY_TABLE
     end
 
     local tokens = {}
     local oneTimeTokens = {}
+
+    -- Un jeton porte desormais deux ecritures : short pour la ligne, ou la
+    -- place se compte en pixels, full pour l'infobulle, ou les noms entiers
+    -- tiennent. tone remplace le balisage inline, qui se refermait mal : en
+    -- WoW |r retablit la couleur par defaut au lieu de depiler, donc un jeton
+    -- colore effacait la couleur de tous les suivants.
+    local function Push(list, short, full, tone, line)
+        list[#list + 1] = {
+            short = short,
+            full = full or short,
+            tone = tone,
+            line = line ~= false,
+        }
+    end
+
+    -- Espace qui ne casse pas la ligne : si une mesure devait etre prise en
+    -- defaut, la coupure tomberait quand meme entre deux jetons et non au
+    -- milieu de l'un d'eux.
+    local NB = YayaCore.UI.TEXT.nbsp
     local accountDB = GetAccountDB()
     local trackProfessionWeeklies = accountDB.trackProfessionWeeklies ~= false
     local trackProfessionLoots = accountDB.trackProfessionLoots ~= false
@@ -5637,19 +5658,33 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     local trackProfessionToolEnchants = accountDB.trackProfessionToolEnchants ~= false
     local remainingTreasures, totalTreasures = CountRemainingTrackedQuests(config.treasureQuestIDs)
     if remainingTreasures > 0 then
-        oneTimeTokens[#oneTimeTokens + 1] = ("T%d/%d"):format(remainingTreasures, totalTreasures)
+        Push(oneTimeTokens,
+            ("T%d/%d"):format(remainingTreasures, totalTreasures),
+            ("Tresors : %d/%d restants"):format(remainingTreasures, totalTreasures),
+            "category")
     end
 
     local remainingWeeklyLoots, totalWeeklyLoots = CountRemainingTrackedQuests(config.weeklyLootQuestIDs)
     if trackProfessionLoots and remainingWeeklyLoots > 0 then
-        tokens[#tokens + 1] = ("loot %d/%d"):format(remainingWeeklyLoots, totalWeeklyLoots)
+        Push(tokens,
+            ("loot%s%d/%d"):format(NB, remainingWeeklyLoots, totalWeeklyLoots),
+            ("Loots hebdomadaires : %d/%d restants"):format(remainingWeeklyLoots, totalWeeklyLoots),
+            "success")
     elseif trackProfessionLoots and totalWeeklyLoots <= 0 and (config.weeklyKnowledgeCap or 0) > 0 then
-        tokens[#tokens + 1] = ("loot %d/%d"):format(config.weeklyKnowledgeCap, config.weeklyKnowledgeCap)
+        Push(tokens,
+            ("loot%s%d/%d"):format(NB, config.weeklyKnowledgeCap, config.weeklyKnowledgeCap),
+            ("Loots hebdomadaires : %d/%d restants"):format(
+                config.weeklyKnowledgeCap, config.weeklyKnowledgeCap),
+            "success")
     end
 
     local remainingDisenchants, totalDisenchants = CountRemainingTrackedQuests(config.weeklyDisenchantQuestIDs)
     if trackProfessionDisenchants and remainingDisenchants > 0 then
-        tokens[#tokens + 1] = ("dez %d/%d"):format(remainingDisenchants, totalDisenchants)
+        Push(tokens,
+            ("dez%s%d/%d"):format(NB, remainingDisenchants, totalDisenchants),
+            ("Desenchantements hebdomadaires : %d/%d restants"):format(
+                remainingDisenchants, totalDisenchants),
+            "success")
     end
 
     local hasTrainerWeeklyUnlocked = row.skillLevel >= (config.trainerMinSkill or math.huge)
@@ -5657,7 +5692,7 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     if trackProfessionWeeklies
         and hasTrainerWeeklyUnlocked
         and (not config.trainerWeeklyQuestIDs or not hasTrainerWeeklyCompleted) then
-        tokens[#tokens + 1] = "hebdo"
+        Push(tokens, "hebdo", "Quete hebdomadaire de maitre disponible", "success")
     end
 
     if trackProfessionDisenchants and row.skillLineID == 2909 then
@@ -5667,9 +5702,15 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
             remainingDisenchants
         )
         if catchUp then
-            tokens[#tokens + 1] = catchUp.active
-                and ("catchup restant : %d"):format(catchUp.remaining)
-                or "catchup inactif"
+            if catchUp.active then
+                Push(tokens,
+                    ("catchup%s%d"):format(NB, catchUp.remaining),
+                    ("Rattrapage Enchantement : %d restants"):format(catchUp.remaining),
+                    "success")
+            else
+                -- Rien a faire : le rappel n'a sa place qu'en infobulle.
+                Push(tokens, "catchup", "Rattrapage Enchantement inactif", "muted", false)
+            end
         end
     end
 
@@ -5678,14 +5719,14 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     local treatiseInfo = MIDNIGHT_TREATISES_BY_SKILL_LINE_ID[row.skillLineID]
     local hasTreatiseCompleted = treatiseInfo and IsQuestDone(treatiseInfo.weeklyQuestID) or false
     if treatiseTrackingEnabled and hasTreatiseUnlocked and not hasTreatiseCompleted then
-        tokens[#tokens + 1] = "traite"
+        Push(tokens, "traite", "Traite hebdomadaire non consomme", "success")
     end
 
     if accountDB.trackProfessionDarkmoon ~= false
         and IsDarkmoonFaireActive()
         and config.darkmoonQuestID
         and not IsQuestDone(config.darkmoonQuestID) then
-        tokens[#tokens + 1] = "DMF"
+        Push(tokens, "DMF", "Foire de Sombrelune : quete de metier disponible", "success")
     end
 
     local knowledgeInfo = SafeCall(
@@ -5695,19 +5736,47 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     local unspentKnowledge = type(knowledgeInfo) == "table" and knowledgeInfo.numAvailable or 0
     if type(unspentKnowledge) == "number"
         and unspentKnowledge > runtimeState.unspentKnowledgeWarningThreshold then
-        tokens[#tokens + 1] = ("|cffff6666KP %d a placer|r"):format(unspentKnowledge)
+        Push(tokens,
+            ("KP%s%d"):format(NB, unspentKnowledge),
+            ("%d points de connaissance a depenser"):format(unspentKnowledge),
+            "danger")
     end
 
+    -- Un nom de livre ou de recette Midnight fait couramment plus de trente
+    -- caracteres, pour cent-soixante-seize pixels utiles : la ligne ne porte
+    -- donc plus qu'un compteur, et les noms entiers passent en infobulle.
     local bookStatus = trackerUI.GetMidnightKnowledgeBookStatus(row)
+    local bookNames = {}
     for _, book in ipairs(bookStatus.missingBooks) do
-        oneTimeTokens[#oneTimeTokens + 1] = ("+10KP (%s)"):format(book.label)
+        bookNames[#bookNames + 1] = book.label
+    end
+    if #bookNames > 0 then
+        table.sort(bookNames)
+        Push(oneTimeTokens,
+            ("+10KP%sx%d"):format(NB, #bookNames),
+            ("Livres +10 KP : %s"):format(table.concat(bookNames, ", ")),
+            "category")
     end
 
     local recipeStatus = trackerUI.GetMidnightRecipeStatus(row)
+    local vendorRecipes, auctionRecipes = {}, {}
     for _, recipe in ipairs(recipeStatus.missingRecipes) do
-        oneTimeTokens[#oneTimeTokens + 1] = recipe.auctionHouse
-            and ("recette HV (%s)"):format(recipe.label)
-            or ("recette (%s)"):format(recipe.label)
+        local bucket = recipe.auctionHouse and auctionRecipes or vendorRecipes
+        bucket[#bucket + 1] = recipe.label
+    end
+    if #vendorRecipes > 0 then
+        table.sort(vendorRecipes)
+        Push(oneTimeTokens,
+            ("rec%sx%d"):format(NB, #vendorRecipes),
+            ("Recettes chez le PNJ : %s"):format(table.concat(vendorRecipes, ", ")),
+            "category")
+    end
+    if #auctionRecipes > 0 then
+        table.sort(auctionRecipes)
+        Push(oneTimeTokens,
+            ("recHV%sx%d"):format(NB, #auctionRecipes),
+            ("Recettes a l'hotel des ventes : %s"):format(table.concat(auctionRecipes, ", ")),
+            "category")
     end
 
     local toolStatus = (trackProfessionTools or trackProfessionToolEnchants)
@@ -5716,24 +5785,41 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     if trackProfessionTools
         and toolStatus.hasEquippedTool == false
         and not toolStatus.equippedToolPending then
-        oneTimeTokens[#oneTimeTokens + 1] = "outil non equipe"
+        Push(oneTimeTokens, ("outil%sKO"):format(NB),
+            "Aucun outil de metier equipe", "warning")
     end
     -- Rappel independant du precedent : un metier peut avoir un outil equipe
     -- correct sans posseder le moindre exemplaire Resourcefulness.
     if trackProfessionTools
         and toolStatus.hasResourcefulnessTool == false
         and not toolStatus.toolScanPending then
-        oneTimeTokens[#oneTimeTokens + 1] = "outil RF absent"
+        Push(oneTimeTokens, ("outil%sRF"):format(NB),
+            "Aucun outil Resourcefulness possede", "warning")
     end
     if trackProfessionToolEnchants then
+        -- pairs sur une table hachee : l'ordre change d'un rafraichissement a
+        -- l'autre. On trie donc avant de composer, sinon l'infobulle danse.
+        local missing, missingEnchant = {}, {}
         for _, tool in pairs(toolStatus.missingTools or EMPTY_TABLE) do
-            oneTimeTokens[#oneTimeTokens + 1] = ("outil %s x%d"):format(tool.label or "?", tool.quantity or 0)
+            missing[#missing + 1] = ("%s x%d"):format(tool.label or "?", tool.quantity or 0)
         end
         for _, tool in pairs(toolStatus.missingEnchantTools or EMPTY_TABLE) do
-            oneTimeTokens[#oneTimeTokens + 1] = ("outil sans enchant %s x%d"):format(
-                tool.label or "?",
-                tool.quantity or 0
-            )
+            missingEnchant[#missingEnchant + 1] = ("%s x%d"):format(
+                tool.label or "?", tool.quantity or 0)
+        end
+        if #missing > 0 then
+            table.sort(missing)
+            Push(oneTimeTokens,
+                ("outil%sx%d"):format(NB, #missing),
+                ("Outils a recuperer : %s"):format(table.concat(missing, ", ")),
+                "warning")
+        end
+        if #missingEnchant > 0 then
+            table.sort(missingEnchant)
+            Push(oneTimeTokens,
+                ("ench%sx%d"):format(NB, #missingEnchant),
+                ("Outils sans enchantement : %s"):format(table.concat(missingEnchant, ", ")),
+                "warning")
         end
     end
 
@@ -5781,7 +5867,7 @@ trackerUI.GetMidnightKnowledgeBookStatus = function(row)
     return result
 end
 
-trackerUI.GetMidnightProfessionWarningText = function(row)
+trackerUI.GetMidnightProfessionWarningTokens = function(row)
     local currencyID = row and row.moxieCurrencyID or nil
     if not currencyID and row and row.skillLineID then
         currencyID = MIDNIGHT_MOXIE_CURRENCY_IDS[row.skillLineID]
@@ -5794,31 +5880,38 @@ trackerUI.GetMidnightProfessionWarningText = function(row)
     local currentMoxie = GetCurrencyQuantity(currencyID)
     local bookStatus = trackerUI.GetMidnightKnowledgeBookStatus(row)
     local recipeStatus = trackerUI.GetMidnightRecipeStatus(row)
-    local warningParts = {}
+    local warnings = {}
+    local NB = YayaCore.UI.TEXT.nbsp
+    local function Push(short, full, tone)
+        warnings[#warnings + 1] = { short = short, full = full, tone = tone, line = true }
+    end
+
     local requiredMoxie = bookStatus.requiredMoxie + recipeStatus.requiredMoxie
     if requiredMoxie > 0 and currentMoxie < requiredMoxie then
-        local moxieText = ("moxie %d/%d"):format(currentMoxie, requiredMoxie)
-        warningParts[#warningParts + 1] = "|cffff3333" .. moxieText .. "|r"
+        Push(("moxie%s%d/%d"):format(NB, currentMoxie, requiredMoxie),
+            ("Moxie : %d requis, %d possedes"):format(requiredMoxie, currentMoxie),
+            "critical")
     elseif currentMoxie > MOXIE_WARNING_THRESHOLD then
-        warningParts[#warningParts + 1] = ("|cffff9966moxie %d|r"):format(currentMoxie)
+        Push(("moxie%s%d"):format(NB, currentMoxie),
+            ("Moxie : %d, au-dessus du seuil de %d"):format(currentMoxie, MOXIE_WARNING_THRESHOLD),
+            "warning")
     end
     if bookStatus.requiredAbundance > 0 and bookStatus.currentAbundance < bookStatus.requiredAbundance then
-        local abundanceText = ("abondance %d/%d"):format(
-            bookStatus.currentAbundance,
-            bookStatus.requiredAbundance
-        )
-        warningParts[#warningParts + 1] = "|cffff3333" .. abundanceText .. "|r"
+        Push(("abond%s%d/%d"):format(NB, bookStatus.currentAbundance, bookStatus.requiredAbundance),
+            ("Abondance non alliee : %d/%d"):format(
+                bookStatus.currentAbundance, bookStatus.requiredAbundance),
+            "critical")
     end
     if recipeStatus.requiredVoidlightMarl > 0
         and recipeStatus.currentVoidlightMarl < recipeStatus.requiredVoidlightMarl then
-        local marlText = ("marls %d/%d"):format(
-            recipeStatus.currentVoidlightMarl,
-            recipeStatus.requiredVoidlightMarl
-        )
-        warningParts[#warningParts + 1] = "|cffff3333" .. marlText .. "|r"
+        Push(("marls%s%d/%d"):format(NB, recipeStatus.currentVoidlightMarl,
+                recipeStatus.requiredVoidlightMarl),
+            ("Voidlight Marl : %d/%d"):format(
+                recipeStatus.currentVoidlightMarl, recipeStatus.requiredVoidlightMarl),
+            "critical")
     end
-    if #warningParts > 0 then
-        return table.concat(warningParts, " ")
+    if #warnings > 0 then
+        return warnings
     end
 end
 
@@ -5835,38 +5928,59 @@ trackerUI.NotifyContainerOpening = function(button, _, down)
     end
 end
 
+--- Prepare une entree a partir de descripteurs de jetons.
+--
+-- La ligne ne recoit que les ecritures courtes, colorees jeton par jeton ;
+-- l'infobulle recoit le detail complet, y compris les jetons que la ligne ne
+-- porte pas. Le decoupage en lignes revient a la mise en page, qui seule
+-- connait la largeur reelle.
+trackerUI.BuildProfessionEntry = function(label, descriptors)
+    local shorts, details = {}, {}
+    for _, token in ipairs(descriptors) do
+        if token.line then
+            shorts[#shorts + 1] = YayaCore.UI.Colorize(token.tone, token.short)
+        end
+        details[#details + 1] = token.full
+    end
+    if #shorts == 0 then
+        return nil
+    end
+    return {
+        tokens = shorts,
+        prefix = label .. ":",
+        tooltipTitle = label,
+        tooltipBody = table.concat(details, "\n"),
+    }
+end
+
 trackerUI.AddMidnightProfessionEntries = function(entries, trackedRows, oneTimeEntries)
     local oneTimeRows = {}
     for _, row in ipairs(trackedRows or GetTrackedMidnightProfessions()) do
         local tokens, oneTimeTokens = trackerUI.BuildMidnightProfessionTokens(row)
-        local warningText = trackerUI.GetMidnightProfessionWarningText(row)
-        if #tokens > 0 then
-            AddEntry(entries, row.config.label, "todo", {
-                displayText = ("%s: |cff7fff7f%s|r%s"):format(
-                    row.config.label,
-                    table.concat(tokens, " "),
-                    ""
-                ),
-            })
+        local warnings = trackerUI.GetMidnightProfessionWarningTokens(row)
+        local weekly = trackerUI.BuildProfessionEntry(row.config.label, tokens)
+        if weekly then
+            AddEntry(entries, row.config.label, "todo", weekly)
         end
-        if #oneTimeTokens > 0 or warningText then
+        if #oneTimeTokens > 0 or warnings then
             oneTimeRows[#oneTimeRows + 1] = { row = row, tokens = oneTimeTokens }
         end
     end
 
     if #oneTimeRows > 0 then
         for _, state in ipairs(oneTimeRows) do
-            local warningText = trackerUI.GetMidnightProfessionWarningText(state.row)
-            local displayText = table.concat(state.tokens, " ")
-            if displayText ~= "" then
-                displayText = "|cffd6b36a" .. displayText .. "|r"
+            local descriptors = {}
+            for _, token in ipairs(state.tokens) do
+                descriptors[#descriptors + 1] = token
             end
-            if warningText then
-                displayText = displayText .. (displayText ~= "" and " " or "") .. warningText
+            for _, token in ipairs(trackerUI.GetMidnightProfessionWarningTokens(state.row)
+                or EMPTY_TABLE) do
+                descriptors[#descriptors + 1] = token
             end
-            AddEntry(oneTimeEntries or entries, state.row.config.label, "todo", {
-                displayText = ("%s: %s"):format(state.row.config.label, displayText),
-            })
+            local entry = trackerUI.BuildProfessionEntry(state.row.config.label, descriptors)
+            if entry then
+                AddEntry(oneTimeEntries or entries, state.row.config.label, "todo", entry)
+            end
         end
     end
 end
@@ -7368,25 +7482,66 @@ trackerUI.EnsureTrackerLine = function(index)
     return row
 end
 
---- Peint une entree sur sa ligne : libelle a gauche, statut a droite.
+--- Largeur utile du libelle d'une ligne du tracker.
+--
+-- La largeur vient des ancres que YayaFrame pose sur la section : elle n'est
+-- pas resolue au tout premier passage, ou trackerFrame vaut encore 1x1. Le
+-- repli donne alors la meme valeur qu'en regime permanent, donc le premier
+-- rendu n'est pas faux.
+trackerUI.GetTrackerLabelWidth = function()
+    local width = YayaCore.UI.ResolveWidth(trackerFrame, YayaCore.UI.SIZE.contentW)
+    return math.max(40, math.floor(width - YayaCore.UI.PAD.md * 2 - YayaCore.UI.PAD.sm))
+end
+
+--- Peint une entree sur sa ligne et rend la hauteur a reserver, en entier.
+--
+-- CRITIQUE AUTOCLICKER. Cette valeur est posee sur la ligne ET donnee a la
+-- pile : les deux ne peuvent donc pas diverger, et le bord bas de la frame ne
+-- bouge pas d'un pixel quand une ligne grandit. Un depassement visuel residuel
+-- est absorbe par le clipping deja actif sur la ligne.
 trackerUI.ApplyEntry = function(row, entry, index)
     row.Reset()
     row.SetStripe(index)
 
+    local font = entry.prominent and YayaCore.UI.FONT.header or YayaCore.UI.FONT.body
+    YayaCore.UI.SetFont(row.label, font)
+    row.label:SetTextColor(YayaCore.UI.Unpack(
+        entry.prominent and YayaCore.UI.COLOR.category or YayaCore.UI.COLOR.text))
+
+    local height = YayaCore.UI.SIZE.rowHCompact
     if entry.prominent then
-        YayaCore.UI.SetFont(row.label, YayaCore.UI.FONT.header)
-        row.label:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.category))
-    else
-        YayaCore.UI.SetFont(row.label, YayaCore.UI.FONT.body)
-        row.label:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.text))
+        height = height + YayaCore.UI.PAD.sm
     end
+
+    -- Resume de metier : plusieurs jetons pour une ligne de 176 px utiles. Le
+    -- texte est decoupe ici, ou la largeur est connue, et le detail complet
+    -- part en infobulle.
+    if entry.tokens then
+        local width = trackerUI.GetTrackerLabelWidth()
+        row.SetLabelWrap(YayaCore.UI.TEXT.maxLines, width)
+        local composed, lines, hidden = YayaCore.UI.PackLines(entry.tokens, {
+            width = width,
+            maxLines = YayaCore.UI.TEXT.maxLines,
+            prefix = entry.prefix,
+            font = font,
+        })
+        local textHeight = YayaCore.UI.FitLabel(
+            row.label, composed, lines, YayaCore.UI.TEXT.maxLines)
+        row.value:SetText("")
+        row.hiddenTokenCount = hidden
+        row.SetTooltip(entry.tooltipTitle, entry.tooltipBody)
+        return math.max(height, textHeight + YayaCore.UI.PAD.sm)
+    end
+
+    row.SetLabelWrap(1)
 
     -- Les entrees a texte compose gardent leur balisage : elles portent deja
     -- leurs propres couleurs et compteurs.
     if entry.displayText then
         row.label:SetText(entry.displayText)
         row.value:SetText("")
-        return
+        row.SetTruncatedTooltip(YayaCore.UI.StripMarkup(entry.displayText))
+        return height
     end
 
     row.label:SetText(entry.label or "")
@@ -7397,6 +7552,12 @@ trackerUI.ApplyEntry = function(row, entry, index)
         row.value:SetText("a debloquer")
         row.SetTone("warning")
     end
+    if entry.tooltipTitle then
+        row.SetTooltip(entry.tooltipTitle, entry.tooltipBody)
+    else
+        row.SetTruncatedTooltip(YayaCore.UI.StripMarkup(entry.label))
+    end
+    return height
 end
 
 -- Les boutons d'action, par champ et par reservoir. Declares en champs de table
@@ -7769,11 +7930,10 @@ UpdateTracker = function()
             local row = trackerUI.EnsureTrackerLine(index)
             local entry = entries[index]
             if entry then
-                local rowHeight = YayaCore.UI.SIZE.rowHCompact
-                if entry.prominent then
-                    rowHeight = rowHeight + YayaCore.UI.PAD.sm
-                end
-                trackerUI.ApplyEntry(row, entry, index)
+                -- Une seule source de verite pour la hauteur : la ligne et la
+                -- pile recoivent le meme entier, donc elles ne peuvent pas
+                -- diverger et deplacer les boutons.
+                local rowHeight = trackerUI.ApplyEntry(row, entry, index)
                 row:SetHeight(rowHeight)
                 row:Show()
                 stack.Add(row, 0, { height = rowHeight })
