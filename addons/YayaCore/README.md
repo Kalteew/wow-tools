@@ -10,6 +10,20 @@ appelle desormais ce module, les sites d'appel existants ne changent pas.
 
 ## Modules
 
+### `YayaCore.ActionBinding`
+
+Raccourci Blizzard `Yaya > Action suivante (YQ / YWT)`, sans touche imposee.
+`RegisterProvider(name, getter)` enregistre `queue` ou `weekly` ; le getter
+renvoie le panneau prioritaire et la liste de boutons d'action. YQ visible
+bloque le repli meme si NEXT est grise. Sinon, selection du bouton YWT visible
+et actif le plus bas, en tenant compte de son echelle. Un clic securise au
+relachement, sans boucle ni double execution ; desactive en combat.
+La declaration XML demande aussi `runOnUp="true"` : l'enregistrement `AnyUp`
+du bouton seul ne suffit pas a recevoir le relachement du raccourci.
+La categorie est le texte fixe `Yaya` : elle n'utilise pas de globale addon
+dans l'interface Blizzard, ce qui evite que le raccourci disparaisse a cause du
+taint. Le libelle est fourni par `description` dans `Bindings.xml`.
+
 ### `YayaCore.Money`
 
 - `Format(copper, opts)` : affichage standard de WoW. `opts.zeroText` remplace

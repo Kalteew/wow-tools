@@ -2,6 +2,8 @@
 
 La section Hebdo est affichee dans la frame partagee `YayaFrame`, avec la section Session si `YayaSessionTracker` est installe. La position et le deplacement sont communs aux deux addons ; l'option de masquage en combat de YWT masque la frame partagee.
 
+Le raccourci commun Yaya, configurable dans les raccourcis clavier des options Blizzard, declenche une seule action par appui : `NEXT` de YayaQueue en priorite, puis, quand sa fenetre est masquee, le bouton d'action YWT visible et disponible le plus bas. Tous les boutons d'action participent, y compris les conteneurs, traites, enchants et tresors ; les commandes du bandeau sont exclues. Un bouton grise ou masque n'est pas active. Le raccourci respecte les verrouillages et cooldowns des boutons.
+
 Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suivre :
 
 - `Archeo Legion 5000g dispo` en premiere ligne si la rotation `Worth Its Weight` est active

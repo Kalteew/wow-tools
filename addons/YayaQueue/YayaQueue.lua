@@ -13535,7 +13535,11 @@ local function CreateCraftPanel()
     nextButton:SetSize(CONFIG.CRAFT_NEXT_WIDTH, UI.ACTION.height)
     nextButton:SetPoint("BOTTOMRIGHT", actionAnchor, "BOTTOMRIGHT", 0, 0)
     nextButton:SetText("Next")
-    nextButton:RegisterForClicks("AnyUp", "AnyDown")
+    nextButton:RegisterForClicks("AnyUp")
+    nextButton:SetAttribute("useOnKeyDown", false)
+    YayaCore.ActionBinding.RegisterProvider("queue", function()
+        return panel, { nextButton }
+    end)
     -- HookScript preserves SecureActionButtonTemplate's native item handler.
     -- SetScript would replace it and leave the phial click inert.
     nextButton:HookScript("PreClick", function()
