@@ -9,6 +9,11 @@ local eventFrame = CreateFrame("Frame")
 local eventCallbacks = {}
 ns.EventFrame = eventFrame
 ns.Util = {}
+-- Le module de design partage, expose sur ns plutot que sur une locale.
+-- BrowsePane.lua est a 200 variables locales de chunk sur 200 : une de plus et
+-- son chunk ne compile plus, ce qui empeche l'addon entier de charger sans
+-- message clair en jeu. Core.lua se charge avant lui et garde de la marge.
+ns.UI = _G.YayaCore and _G.YayaCore.UI
 local IsAddOnLoadedAPI = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
 local GetAddOnMetadataAPI = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
 local CURSE_PROJECT_VERSION_TOKEN = "@project" .. "-version@"
