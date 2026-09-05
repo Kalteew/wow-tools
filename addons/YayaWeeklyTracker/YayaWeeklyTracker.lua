@@ -7810,6 +7810,7 @@ UpdateTracker = function()
             AddAction(trackerFrame.toolEnchantApplyButtons[index])
         end
         AddAction(hasAutoOpenButton and autoOpenButton)
+        trackerFrame.bindingActions = actions
 
         -- CRITIQUE AUTOCLICKER. La pile est packee depuis le bas, a pas
         -- constant : la frame est ancree BOTTOMLEFT et grandit vers le haut,
@@ -7853,6 +7854,10 @@ trackerUI.CreateTrackerFrame = function()
     end
 
     trackerFrame = CreateFrame("Frame", addonName .. "Frame", YayaFrameAPI:GetFrame())
+    trackerFrame.bindingActions = {}
+    YayaCore.ActionBinding.RegisterProvider("weekly", function()
+        return nil, trackerFrame.bindingActions
+    end)
     DebugLog("CreateTrackerFrame %s", tostring(addonName .. "Frame"))
     trackerFrame:SetFrameStrata("MEDIUM")
     -- Pas de largeur imposee : YayaFrame etire chaque section entre ses

@@ -1,0 +1,3 @@
+<Bindings>
+    <Binding name="CLICK YayaNextActionButton:LeftButton" description="Action suivante (YQ / YWT)" category="Yaya" runOnUp="true" />
+</Bindings>

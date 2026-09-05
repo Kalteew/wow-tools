@@ -1,5 +1,10 @@
 # YayaQueue
 
+Raccourci commun : dans les options Blizzard, Raccourcis clavier > Yaya >
+`Action suivante (YQ / YWT)`. Au relachement de la touche, un seul bouton est
+clique : NEXT si le panneau YQ est visible (aucune action s'il est grise),
+sinon le bouton d'action YWT visible et actif le plus bas. Inactif en combat.
+
 Addon Retail simple pour :
 
 - ajouter une recette depuis l'UI Blizzard des metiers avec la quantite placee a cote du bouton `Ajouter YQ`
