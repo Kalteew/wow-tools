@@ -2707,14 +2707,11 @@ local private = {
 '@
     $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "LibTSMTypes\\ItemString stat key state") -or $changed
 
-    $original = @'
----Gets a list of stat modifier values which are present in an itemString
----@param itemString string An itemString to get the stat modifiers of
----@param fromBonusIdsOnly boolean Only get equivalent modifiers from bonusIds
----@param resultTbl table The table to store the results in
-function ItemString.GetStatModifiers(itemString, fromBonusIdsOnly, resultTbl)
-'@
-    $patched = @'
+    # Replace-ExactBlockAny s'arrete au premier ancrage trouve, et l'ancrage
+    # vierge est un suffixe du bloc patche : la generation la plus recente doit
+    # donc etre essayee en premier.
+    $statKeyOriginals = @()
+    $statKeyOriginals += @'
 ---Converts an itemString into a key which is equal for items with the same item level and stats.
 ---Bonus IDs which only add a tooltip line (crafter marks, hidden flags) are ignored, since they
 ---change the itemString without changing what the item is or what it is worth.
@@ -2749,7 +2746,76 @@ end
 ---@param resultTbl table The table to store the results in
 function ItemString.GetStatModifiers(itemString, fromBonusIdsOnly, resultTbl)
 '@
-    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "LibTSMTypes\\ItemString ToStatKey") -or $changed
+    $statKeyOriginals += @'
+---Gets a list of stat modifier values which are present in an itemString
+---@param itemString string An itemString to get the stat modifiers of
+---@param fromBonusIdsOnly boolean Only get equivalent modifiers from bonusIds
+---@param resultTbl table The table to store the results in
+function ItemString.GetStatModifiers(itemString, fromBonusIdsOnly, resultTbl)
+'@
+    $patched = @'
+function private.GetStatKeyBonusIds(itemString)
+\tlocal numBonusIds, rest = strmatch(itemString, "^i:%d+:[0-9%-]*:(%d+):(.+)$")
+\tnumBonusIds = tonumber(numBonusIds)
+\tif not numBonusIds or numBonusIds == 0 or not rest then
+\t\treturn ""
+\tend
+\tlocal result = ""
+\tlocal index = 0
+\tfor part in gmatch(rest, "[^:]+") do
+\t\tindex = index + 1
+\t\tif index > numBonusIds then
+\t\t\tbreak
+\t\tend
+\t\tresult = result == "" and part or (result..":"..part)
+\tend
+\treturn result
+end
+
+---Converts an itemString into a key which is equal for items with the same item level and stats.
+---What an item is worth is its rank and its stat, never how it was crafted.
+---The result is NOT an itemString: the "|" separator keeps it out of that grammar on purpose.
+---@param itemString string An itemString to get the stat key of
+---@return string
+function ItemString.ToStatKey(itemString)
+\tif not itemString then
+\t\treturn nil
+\tend
+\tlocal key = private.statKeyCache[itemString]
+\tif key then
+\t\treturn key
+\tend
+\tkey = ItemString.ToLevel(itemString)
+\tif ItemString.IsItem(itemString) then
+\t\t-- The stat of a crafted profession tool is carried by a bonusId, so the
+\t\t-- bonusIds belong to the key: they hold both the crafting rank and the stat.
+\t\tlocal bonusIds = private.GetStatKeyBonusIds(itemString)
+\t\tif bonusIds ~= "" then
+\t\t\tkey = key.."|"..bonusIds
+\t\tend
+\t\t-- Crafted gear picks its two secondary stats through modifiers 29 and 30,
+\t\t-- which always come as a pair. A lone modifier 29 is the profession tool
+\t\t-- axis: it takes the same values on tools of different stats, so keeping it
+\t\t-- would split one stat over several lines.
+\t\twipe(private.statKeyTemp)
+\t\tItemString.GetStatModifiers(itemString, false, private.statKeyTemp)
+\t\tif #private.statKeyTemp > 1 then
+\t\t\tsort(private.statKeyTemp)
+\t\t\tkey = key.."|"..table.concat(private.statKeyTemp, ",")
+\t\tend
+\t\twipe(private.statKeyTemp)
+\tend
+\tprivate.statKeyCache[itemString] = key
+\treturn key
+end
+
+---Gets a list of stat modifier values which are present in an itemString
+---@param itemString string An itemString to get the stat modifiers of
+---@param fromBonusIdsOnly boolean Only get equivalent modifiers from bonusIds
+---@param resultTbl table The table to store the results in
+function ItemString.GetStatModifiers(itemString, fromBonusIdsOnly, resultTbl)
+'@
+    $changed = (Replace-ExactBlockAny -Content ([ref]$content) -Originals $statKeyOriginals -Patched $patched -Label "LibTSMTypes\\ItemString ToStatKey") -or $changed
 
     if ($changed) {
         Set-TSMPatchContent -FilePath $FilePath -Content $content
