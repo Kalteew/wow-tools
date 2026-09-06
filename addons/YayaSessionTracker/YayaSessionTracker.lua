@@ -8,7 +8,10 @@ local MISSION_CONTAINER_PENDING_TTL_SECONDS = 30 * 24 * 60 * 60
 local MISSION_CONTAINER_FINALIZE_DELAY_SECONDS = 1.25
 local MAX_SESSIONS = 250
 local CORROSIVE_COIN_CURRENCY_ID = 3448
-local DEFAULT_PRICE_SOURCE = "first(dbmarket, dbregionmarketavg, vendorsell)"
+local DEFAULT_PRICE_SOURCE = "first(dbregionsaleavg, dbmarket, dbregionmarketavg, vendorsell)"
+local LEGACY_PRICE_SOURCES = {
+    ["first(dbmarket, dbregionmarketavg, vendorsell)"] = true,
+}
 local ITEM_BIND_ON_ACQUIRE = LE_ITEM_BIND_ON_ACQUIRE or (Enum and Enum.ItemBind and Enum.ItemBind.OnAcquire) or 1
 local ITEM_BIND_QUEST = LE_ITEM_BIND_QUEST or (Enum and Enum.ItemBind and Enum.ItemBind.Quest) or 4
 local FOLLOWER_TYPE_ID = Enum and Enum.GarrisonFollowerType and Enum.GarrisonFollowerType.FollowerType_9_0_GarrisonFollower or 123
@@ -156,7 +159,9 @@ end
 local function GetSettings()
     local db = GetAccountDB()
     db.settings = db.settings or {}
-    db.settings.priceSource = db.settings.priceSource or DEFAULT_PRICE_SOURCE
+    if not db.settings.priceSource or LEGACY_PRICE_SOURCES[db.settings.priceSource] then
+        db.settings.priceSource = DEFAULT_PRICE_SOURCE
+    end
     db.settings.position = db.settings.position or {}
     return db.settings
 end
