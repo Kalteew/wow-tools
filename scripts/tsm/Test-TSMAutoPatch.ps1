@@ -121,6 +121,19 @@ $changed = Replace-ExactBlockAny -Content ([ref]$content) `
     -Label "test"
 Assert-Test -Name "seconde alternative retenue" -Condition ($changed -and $content.Contains("local patched = 3"))
 
+# Un patch qui ajoute du code apres son ancrage laisse l'ancrage vierge present
+# dans le resultat. Comme Replace-ExactBlockAny s'arrete au premier ancrage
+# trouve, lister le vierge avant la generation precedente ajouterait le bloc une
+# seconde fois. Les alternatives doivent aller de la plus recente a la plus
+# ancienne.
+$content = "local anchor = 1`nlocal added = 2`n"
+$changed = Replace-ExactBlockAny -Content ([ref]$content) `
+    -Originals @("local anchor = 1`nlocal added = 2", "local anchor = 1") `
+    -Patched "local anchor = 1`nlocal added = 3" `
+    -Label "test"
+Assert-Test -Name "generation recente prioritaire sur l'ancrage vierge" `
+    -Condition ($changed -and $content -eq "local anchor = 1`nlocal added = 3`n") -Detail $content
+
 Write-Host "Validation de syntaxe Lua" -ForegroundColor Cyan
 Assert-Test -Name "source valide acceptee" -Condition (Test-TSMPatchLuaSyntax -Content "local function f()`n`treturn 1`nend`n" -Label "test")
 Assert-Test -Name "end manquant refuse" -Condition (-not (Test-TSMPatchLuaSyntax -Content "local function f()`n`treturn 1`n" -Label "test"))
