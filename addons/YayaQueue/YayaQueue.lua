@@ -289,6 +289,24 @@ state.auctionPrices = state.addonTable and state.addonTable.AuctionPrices
 
 local YQQuality = {}
 
+-- Geometrie de la fenetre d'optimisation des reactifs.
+--
+-- Toute constante lue a la fois par la creation des lignes et par le rendu vit
+-- ici : le pas des lignes de reactif a longtemps valu 28 a la creation et 34 au
+-- rendu, et rien ne signalait la divergence. Les largeurs ne se derivent jamais
+-- d'un GetWidth(), qui vaut 0 avant la premiere passe de mise en page.
+YQQuality.LAYOUT = {
+    panelW = 400,
+    reagentColW = 26,
+    unitW = 50,
+    costW = 60,
+    infoValueW = 96,
+    -- Pas de la grille des reactifs optionnels. Le nombre de colonnes s'en
+    -- deduit, il n'est plus fige a 8 : une largeur de fenetre differente doit
+    -- se traduire par plus de colonnes, pas par une grille decalee.
+    iconPitch = 30,
+}
+
 function YQQuality.RegisterCentralPricing()
     local api = _G.YayaCraftedPriceAPI
     if api and type(api.SetAuctionProvider) == "function" then
@@ -3176,12 +3194,16 @@ local function SetQuantityInput(qtyBox, quantity)
     end
 end
 
-local function ApplyPanelPoint(frame)
-    if not frame or not db or not db.panelPoint then
+-- key designe la cle de YayaQueueDB qui porte la position. Elle vaut
+-- "panelPoint" par defaut, celle du panneau de file ; la fenetre d'optimisation
+-- des reactifs passe "qualityPanelPoint" pour garder sa propre position.
+local function ApplyPanelPoint(frame, key)
+    key = key or "panelPoint"
+    if not frame or not db or not db[key] then
         return
     end
 
-    local point = db.panelPoint
+    local point = db[key]
     frame:ClearAllPoints()
     frame:SetPoint(
         point.point or "CENTER",
@@ -3207,7 +3229,7 @@ local function ApplyPanelPoint(frame)
     bottom = bottom - parentBottom
     frame:ClearAllPoints()
     frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
-    db.panelPoint = {
+    db[key] = {
         point = "BOTTOMLEFT",
         relativePoint = "BOTTOMLEFT",
         x = left,
@@ -3215,7 +3237,8 @@ local function ApplyPanelPoint(frame)
     }
 end
 
-local function SavePanelPoint(frame)
+local function SavePanelPoint(frame, key)
+    key = key or "panelPoint"
     if not frame or not db then
         return
     end
@@ -3225,7 +3248,7 @@ local function SavePanelPoint(frame)
         return
     end
 
-    db.panelPoint = {
+    db[key] = {
         point = point,
         relativePoint = relativePoint or point,
         x = tonumber(x) or 0,
@@ -11762,6 +11785,11 @@ function YQQuality.GetStockCache()
             scopeBagIDs = {},
             scopeAuthoritative = {},
             dirty = { bags = true, character = true, warband = true },
+            -- TSM_API.GetPlayerTotals parcourt chaque royaume x chaque
+            -- personnage suivi, et degenere en balayage complet de la table
+            -- d'un alt quand l'objet lui est inconnu. UpdateSelector la
+            -- rappelait a chaque clic : on memorise brievement le resultat.
+            tsmTotals = {},
         }
         state.craft.qualityStockCache = cache
     end
@@ -11773,6 +11801,7 @@ function YQQuality.MarkStockDirty(bags, character, warband)
     if bags then cache.dirty.bags = true end
     if character then cache.dirty.character = true end
     if warband then cache.dirty.warband = true end
+    if bags or character or warband then wipe(cache.tsmTotals) end
 end
 
 function YQQuality.GetStockBagIDs(scope)
@@ -11836,13 +11865,20 @@ function YQQuality.ScanStockScope(scope)
                         local apiBound = SafeCall(C_Item.IsBound, location)
                         if apiBound ~= nil then isBound = apiBound == true end
                     end
-                    if isBound == false then
-                        snapshot[#snapshot + 1] = {
-                            itemID = tonumber(info.itemID),
-                            quantity = math.max(1, tonumber(info.stackCount) or 1),
-                            quality = YQQuality.GetCraftedItemQuality(info.hyperlink),
-                        }
-                    end
+                    -- Les copies liees sont conservees et marquees, plus jetees :
+                    -- le total vendable les exclut, mais le comptage sans filtre
+                    -- sert a isoler le courrier par difference avec TSM.
+                    --
+                    -- Aucun test IsBoundToAccountUntilEquip n'est necessaire :
+                    -- une copie Warbound until equipped est deja liee au sens de
+                    -- C_Item.IsBound. TSM derive d'ailleurs son propre drapeau
+                    -- ainsi (isWarBound = isBound and CanDepositIntoWarbank).
+                    snapshot[#snapshot + 1] = {
+                        itemID = tonumber(info.itemID),
+                        quantity = math.max(1, tonumber(info.stackCount) or 1),
+                        quality = YQQuality.GetCraftedItemQuality(info.hyperlink),
+                        bound = isBound == true,
+                    }
                 end
             end
             cache.containers[bagID] = snapshot
@@ -11852,23 +11888,39 @@ function YQQuality.ScanStockScope(scope)
     cache.dirty[scope] = false
 end
 
-function YQQuality.GetTSMOutputStock(itemReference)
+-- Quantites brutes connues de TSM pour une reference d'objet.
+--
+-- Retourne une table { itemString, player, alts, auctions, altAuctions,
+-- warbank } ou nil quand TSM est absent ou ne reconnait pas l'objet. Aucune de
+-- ces valeurs ne distingue les copies liees : TSM ne stocke l'etat de liaison
+-- que par emplacement, jamais dans les totaux qu'il expose.
+--
+-- Le resultat est memoise quelques secondes : GetPlayerTotals itere chaque
+-- royaume du perimetre TSM croise avec chaque personnage suivi, et degenere en
+-- balayage complet des tables d'un alt quand l'objet lui est inconnu, ce qui
+-- est le cas ordinaire. UpdateSelector la rappelait a chaque clic.
+function YQQuality.GetTSMOutputTotals(itemReference)
     if type(TSM_API) ~= "table"
         or type(TSM_API.ToItemString) ~= "function"
         or type(TSM_API.GetPlayerTotals) ~= "function" then
-        return nil, nil
+        return nil
     end
 
     local candidate = itemReference
     if type(candidate) == "number" then
         candidate = select(2, GetItemInfo(candidate)) or ("i:" .. candidate)
     end
-    if type(candidate) ~= "string" or candidate == "" then return nil, nil end
+    if type(candidate) ~= "string" or candidate == "" then return nil end
 
     local okString, itemString = pcall(TSM_API.ToItemString, candidate)
     if not okString or type(itemString) ~= "string" or itemString == "" then
-        return nil, nil
+        return nil
     end
+
+    local cache = YQQuality.GetStockCache()
+    local now = GetTime and GetTime() or 0
+    local memo = cache.tsmTotals[itemString]
+    if memo and memo.expiresAt > now then return memo.totals end
 
     local okTotals, character, alts, characterAuctions, altAuctions = pcall(
         TSM_API.GetPlayerTotals,
@@ -11879,7 +11931,7 @@ function YQQuality.GetTSMOutputStock(itemReference)
         or type(alts) ~= "number"
         or type(characterAuctions) ~= "number"
         or type(altAuctions) ~= "number" then
-        return nil, nil
+        return nil
     end
 
     local warbank = 0
@@ -11888,16 +11940,132 @@ function YQQuality.GetTSMOutputStock(itemReference)
         if okWarbank and type(quantity) == "number" then warbank = quantity end
     end
 
-    -- Keep C for the current character's immediately owned stock. Auctions are
-    -- account/realm-wide in practice, so expose current and alt auctions in W.
-    return character, alts + warbank + characterAuctions + altAuctions
+    local totals = {
+        itemString = itemString,
+        player = character,
+        alts = alts,
+        auctions = characterAuctions,
+        altAuctions = altAuctions,
+        warbank = warbank,
+    }
+    cache.tsmTotals[itemString] = { totals = totals, expiresAt = now + 5 }
+    return totals
 end
 
-function YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQuality)
+-- Ordre d'affichage des sources de stock. Une table indexee, jamais pairs() :
+-- l'infobulle doit lister les memes lignes dans le meme ordre a chaque passe.
+YQQuality.STOCK_SOURCES = {
+    { key = "bags", label = "Sacs" },
+    { key = "bank", label = "Banque du personnage" },
+    { key = "selfOther", label = "Banque et courrier" },
+    { key = "warband", label = "Banque d'aventuriers" },
+    { key = "mail", label = "Courrier" },
+    { key = "alts", label = "Autres personnages" },
+    { key = "auctions", label = "En vente a l'hotel des ventes" },
+}
+
+-- Compose le stock vendable a partir des comptages natifs et des totaux TSM.
+--
+-- Fonction pure, sans appel a l'API du jeu : c'est elle que la commande de
+-- diagnostic imprime, et c'est la seule qui decide de ce qui entre dans le
+-- total. Trois niveaux de confiance :
+--
+--   certain    -- scan natif par emplacement, ou enchere active (une copie liee
+--                 ne peut pas etre mise en vente, ces compteurs sont donc surs)
+--   unverified -- connu de TSM seul, qui ignore l'etat de liaison. Entre dans le
+--                 total, qui devient approximatif : les exclure afficherait zero
+--                 sur un objet stocke chez un alt d'un autre royaume.
+--   unknown    -- source jamais lue. N'entre pas dans le total, qui devient
+--                 incomplet. Jamais un faux zero.
+function YQQuality.ComposeSellableStock(raw)
+    local stock = {
+        total = 0,
+        certain = 0,
+        unverified = 0,
+        hasUnknown = false,
+        sources = {},
+        reference = raw.reference,
+        itemString = raw.tsm and raw.tsm.itemString or nil,
+    }
+
+    local byKey = {}
+    local function Put(key, count, confidence)
+        byKey[key] = { count = count, confidence = count == nil and "unknown" or confidence }
+    end
+
+    Put("bags", raw.bagsUnbound, "certain")
+
+    if raw.warbandUnbound ~= nil then
+        Put("warband", raw.warbandUnbound, "certain")
+    elseif raw.tsm then
+        Put("warband", raw.tsm.warbank, "unverified")
+    else
+        Put("warband", nil, "unknown")
+    end
+
+    -- Le courrier du personnage courant n'est lisible par aucune API de
+    -- conteneur : TSM le noie dans son total « player ». On le retrouve par
+    -- difference avec le comptage natif sans filtre de liaison. Le residu
+    -- contient donc aussi les copies liees que le scan a ecartees, d'ou
+    -- l'etiquette « non verifie ».
+    if raw.tsm and raw.bagsAll ~= nil and raw.bankAll ~= nil then
+        Put("bank", raw.bankUnbound, "certain")
+        Put("mail", math.max(0, raw.tsm.player - raw.bagsAll - raw.bankAll), "unverified")
+    elseif raw.tsm and raw.bagsAll ~= nil then
+        -- Banque jamais ouverte : elle est deja comprise dans le total TSM, on
+        -- la fusionne avec le courrier plutot que d'afficher un « ? » fantome
+        -- a cote d'un chiffre qui la contient deja.
+        Put("selfOther", math.max(0, raw.tsm.player - raw.bagsAll), "unverified")
+    elseif raw.tsm then
+        Put("selfOther", raw.tsm.player, "unverified")
+    else
+        Put("bank", raw.bankUnbound, "certain")
+    end
+
+    if raw.tsm then
+        Put("alts", raw.tsm.alts, "unverified")
+        Put("auctions", raw.tsm.auctions + raw.tsm.altAuctions, "certain")
+    else
+        Put("alts", nil, "unknown")
+        Put("auctions", nil, "unknown")
+    end
+
+    for _, source in ipairs(YQQuality.STOCK_SOURCES) do
+        local entry = byKey[source.key]
+        if entry then
+            stock.sources[#stock.sources + 1] = {
+                key = source.key,
+                label = source.label,
+                count = entry.count,
+                confidence = entry.confidence,
+            }
+            if entry.confidence == "unknown" then
+                stock.hasUnknown = true
+            elseif entry.confidence == "unverified" then
+                stock.unverified = stock.unverified + entry.count
+                stock.total = stock.total + entry.count
+            else
+                stock.certain = stock.certain + entry.count
+                stock.total = stock.total + entry.count
+            end
+        end
+    end
+
+    stock.approximate = stock.unverified > 0 or stock.hasUnknown
+    return stock
+end
+
+-- includeBound = true compte toutes les copies, y compris celles qui sont liees.
+-- Le total vendable veut le contraire ; le comptage complet ne sert qu'a
+-- reconstituer le courrier par difference avec les chiffres TSM.
+function YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQuality, includeBound)
     local cache = YQQuality.GetStockCache()
     if cache.dirty[scope] then YQQuality.ScanStockScope(scope) end
     local bagIDs = cache.scopeBagIDs[scope] or {}
-    if cache.scopeAuthoritative[scope] ~= true and #bagIDs == 0 then return nil end
+    -- Aucun conteneur signifie « jamais lu », pas « vide » : une banque encore
+    -- fermee renvoyait 0 des que FetchPurchasedBankTabIDs repondait une table
+    -- vide, soit un faux zero indiscernable d'un stock reellement absent.
+    if #bagIDs == 0 then return nil end
     local quantity = 0
     for _, bagID in ipairs(bagIDs) do
         if not cache.knownBags[bagID] then return nil end
@@ -11905,7 +12073,8 @@ function YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQ
             local qualityMatches = item.quality == nil
                 and not requireCraftedQuality
                 or tonumber(item.quality) == tonumber(targetQuality)
-            if item.itemID == itemID and qualityMatches then
+            if item.itemID == itemID and qualityMatches
+                and (includeBound == true or item.bound ~= true) then
                 quantity = quantity + item.quantity
             end
         end
@@ -11913,35 +12082,225 @@ function YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQ
     return quantity
 end
 
-function YQQuality.GetTradableOutputStock(recipeState, candidate)
+-- Stock que le joueur peut reellement mettre en vente pour la qualite choisie.
+--
+-- Retourne (stock, visible). visible est faux quand l'objet n'est pas
+-- echangeable du tout ou que sa reference reste introuvable : la ligne est
+-- alors masquee plutot qu'affichee a zero.
+function YQQuality.GetSellableOutputStock(recipeState, candidate)
     local itemReference, itemID = YQQuality.GetOutputInventoryReference(recipeState, candidate)
-    if not itemReference or not itemID then return nil, nil, false end
+    if not itemReference or not itemID then return nil, false end
 
     local bindType = select(14, GetItemInfo(itemID))
     if bindType == nil then
         WarmItemData(itemID)
-        return nil, nil, false
+        return nil, false
     end
     if bindType ~= 0 and bindType ~= 2 and bindType ~= 3 then
-        return nil, nil, false
+        return nil, false
     end
 
     local targetQuality = tonumber(candidate.quality)
     local requireCraftedQuality = tonumber(recipeState.maxQuality) > 3
-    -- TSM stores crafted gear by levelItemString (for example i:238018::i232).
-    -- Reuse the exact output reference built for pricing instead of the raw
-    -- Blizzard hyperlink, whose bonus payload is not always normalized by TSM.
+    -- TSM indexe l'equipement fabrique par levelItemString (i:238018::i232) :
+    -- on lui passe la reference exacte construite pour le prix, jamais le lien
+    -- Blizzard brut dont il ne normalise pas toujours les bonus.
     local tsmReference = YQQuality.GetOutputPriceReference(recipeState, candidate) or itemReference
-    local trackedCharacter, trackedWarband = YQQuality.GetTSMOutputStock(tsmReference)
-    if trackedCharacter ~= nil and trackedWarband ~= nil then
-        return trackedCharacter, trackedWarband, true
+
+    return YQQuality.ComposeSellableStock({
+        reference = tsmReference,
+        bagsUnbound = YQQuality.CountStockScope("bags", itemID, targetQuality, requireCraftedQuality),
+        bagsAll = YQQuality.CountStockScope("bags", itemID, targetQuality, requireCraftedQuality, true),
+        bankUnbound = YQQuality.CountStockScope("character", itemID, targetQuality, requireCraftedQuality),
+        bankAll = YQQuality.CountStockScope("character", itemID, targetQuality, requireCraftedQuality, true),
+        warbandUnbound = YQQuality.CountStockScope("warband", itemID, targetQuality, requireCraftedQuality),
+        tsm = YQQuality.GetTSMOutputTotals(tsmReference),
+    }), true
+end
+
+-- Imprime la composition brute du stock pour la recette actuellement ouverte.
+--
+-- Le but est de rendre visibles les deux modes de panne silencieux : une
+-- reference d'objet que TSM normalise autrement que nous (tous les compteurs
+-- tombent alors a zero, indiscernable d'un stock absent), et un scope de banque
+-- jamais lu (qui doit rendre inconnu, pas zero).
+function YQQuality.PrintStockDiagnostics()
+    local recipeState = state.craft.qualityState
+    local target = state.craft.qualityTarget
+    if not recipeState or not target then
+        Print("Aucune recette ouverte dans la fenetre d'optimisation.")
+        return
+    end
+    local candidate = YQQuality.FindCandidate(recipeState, target.quality, 1)
+    if not candidate then
+        Print("Aucun plan de reactifs pour la qualite " .. tostring(target.quality) .. ".")
+        return
     end
 
-    local bags = YQQuality.CountStockScope("bags", itemID, targetQuality, requireCraftedQuality)
-    local bank = YQQuality.CountStockScope("character", itemID, targetQuality, requireCraftedQuality)
-    local warband = YQQuality.CountStockScope("warband", itemID, targetQuality, requireCraftedQuality)
-    local character = bags ~= nil and bank ~= nil and (bags + bank) or nil
-    return character, warband, true
+    local itemReference, itemID = YQQuality.GetOutputInventoryReference(recipeState, candidate)
+    local reference = YQQuality.GetOutputPriceReference(recipeState, candidate) or itemReference
+    local targetQuality = tonumber(candidate.quality)
+    local requireCraftedQuality = tonumber(recipeState.maxQuality) > 3
+    local totals = YQQuality.GetTSMOutputTotals(reference)
+
+    Print(("stock recipe=%s quality=%s maxQuality=%s itemID=%s bindType=%s"):format(
+        tostring(recipeState.recipeID), tostring(targetQuality),
+        tostring(recipeState.maxQuality), tostring(itemID),
+        tostring(itemID and select(14, GetItemInfo(itemID)))
+    ))
+    Print("  reference  = " .. tostring(reference))
+    Print("  itemString = " .. tostring(totals and totals.itemString))
+    local cache = YQQuality.GetStockCache()
+    for _, scope in ipairs({ "bags", "character", "warband" }) do
+        Print(("  natif %-9s libre=%s tout=%s conteneurs=%d autoritaire=%s"):format(
+            scope,
+            tostring(YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQuality)),
+            tostring(YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQuality, true)),
+            #(cache.scopeBagIDs[scope] or {}),
+            tostring(cache.scopeAuthoritative[scope])
+        ))
+    end
+    if totals then
+        Print(("  tsm    player=%d alts=%d encheres=%d encheresAlts=%d warbank=%d"):format(
+            totals.player, totals.alts, totals.auctions, totals.altAuctions, totals.warbank
+        ))
+    else
+        Print("  tsm    indisponible")
+    end
+
+    local stock = YQQuality.GetSellableOutputStock(recipeState, candidate)
+    if not stock then
+        Print("  compose  stock masque (objet lie ou reference introuvable)")
+        return
+    end
+    Print(("  compose  total=%d certain=%d nonVerifie=%d inconnu=%s"):format(
+        stock.total, stock.certain, stock.unverified, tostring(stock.hasUnknown)
+    ))
+    for _, source in ipairs(stock.sources) do
+        Print(("     %-28s %s / %s"):format(
+            source.label, tostring(source.count), source.confidence
+        ))
+    end
+
+    local pricing = YQQuality.GetCandidatePricing(recipeState, candidate)
+    Print(("  prix   minbuyout=%s avgsell=%s cout=%s profit=%s profitVendu=%s"):format(
+        tostring(pricing.minBuyout), tostring(pricing.avgSell),
+        tostring(pricing.materialCost), tostring(pricing.profit),
+        tostring(pricing.profitAtAvgSell)
+    ))
+end
+
+-- Resume court affiche dans le bandeau : un seul total, marque « ~ » des
+-- qu'une part n'est pas verifiable et « ? » des qu'une source est illisible.
+function YQQuality.FormatStockSummary(stock)
+    if not stock then return "?" end
+    local text = (stock.unverified > 0 and "~" or "") .. tostring(stock.total)
+    if stock.hasUnknown then text = text .. " ?" end
+    return text
+end
+
+function YQQuality.FillStockTooltip(stock, tooltip)
+    if not stock or not tooltip then return end
+    tooltip:AddLine("Stock vendable", 1, 1, 1)
+    for _, source in ipairs(stock.sources) do
+        local value, red, green, blue
+        if source.confidence == "unknown" then
+            value, red, green, blue = "?", 0.62, 0.62, 0.60
+        elseif source.confidence == "unverified" then
+            value, red, green, blue = "~" .. tostring(source.count), 1.00, 0.80, 0.40
+        else
+            value, red, green, blue = tostring(source.count), 0.90, 0.90, 0.88
+        end
+        tooltip:AddDoubleLine(source.label, value, 0.62, 0.62, 0.60, red, green, blue)
+    end
+    if stock.unverified > 0 then
+        tooltip:AddLine(
+            "~ copies connues de TSM seul, qui ignore l'etat de liaison.",
+            1, 0.80, 0.40, true
+        )
+    end
+    if stock.hasUnknown then
+        tooltip:AddLine(
+            "? source jamais lue : elle n'entre pas dans le total.",
+            0.62, 0.62, 0.60, true
+        )
+    end
+    if stock.itemString then
+        tooltip:AddLine("Objet interroge : " .. stock.itemString, 0.62, 0.62, 0.60, true)
+    end
+end
+
+-- Cout d'un lot d'un meme rang de reactif.
+--
+-- Miroir de GetOptionCost dans QualityOptimizer.lua : le prix n'est pas
+-- lineaire, une partie du lot peut etre couverte par le stock au prix
+-- SmartAvgBuy et le reste au prix de rachat. Aucune requete au fournisseur de
+-- prix : la courbe a deja ete calculee par BuildItemCostCurve.
+function YQQuality.GetOptionCostForQuantity(option, quantity)
+    quantity = math.max(0, math.floor(tonumber(quantity) or 0))
+    if quantity <= 0 then return 0 end
+    if not option then return nil end
+
+    if type(option.costCurve) == "table" and type(option.costCurve.tiers) == "table" then
+        local total, covered = 0, 0
+        for _, tier in ipairs(option.costCurve.tiers) do
+            local upTo = math.max(covered, math.floor(tonumber(tier.upTo) or covered))
+            local unitPrice = tonumber(tier.unitPrice)
+            if not unitPrice or unitPrice < 0 then return nil end
+            total = total + math.max(0, math.min(quantity, upTo) - covered) * unitPrice
+            covered = upTo
+            if covered >= quantity then return total end
+        end
+        return nil
+    end
+
+    if type(option.costForQuantity) == "function" then
+        local ok, cost = pcall(option.costForQuantity, quantity)
+        if ok and type(cost) == "number" and cost >= 0 then return cost end
+        return nil
+    end
+
+    local price = tonumber(option.price)
+    if not price or price < 0 then return nil end
+    return price * quantity
+end
+
+-- Cout du plan retenu pour un slot, tous rangs confondus.
+--
+-- C'est une attribution, pas la valeur d'autorite : le bandeau agrege par objet
+-- sur l'ensemble des reactifs, optionnels compris, avec un seul devis par
+-- objet. La somme des lignes peut donc differer legerement du cout affiche.
+function YQQuality.GetSlotLineCost(slotData, counts)
+    if not slotData then return nil end
+    local total = 0
+    for quality, quantity in pairs(counts or {}) do
+        if (tonumber(quantity) or 0) > 0 then
+            local cost = YQQuality.GetOptionCostForQuantity(
+                slotData.options and slotData.options[quality], quantity
+            )
+            if not cost then return nil end
+            total = total + cost
+        end
+    end
+    return total
+end
+
+-- Place les colonnes de rang par la DROITE du bloc, pour que le rang le plus
+-- eleve soit toujours colle aux prix. Les en-tetes et les cellules partagent
+-- cette fonction : l'alignement devient structurel au lieu d'etre recalcule de
+-- deux facons differentes.
+function YQQuality.PlaceQualityColumns(host, widgets, tierCount)
+    local columnWidth = YQQuality.LAYOUT.reagentColW
+    tierCount = math.min(3, math.max(1, tonumber(tierCount) or 1))
+    host:SetWidth(tierCount * columnWidth)
+    for quality = 1, 3 do
+        local widget = widgets[quality]
+        if widget then
+            widget:ClearAllPoints()
+            widget:SetPoint("RIGHT", host, "RIGHT", -(tierCount - quality) * columnWidth, 0)
+            widget:SetShown(quality <= tierCount)
+        end
+    end
 end
 
 function YQQuality.GetCandidatePricing(recipeState, candidate)
@@ -11962,6 +12321,12 @@ function YQQuality.GetCandidatePricing(recipeState, candidate)
         and outputBindType ~= 0 and outputBindType ~= 2 and outputBindType ~= 3
     if not pricing.outputBound then
         pricing.minBuyout = outputReference and YQQuality.GetTSMPrice("dbminbuyout", outputReference) or nil
+        -- Source Accounting de TSM : le prix moyen auquel le joueur a lui-meme
+        -- vendu cette variante exacte. Elle exclut les ventes au marchand et
+        -- respecte la granularite de l'itemString, donc la qualite et le niveau
+        -- d'objet. Purement informative : le profit de reference reste sur
+        -- dbminbuyout.
+        pricing.avgSell = outputReference and YQQuality.GetTSMPrice("avgsell", outputReference) or nil
     end
 
     local completeReagents = BuildCompleteRecipeReagents(
@@ -12022,24 +12387,92 @@ function YQQuality.GetCandidatePricing(recipeState, candidate)
     pricing.knownMaterialCost = materialCost
     pricing.materialCost = materialCostKnown and materialCost or nil
 
-    if pricing.minBuyout and pricing.materialCost then
+    if pricing.materialCost then
         local schematic = recipeState.schematic or {}
-		local quantityMin = math.max(1, tonumber(schematic.quantityMin) or 1)
-		local quantityMax = math.max(quantityMin, tonumber(schematic.quantityMax) or quantityMin)
-		local baseYield = (quantityMin + quantityMax) / 2
-		local central = _G.YayaCraftedPriceAPI
-		if central and type(central.CalculateNetValue) == "function" then
-			pricing.profit = central.CalculateNetValue(
-				pricing.minBuyout,
-				baseYield,
-				pricing.materialCost,
-				0.05
-			)
-		else
-			pricing.profit = (pricing.minBuyout * baseYield * 0.95) - pricing.materialCost
-		end
-	end
+        local quantityMin = math.max(1, tonumber(schematic.quantityMin) or 1)
+        local quantityMax = math.max(quantityMin, tonumber(schematic.quantityMax) or quantityMin)
+        local baseYield = (quantityMin + quantityMax) / 2
+        local central = _G.YayaCraftedPriceAPI
+        local function NetValue(unitValue)
+            if central and type(central.CalculateNetValue) == "function" then
+                return central.CalculateNetValue(unitValue, baseYield, pricing.materialCost, 0.05)
+            end
+            return (unitValue * baseYield * 0.95) - pricing.materialCost
+        end
+        if pricing.minBuyout then
+            pricing.profit = NetValue(pricing.minBuyout)
+        end
+        -- Meme formule, mais au prix auquel le joueur ecoule reellement. Reste
+        -- confine a l'infobulle : le profit affiche doit rester comparable
+        -- d'une recette a l'autre, donc sur une seule source.
+        if pricing.avgSell then
+            pricing.profitAtAvgSell = NetValue(pricing.avgSell)
+        end
+    end
     return pricing
+end
+
+-- Detail des prix, trop long pour la ligne du bandeau.
+function YQQuality.FillPricingTooltip(pricing, tooltip)
+    if not pricing or not tooltip then return end
+    tooltip:AddLine("Prix", 1, 1, 1)
+    if pricing.materialCost then
+        tooltip:AddDoubleLine(
+            pricing.estimated and "Cout des materiaux (estime)" or "Cout des materiaux",
+            GetMoneyString(math.floor(pricing.materialCost), true),
+            0.62, 0.62, 0.60, 0.90, 0.90, 0.88
+        )
+    else
+        tooltip:AddDoubleLine(
+            "Cout connu",
+            GetMoneyString(math.floor(pricing.knownMaterialCost or 0), true) .. " + ?",
+            0.62, 0.62, 0.60, 1.00, 0.80, 0.40
+        )
+        if pricing.missingMaterialItemID then
+            local name = GetItemInfo(pricing.missingMaterialItemID)
+            tooltip:AddLine(
+                "Sans prix : " .. (name or ("objet " .. tostring(pricing.missingMaterialItemID))),
+                1, 0.80, 0.40, true
+            )
+        end
+    end
+    if pricing.outputBound then
+        tooltip:AddLine("Objet lie : ni prix de vente ni profit.", 0.62, 0.62, 0.60, true)
+        return
+    end
+    tooltip:AddDoubleLine(
+        "Minbuyout (TSM)",
+        pricing.minBuyout and GetMoneyString(math.floor(pricing.minBuyout), true) or "?",
+        0.62, 0.62, 0.60, 0.90, 0.90, 0.88
+    )
+    tooltip:AddDoubleLine(
+        "Vendu (TSM avgsell)",
+        pricing.avgSell and GetMoneyString(math.floor(pricing.avgSell), true) or "?",
+        0.62, 0.62, 0.60, 0.90, 0.90, 0.88
+    )
+    if pricing.profitAtAvgSell then
+        tooltip:AddDoubleLine(
+            "Profit au prix vendu",
+            YQQuality.FormatSignedMoney(pricing.profitAtAvgSell),
+            0.62, 0.62, 0.60, 0.90, 0.90, 0.88
+        )
+    end
+    if pricing.avgSell then
+        tooltip:AddLine(
+            "Vendu : moyenne de tout l'historique Accounting, tous royaumes suivis,"
+                .. " ventes au marchand exclues. Le nombre de ventes n'est pas expose.",
+            0.62, 0.62, 0.60, true
+        )
+    else
+        tooltip:AddLine(
+            "Vendu : aucune vente enregistree pour cette variante exacte.",
+            0.62, 0.62, 0.60, true
+        )
+    end
+    tooltip:AddLine(
+        "Le profit affiche utilise le Minbuyout, jamais le prix vendu.",
+        0.62, 0.62, 0.60, true
+    )
 end
 
 function YQQuality.FormatSignedMoney(value)
@@ -12187,30 +12620,165 @@ local function CreateQuantityControls(button, includeReset, onChanged)
     return minusButton
 end
 
+-- Gabarit commun aux lignes de reactif et a leur en-tete.
+--
+-- De gauche a droite : icone, nom, bloc des rangs, prix unitaire, cout de la
+-- ligne. Les colonnes de droite reservent leur largeur en premier, le nom prend
+-- ce qui reste, donc il ne peut pas mordre sur les chiffres.
+function YQQuality.CreateReagentRow(frame, withIcon)
+    local UI = YayaCore.UI
+    local row = UI.CreateRow(frame, {
+        height = withIcon and UI.SIZE.rowH or UI.SIZE.rowHCompact,
+        icon = withIcon,
+        iconSize = UI.SIZE.icon,
+        valueWidth = YQQuality.LAYOUT.costW,
+        labelFont = withIcon and UI.FONT.body or UI.FONT.muted,
+        valueFont = withIcon and UI.FONT.body or UI.FONT.muted,
+        tooltipAnchor = "ANCHOR_LEFT",
+    })
+    if not row then return nil end
+    row:SetWidth(YQQuality.LAYOUT.panelW - 20)
+
+    row.unit = row:CreateFontString(nil, "OVERLAY", withIcon and UI.FONT.muted or UI.FONT.muted)
+    row.unit:SetPoint("RIGHT", row.value, "LEFT", -UI.PAD.sm, 0)
+    row.unit:SetWidth(YQQuality.LAYOUT.unitW)
+    UI.BoundLabel(row.unit, "RIGHT")
+
+    row.qualityHost = CreateFrame("Frame", nil, row)
+    row.qualityHost:SetPoint("RIGHT", row.unit, "LEFT", -UI.PAD.sm, 0)
+    row.qualityHost:SetHeight(UI.SIZE.rowH)
+    row.qualityHost:SetWidth(3 * YQQuality.LAYOUT.reagentColW)
+
+    row.counts = {}
+    for quality = 1, 3 do
+        row.counts[quality] = row.qualityHost:CreateFontString(
+            nil, "OVERLAY", withIcon and UI.FONT.body or UI.FONT.muted
+        )
+        row.counts[quality]:SetWidth(YQQuality.LAYOUT.reagentColW)
+        row.counts[quality]:SetJustifyH("CENTER")
+    end
+
+    -- DecorateRow avait ancre le libelle sur la colonne de valeur : il faut le
+    -- rendre au bloc des rangs, sinon le nom passerait par-dessus les chiffres.
+    row.label:ClearAllPoints()
+    row.label:SetPoint(
+        "LEFT", row, "LEFT",
+        UI.PAD.md + (withIcon and (UI.SIZE.icon + UI.PAD.sm) or 0), 0
+    )
+    row.label:SetPoint("RIGHT", row.qualityHost, "LEFT", -UI.PAD.sm, 0)
+    return YQQuality.MakeRowHoverOnly(row)
+end
+
+-- UI.CreateRow fabrique un Button, donc une surface qui avale les clics. Ces
+-- lignes-ci ne portent aucune action : elles doivent laisser passer le clic
+-- vers la frame situee dessous, tout en continuant a repondre au survol pour
+-- leur infobulle. C'est la meme exigence que le corps du panneau, qui n'active
+-- deliberement pas la souris.
+function YQQuality.MakeRowHoverOnly(row)
+    if not row then return row end
+    if type(row.SetMouseClickEnabled) == "function" then
+        row:SetMouseClickEnabled(false)
+        if type(row.SetMouseMotionEnabled) == "function" then
+            row:SetMouseMotionEnabled(true)
+        end
+    end
+    return row
+end
+
+-- Libelles du bandeau, dans l'ordre d'affichage de chaque colonne.
+YQQuality.INFO_LABELS = {
+    maxQuality = "Qualité max",
+    reachable = "Atteignable",
+    stock = "Stock vendable",
+    cost = "Coût",
+    minBuyout = "Minbuyout",
+    avgSell = "Vendu",
+    profit = "Profit est.",
+}
+
+-- Une colonne du bandeau : un conteneur sans fond, epingle par deux coins
+-- opposes, qui empile des lignes compactes. Les deux colonnes se partagent la
+-- largeur, donc aucune ne peut mordre sur l'autre.
+function YQQuality.CreateInfoColumn(frame, side, keys)
+    local UI = YayaCore.UI
+    local column = CreateFrame("Frame", nil, frame)
+    local width = (YQQuality.LAYOUT.panelW - 2 * UI.PAD.lg - UI.PAD.lg) / 2
+    column:SetWidth(width)
+    column:SetHeight(#keys * UI.SIZE.rowHCompact)
+    if side == "left" then
+        column:SetPoint("TOPLEFT", frame, "TOPLEFT", UI.PAD.lg, -30)
+    else
+        column:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -UI.PAD.lg, -30)
+    end
+
+    for index, key in ipairs(keys) do
+        local row = UI.CreateRow(column, {
+            height = UI.SIZE.rowHCompact,
+            labelFont = UI.FONT.muted,
+            valueWidth = YQQuality.LAYOUT.infoValueW,
+        })
+        if row then
+            row:SetPoint("TOPLEFT", column, "TOPLEFT", 0, -(index - 1) * UI.SIZE.rowHCompact)
+            row:SetPoint("TOPRIGHT", column, "TOPRIGHT", 0, -(index - 1) * UI.SIZE.rowHCompact)
+            row.label:SetText(YQQuality.INFO_LABELS[key] or key)
+            -- Ces lignes ne portent pas d'objet : leur infobulle est libre, donc
+            -- on remplace le gestionnaire pose par DecorateRow au lieu de passer
+            -- par SetTooltip, qui ne sait afficher qu'un titre et un corps.
+            row:SetScript("OnEnter", function(self)
+                local fill = YQQuality.INFO_TOOLTIPS[key]
+                if not fill then return end
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                if fill(frame, GameTooltip) == false then
+                    GameTooltip:Hide()
+                    return
+                end
+                GameTooltip:Show()
+            end)
+            row:SetScript("OnLeave", GameTooltip_Hide)
+            YQQuality.MakeRowHoverOnly(row)
+            frame.infoRows[key] = row
+        end
+    end
+    frame[side == "left" and "infoLeft" or "infoRight"] = column
+    return column
+end
+
+-- Infobulles du bandeau. Renvoyer false laisse l'infobulle fermee.
+YQQuality.INFO_TOOLTIPS = {
+    stock = function(frame, tooltip)
+        if not frame.stockData then return false end
+        YQQuality.FillStockTooltip(frame.stockData, tooltip)
+    end,
+    cost = function(frame, tooltip)
+        if not frame.pricingData then return false end
+        YQQuality.FillPricingTooltip(frame.pricingData, tooltip)
+    end,
+}
+YQQuality.INFO_TOOLTIPS.minBuyout = YQQuality.INFO_TOOLTIPS.cost
+YQQuality.INFO_TOOLTIPS.avgSell = YQQuality.INFO_TOOLTIPS.cost
+YQQuality.INFO_TOOLTIPS.profit = YQQuality.INFO_TOOLTIPS.cost
+
+-- Ecrit une paire du bandeau. tone est un token de UI.COLOR.
+function YQQuality.SetInfoValue(frame, key, text, tone)
+    local row = frame.infoRows and frame.infoRows[key]
+    if not row then return end
+    row.value:SetText(text or "")
+    row.SetTone(tone or "text")
+end
+
+function YQQuality.SetInfoShown(frame, shown)
+    if frame.infoLeft then frame.infoLeft:SetShown(shown) end
+    if frame.infoRight then frame.infoRight:SetShown(shown) end
+    if frame.infoDivider then frame.infoDivider:SetShown(shown) end
+    if frame.controlsDivider then frame.controlsDivider:SetShown(shown) end
+    frame.infoStatus:SetShown(not shown)
+end
+
 function YQQuality.EnsureReagentRows(frame, rowCount)
     frame.reagentRows = frame.reagentRows or {}
     for rowIndex = #frame.reagentRows + 1, rowCount do
-        local row = CreateFrame("Frame", nil, frame)
-        row:SetSize(320, 32)
-        row:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -165 - ((rowIndex - 1) * 28))
-        row:EnableMouse(true)
-        row.icon = row:CreateTexture(nil, "ARTWORK")
-        row.icon:SetSize(30, 30)
-        row.icon:SetPoint("LEFT", 2, 0)
-        row.counts = {}
-        for quality = 1, 3 do
-            local count = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-            count:SetWidth(32)
-            count:SetJustifyH("CENTER")
-            row.counts[quality] = count
-        end
-        row:SetScript("OnEnter", function(self)
-            if not self.itemID then return end
-            GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-            GameTooltip:SetItemByID(self.itemID)
-            GameTooltip:Show()
-        end)
-        row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        local row = YQQuality.CreateReagentRow(frame, true)
+        if not row then break end
         row:Hide()
         frame.reagentRows[rowIndex] = row
     end
@@ -12220,14 +12788,13 @@ function YQQuality.EnsureOptionalRows(frame, rowCount)
     frame.optionalRows = frame.optionalRows or {}
     for rowIndex = #frame.optionalRows + 1, rowCount do
         local button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-        button:SetSize(36, 36)
-        button:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -190 - ((rowIndex - 1) * 30))
+        button:SetSize(YayaCore.UI.SIZE.iconButton, YayaCore.UI.SIZE.iconButton)
         button.icon = button:CreateTexture(nil, "ARTWORK")
-        button.icon:SetSize(28, 28)
+        button.icon:SetSize(YayaCore.UI.SIZE.icon, YayaCore.UI.SIZE.icon)
         button.icon:SetPoint("CENTER")
-        button.selectionMark = button:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        button.selectionMark:SetPoint("TOPRIGHT", button, "TOPRIGHT", 4, 5)
-        button.selectionMark:SetText("|cff55ff77✓|r")
+        button.selectionMark = button:CreateFontString(nil, "OVERLAY", YayaCore.UI.FONT.body)
+        button.selectionMark:SetPoint("TOPRIGHT", button, "TOPRIGHT", 3, 4)
+        button.selectionMark:SetText(YayaCore.UI.Colorize("success", "✓"))
         button.selectionMark:Hide()
         button:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -12265,13 +12832,13 @@ function YQQuality.EnsureFinishingRows(frame, rowCount)
     frame.finishingRows = frame.finishingRows or {}
     for rowIndex = #frame.finishingRows + 1, rowCount do
         local button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-        button:SetSize(36, 36)
+        button:SetSize(YayaCore.UI.SIZE.iconButton, YayaCore.UI.SIZE.iconButton)
         button.icon = button:CreateTexture(nil, "ARTWORK")
-        button.icon:SetSize(30, 30)
+        button.icon:SetSize(YayaCore.UI.SIZE.icon, YayaCore.UI.SIZE.icon)
         button.icon:SetPoint("CENTER")
-        button.selectionMark = button:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        button.selectionMark:SetPoint("TOPRIGHT", button, "TOPRIGHT", 4, 5)
-        button.selectionMark:SetText("|cff55ff77✓|r")
+        button.selectionMark = button:CreateFontString(nil, "OVERLAY", YayaCore.UI.FONT.body)
+        button.selectionMark:SetPoint("TOPRIGHT", button, "TOPRIGHT", 3, 4)
+        button.selectionMark:SetText(YayaCore.UI.Colorize("success", "✓"))
         button:SetScript("OnEnter", function(self)
             if not self.itemID then return end
             GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -12288,6 +12855,7 @@ end
 function YQQuality.EnsureSelector(schematicForm)
     local craftingPage = ProfessionsFrame and ProfessionsFrame.CraftingPage
     if not craftingPage or not schematicForm then return nil end
+    state.EnsureDB()
     local frame = state.craft.qualityFrame
     if frame then
         frame.schematicForm = schematicForm
@@ -12296,40 +12864,75 @@ function YQQuality.EnsureSelector(schematicForm)
     end
 
     frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    frame:SetSize(340, 296)
+    frame:SetSize(YQQuality.LAYOUT.panelW, 296)
     frame:SetPoint("CENTER", UIParent, "CENTER", 180, 0)
     frame:SetFrameStrata("MEDIUM")
     frame:SetMovable(true)
     frame:SetClampedToScreen(true)
-    frame:EnableMouse(true)
-    frame:RegisterForDrag("LeftButton")
-    frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
-    frame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
-    -- Meme habillage que le panneau de file. Cette fenetre etait la seule du
-    -- depot en DialogBox : l'addon presentait donc deux styles differents.
+    -- Jamais EnableMouse(true) sur le corps : la fenetre partage la strate de
+    -- YayaFrame, et une surface cliquable ici avalerait les clics destines aux
+    -- boutons du tracker hebdo situes dessous. Le deplacement passe par le
+    -- bandeau de titre, seule surface souris du chrome.
     YayaCore.UI.ApplyPanelBackdrop(frame)
     frame.schematicForm = schematicForm
 
-    frame.title = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.header)
-    frame.title:SetPoint("TOPLEFT", 12, -10)
-    frame.title:SetText("YQ — Optimisation des réactifs")
-    frame.title:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.accent))
-    frame.closeButton = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
-    frame.closeButton:SetPoint("TOPRIGHT", -2, -2)
-    frame.closeButton:SetScript("OnClick", function() frame.userClosed = true; frame:Hide() end)
-    frame.maxText = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    frame.maxText:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -36)
-    frame.status = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    frame.status:SetPoint("TOPLEFT", frame, "TOPLEFT", 165, -36)
+    frame.header = YayaCore.UI.CreateHeader(frame, "YQ — Optimisation des réactifs", {
+        moveTarget = frame,
+        isLocked = function() return db and db.qualityPanelLocked == true end,
+        onMoveStopped = function() SavePanelPoint(frame, "qualityPanelPoint") end,
+    })
+    -- Le bouton de fermeture est cree en premier pour rester le plus a droite :
+    -- header.AddButton empile de droite a gauche.
+    frame.closeButton = YayaCore.UI.CreateCloseButton(frame.header, frame, {
+        onClick = function() frame.userClosed = true end,
+    })
+    frame.lockButton = YayaCore.UI.CreateGlyphButton(frame.header, "lock", {
+        locked = db and db.qualityPanelLocked == true,
+    })
+    if frame.lockButton then
+        frame.header.AddButton(frame.lockButton)
+        frame.lockButton:SetScript("OnClick", function()
+            state.EnsureDB()
+            db.qualityPanelLocked = not (db.qualityPanelLocked == true)
+            frame.lockButton.SetLocked(db.qualityPanelLocked)
+        end)
+        frame.lockButton.SetTooltip(
+            "Verrouiller la position",
+            "Empeche le deplacement de la fenetre."
+        )
+    end
+    ApplyPanelPoint(frame, "qualityPanelPoint")
+    -- Bandeau d'information : deux colonnes de paires libelle / valeur.
+    --
+    -- L'ancienne version concatenait trois montants dans une seule FontString.
+    -- Les valeurs longues debordaient, et un « |r » place au milieu de la
+    -- chaine effacait la couleur de tout ce qui suivait, parce que |r restaure
+    -- la couleur par defaut au lieu de depiler. Chaque valeur a desormais sa
+    -- propre FontString, bornee et teintee independamment.
+    frame.infoRows = {}
+    YQQuality.CreateInfoColumn(frame, "left", { "maxQuality", "reachable", "stock" })
+    YQQuality.CreateInfoColumn(frame, "right", { "cost", "minBuyout", "avgSell", "profit" })
 
-    frame.marketText = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    frame.marketText:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -58)
-    frame.marketText:SetWidth(316)
-    frame.marketText:SetJustifyH("LEFT")
-    frame.marketText:SetText("Minbuyout : ?   Profit est. : ?")
+    frame.infoStatus = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.muted)
+    frame.infoStatus:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -36)
+    frame.infoStatus:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -36)
+    frame.infoStatus:SetJustifyH("LEFT")
+    YayaCore.UI.BoundLabel(frame.infoStatus, "LEFT")
+    frame.infoStatus:Hide()
+
+    frame.infoDivider = YayaCore.UI.CreateDivider(frame)
+    if frame.infoDivider then
+        frame.infoDivider:SetPoint("TOPLEFT", frame, "TOPLEFT", YayaCore.UI.PAD.lg, -98)
+        frame.infoDivider:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -YayaCore.UI.PAD.lg, -98)
+    end
+    frame.controlsDivider = YayaCore.UI.CreateDivider(frame)
+    if frame.controlsDivider then
+        frame.controlsDivider:SetPoint("TOPLEFT", frame, "TOPLEFT", YayaCore.UI.PAD.lg, -164)
+        frame.controlsDivider:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -YayaCore.UI.PAD.lg, -164)
+    end
 
     frame.qualityChoiceLabel = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.header)
-    frame.qualityChoiceLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -86)
+    frame.qualityChoiceLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -108)
     frame.qualityChoiceLabel:SetText("Choix de qualité")
     frame.qualityChoiceLabel:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.accent))
 
@@ -12337,7 +12940,7 @@ function YQQuality.EnsureSelector(schematicForm)
     for quality = 1, 5 do
         local button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
         button:SetSize(28, 26)
-        button:SetPoint("TOPLEFT", frame, "TOPLEFT", 150 + (quality - 1) * 34, -78)
+        button:SetPoint("TOPLEFT", frame, "TOPLEFT", 150 + (quality - 1) * 34, -102)
         button:SetText("")
         button.icon = button:CreateTexture(nil, "ARTWORK")
         button.icon:SetSize(20, 20)
@@ -12370,7 +12973,7 @@ function YQQuality.EnsureSelector(schematicForm)
             YQQuality.UpdateSelector()
         end,
     })
-    frame.concentration:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -114)
+    frame.concentration:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -136)
     frame.concentration:SetHitRectInsets(0, -28, 0, 0)
 
     frame.finishing = YayaCore.UI.CreateCheckbox(frame, "Finishing", {
@@ -12389,12 +12992,12 @@ function YQQuality.EnsureSelector(schematicForm)
             YQQuality.UpdateSelector()
         end,
     })
-    frame.finishing:SetPoint("TOPLEFT", frame, "TOPLEFT", 104, -114)
+    frame.finishing:SetPoint("TOPLEFT", frame, "TOPLEFT", 104, -136)
     frame.finishing:SetHitRectInsets(0, -56, 0, 0)
 
     frame.goldStar = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
     frame.goldStar:SetSize(24, 24)
-    frame.goldStar:SetPoint("TOPLEFT", frame, "TOPLEFT", 216, -114)
+    frame.goldStar:SetPoint("TOPLEFT", frame, "TOPLEFT", 216, -136)
     frame.goldStar:SetHitRectInsets(0, -52, 0, 0)
     frame.goldStar.label = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.body)
     frame.goldStar.label:SetPoint("LEFT", frame.goldStar, "RIGHT", 1, 0)
@@ -12416,16 +13019,28 @@ function YQQuality.EnsureSelector(schematicForm)
         YQQuality.UpdateSelector()
     end)
 
-    frame.reagentHeader = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.header)
-    frame.reagentHeader:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -144)
-    frame.reagentHeader:SetText("Réactifs")
-    frame.reagentHeader:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.accent))
-    frame.reagentQualityHeaders = {}
-    for quality = 1, 3 do
-        local header = frame:CreateTexture(nil, "ARTWORK")
-        header:SetSize(20, 20)
-        frame.reagentQualityHeaders[quality] = header
+    -- L'en-tete emprunte le gabarit des lignes : les colonnes de rang, le prix
+    -- unitaire et le cout tombent donc exactement au meme endroit qu'en dessous,
+    -- au lieu d'etre replaces par un second jeu de constantes.
+    frame.reagentHeader = YQQuality.CreateReagentRow(frame, false)
+    if frame.reagentHeader then
+        frame.reagentHeader:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -166)
+        frame.reagentHeader:EnableMouse(false)
+        frame.reagentHeader.label:SetText("Réactifs")
+        frame.reagentHeader.label:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.accent))
+        frame.reagentHeader.unit:SetText("Unit.")
+        frame.reagentHeader.value:SetText("Coût")
+        frame.reagentQualityHeaders = {}
+        for quality = 1, 3 do
+            local header = frame.reagentHeader.qualityHost:CreateTexture(nil, "ARTWORK")
+            header:SetSize(YayaCore.UI.SIZE.icon, YayaCore.UI.SIZE.icon)
+            frame.reagentQualityHeaders[quality] = header
+        end
     end
+    frame.reagentEmpty = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.muted)
+    frame.reagentEmpty:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -186)
+    frame.reagentEmpty:SetText("Aucun réactif de qualité pour cette recette.")
+    frame.reagentEmpty:Hide()
     frame.reagentRows = {}
 
     frame.optionalHeader = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.header)
@@ -12441,7 +13056,7 @@ function YQQuality.EnsureSelector(schematicForm)
     }
     for _, category in ipairs({ "sparks", "crests", "missives", "embellishments" }) do
         local header = frame:CreateFontString(nil, "ARTWORK", YayaCore.UI.FONT.header)
-        header:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.accent))
+        header:SetTextColor(YayaCore.UI.Unpack(YayaCore.UI.COLOR.category))
         header:SetText(frame.categoryLabels[category])
         header:Hide()
         frame.categoryHeaders[category] = header
@@ -12593,16 +13208,18 @@ function YQQuality.UpdateSelector()
         )
         recipeState = state.craft.qualityState
         if not cacheHit then
-            frame.status:SetText("Calcul en cours…")
-            frame.maxText:SetText("")
-            frame.marketText:SetText("")
+            -- Cout et profit restent masques tant qu'un calcul est actif :
+            -- afficher les valeurs de la recette precedente ferait croire
+            -- qu'elles decrivent celle qu'on regarde.
+            YQQuality.SetInfoShown(frame, false)
+            frame.infoStatus:SetText("Calcul en cours…")
             frame.addButton:Disable()
             for _, button in ipairs(frame.qualityButtons) do button:Hide() end
             frame.concentration:Disable()
             frame.finishing:Disable()
             frame.goldStar:Hide()
-            frame.reagentHeader:Hide()
-            for _, header in ipairs(frame.reagentQualityHeaders or {}) do header:Hide() end
+            if frame.reagentHeader then frame.reagentHeader:Hide() end
+            frame.reagentEmpty:Hide()
             for _, row in ipairs(frame.reagentRows or {}) do row:Hide() end
             frame.optionalHeader:Hide()
             for _, header in pairs(frame.categoryHeaders or {}) do header:Hide() end
@@ -12614,13 +13231,12 @@ function YQQuality.UpdateSelector()
         end
     end
     if not recipeState or recipeState.reachableQuality <= 0 then
-        frame.status:SetText(
+        YQQuality.SetInfoShown(frame, false)
+        frame.infoStatus:SetText(
             recipeState and recipeState.exactUnavailableReason
                 and ("Optimum exact indisponible : " .. recipeState.exactUnavailableReason)
                 or "Qualité indisponible"
         )
-        frame.maxText:SetText("")
-        frame.marketText:SetText("Minbuyout : |cffaaaaaa?|r   Profit est. : |cffaaaaaa?|r")
         frame.addButton:Disable()
         for _, button in ipairs(frame.qualityButtons) do button:Hide() end
         frame.concentration:Show()
@@ -12635,8 +13251,8 @@ function YQQuality.UpdateSelector()
         frame.finishing:SetEnabled(errorHasFinishing)
         frame.finishing:SetChecked(useFinishing)
         frame.goldStar:Hide()
-        frame.reagentHeader:Hide()
-        for _, header in ipairs(frame.reagentQualityHeaders or {}) do header:Hide() end
+        if frame.reagentHeader then frame.reagentHeader:Hide() end
+        frame.reagentEmpty:Hide()
         for _, row in ipairs(frame.reagentRows or {}) do row:Hide() end
         frame.optionalHeader:Hide()
         for _, header in pairs(frame.categoryHeaders or {}) do header:Hide() end
@@ -12647,7 +13263,7 @@ function YQQuality.UpdateSelector()
         return
     end
     frame.concentration:Show()
-    frame.reagentHeader:Show()
+    if frame.reagentHeader then frame.reagentHeader:Show() end
     local minimumQuality = recipeState.minQuality == math.huge and 1 or recipeState.minQuality
     local requestedQuantity = ReadQuantityInput(frame.addButton.qtyBox)
     local preferredQuality = tonumber(state.craft.qualityPreferences.quality)
@@ -12663,27 +13279,23 @@ function YQQuality.UpdateSelector()
     local selectedCandidate = YQQuality.FindCandidate(
         recipeState, target.quality, requestedQuantity
     )
-    frame.maxText:SetText(
-        "Qualité max : " .. YQQuality.GetQualityIcon(
-            recipeState.maxQuality, 18, recipeState.simplifiedResult
-        )
+    YQQuality.SetInfoShown(frame, true)
+    YQQuality.SetInfoValue(frame, "maxQuality", YQQuality.GetQualityIcon(
+        recipeState.maxQuality, YayaCore.UI.SIZE.iconSm, recipeState.simplifiedResult
+    ))
+    YQQuality.SetInfoValue(
+        frame, "reachable",
+        YQQuality.GetQualityIcon(
+            recipeState.reachableQuality, YayaCore.UI.SIZE.iconSm, recipeState.simplifiedResult
+        ),
+        recipeState.reachableQuality >= recipeState.maxQuality and "text" or "warning"
     )
-    local characterStock, warbandStock, showStock = YQQuality.GetTradableOutputStock(
-        recipeState, selectedCandidate
-    )
-    local stockText = showStock
-        and (
-            "  Stock " .. YQQuality.GetQualityIcon(
-                target.quality, 14, recipeState.simplifiedResult
-            )
-                .. " C:" .. (characterStock ~= nil and tostring(characterStock) or "?")
-                .. " W:" .. (warbandStock ~= nil and tostring(warbandStock) or "?")
-        )
-        or ""
-    frame.status:SetText(
-        "Atteignable : " .. YQQuality.GetQualityIcon(
-            recipeState.reachableQuality, 18, recipeState.simplifiedResult
-        ) .. stockText
+    local stock, showStock = YQQuality.GetSellableOutputStock(recipeState, selectedCandidate)
+    frame.stockData = showStock and stock or nil
+    YQQuality.SetInfoValue(
+        frame, "stock",
+        showStock and YQQuality.FormatStockSummary(stock) or "—",
+        (showStock and stock.approximate) and "warning" or (showStock and "text" or "textMuted")
     )
     DebugPrint(
         "quality-display recipe=" .. tostring(recipeState.recipeID)
@@ -12731,22 +13343,48 @@ function YQQuality.UpdateSelector()
     frame.addButton:SetEnabled(candidate ~= nil and concentrationEnough and goldStarEnough
         and not missingGameplayOptional)
     local pricing = YQQuality.GetCandidatePricing(recipeState, candidate)
-    local minBuyoutText = pricing.outputBound and "|cffaaaaaaLié|r"
-        or (pricing.minBuyout and GetMoneyString(math.floor(pricing.minBuyout), true) or "|cffaaaaaa?|r")
-    local profitText = pricing.outputBound and "—" or YQQuality.FormatSignedMoney(pricing.profit)
-    local profitColor = "|cffaaaaaa"
-    if type(pricing.profit) == "number" then
-        profitColor = pricing.profit > 0 and "|cff55dd77" or (pricing.profit < 0 and "|cffff5555" or "|cffffffff")
+    -- Les montants sont compacts dans le bandeau, exacts dans l'infobulle : une
+    -- colonne a largeur fixe ne peut pas accueillir « 1234po 56pa 78pc ».
+    local function Compact(value)
+        return value and YayaCore.Money.FormatCompact(math.floor(value)) or nil
     end
-    local materialCostText = pricing.materialCost and GetMoneyString(math.floor(pricing.materialCost), true)
-        or (pricing.knownMaterialCost > 0 and GetMoneyString(math.floor(pricing.knownMaterialCost), true) .. " + ?"
-            or "|cffaaaaaa?|r")
-    local materialLabel = pricing.materialCost and (pricing.estimated and "Coût estimé : " or "Coût : ")
-        or "Coût connu : "
-    frame.lastMarketText = materialLabel .. materialCostText
-        .. "   Minbuyout : " .. minBuyoutText
-        .. "   Profit est. : " .. profitColor .. profitText .. "|r"
-    frame.marketText:SetText(frame.lastMarketText)
+    if pricing.materialCost then
+        YQQuality.SetInfoValue(
+            frame, "cost", Compact(pricing.materialCost),
+            pricing.estimated and "warning" or "text"
+        )
+    elseif (pricing.knownMaterialCost or 0) > 0 then
+        YQQuality.SetInfoValue(frame, "cost", Compact(pricing.knownMaterialCost) .. " + ?", "warning")
+    else
+        YQQuality.SetInfoValue(frame, "cost", "?", "textMuted")
+    end
+    if pricing.outputBound then
+        YQQuality.SetInfoValue(frame, "minBuyout", "Lié", "textMuted")
+        YQQuality.SetInfoValue(frame, "avgSell", "—", "textMuted")
+        YQQuality.SetInfoValue(frame, "profit", "—", "textMuted")
+    else
+        YQQuality.SetInfoValue(
+            frame, "minBuyout", Compact(pricing.minBuyout) or "?",
+            pricing.minBuyout and "text" or "textMuted"
+        )
+        YQQuality.SetInfoValue(
+            frame, "avgSell", Compact(pricing.avgSell) or "?",
+            pricing.avgSell and "text" or "textMuted"
+        )
+        local profitTone = "textMuted"
+        if type(pricing.profit) == "number" then
+            profitTone = pricing.profit > 0 and "success"
+                or (pricing.profit < 0 and "danger" or "text")
+        end
+        YQQuality.SetInfoValue(
+            frame, "profit",
+            type(pricing.profit) == "number"
+                and ((pricing.profit > 0 and "+" or "") .. Compact(pricing.profit))
+                or "?",
+            profitTone
+        )
+    end
+    frame.pricingData = pricing
     DebugPrint(
         "quality-price recipe=" .. tostring(recipeState.recipeID)
             .. " target=" .. tostring(target.quality)
@@ -12756,19 +13394,27 @@ function YQQuality.UpdateSelector()
             .. " missingMaterial=" .. tostring(pricing.missingMaterialItemID)
             .. " outputBound=" .. tostring(pricing.outputBound)
             .. " profit=" .. tostring(pricing.profit)
+            .. " avgsell=" .. tostring(pricing.avgSell)
     )
 
     local reagentQualityCount = math.min(3, math.max(0, recipeState.reagentQualityCount or 0))
-    local columnCenter = reagentQualityCount == 2 and 250 or 220
-    local columnSpacing = reagentQualityCount == 2 and 46 or 42
-    for quality, header in ipairs(frame.reagentQualityHeaders or {}) do
-        header:ClearAllPoints()
-        header:SetPoint("TOPLEFT", frame, "TOPLEFT", columnCenter - 10 + ((quality - 1) * columnSpacing), -142)
-        header:SetAtlas(YQQuality.GetQualityAtlas(quality, reagentQualityCount == 2))
-        header:SetShown(quality <= reagentQualityCount)
+    local reagentRowCount = #(recipeState.slots or {})
+    if frame.reagentHeader then
+        YQQuality.PlaceQualityColumns(
+            frame.reagentHeader.qualityHost, frame.reagentQualityHeaders, reagentQualityCount
+        )
+        for quality, header in ipairs(frame.reagentQualityHeaders or {}) do
+            header:SetAtlas(YQQuality.GetQualityAtlas(quality, reagentQualityCount == 2))
+        end
+        frame.reagentHeader:SetShown(reagentRowCount > 0)
     end
+    frame.reagentEmpty:SetShown(reagentRowCount == 0)
 
-    YQQuality.EnsureReagentRows(frame, #(recipeState.slots or {}))
+    YQQuality.EnsureReagentRows(frame, reagentRowCount)
+    if #(frame.reagentRows or {}) < reagentRowCount then
+        DebugPrint("quality-rows indisponibles attendu=" .. tostring(reagentRowCount)
+            .. " obtenu=" .. tostring(#(frame.reagentRows or {})))
+    end
     for rowIndex, row in ipairs(frame.reagentRows or {}) do
         local slotData = recipeState.slots and recipeState.slots[rowIndex]
         local selectedCounts = {}
@@ -12789,17 +13435,31 @@ function YQQuality.UpdateSelector()
         if slotData and slotData.options and slotData.options[1] then
             local itemID = tonumber(slotData.options[1].itemID)
             row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -165 - ((rowIndex - 1) * 34))
-            local itemIcon = GetItemIcon(itemID)
-            row.icon:SetTexture(itemIcon)
-            row.itemID = itemID
+            row:SetPoint(
+                "TOPLEFT", frame, "TOPLEFT", 10,
+                -187 - ((rowIndex - 1) * YayaCore.UI.SIZE.rowH)
+            )
+            row.SetStripe(rowIndex)
+            -- Reset() n'est jamais appele ici : il reancrerait le libelle sur la
+            -- colonne de valeur et le nom recouvrirait les chiffres. Le pool
+            -- nous appartient, chaque champ est reecrit a chaque passe.
+            row.SetItemTarget(itemID, nil, function(name) row.label:SetText(name) end)
+            row.label:SetText(GetItemInfo(itemID) or "...")
+            YQQuality.PlaceQualityColumns(row.qualityHost, row.counts, reagentQualityCount)
+            local totalUnits = 0
             for quality = 1, 3 do
-                local count = row.counts[quality]
-                count:ClearAllPoints()
-                count:SetPoint("LEFT", row, "LEFT", columnCenter - 16 + ((quality - 1) * columnSpacing), 0)
-                count:SetText((selectedCounts[quality] or 0) > 0 and tostring(selectedCounts[quality]) or "-")
-                count:SetShown(quality <= reagentQualityCount)
+                local selected = selectedCounts[quality] or 0
+                totalUnits = totalUnits + selected
+                row.counts[quality]:SetText(selected > 0 and tostring(selected) or "-")
             end
+            local lineCost = YQQuality.GetSlotLineCost(slotData, selectedCounts)
+            row.value:SetText(lineCost and YayaCore.Money.FormatCompact(lineCost) or "?")
+            row.SetTone(lineCost and "text" or "textMuted")
+            row.unit:SetText(
+                (lineCost and totalUnits > 0)
+                    and YayaCore.Money.FormatCompact(lineCost / totalUnits)
+                    or "-"
+            )
             row:Show()
         else
             row.itemID = nil
@@ -12807,9 +13467,9 @@ function YQQuality.UpdateSelector()
         end
     end
 
-    local reagentRowCount = #(recipeState.slots or {})
     local categoryOrder = { "sparks", "crests", "missives", "embellishments" }
     local categoryOptions = { sparks = {}, crests = {}, missives = {}, embellishments = {} }
+
     local finishingOptions = {}
     local seenCategoryFamilies = {}
     for _, slotData in ipairs(recipeState.optionalSlots or {}) do
@@ -12880,9 +13540,12 @@ function YQQuality.UpdateSelector()
     YQQuality.EnsureOptionalRows(frame, #categoryEntries)
     YQQuality.EnsureFinishingRows(frame, #finishingOptions)
 
-    local contentTop = -171 - (reagentRowCount * 34)
-    local columns = 8
-    local rowHeight = 40
+    local contentTop = -193 - (math.max(1, reagentRowCount) * YayaCore.UI.SIZE.rowH)
+    local columns = math.max(
+        1,
+        math.floor((YQQuality.LAYOUT.panelW - 2 * YayaCore.UI.PAD.lg) / YQQuality.LAYOUT.iconPitch)
+    )
+    local rowHeight = YQQuality.LAYOUT.iconPitch
     local cursor = contentTop
     local categoryLayouts = {}
     frame.optionalHeader:Hide()
@@ -12902,7 +13565,11 @@ function YQQuality.UpdateSelector()
                 local column = (rowIndex - 1) % columns
                 local line = math.floor((rowIndex - 1) / columns)
                 row:ClearAllPoints()
-                row:SetPoint("TOPLEFT", frame, "TOPLEFT", 14 + (column * 38), cursor - 18 - (line * rowHeight))
+                row:SetPoint(
+                    "TOPLEFT", frame, "TOPLEFT",
+                    YayaCore.UI.PAD.lg + (column * YQQuality.LAYOUT.iconPitch),
+                    cursor - 18 - (line * rowHeight)
+                )
                 row.itemID = rowData.option.itemID
                 row.icon:SetTexture(GetItemIcon(row.itemID))
                 row:SetAlpha(1)
@@ -12965,7 +13632,11 @@ function YQQuality.UpdateSelector()
             local column = (rowData.categoryIndex - 1) % columns
             local line = math.floor((rowData.categoryIndex - 1) / columns)
             row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", frame, "TOPLEFT", 14 + (column * 38), layout.rowTop - (line * rowHeight))
+            row:SetPoint(
+                "TOPLEFT", frame, "TOPLEFT",
+                YayaCore.UI.PAD.lg + (column * YQQuality.LAYOUT.iconPitch),
+                layout.rowTop - (line * rowHeight)
+            )
             row.itemID = option.itemID
             row.currencyID = option.currencyID
             row.itemName = option.itemName
@@ -13001,7 +13672,12 @@ function YQQuality.UpdateSelector()
             row:Hide()
         end
     end
-    frame:SetHeight(math.max(296, -cursor + 50))
+    -- La hauteur change a chaque recette. Ancree au centre, la fenetre
+    -- grandirait dans les deux sens et le bouton d'ajout se deplacerait sous le
+    -- curseur entre deux recettes. SetPanelHeightKeepingBottomLeft rebascule
+    -- l'ancre en BOTTOMLEFT : le bas reste fixe et la fenetre pousse vers le
+    -- haut.
+    SetPanelHeightKeepingBottomLeft(frame, math.max(296, -cursor + 50))
 end
 
 local function AnchorQueueButton(button, target, fallbackParent)
@@ -15380,6 +16056,10 @@ SlashCmdList.YAYAQUEUE = function(message)
     end
     if command == "options" then
         YQQuality.OpenOptions()
+        return
+    end
+    if command == "stock" then
+        YQQuality.PrintStockDiagnostics()
         return
     end
     if command == "lock" then
