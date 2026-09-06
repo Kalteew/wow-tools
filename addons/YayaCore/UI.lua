@@ -1088,6 +1088,21 @@ function UI.DecorateRow(row, opts)
         row.bg:SetColorTexture(UI.Unpack(odd and UI.COLOR.rowOdd or UI.COLOR.rowEven))
     end
 
+    --- Rend l'etat de selection d'une ligne.
+    --
+    -- Une case a cocher de dix-huit pixels ne se lit pas dans une liste de
+    -- trente lignes : la selection doit teindre la ligne entiere. Le fond est
+    -- exclusif de la zebrure, donc les deux passent par le meme point d'entree
+    -- -- sans quoi un appelant qui rend la selection apres la zebrure, ou
+    -- l'inverse selon la branche, finit par en oublier une.
+    function row.SetSelected(selected, index)
+        if selected then
+            row.bg:SetColorTexture(UI.Unpack(UI.COLOR.selected))
+        else
+            row.SetStripe(index)
+        end
+    end
+
     --- Teinte la valeur avec un token de couleur.
     function row.SetTone(tone)
         local color = UI.COLOR[tone or "text"] or UI.COLOR.text
@@ -1377,21 +1392,54 @@ function UI.CreateScrollList(parent, opts)
         end
     end
 
-    --- Redessine les lignes sans toucher au jeu de donnees.
+    --- Redessine les lignes affichees sans toucher au jeu de donnees.
     --
     -- SetItems vide puis reinsere le fournisseur : c'est un brassage complet des
-    -- donnees pour un simple repeint, qui perd au passage la position de
-    -- defilement. Refresh ne redemande que le rendu.
+    -- donnees pour un simple repeint. Mais FullUpdate ne suffit pas a l'eviter :
+    -- le ScrollBox ne rejoue l'initialiseur que sur les lignes qu'il acquiert,
+    -- et une ligne deja a l'ecran n'est pas reacquise. Un etat qui vit hors de
+    -- l'element -- une selection, par exemple -- restait donc peint comme avant
+    -- le clic jusqu'a ce que la ligne sorte du champ et y revienne.
+    --
+    -- Le repeint rejoue donc l'initialiseur, ligne visible par ligne visible.
+    -- L'initialiseur doit pouvoir etre rejoue sur une ligne deja liee : ceux de
+    -- la suite commencent par row.Reset(), qui remet le rendu a plat.
+    --
+    -- Retourne false quand rien n'a pu etre repeint -- client sans ForEachFrame,
+    -- ou aucune ligne acquise -- pour que l'appelant retombe sur SetItems.
     function list.Refresh()
-        if type(scrollFrame.FullUpdate) ~= "function" then
+        if type(opts.initializer) ~= "function"
+            or type(scrollFrame.ForEachFrame) ~= "function" then
             return false
         end
-        local immediate = ScrollBoxConstants and ScrollBoxConstants.UpdateImmediately
-        if immediate == nil then
-            immediate = true
-        end
-        scrollFrame:FullUpdate(immediate)
-        return true
+
+        local repainted = false
+        local ok = pcall(scrollFrame.ForEachFrame, scrollFrame, function(frame, elementData)
+            if elementData == nil and type(frame.GetElementData) == "function" then
+                elementData = frame:GetElementData()
+            end
+            if elementData == nil then
+                return
+            end
+
+            -- Reset ferme l'infobulle de la ligne : sans cela, un clic sous le
+            -- curseur la ferait disparaitre jusqu'au prochain passage de souris,
+            -- qui n'aura pas lieu puisque la souris n'a pas bouge.
+            local hadTooltip = GameTooltip and type(GameTooltip.IsOwned) == "function"
+                and GameTooltip:IsOwned(frame)
+
+            repainted = true
+            opts.initializer(frame, elementData)
+
+            if hadTooltip and type(frame.GetScript) == "function" then
+                local onEnter = frame:GetScript("OnEnter")
+                if onEnter then
+                    onEnter(frame)
+                end
+            end
+        end)
+
+        return ok and repainted
     end
 
     return list

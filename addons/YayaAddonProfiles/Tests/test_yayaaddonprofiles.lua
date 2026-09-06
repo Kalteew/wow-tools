@@ -1,9 +1,10 @@
 -- Tests unitaires de YayaAddonProfiles, executes hors du jeu avec Lua 5.1.
 --
--- Deux zones seulement sont testables sans client, et ce sont justement les
--- deux qui cassent en silence : la fusion des personnages en double, qui
--- reecrit des donnees reelles au chargement, et le comparateur de tri, qu'un
--- ordre non strict ferait exploser dans table.sort sur certaines permutations.
+-- Trois zones sont testables sans client, et ce sont justement celles qui
+-- cassent en silence : la fusion des personnages en double, qui reecrit des
+-- donnees reelles au chargement, le comparateur de tri, qu'un ordre non strict
+-- ferait exploser dans table.sort sur certaines permutations, et la selection
+-- de lignes, dont l'ancre de plage survit a un changement de tri.
 --
 -- Usage : lua5.1 Tests/test_yayaaddonprofiles.lua   (depuis addons/YayaAddonProfiles)
 
@@ -33,6 +34,13 @@ end
 
 _G.time = os.time
 _G.date = os.date
+
+-- La selection par plage se pilote depuis les tests : c'est le shift qui
+-- distingue une plage d'une simple bascule.
+local shiftDown = false
+_G.IsShiftKeyDown = function()
+    return shiftDown
+end
 
 _G.DEFAULT_CHAT_FRAME = { AddMessage = function() end }
 _G.StaticPopupDialogs = {}
@@ -309,6 +317,114 @@ equals("le nom part de A", db.sortDesc, false)
 
 Internal.SetSortKey("profile")
 equals("le profil part de A", db.sortDesc, false)
+
+-- ---------------------------------------------------------------------------
+-- Selection de lignes
+-- ---------------------------------------------------------------------------
+
+print("")
+print("Selection de lignes")
+
+-- Rejoue ce que fait RefreshUi avant tout clic : l'ordre d'affichage courant.
+local function SyncDisplayOrder()
+    return Internal.RebuildCharacterOrder(Internal.SortedCharacters())
+end
+
+local function SelectedIds()
+    local ids = {}
+    for index = 1, 8 do
+        local id = ("P%d-Hyjal"):format(index)
+        if Internal.IsCharacterSelected(id) then
+            ids[#ids + 1] = id
+        end
+    end
+    return table.concat(ids, ",")
+end
+
+db = ResetDb({
+    ["P1-Hyjal"] = { id = "P1-Hyjal", level = 80 },
+    ["P2-Hyjal"] = { id = "P2-Hyjal", level = 70 },
+    ["P3-Hyjal"] = { id = "P3-Hyjal", level = 60 },
+    ["P4-Hyjal"] = { id = "P4-Hyjal", level = 50 },
+})
+db.sortKey = "name"
+db.sortDesc = false
+Internal.ClearSelectedCharacters()
+shiftDown = false
+SyncDisplayOrder()
+
+Internal.ToggleSelectedCharacter("P2-Hyjal", 2)
+check("un clic prend la ligne", Internal.IsCharacterSelected("P2-Hyjal"))
+equals("le compteur suit le clic", Internal.GetSelectedCharacterCount(), 1)
+
+Internal.ToggleSelectedCharacter("P2-Hyjal", 2)
+check("un second clic la relache", not Internal.IsCharacterSelected("P2-Hyjal"))
+equals("le compteur revient a zero", Internal.GetSelectedCharacterCount(), 0)
+
+-- Plage : l'ancre est la derniere ligne cliquee, dans les deux sens.
+Internal.ClearSelectedCharacters()
+Internal.ToggleSelectedCharacter("P1-Hyjal", 1)
+shiftDown = true
+Internal.ToggleSelectedCharacter("P3-Hyjal", 3)
+shiftDown = false
+equals("le shift-clic prend la plage", SelectedIds(), "P1-Hyjal,P2-Hyjal,P3-Hyjal")
+
+Internal.ClearSelectedCharacters()
+Internal.ToggleSelectedCharacter("P4-Hyjal", 4)
+shiftDown = true
+Internal.ToggleSelectedCharacter("P2-Hyjal", 2)
+shiftDown = false
+equals("la plage remonte aussi bien qu'elle descend", SelectedIds(),
+    "P2-Hyjal,P3-Hyjal,P4-Hyjal")
+
+-- Le piege : un tri inverse renumerote les lignes. Une ancre gardee sous forme
+-- d'index designerait alors un autre personnage.
+Internal.ClearSelectedCharacters()
+Internal.ToggleSelectedCharacter("P1-Hyjal", 1)
+db.sortDesc = true
+SyncDisplayOrder()
+equals("le tri inverse renumerote bien les lignes",
+    Internal.CharacterDisplayIndex("P1-Hyjal"), 4)
+shiftDown = true
+Internal.ToggleSelectedCharacter("P3-Hyjal", 2)
+shiftDown = false
+equals("la plage suit le tri courant, pas l'ancien",
+    SelectedIds(), "P1-Hyjal,P2-Hyjal,P3-Hyjal")
+
+-- Une ancre qui n'est plus affichee : le clic redevient une bascule simple, au
+-- lieu d'indexer la table de selection avec nil.
+db.sortDesc = false
+Internal.ClearSelectedCharacters()
+Internal.ToggleSelectedCharacter("P4-Hyjal", 4)
+db.characters["P4-Hyjal"] = nil
+SyncDisplayOrder()
+shiftDown = true
+local ok = pcall(Internal.ToggleSelectedCharacter, "P2-Hyjal", 2)
+shiftDown = false
+check("une ancre disparue ne fait pas sauter le clic", ok)
+equals("le clic retombe sur une bascule simple", Internal.IsCharacterSelected("P2-Hyjal"), true)
+equals("aucune ligne fantome n'est prise", Internal.GetSelectedCharacterCount(), 2)
+
+-- Vider la selection oublie l'ancre : le shift-clic suivant ne peut pas
+-- ressusciter une plage depuis une ligne que plus personne ne designe.
+db.characters["P4-Hyjal"] = { id = "P4-Hyjal", level = 50 }
+SyncDisplayOrder()
+Internal.ToggleSelectedCharacter("P1-Hyjal", 1)
+Internal.ClearSelectedCharacters()
+shiftDown = true
+Internal.ToggleSelectedCharacter("P3-Hyjal", 3)
+shiftDown = false
+equals("apres un vidage, le shift-clic ne prend qu'une ligne", SelectedIds(), "P3-Hyjal")
+
+-- Les selections en masse partent toujours d'une table propre.
+Internal.SelectAllCharacters()
+equals("tout selectionner prend chaque personnage",
+    Internal.GetSelectedCharacterCount(), 4)
+
+db.assignments["P1-Hyjal"] = "Raid"
+Internal.SelectUnassignedCharacters()
+equals("sans profil ne garde que les non attribues", SelectedIds(),
+    "P2-Hyjal,P3-Hyjal,P4-Hyjal")
 
 -- ---------------------------------------------------------------------------
 -- Bilan

@@ -400,6 +400,18 @@ local odd = row.bg.color
 row.SetStripe(2)
 check("la zebrure alterne selon la parite", odd[4] ~= row.bg.color[4])
 
+-- La selection remplace la zebrure : les deux peignent le meme fond, donc une
+-- ligne prise doit se distinguer d'une ligne paire comme d'une ligne impaire.
+row.SetSelected(true, 1)
+local selectedColor = row.bg.color
+equals("une ligne selectionnee prend la couleur de selection",
+    selectedColor[4], UI.COLOR.selected[4])
+row.SetSelected(false, 1)
+check("une ligne relachee retrouve sa zebrure", row.bg.color[4] ~= selectedColor[4])
+row.SetSelected(true, 2)
+equals("la selection l'emporte aussi sur une ligne paire",
+    row.bg.color[4], UI.COLOR.selected[4])
+
 -- SetTone ne teinte que la valeur, SetLabelTone que le libelle : c'est
 -- exactement la separation qui manquait et que le commentaire promettait.
 row.label.color, row.value.color = nil, nil
@@ -505,6 +517,130 @@ equals("l'aplat prend la couleur de panneau",
 local firstFallback = plain.yayaBackdropFallback
 UI.ApplyPanelBackdrop(plain)
 check("l'aplat n'est pas duplique", plain.yayaBackdropFallback == firstFallback)
+
+-- ---------------------------------------------------------------------------
+-- Liste scrollable : le repeint
+--
+-- La ScrollBox ne rejoue l'initialiseur que sur les lignes qu'elle acquiert.
+-- Une ligne deja affichee gardait donc son ancien rendu, et tout etat qui vit
+-- hors de l'element -- une selection, typiquement -- restait peint comme avant
+-- le clic. Refresh doit rejouer l'initialiseur ligne par ligne, et le dire
+-- quand il n'a rien pu redessiner.
+-- ---------------------------------------------------------------------------
+
+print("")
+print("Repeint de liste")
+
+-- Doublure du framework de defilement : le strict necessaire pour que
+-- CreateScrollList aboutisse et pour observer ce que Refresh redessine.
+local function NewScrollFrameDouble()
+    local frame = { acquired = {} }
+    function frame:SetPoint() end
+    function frame:SetInterpolateScroll() end
+    function frame:SetDataProvider(provider) self.provider = provider end
+    function frame:ForEachFrame(func)
+        for _, entry in ipairs(self.acquired) do
+            func(entry.frame, entry.elementData)
+        end
+    end
+    return frame
+end
+
+local scrollFrameDouble
+
+_G.CreateFrame = function(_, _, _, template)
+    if template == "WowScrollBoxList" then
+        scrollFrameDouble = NewScrollFrameDouble()
+        return scrollFrameDouble
+    end
+    local frame = {}
+    function frame:SetPoint() end
+    function frame:SetAllPoints() end
+    function frame:SetInterpolateScroll() end
+    return frame
+end
+
+_G.CreateScrollBoxListLinearView = function()
+    local view = {}
+    function view:SetElementExtent() end
+    function view:SetPadding() end
+    function view:SetElementInitializer() end
+    function view:SetElementResetter() end
+    return view
+end
+
+_G.CreateDataProvider = function()
+    local provider = { items = {} }
+    function provider:Flush() self.items = {} end
+    function provider:InsertTable(items)
+        for _, item in ipairs(items) do
+            self.items[#self.items + 1] = item
+        end
+    end
+    return provider
+end
+
+_G.ScrollUtil = { InitScrollBoxListWithScrollBar = function() end }
+
+local painted = {}
+local list = UI.CreateScrollList({}, {
+    initializer = function(frame, elementData)
+        painted[#painted + 1] = elementData.id
+        frame.paintedAs = elementData.id
+    end,
+})
+
+check("la liste est construite avec les templates", list ~= nil)
+
+-- Deux lignes acquises, comme apres un premier affichage.
+local rowA, rowB = { scripts = {} }, { scripts = {} }
+scrollFrameDouble.acquired = {
+    { frame = rowA, elementData = { id = "A" } },
+    { frame = rowB, elementData = { id = "B" } },
+}
+
+check("le repeint rend vrai quand il redessine", list.Refresh() == true)
+equals("chaque ligne acquise est repeinte", table.concat(painted, ","), "A,B")
+equals("la premiere ligne porte son nouvel etat", rowA.paintedAs, "A")
+
+-- Aucune ligne acquise : rien n'a ete redessine, l'appelant doit le savoir pour
+-- retomber sur SetItems.
+scrollFrameDouble.acquired = {}
+check("sans ligne acquise, le repeint rend faux", list.Refresh() == false)
+
+-- Un element sans donnee ne doit pas atteindre l'initialiseur.
+painted = {}
+scrollFrameDouble.acquired = { { frame = rowA, elementData = nil } }
+check("un element vide ne rend pas vrai", list.Refresh() == false)
+equals("un element vide n'appelle pas l'initialiseur", #painted, 0)
+
+-- L'infobulle de la ligne survolee : l'initialiseur passe par row.Reset, qui la
+-- ferme. Sans reouverture, un clic sous le curseur la ferait disparaitre
+-- jusqu'au prochain passage de souris -- qui n'aura pas lieu, la souris n'ayant
+-- pas bouge.
+local hovered = { scripts = {} }
+local reopened = 0
+function hovered:GetScript(name)
+    return name == "OnEnter" and function() reopened = reopened + 1 end or nil
+end
+_G.GameTooltip = {
+    IsOwned = function(_, frame) return frame == hovered end,
+}
+scrollFrameDouble.acquired = {
+    { frame = hovered, elementData = { id = "C" } },
+    { frame = rowB, elementData = { id = "D" } },
+}
+list.Refresh()
+equals("l'infobulle de la ligne survolee est rouverte", reopened, 1)
+_G.GameTooltip = nil
+
+-- Un client sans ForEachFrame : le repeint doit se declarer impossible plutot
+-- que de laisser croire a un redessin.
+scrollFrameDouble.ForEachFrame = nil
+check("sans ForEachFrame, le repeint rend faux", list.Refresh() == false)
+
+local mute = UI.CreateScrollList({}, {})
+check("sans initialiseur, le repeint rend faux", mute.Refresh() == false)
 
 -- ---------------------------------------------------------------------------
 

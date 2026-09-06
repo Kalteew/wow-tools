@@ -14,7 +14,7 @@ En mode confirmation, si les emplacements de popup sont tous occupes au login, l
 
 ## La fenetre
 
-`/yap` ouvre la fenetre : choisir un profil a gauche, cocher plusieurs personnages a droite, puis les attribuer en une action, meme hors ligne. **Tout**, **Sans profil** et **Aucun** evitent les clics repetitifs ; un `Maj`-clic coche aussi une plage de personnages. L'addon active aussi son propre chargement et Simple Addon Manager pour chaque personnage cible.
+`/yap` ouvre la fenetre : choisir un profil a gauche, cocher plusieurs personnages a droite, puis les attribuer en une action, meme hors ligne. **Tout**, **Sans profil** et **Aucun** evitent les clics repetitifs ; un `Maj`-clic coche aussi une plage de personnages. Une ligne prise est surlignee, pas seulement cochee, et la plage suit l'ordre affiche au moment du clic : elle reste juste apres un changement de tri. L'addon active aussi son propre chargement et Simple Addon Manager pour chaque personnage cible.
 
 Les deux colonnes defilent, ce qui leve la limite d'une quinzaine de profils au-dela de laquelle les boutons debordaient de la fenetre. Le profil choisi se lit a sa surbrillance, plus au fait que son bouton soit grise. La fenetre se deplace par son bandeau, retient sa position d'une session a l'autre, et le bouton `R` la ramene au centre si elle finit hors de l'ecran.
 
