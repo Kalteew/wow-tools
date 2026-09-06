@@ -1039,6 +1039,58 @@ end
     return $changed
 }
 
+function Update-TSMMailingInboxFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    # TSM ne remet private.frame a nil que depuis le script OnHide du cadre boite
+    # de reception. Quand ce cadre est libere sans que OnHide parte, la reference
+    # survit et le minuteur d'une seconde tape dans un element vide :
+    # "Element (inbox) has no child with id: 'top'", une fois par seconde jusqu'au
+    # /reload. UpdateButtons se protege deja avec HasChildById("top") ; on applique
+    # la meme garde au compte a rebours, puis on demonte proprement la reference
+    # (sinon l'assert de GetInboxMailsFrame casse la prochaine ouverture de la
+    # boite aux lettres).
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $original = @'
+function private.UpdateCountDown(force)
+	if not force then
+		private.updateCounterTimer:RunForTime(1)
+	end
+	if not private.frame then
+		return
+	end
+'@
+    $patched = @'
+function private.UpdateCountDown(force)
+	if not force then
+		private.updateCounterTimer:RunForTime(1)
+	end
+	if not private.frame then
+		return
+	end
+	if not private.frame:HasChildById("top") then
+		-- The inbox frame was released without its OnHide script running, so this
+		-- reference is stale. Tear it down once instead of erroring on every tick.
+		private.frame = nil
+		if private.inboxQueryCancellable then
+			private.inboxQueryCancellable:Cancel()
+			private.inboxQueryCancellable = nil
+		end
+		private.fsm:ProcessEvent("EV_FRAME_HIDE")
+		return
+	end
+'@
+
+    $changed = Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\MailingUI\\Inbox.lua"
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
 function Update-TSMMailingGroupsFile {
     param(
         [Parameter(Mandatory = $true)]
@@ -2696,6 +2748,7 @@ function Invoke-TSMMailingPatch {
     $apiPath = Join-Path $resolvedAddonPath "Core\API.lua"
     $craftedPricePath = Join-Path $resolvedAddonPath "TradeSkillMaster.lua"
     $mailingCorePath = Join-Path $resolvedAddonPath "Core\UI\MailingUI\Core.lua"
+    $mailingInboxPath = Join-Path $resolvedAddonPath "Core\UI\MailingUI\Inbox.lua"
     $mailingGroupsPath = Join-Path $resolvedAddonPath "Core\UI\MailingUI\Groups.lua"
     $mailingOtherPath = Join-Path $resolvedAddonPath "Core\UI\MailingUI\Other.lua"
     $mailingSendPath = Join-Path $resolvedAddonPath "Core\Service\Mailing\Send.lua"
@@ -2731,6 +2784,7 @@ function Invoke-TSMMailingPatch {
     $requiredPaths = @($apiPath, $craftedPricePath)
     $optionalPaths = @(
         $mailingCorePath,
+        $mailingInboxPath,
         $mailingGroupsPath,
         $mailingOtherPath,
         $mailingSendPath,
@@ -2753,6 +2807,7 @@ function Invoke-TSMMailingPatch {
     $patches.Add(@{ Name = "API hooks";              Targets = @($apiPath);                 Action = { Update-TSMApiFile -FilePath $apiPath } })
     $patches.Add(@{ Name = "Crafted price source";   Targets = @($craftedPricePath);         Action = { Update-TSMCraftedPriceFile -FilePath $craftedPricePath } })
     $patches.Add(@{ Name = "Mailing UI core";        Targets = @($mailingCorePath);          Action = { Update-TSMMailingCoreFile -FilePath $mailingCorePath } })
+    $patches.Add(@{ Name = "Mailing UI inbox";       Targets = @($mailingInboxPath);         Action = { Update-TSMMailingInboxFile -FilePath $mailingInboxPath } })
     $patches.Add(@{ Name = "Mailing UI groups";      Targets = @($mailingGroupsPath);        Action = { Update-TSMMailingGroupsFile -FilePath $mailingGroupsPath } })
     $patches.Add(@{ Name = "Mailing UI other";       Targets = @($mailingOtherPath);         Action = { Update-TSMMailingOtherFile -FilePath $mailingOtherPath } })
     $patches.Add(@{ Name = "Mailing send";           Targets = @($mailingSendPath);          Action = { Update-TSMMailingSendFile -FilePath $mailingSendPath } })
