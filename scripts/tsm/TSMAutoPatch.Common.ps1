@@ -1936,6 +1936,102 @@ for slotId in Container.GetBagSlotIterator() do
 '@
     $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Auctioning\\PostScan bag iterator slotId") -or $changed
 
+    # Les objets a stats aleatoires (batons de metier Multicraft / Ressourcefulness,
+    # equipement craft) partagent un meme item de base. TSM ramene chaque objet des
+    # sacs a l'itemString du groupe, donc toutes les variantes fusionnent : l'undercut
+    # se calcule contre la moins chere toutes stats confondues et le postCap plafonne
+    # l'item de base. On garde l'itemString exact comme identite de vente, ce qui suffit
+    # a rendre per-stat l'undercut (AuctionQuery:ItemSubRowIterator filtre alors en
+    # egalite stricte), le comptage numHave et le postCap.
+    $original = @'
+function private.OnGroupsOperationsChanged()
+\tprivate.operationsChangedTimer:RunForFrames(1)
+end
+'@
+    $patched = @'
+function private.GetVariantItemString(itemString)
+\t-- Items with random stats are posted variant by variant: undercut only against
+\t-- listings sharing the same stats, and apply the post cap per stat.
+\tlocal groupItemString = Group.TranslateItemString(itemString)
+\tif itemString == groupItemString then
+\t\t-- The variant itself is grouped, so TSM already keeps it distinct
+\t\treturn groupItemString
+\tend
+\tif itemString == ItemString.GetBaseFast(itemString) then
+\t\treturn groupItemString
+\tend
+\tif ItemInfo.IsCommodity(itemString) ~= false then
+\t\t-- Commodity sub rows carry the base item link, so an exact key would never
+\t\t-- match. A nil result means the item info is not loaded yet.
+\t\treturn groupItemString
+\tend
+\tif not Group.GetPathByItem(itemString) then
+\t\treturn groupItemString
+\tend
+\treturn itemString
+end
+
+function private.OnGroupsOperationsChanged()
+\tprivate.operationsChangedTimer:RunForFrames(1)
+end
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Auctioning\\PostScan variant item string helper") -or $changed
+
+    $original = @'
+\treturn BagTracking.CreateQueryBagsAuctionable()
+\t\t:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+'@
+    $patched = @'
+\treturn BagTracking.CreateQueryBagsAuctionable()
+\t\t:VirtualField("autoBaseItemString", "string", private.GetVariantItemString, "itemString")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Auctioning\\PostScan bags query variant key") -or $changed
+
+    $original = @'
+\tlocal query = BagTracking.CreateQueryBagsAuctionable()
+\t\t:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+\t\t:Select("autoBaseItemString")
+'@
+    $patched = @'
+\tlocal query = BagTracking.CreateQueryBagsAuctionable()
+\t\t:VirtualField("autoBaseItemString", "string", private.GetVariantItemString, "itemString")
+\t\t:Select("autoBaseItemString")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Auctioning\\PostScan operation DB variant key") -or $changed
+
+    $original = @'
+\t\t:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+\t\t:Select("slotId", "bag", "slot", "autoBaseItemString", "quantity")
+'@
+    $patched = @'
+\t\t:VirtualField("autoBaseItemString", "string", private.GetVariantItemString, "itemString")
+\t\t:Select("slotId", "bag", "slot", "autoBaseItemString", "quantity")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Auctioning\\PostScan bag DB variant key") -or $changed
+
+    # La selection de l'onglet Poster peut porter la variante (liste patchee) ou
+    # l'item de base (recherche enregistree avant ce patch) : on accepte les deux.
+    $original = @'
+\t\tprivate.DebugLogInsert(itemString, "Scan thread has %d", numHave)
+\t\tlocal groupPath = Group.GetPathByItem(itemString)
+\t\tlocal contextFilter = scanContext.isItems and itemString or groupPath
+\t\tif groupPath and tContains(scanContext, contextFilter) and private.CanPostItem(itemString, groupPath, numHave) then
+'@
+    $patched = @'
+\t\tprivate.DebugLogInsert(itemString, "Scan thread has %d", numHave)
+\t\tlocal groupPath = Group.GetPathByItem(itemString)
+\t\tlocal isSelected = nil
+\t\tif scanContext.isItems then
+\t\t\t-- The selection may carry the variant or the base item (searches saved
+\t\t\t-- before posting became variant aware).
+\t\t\tisSelected = tContains(scanContext, itemString) or tContains(scanContext, Group.TranslateItemString(itemString))
+\t\telse
+\t\t\tisSelected = groupPath and tContains(scanContext, groupPath) or false
+\t\tend
+\t\tif groupPath and isSelected and private.CanPostItem(itemString, groupPath, numHave) then
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Auctioning\\PostScan scan context variant match") -or $changed
+
     $postMissOriginals = @()
     $postMissOriginals += @'
 \tif not bag or not slot then
@@ -2081,6 +2177,52 @@ for slotId in Container.GetBagSlotIterator() do
 \t\tend
 \tend
 '@
+    $postMissOriginals += $postMissPatched
+    $postMissPatched = @'
+\tif not bag or not slot then
+\t\t-- The inventory cache may be behind the live bags while item data is loading.
+\t\tlocal targetItemId = ItemString.ToId(itemString)
+\t\tlocal targetPetCageId = strmatch(itemString, "^p:") and ItemString.ToId(ItemString.GetPetCage()) or nil
+\t\tlocal candidateCount = 0
+\t\tlocal candidateTotal = 0
+\t\tlocal pendingCandidateCount = 0
+\t\tfor slotId in Container.GetBagSlotIterator() do
+\t\t\tlocal candidateBag, candidateSlot = SlotId.Split(slotId)
+\t\t\tlocal _, candidateQuantity, candidateQuality, candidateLink, candidateItemId, candidateIsBound = Container.GetItemInfo(candidateBag, candidateSlot)
+\t\t\tcandidateItemId = candidateItemId or Container.GetItemId(candidateBag, candidateSlot)
+\t\t\tlocal candidateItemString = ItemString.Get(candidateLink)
+\t\t\tlocal sameTarget = candidateItemString and private.GetVariantItemString(candidateItemString) == itemString
+\t\t\tlocal pendingTarget = not candidateItemString and candidateItemId and (candidateItemId == targetItemId or candidateItemId == targetPetCageId)
+\t\t\tlocal candidateIsSellable = candidateIsBound == false and AuctionHouse.IsSellable(candidateBag, candidateSlot)
+\t\t\tif sameTarget or pendingTarget then
+\t\t\t\tcandidateQuantity = candidateQuantity or 0
+\t\t\t\tcandidateCount = candidateCount + 1
+\t\t\t\tif candidateIsSellable then
+\t\t\t\t\tcandidateTotal = candidateTotal + candidateQuantity
+\t\t\t\tend
+\t\t\t\tlocal incomplete = pendingTarget or candidateIsBound == nil
+\t\t\t\tif incomplete then
+\t\t\t\t\tpendingCandidateCount = pendingCandidateCount + 1
+\t\t\t\tend
+\t\t\t\tLog.Warn("[YayaTSM] post-miss target=%s qty=%s candidate=%d,%d item=%s id=%s stack=%s quality=%s bound=%s sellable=%s pending=%s", itemString, tostring(quantity), candidateBag, candidateSlot, tostring(candidateItemString), tostring(candidateItemId), tostring(candidateQuantity), tostring(candidateQuality), tostring(candidateIsBound), tostring(candidateIsSellable), tostring(incomplete))
+\t\t\t\tif type(YayaReagentSniperTrace) == "function" then
+\t\t\t\t\tYayaReagentSniperTrace("TSM_POST_CANDIDATE", "target=%s qty=%s slot=%d:%d item=%s id=%s stack=%s quality=%s bound=%s sellable=%s pending=%s", itemString, tostring(quantity), candidateBag, candidateSlot, tostring(candidateItemString), tostring(candidateItemId), tostring(candidateQuantity), tostring(candidateQuality), tostring(candidateIsBound), tostring(candidateIsSellable), tostring(incomplete))
+\t\t\t\tend
+\t\t\tend
+\t\tend
+\t\tif type(YayaReagentSniperTrace) == "function" then
+\t\t\tYayaReagentSniperTrace("TSM_POST_MISS", "target=%s qty=%s candidates=%d total=%d pending=%d", itemString, tostring(quantity), candidateCount, candidateTotal, pendingCandidateCount)
+\t\tend
+\t\tif pendingCandidateCount > 0 or candidateTotal >= quantity then
+\t\t\tLog.Warn("[YayaTSM] post-miss target=%s qty=%s candidates=%d total=%d pending=%d - retrying bag data", itemString, tostring(quantity), candidateCount, candidateTotal, pendingCandidateCount)
+\t\t\tprivate.DebugLogInsert(itemString, "Pending bag item info")
+\t\t\treturn nil, nil
+\t\telse
+\t\t\tLog.Err("Failed to find initial bag / slot (%s, %d)", itemString, quantity)
+\t\t\treturn nil, true
+\t\tend
+\tend
+'@
     $changed = (Replace-ExactBlockAny -Content ([ref]$content) -Originals $postMissOriginals -Patched $postMissPatched -Label "Auctioning\\PostScan missing item recovery") -or $changed
 
     $original = @'
@@ -2107,6 +2249,19 @@ for slotId in Container.GetBagSlotIterator() do
 \t\tLog.Warn("[YayaTSM] post-bags-changed target=%s bag=%s slot=%s actual=%s translated=%s", itemString, tostring(bag), tostring(slot), tostring(bagItemString), tostring(bagItemString and Group.TranslateItemString(bagItemString)))
 \t\tif type(YayaReagentSniperTrace) == "function" then
 \t\t\tYayaReagentSniperTrace("TSM_POST_STRING_MISMATCH", "target=%s slot=%s:%s actual=%s translated=%s rawLink=%s", itemString, tostring(bag), tostring(slot), tostring(bagItemString), tostring(bagItemString and Group.TranslateItemString(bagItemString)), tostring(Container.GetItemLink(bag, slot)))
+\t\tend
+\t\tTempTable.Release(removeContext)
+\t\tprivate.DebugLogInsert(itemString, "Bags changed")
+\t\treturn nil, nil
+\tend
+'@
+    $bagMismatchOriginals += $patched
+    $patched = @'
+\tif not bagItemString or private.GetVariantItemString(bagItemString) ~= itemString then
+\t\t-- something changed with the player's bags so we can't post the item right now
+\t\tLog.Warn("[YayaTSM] post-bags-changed target=%s bag=%s slot=%s actual=%s translated=%s", itemString, tostring(bag), tostring(slot), tostring(bagItemString), tostring(bagItemString and private.GetVariantItemString(bagItemString)))
+\t\tif type(YayaReagentSniperTrace) == "function" then
+\t\t\tYayaReagentSniperTrace("TSM_POST_STRING_MISMATCH", "target=%s slot=%s:%s actual=%s translated=%s rawLink=%s", itemString, tostring(bag), tostring(slot), tostring(bagItemString), tostring(bagItemString and private.GetVariantItemString(bagItemString)), tostring(Container.GetItemLink(bag, slot)))
 \t\tend
 \t\tTempTable.Release(removeContext)
 \t\tprivate.DebugLogInsert(itemString, "Bags changed")
@@ -2212,6 +2367,273 @@ for slotId in Container.GetBagSlotIterator() do
 \tend
 '@
     $changed = (Replace-ExactBlockAny -Content ([ref]$content) -Originals $postInfoOriginals -Patched $postInfoPatched -Label "Auctioning\\PostScan item info recovery") -or $changed
+
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
+function Update-TSMCancelScanFile {
+    <#
+    .SYNOPSIS
+        Aligne l'annulation sur le posting par variante de stats.
+
+    .DESCRIPTION
+        Sans ce patch, TSM annulerait un baton Multicraft parce qu'un baton
+        Ressourcefulness est moins cher : le scan d'annulation ramene lui aussi
+        chaque annonce a l'itemString du groupe. On lui donne la meme identite de
+        vente que PostScan. Le reste du fichier suit tout seul :
+        private.NewAuctionsQuery choisit deja baseItemString / levelItemString /
+        itemString selon la forme recue, et AUCTION_TRACKING_INDEX stocke
+        l'itemString exact de chaque annonce possedee.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $changed = $false
+
+    $original = @'
+function private.CanCancelItem(itemString, groupList)
+\tlocal groupPath = Group.GetPathByItem(itemString)
+'@
+    $patched = @'
+function private.GetVariantItemString(itemString)
+\t-- Items with random stats are cancelled variant by variant, to stay in sync
+\t-- with how PostScan prices them.
+\tlocal groupItemString = Group.TranslateItemString(itemString)
+\tif itemString == groupItemString then
+\t\t-- The variant itself is grouped, so TSM already keeps it distinct
+\t\treturn groupItemString
+\tend
+\tif itemString == ItemString.GetBaseFast(itemString) then
+\t\treturn groupItemString
+\tend
+\tif ItemInfo.IsCommodity(itemString) ~= false then
+\t\t-- Commodity sub rows carry the base item link, so an exact key would never
+\t\t-- match. A nil result means the item info is not loaded yet.
+\t\treturn groupItemString
+\tend
+\tif not Group.GetPathByItem(itemString) then
+\t\treturn groupItemString
+\tend
+\treturn itemString
+end
+
+function private.CanCancelItem(itemString, groupList)
+\tlocal groupPath = Group.GetPathByItem(itemString)
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Auctioning\\CancelScan variant item string helper") -or $changed
+
+    $original = @'
+\tlocal query = Auction.NewIndexQuery()
+\t\t:Equal("isSold", false)
+\t\t:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+\t\t:Select("autoBaseItemString")
+'@
+    $patched = @'
+\tlocal query = Auction.NewIndexQuery()
+\t\t:Equal("isSold", false)
+\t\t:VirtualField("autoBaseItemString", "string", private.GetVariantItemString, "itemString")
+\t\t:Select("autoBaseItemString")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Auctioning\\CancelScan scan list variant key") -or $changed
+
+    $original = @'
+\treturn Auction.NewIndexQuery()
+\t\t:Equal("isSold", false)
+\t\t:Equal(itemStringField, itemString)
+\t\t:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+\t\t:Equal("autoBaseItemString", autoBaseItemString)
+'@
+    $patched = @'
+\treturn Auction.NewIndexQuery()
+\t\t:Equal("isSold", false)
+\t\t:Equal(itemStringField, itemString)
+\t\t:VirtualField("autoBaseItemString", "string", private.GetVariantItemString, "itemString")
+\t\t:Equal("autoBaseItemString", autoBaseItemString)
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Auctioning\\CancelScan auctions query variant key") -or $changed
+
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
+function Update-TSMAuctioningBagScrollTableFile {
+    <#
+    .SYNOPSIS
+        Distingue les variantes de stats dans la liste "Post Items from Bags".
+
+    .DESCRIPTION
+        Le posting par variante fait apparaitre une ligne par stat. Sans libelle,
+        deux batons afficheraient exactement le meme nom. On suffixe le nom avec
+        les stats d'artisanat lues sur le lien reconstruit, avec repli sur le
+        niveau d'objet tant que le client n'a pas mis l'objet en cache.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $changed = $false
+
+    $original = @'
+local Table = LibTSMUI:From("LibTSMUtil"):Include("Lua.Table")
+local private = {
+\tselectedTemp = {},
+}
+'@
+    $patched = @'
+local Table = LibTSMUI:From("LibTSMUtil"):Include("Lua.Table")
+local ItemString = LibTSMUI:From("LibTSMTypes"):Include("Item.ItemString")
+local ItemInfo = LibTSMUI:From("LibTSMService"):Include("Item.ItemInfo")
+local private = {
+\tselectedTemp = {},
+\tvariantSuffixCache = {},
+\tvariantStatKeys = {
+\t\t"ITEM_MOD_MULTICRAFT_SHORT",
+\t\t"ITEM_MOD_RESOURCEFULNESS_SHORT",
+\t\t"ITEM_MOD_CRAFTING_SPEED_SHORT",
+\t\t"ITEM_MOD_INSPIRATION_SHORT",
+\t\t"ITEM_MOD_FINESSE_SHORT",
+\t\t"ITEM_MOD_DEFTNESS_SHORT",
+\t\t"ITEM_MOD_PERCEPTION_SHORT",
+\t\t"ITEM_MOD_INGENUITY_SHORT",
+\t},
+}
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "LibTSMUI\\AuctioningBagScrollTable includes") -or $changed
+
+    $original = @'
+\t\ttinsert(self._data.item, "|T"..itemTexture..":0|t "..(UIUtils.GetDisplayItemName(autoBaseItemString) or "?"))
+'@
+    $patched = @'
+\t\ttinsert(self._data.item, "|T"..itemTexture..":0|t "..(UIUtils.GetDisplayItemName(autoBaseItemString) or "?")..private.GetVariantSuffix(autoBaseItemString))
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "LibTSMUI\\AuctioningBagScrollTable variant label") -or $changed
+
+    # Ce bloc ajoute une fonction a la fin du fichier : l'ancrage vierge est donc
+    # un prefixe du bloc deja patche. Replace-ExactBlockAny s'arretant au premier
+    # ancrage trouve, les generations sont listees de la plus recente a la plus
+    # ancienne, sinon un fichier deja patche verrait la fonction ajoutee deux fois.
+    $suffixOriginals = @()
+    $suffixOriginals += @'
+\tlocal settingsValue = self:_GetSettingsValue()
+\tself._query:ResetOrderBy()
+\t\t:OrderBy(COL_INFO[settingsValue.sortCol].sortField, settingsValue.sortAscending)
+\tself:_HandleQueryUpdate()
+end
+
+
+
+-- ============================================================================
+-- Private Helper Functions
+-- ============================================================================
+
+function private.GetVariantSuffix(itemString)
+\t-- Posting is variant aware, so two rows can share the same item name. Show
+\t-- the crafting stats which actually tell them apart.
+\tif not itemString or itemString == ItemString.GetBaseFast(itemString) then
+\t\treturn ""
+\tend
+\tlocal cached = private.variantSuffixCache[itemString]
+\tif cached then
+\t\treturn cached
+\tend
+\tlocal link = ItemInfo.GetLink(itemString)
+\tlocal getStats = C_Item and C_Item.GetItemStats
+\tlocal stats = (link and getStats) and getStats(link) or nil
+\tlocal suffix = nil
+\tif stats then
+\t\tfor _, key in ipairs(private.variantStatKeys) do
+\t\t\tif stats[key] and _G[key] then
+\t\t\t\tsuffix = suffix and (suffix..", ".._G[key]) or _G[key]
+\t\t\tend
+\t\tend
+\tend
+\tif not suffix then
+\t\tlocal itemLevel = ItemString.GetItemLevel(itemString)
+\t\tsuffix = itemLevel and tostring(itemLevel) or nil
+\tend
+\tsuffix = suffix and (" ("..suffix..")") or ""
+\tif stats then
+\t\t-- The stats are only known once the client has cached the item, so only
+\t\t-- memoize a label we know is final.
+\t\tprivate.variantSuffixCache[itemString] = suffix
+\tend
+\treturn suffix
+end
+'@
+    $suffixOriginals += @'
+\tlocal settingsValue = self:_GetSettingsValue()
+\tself._query:ResetOrderBy()
+\t\t:OrderBy(COL_INFO[settingsValue.sortCol].sortField, settingsValue.sortAscending)
+\tself:_HandleQueryUpdate()
+end
+'@
+    $suffixPatched = @'
+\tlocal settingsValue = self:_GetSettingsValue()
+\tself._query:ResetOrderBy()
+\t\t:OrderBy(COL_INFO[settingsValue.sortCol].sortField, settingsValue.sortAscending)
+\tself:_HandleQueryUpdate()
+end
+
+
+
+-- ============================================================================
+-- Private Helper Functions
+-- ============================================================================
+
+function private.GetVariantSuffix(itemString)
+\t-- Posting is variant aware, so two rows can share the same item name. Show
+\t-- the crafting stats which actually tell them apart.
+\tif not itemString or itemString == ItemString.GetBaseFast(itemString) then
+\t\treturn ""
+\tend
+\tlocal cached = private.variantSuffixCache[itemString]
+\tif cached then
+\t\treturn cached
+\tend
+\tlocal link = ItemInfo.GetLink(itemString)
+\tlocal getStats = C_Item and C_Item.GetItemStats
+\tlocal stats = (link and getStats) and getStats(link) or nil
+\tlocal suffix = nil
+\tif stats then
+\t\tfor _, key in ipairs(private.variantStatKeys) do
+\t\t\tif stats[key] and _G[key] then
+\t\t\t\tsuffix = suffix and (suffix..", ".._G[key]) or _G[key]
+\t\t\tend
+\t\tend
+\tend
+\tif not suffix then
+\t\t-- No readable stat name, so fall back to the raw crafting stat modifiers:
+\t\t-- cryptic, but the rows still tell each other apart.
+\t\tlocal modifiers = {}
+\t\tItemString.GetStatModifiers(itemString, false, modifiers)
+\t\tfor _, modifier in ipairs(modifiers) do
+\t\t\tsuffix = suffix and (suffix.."/"..modifier) or ("#"..modifier)
+\t\tend
+\tend
+\tif not suffix then
+\t\tlocal itemLevel = ItemString.GetItemLevel(itemString)
+\t\tsuffix = itemLevel and tostring(itemLevel) or nil
+\tend
+\tsuffix = suffix and (" ("..suffix..")") or ""
+\tif stats then
+\t\t-- The stats are only known once the client has cached the item, so only
+\t\t-- memoize a label we know is final.
+\t\tprivate.variantSuffixCache[itemString] = suffix
+\tend
+\treturn suffix
+end
+'@
+    $changed = (Replace-ExactBlockAny -Content ([ref]$content) -Originals $suffixOriginals -Patched $suffixPatched -Label "LibTSMUI\\AuctioningBagScrollTable variant suffix helper") -or $changed
 
     if ($changed) {
         Set-TSMPatchContent -FilePath $FilePath -Content $content
@@ -2756,6 +3178,8 @@ function Invoke-TSMMailingPatch {
     $bagTrackingPath = Join-Path $resolvedAddonPath "LibTSMService\Source\Inventory\BagTracking.lua"
     $bankingCorePath = Join-Path $resolvedAddonPath "Core\Service\Banking\Core.lua"
     $postScanPath = Join-Path $resolvedAddonPath "Core\Service\Auctioning\PostScan.lua"
+    $cancelScanPath = Join-Path $resolvedAddonPath "Core\Service\Auctioning\CancelScan.lua"
+    $auctioningBagScrollTablePath = Join-Path $resolvedAddonPath "LibTSMUI\Source\AuctionHouse\AuctioningBagScrollTable.lua"
     $craftingUiPath = Join-Path $resolvedAddonPath "Core\UI\CraftingUI\Core.lua"
     $auctionUiPath = Join-Path $resolvedAddonPath "Core\UI\AuctionUI\Core.lua"
     $shoppingOperationPath = Join-Path $resolvedAddonPath "LibTSMSystem\Source\Operation\ShoppingOperation.lua"
@@ -2792,6 +3216,8 @@ function Invoke-TSMMailingPatch {
         $bagTrackingPath,
         $bankingCorePath,
         $postScanPath,
+        $cancelScanPath,
+        $auctioningBagScrollTablePath,
         $craftingUiPath,
         $auctionUiPath,
         $shoppingOperationPath,
@@ -2815,6 +3241,8 @@ function Invoke-TSMMailingPatch {
     $patches.Add(@{ Name = "Bag tracking";           Targets = @($bagTrackingPath);          Action = { Restore-TSMBagTrackingFile -FilePath $bagTrackingPath } })
     $patches.Add(@{ Name = "Banking";                Targets = @($bankingCorePath);          Action = { Update-TSMBankingFile -FilePath $bankingCorePath } })
     $patches.Add(@{ Name = "Post scan debug";        Targets = @($postScanPath);             Action = { Update-TSMPostScanDebugFile -FilePath $postScanPath } })
+    $patches.Add(@{ Name = "Cancel scan";            Targets = @($cancelScanPath);           Action = { Update-TSMCancelScanFile -FilePath $cancelScanPath } })
+    $patches.Add(@{ Name = "Auctioning bag list";    Targets = @($auctioningBagScrollTablePath); Action = { Update-TSMAuctioningBagScrollTableFile -FilePath $auctioningBagScrollTablePath } })
     $patches.Add(@{ Name = "Default UI compat";      Targets = @($craftingUiPath, $auctionUiPath); Action = { Update-TSMDefaultUICompatibilityFiles -CraftingFilePath $craftingUiPath -AuctionFilePath $auctionUiPath } })
     $patches.Add(@{ Name = "Shopping operation";     Targets = @($shoppingOperationPath);    Action = { Update-TSMShoppingOperationFile -FilePath $shoppingOperationPath } })
     $patches.Add(@{ Name = "Shopping UI";            Targets = @($shoppingUiPath);           Action = { Update-TSMShoppingUIFile -FilePath $shoppingUiPath } })
