@@ -12,7 +12,7 @@ Ce que suit le MVP :
 - gold net de session via `PLAYER_MONEY`
 - items recuperes via `CHAT_MSG_LOOT`
 - Corrosive Coin recupere via `CURRENCY_DISPLAY_UPDATE`
-- valorisation via `TSM_API.GetCustomPriceValue(...)`
+- valorisation via `TSM_API.GetCustomPriceValue(...)` avec `first(dbregionsaleavg, dbmarket, dbregionmarketavg, vendorsell)` : le prix moyen de vente region passe en premier, les anciennes sources enregistrees dans les settings sont migrees au chargement
 - utilise aussi la moyenne de `YayaContainerValues` quand l'item est un container suivi
 - les items gris sont valorises au prix vendeur
 - bouton `R` dans le bandeau `Session` pour reinitialiser la session
