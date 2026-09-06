@@ -895,6 +895,34 @@ local Money = TSM.LibTSMUtil:Include("UI.Money")
 '@
     $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\API.lua locals") -or $changed
 
+    # La cle qui decide de ce qui est un seul et meme objet a vendre. L'exposer
+    # permet de la lire en jeu sans deviner :
+    #   /run local n={} for b=0,5 do for s=1,C_Container.GetContainerNumSlots(b) do local l=C_Container.GetContainerItemLink(b,s) if l then local k=TSM_API.GetItemStatKey(l) if k then n[k]=(n[k] or 0)+1 end end end end for k,v in pairs(n) do print(k,v) end
+    $original = @'
+--- Gets the path to the group which a specific item is in.
+-- @within Group
+'@
+    $patched = @'
+--- Gets the key which decides what counts as one and the same item to sell.
+-- Items sharing an item level and stats share this key, whatever cosmetic bonus
+-- IDs they carry.
+-- @within Item
+-- @tparam string item An item string, link or id
+-- @treturn string The stat key, or nil if the item could not be parsed
+function TSM_API.GetItemStatKey(item)
+\tprivate.CheckCallMethod(item)
+\tlocal itemString = ItemString.Get(item)
+\tif not itemString then
+\t\treturn nil
+\tend
+\treturn ItemString.ToStatKey(itemString)
+end
+
+--- Gets the path to the group which a specific item is in.
+-- @within Group
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\API.lua stat key") -or $changed
+
     $original = @'
 function TSM_API.ShiftDefaultUIButton(uiName, addonTag, xOffset)
 	private.CheckCallMethod(uiName)
@@ -1947,12 +1975,11 @@ for slotId in Container.GetBagSlotIterator() do
     # d'infobulle : deux batons identiques en jeu ne comptent que pour un.
     # L'itemString exact reste ce qu'on transporte (prix, liens, journal), la cle
     # ne sert qu'a regrouper et a comparer.
-    $original = @'
-function private.OnGroupsOperationsChanged()
-\tprivate.operationsChangedTimer:RunForFrames(1)
-end
-'@
-    $patched = @'
+    # Replace-ExactBlockAny s'arrete au premier ancrage trouve, et l'ancrage
+    # vierge est un suffixe du bloc patche : la generation la plus recente doit
+    # donc etre essayee en premier.
+    $helperOriginals = @()
+    $helperOriginals += @'
 function private.GetVariantItemString(itemString)
 \t-- Items with random stats are posted variant by variant: undercut only against
 \t-- listings sharing the same stats, and apply the post cap per stat.
@@ -1985,7 +2012,39 @@ function private.OnGroupsOperationsChanged()
 \tprivate.operationsChangedTimer:RunForFrames(1)
 end
 '@
-    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Auctioning\\PostScan variant stat key helpers") -or $changed
+    $helperOriginals += @'
+function private.OnGroupsOperationsChanged()
+\tprivate.operationsChangedTimer:RunForFrames(1)
+end
+'@
+    $patched = @'
+function private.GetVariantItemString(itemString)
+\t-- The itemString carried around for prices, links and the log. Any member of the
+\t-- stat group will do, so keep the one the bag actually holds.
+\tif not ItemString.IsItem(itemString) then
+\t\t-- Battle pets keep TSM's own grouping
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn itemString
+end
+
+function private.GetVariantStatKey(itemString)
+\t-- The sale identity: same item level and same stats is one and the same thing to
+\t-- post, whatever cosmetic bonusIds it carries. Derived from the itemString alone
+\t-- and never from the item cache: ItemInfo.IsCommodity answers nil until
+\t-- GetMaxStack is known, per itemString, so a key that consulted it split one and
+\t-- the same rod across several lines and multiplied the post cap by as many.
+\tif not ItemString.IsItem(itemString) then
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn ItemString.ToStatKey(itemString)
+end
+
+function private.OnGroupsOperationsChanged()
+\tprivate.operationsChangedTimer:RunForFrames(1)
+end
+'@
+    $changed = (Replace-ExactBlockAny -Content ([ref]$content) -Originals $helperOriginals -Patched $patched -Label "Auctioning\\PostScan variant stat key helpers") -or $changed
 
     $original = @'
 \tprivate.bagDB = Database.NewSchema("AUCTIONING_POST_BAGS")
@@ -2848,11 +2907,8 @@ function Update-TSMCancelScanFile {
     $content = Get-TSMPatchContent -FilePath $FilePath
     $changed = $false
 
-    $original = @'
-function private.CanCancelItem(itemString, groupList)
-\tlocal groupPath = Group.GetPathByItem(itemString)
-'@
-    $patched = @'
+    $helperOriginals = @()
+    $helperOriginals += @'
 function private.GetVariantItemString(itemString)
 \t-- Items with random stats are cancelled variant by variant, to stay in sync
 \t-- with how PostScan prices them.
@@ -2882,7 +2938,33 @@ end
 function private.CanCancelItem(itemString, groupList)
 \tlocal groupPath = Group.GetPathByItem(itemString)
 '@
-    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Auctioning\\CancelScan variant stat key helpers") -or $changed
+    $helperOriginals += @'
+function private.CanCancelItem(itemString, groupList)
+\tlocal groupPath = Group.GetPathByItem(itemString)
+'@
+    $patched = @'
+function private.GetVariantItemString(itemString)
+\t-- Any member of the stat group will do as the itemString we carry around.
+\tif not ItemString.IsItem(itemString) then
+\t\t-- Battle pets keep TSM's own grouping
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn itemString
+end
+
+function private.GetVariantStatKey(itemString)
+\t-- Same identity as PostScan, and derived from the itemString alone so it cannot
+\t-- move with the item cache.
+\tif not ItemString.IsItem(itemString) then
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn ItemString.ToStatKey(itemString)
+end
+
+function private.CanCancelItem(itemString, groupList)
+\tlocal groupPath = Group.GetPathByItem(itemString)
+'@
+    $changed = (Replace-ExactBlockAny -Content ([ref]$content) -Originals $helperOriginals -Patched $patched -Label "Auctioning\\CancelScan variant stat key helpers") -or $changed
 
     $original = @'
 \tlocal query = Auction.NewIndexQuery()
