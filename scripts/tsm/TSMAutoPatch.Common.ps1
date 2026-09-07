@@ -3258,6 +3258,518 @@ end
     return $changed
 }
 
+function Update-TSMBankingUtilFile {
+    <#
+    .SYNOPSIS
+        Fait raisonner la banque par groupe de stats, comme le posting.
+
+    .DESCRIPTION
+        Les boutons de l'onglet Banque agregent les objets par
+        Group.TranslateItemString, donc un seul postCap pour tout l'item de base.
+        Depuis que le posting compte par rang et par stat, « Post cap to bags »
+        ne ramenait qu'un seul lot pour toutes les stats confondues. On regroupe
+        ici par la meme cle, en gardant un itemString reel comme representant :
+        c'est lui qui sera cherche en banque et affiche.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $changed = $false
+
+    $original = @'
+local Group = TSM.LibTSMTypes:Include("Group")
+local BagTracking = TSM.LibTSMService:Include("Inventory.BagTracking")
+'@
+    $patched = @'
+local Group = TSM.LibTSMTypes:Include("Group")
+local ItemString = TSM.LibTSMTypes:Include("Item.ItemString")
+local BagTracking = TSM.LibTSMService:Include("Inventory.BagTracking")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Util include") -or $changed
+
+    $original = @'
+function Util.BagIterator(autoBaseItems)
+\tlocal query = BagTracking.CreateQueryBags()
+\t\t:OrderBy("slotId", true)
+\tif autoBaseItems then
+\t\tquery:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+'@
+    $patched = @'
+function private.GetVariantItemString(itemString)
+\t-- Any member of the stat group will do as the itemString we carry around.
+\tif not ItemString.IsItem(itemString) then
+\t\t-- Battle pets keep TSM's own grouping
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn itemString
+end
+
+function private.GetVariantStatKey(itemString)
+\t-- Same sale identity as the auctioning scans: rank and stats, nothing else.
+\tif not ItemString.IsItem(itemString) then
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn ItemString.ToStatKey(itemString)
+end
+
+function Util.BagIterator(autoBaseItems)
+\tlocal query = BagTracking.CreateQueryBags()
+\t\t:OrderBy("slotId", true)
+\tif autoBaseItems then
+\t\tquery:VirtualField("autoBaseItemString", "string", private.GetVariantItemString, "itemString")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Util bag iterator") -or $changed
+
+    $original = @'
+\t\tlocal query = Guild.NewIndexQuery()
+\t\tif autoBaseItems then
+\t\t\tquery:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+'@
+    $patched = @'
+\t\tlocal query = Guild.NewIndexQuery()
+\t\tif autoBaseItems then
+\t\t\tquery:VirtualField("autoBaseItemString", "string", private.GetVariantItemString, "itemString")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Util guild bank iterator") -or $changed
+
+    $original = @'
+\t\tlocal query = WarbankTracking.CreateQuerySlot()
+\t\t\t:OrderBy("slotId", true)
+\t\tif autoBaseItems then
+\t\t\tquery:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+'@
+    $patched = @'
+\t\tlocal query = WarbankTracking.CreateQuerySlot()
+\t\t\t:OrderBy("slotId", true)
+\t\tif autoBaseItems then
+\t\t\tquery:VirtualField("autoBaseItemString", "string", private.GetVariantItemString, "itemString")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Util warbank iterator") -or $changed
+
+    $original = @'
+\t\tlocal query = BagTracking.CreateQueryBank()
+\t\t\t:OrderBy("slotId", true)
+\t\tif autoBaseItems then
+\t\t\tquery:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+'@
+    $patched = @'
+\t\tlocal query = BagTracking.CreateQueryBank()
+\t\t\t:OrderBy("slotId", true)
+\t\tif autoBaseItems then
+\t\t\tquery:VirtualField("autoBaseItemString", "string", private.GetVariantItemString, "itemString")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Util bank iterator") -or $changed
+
+    $original = @'
+function Util.PopulateGroupItemsFromBags(items, groups, getNumFunc, ...)
+\tlocal itemQuantity = TempTable.Acquire()
+\tfor _, _, _, itemString, quantity in Util.BagIterator(true) do
+\t\tif private.InGroups(itemString, groups) then
+\t\t\titemQuantity[itemString] = (itemQuantity[itemString] or 0) + quantity
+\t\tend
+\tend
+\tfor itemString, numHave in pairs(itemQuantity) do
+\t\tlocal numToMove = getNumFunc(itemString, numHave, ...)
+\t\tif numToMove > 0 then
+\t\t\titems[itemString] = numToMove
+\t\tend
+\tend
+\tTempTable.Release(itemQuantity)
+end
+'@
+    $patched = @'
+function Util.PopulateGroupItemsFromBags(items, groups, getNumFunc, ...)
+\tlocal itemQuantity = TempTable.Acquire()
+\tlocal statKeyItems = TempTable.Acquire()
+\tfor _, _, _, itemString, quantity in Util.BagIterator(true) do
+\t\tif private.InGroups(itemString, groups) then
+\t\t\t-- Group by what the item is worth, not by its exact itemString: two tools
+\t\t\t-- of the same rank and stat are one and the same thing to move.
+\t\t\tlocal statKey = private.GetVariantStatKey(itemString)
+\t\t\titemQuantity[statKey] = (itemQuantity[statKey] or 0) + quantity
+\t\t\tstatKeyItems[statKey] = statKeyItems[statKey] or itemString
+\t\tend
+\tend
+\tfor statKey, numHave in pairs(itemQuantity) do
+\t\tlocal itemString = statKeyItems[statKey]
+\t\tlocal numToMove = getNumFunc(itemString, numHave, ...)
+\t\tif numToMove > 0 then
+\t\t\titems[itemString] = numToMove
+\t\tend
+\tend
+\tTempTable.Release(statKeyItems)
+\tTempTable.Release(itemQuantity)
+end
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Util populate from bags") -or $changed
+
+    $original = @'
+function Util.PopulateGroupItemsFromOpenBank(items, groups, getNumFunc, ...)
+\tlocal itemQuantity = TempTable.Acquire()
+\tfor _, _, _, itemString, quantity in Util.OpenBankIterator(true) do
+\t\tif private.InGroups(itemString, groups) then
+\t\t\titemQuantity[itemString] = (itemQuantity[itemString] or 0) + quantity
+\t\tend
+\tend
+\tfor itemString, numHave in pairs(itemQuantity) do
+\t\tlocal numToMove = getNumFunc(itemString, numHave, ...)
+\t\tif numToMove > 0 then
+\t\t\titems[itemString] = numToMove
+\t\tend
+\tend
+\tTempTable.Release(itemQuantity)
+end
+'@
+    $patched = @'
+function Util.PopulateGroupItemsFromOpenBank(items, groups, getNumFunc, ...)
+\tlocal itemQuantity = TempTable.Acquire()
+\tlocal statKeyItems = TempTable.Acquire()
+\tfor _, _, _, itemString, quantity in Util.OpenBankIterator(true) do
+\t\tif private.InGroups(itemString, groups) then
+\t\t\tlocal statKey = private.GetVariantStatKey(itemString)
+\t\t\titemQuantity[statKey] = (itemQuantity[statKey] or 0) + quantity
+\t\t\tstatKeyItems[statKey] = statKeyItems[statKey] or itemString
+\t\tend
+\tend
+\tfor statKey, numHave in pairs(itemQuantity) do
+\t\tlocal itemString = statKeyItems[statKey]
+\t\tlocal numToMove = getNumFunc(itemString, numHave, ...)
+\t\tif numToMove > 0 then
+\t\t\titems[itemString] = numToMove
+\t\tend
+\tend
+\tTempTable.Release(statKeyItems)
+\tTempTable.Release(itemQuantity)
+end
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Util populate from open bank") -or $changed
+
+    $original = @'
+function Util.PopulateItemsFromBags(items, getNumFunc, ...)
+\tlocal itemQuantity = TempTable.Acquire()
+\tfor _, _, _, itemString, quantity in Util.BagIterator(true) do
+\t\titemQuantity[itemString] = (itemQuantity[itemString] or 0) + quantity
+\tend
+\tfor itemString, numHave in pairs(itemQuantity) do
+\t\tlocal numToMove = getNumFunc(itemString, numHave, ...)
+\t\tif numToMove > 0 then
+\t\t\titems[itemString] = numToMove
+\t\tend
+\tend
+\tTempTable.Release(itemQuantity)
+end
+'@
+    $patched = @'
+function Util.PopulateItemsFromBags(items, getNumFunc, ...)
+\tlocal itemQuantity = TempTable.Acquire()
+\tlocal statKeyItems = TempTable.Acquire()
+\tfor _, _, _, itemString, quantity in Util.BagIterator(true) do
+\t\tlocal statKey = private.GetVariantStatKey(itemString)
+\t\titemQuantity[statKey] = (itemQuantity[statKey] or 0) + quantity
+\t\tstatKeyItems[statKey] = statKeyItems[statKey] or itemString
+\tend
+\tfor statKey, numHave in pairs(itemQuantity) do
+\t\tlocal itemString = statKeyItems[statKey]
+\t\tlocal numToMove = getNumFunc(itemString, numHave, ...)
+\t\tif numToMove > 0 then
+\t\t\titems[itemString] = numToMove
+\t\tend
+\tend
+\tTempTable.Release(statKeyItems)
+\tTempTable.Release(itemQuantity)
+end
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Util populate items from bags") -or $changed
+
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
+function Update-TSMBankingAuctioningFile {
+    <#
+    .SYNOPSIS
+        Compte le contenu des sacs par groupe de stats pour « Post cap to bags ».
+
+    .DESCRIPTION
+        numInBags comparait l'itemString traduit par le groupe, donc un baton
+        Multicraft comptait comme un Ressourcefulness deja en sac. Le decompte
+        suit desormais la meme cle que le posting.
+
+        Reste imprecis : avec « Shortfall to bags », les encheres deja postees
+        sont comptees par Auction.GetQuantity, dont le stock persistant est
+        indexe par niveau d'objet et ne distingue donc pas les stats.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $changed = $false
+
+    $original = @'
+local Group = TSM.LibTSMTypes:Include("Group")
+local GroupOperation = TSM.LibTSMTypes:Include("GroupOperation")
+'@
+    $patched = @'
+local Group = TSM.LibTSMTypes:Include("Group")
+local ItemString = TSM.LibTSMTypes:Include("Item.ItemString")
+local GroupOperation = TSM.LibTSMTypes:Include("GroupOperation")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Auctioning include") -or $changed
+
+    $original = @'
+function private.GroupsGetNumToMoveToBank(itemString, numHave)
+'@
+    $patched = @'
+function private.GetVariantItemString(itemString)
+\t-- Any member of the stat group will do as the itemString we carry around.
+\tif not ItemString.IsItem(itemString) then
+\t\t-- Battle pets keep TSM's own grouping
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn itemString
+end
+
+function private.GetVariantStatKey(itemString)
+\t-- Same sale identity as the auctioning scans: rank and stats, nothing else.
+\tif not ItemString.IsItem(itemString) then
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn ItemString.ToStatKey(itemString)
+end
+
+function private.GetVariantQueryItemString(itemString)
+\t-- Widen the query to the base item, the stat key does the fine sorting.
+\tif not ItemString.IsItem(itemString) then
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn ItemString.GetBaseFast(itemString)
+end
+
+function private.GroupsGetNumToMoveToBank(itemString, numHave)
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Auctioning helpers") -or $changed
+
+    $original = @'
+\tlocal numInBags = BagTracking.CreateQueryBagsItem(itemString)
+\t\t:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+\t\t:Equal("autoBaseItemString", itemString)
+\t\t:SumAndRelease("quantity")
+'@
+    $patched = @'
+\tlocal numInBags = BagTracking.CreateQueryBagsItem(private.GetVariantQueryItemString(itemString))
+\t\t:VirtualField("statKey", "string", private.GetVariantStatKey, "itemString")
+\t\t:Equal("statKey", private.GetVariantStatKey(itemString))
+\t\t:SumAndRelease("quantity")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\Auctioning bag count by stat key") -or $changed
+
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
+function Update-TSMBankingMoveContextFile {
+    <#
+    .SYNOPSIS
+        Retrouve les objets a deplacer par cle de stats.
+
+    .DESCRIPTION
+        Les iterateurs de slots comparaient l'itemString traduit par le groupe :
+        demander a deplacer un baton Ressourcefulness pouvait donc prendre un
+        Multicraft dans le sac voisin. La requete s'elargit desormais a l'item de
+        base, et la cle de stats fait le tri fin.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $changed = $false
+
+    $original = @'
+local Group = TSM.LibTSMTypes:Include("Group")
+local Threading = TSM.LibTSMTypes:Include("Threading")
+'@
+    $patched = @'
+local Group = TSM.LibTSMTypes:Include("Group")
+local ItemString = TSM.LibTSMTypes:Include("Item.ItemString")
+local Threading = TSM.LibTSMTypes:Include("Threading")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\MoveContext include") -or $changed
+
+    $original = @'
+function private.ContainerGetSlotQuantity(slotId)
+'@
+    $patched = @'
+function private.GetVariantStatKey(itemString)
+\t-- Same sale identity as the auctioning scans: rank and stats, nothing else.
+\tif not ItemString.IsItem(itemString) then
+\t\t-- Battle pets keep TSM's own grouping
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn ItemString.ToStatKey(itemString)
+end
+
+function private.GetVariantQueryItemString(itemString)
+\t-- Widen the query to the base item, the stat key does the fine sorting.
+\tif not ItemString.IsItem(itemString) then
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn ItemString.GetBaseFast(itemString)
+end
+
+function private.ContainerGetSlotQuantity(slotId)
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\MoveContext helpers") -or $changed
+
+    $original = @'
+function BankToBagMoveContext.SlotIdIterator(self, itemString)
+\titemString = Group.TranslateItemString(itemString)
+\treturn BagTracking.CreateQueryBankItem(itemString)
+\t\t:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+\t\t:Equal("autoBaseItemString", itemString)
+'@
+    $patched = @'
+function BankToBagMoveContext.SlotIdIterator(self, itemString)
+\treturn BagTracking.CreateQueryBankItem(private.GetVariantQueryItemString(itemString))
+\t\t:VirtualField("statKey", "string", private.GetVariantStatKey, "itemString")
+\t\t:Equal("statKey", private.GetVariantStatKey(itemString))
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\MoveContext bank to bag") -or $changed
+
+    $original = @'
+function WarbankToBagMoveContext.SlotIdIterator(self, itemString)
+\titemString = Group.TranslateItemString(itemString)
+\treturn WarbankTracking.CreateQuerySlotItem(itemString)
+\t\t:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+\t\t:Equal("autoBaseItemString", itemString)
+'@
+    $patched = @'
+function WarbankToBagMoveContext.SlotIdIterator(self, itemString)
+\treturn WarbankTracking.CreateQuerySlotItem(private.GetVariantQueryItemString(itemString))
+\t\t:VirtualField("statKey", "string", private.GetVariantStatKey, "itemString")
+\t\t:Equal("statKey", private.GetVariantStatKey(itemString))
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\MoveContext warbank to bag") -or $changed
+
+    $original = @'
+function GuildBankToBagMoveContext.SlotIdIterator(self, itemString)
+\titemString = Group.TranslateItemString(itemString)
+\treturn Guild.NewIndexQueryItem(itemString)
+\t\t:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+\t\t:Equal("autoBaseItemString", itemString)
+'@
+    $patched = @'
+function GuildBankToBagMoveContext.SlotIdIterator(self, itemString)
+\treturn Guild.NewIndexQueryItem(private.GetVariantQueryItemString(itemString))
+\t\t:VirtualField("statKey", "string", private.GetVariantStatKey, "itemString")
+\t\t:Equal("statKey", private.GetVariantStatKey(itemString))
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\MoveContext guild bank to bag") -or $changed
+
+    $original = @'
+function private.BagSlotIdIterator(itemString)
+\titemString = Group.TranslateItemString(itemString)
+\tlocal query = BagTracking.CreateQueryBagsItem(itemString)
+\t\t:Select("slotId", "quantity")
+\t\t:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+\t\t:Equal("autoBaseItemString", itemString)
+'@
+    $patched = @'
+function private.BagSlotIdIterator(itemString)
+\tlocal query = BagTracking.CreateQueryBagsItem(private.GetVariantQueryItemString(itemString))
+\t\t:Select("slotId", "quantity")
+\t\t:VirtualField("statKey", "string", private.GetVariantStatKey, "itemString")
+\t\t:Equal("statKey", private.GetVariantStatKey(itemString))
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Banking\\MoveContext bag iterator") -or $changed
+
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
+function Update-TSMOperationsCoreFile {
+    <#
+    .SYNOPSIS
+        Le restock warehousing compte les sacs par groupe de stats.
+
+    .DESCRIPTION
+        WarehousingOperation.GetNumToMoveRestock compare le nombre deja en sac a
+        restockQuantity. Ce decompte passait par l'itemString traduit par le
+        groupe, donc un baton Multicraft comptait comme un Ressourcefulness deja
+        present et bloquait le restock.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    $content = Get-TSMPatchContent -FilePath $FilePath
+    $changed = $false
+
+    $original = @'
+local Group = TSM.LibTSMTypes:Include("Group")
+local GroupOperation = TSM.LibTSMTypes:Include("GroupOperation")
+'@
+    $patched = @'
+local Group = TSM.LibTSMTypes:Include("Group")
+local ItemString = TSM.LibTSMTypes:Include("Item.ItemString")
+local GroupOperation = TSM.LibTSMTypes:Include("GroupOperation")
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Operations\\Core include") -or $changed
+
+    $original = @'
+function private.GetWarehousingBagQuantity(itemString)
+\treturn BagTracking.CreateQueryBagsItem(itemString)
+\t\t:VirtualField("autoBaseItemString", "string", Group.TranslateItemString, "itemString")
+\t\t:Equal("autoBaseItemString", itemString)
+\t\t:SumAndRelease("quantity")
+end
+'@
+    $patched = @'
+function private.GetVariantStatKey(itemString)
+\t-- Same sale identity as the auctioning scans: rank and stats, nothing else.
+\tif not ItemString.IsItem(itemString) then
+\t\t-- Battle pets keep TSM's own grouping
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn ItemString.ToStatKey(itemString)
+end
+
+function private.GetVariantQueryItemString(itemString)
+\t-- Widen the query to the base item, the stat key does the fine sorting.
+\tif not ItemString.IsItem(itemString) then
+\t\treturn Group.TranslateItemString(itemString)
+\tend
+\treturn ItemString.GetBaseFast(itemString)
+end
+
+function private.GetWarehousingBagQuantity(itemString)
+\treturn BagTracking.CreateQueryBagsItem(private.GetVariantQueryItemString(itemString))
+\t\t:VirtualField("statKey", "string", private.GetVariantStatKey, "itemString")
+\t\t:Equal("statKey", private.GetVariantStatKey(itemString))
+\t\t:SumAndRelease("quantity")
+end
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Operations\\Core warehousing bag quantity") -or $changed
+
+    if ($changed) {
+        Set-TSMPatchContent -FilePath $FilePath -Content $content
+    }
+    return $changed
+}
+
 function Update-TSMSchemaFile {
     param(
         [Parameter(Mandatory = $true)]
@@ -3795,6 +4307,10 @@ function Invoke-TSMMailingPatch {
     $bagTrackingPath = Join-Path $resolvedAddonPath "LibTSMService\Source\Inventory\BagTracking.lua"
     $bankingCorePath = Join-Path $resolvedAddonPath "Core\Service\Banking\Core.lua"
     $postScanPath = Join-Path $resolvedAddonPath "Core\Service\Auctioning\PostScan.lua"
+    $bankingMoveContextPath = Join-Path $resolvedAddonPath "Core\Service\Banking\MoveContext.lua"
+    $operationsCorePath = Join-Path $resolvedAddonPath "Core\Service\Operations\Core.lua"
+    $bankingUtilPath = Join-Path $resolvedAddonPath "Core\Service\Banking\Util.lua"
+    $bankingAuctioningPath = Join-Path $resolvedAddonPath "Core\Service\Banking\Auctioning.lua"
     $cancelScanPath = Join-Path $resolvedAddonPath "Core\Service\Auctioning\CancelScan.lua"
     $auctioningBagScrollTablePath = Join-Path $resolvedAddonPath "LibTSMUI\Source\AuctionHouse\AuctioningBagScrollTable.lua"
     $itemStringPath = Join-Path $resolvedAddonPath "LibTSMTypes\Source\Item\ItemString.lua"
@@ -3835,6 +4351,10 @@ function Invoke-TSMMailingPatch {
         $bagTrackingPath,
         $bankingCorePath,
         $postScanPath,
+        $bankingMoveContextPath,
+        $operationsCorePath,
+        $bankingUtilPath,
+        $bankingAuctioningPath,
         $cancelScanPath,
         $auctioningBagScrollTablePath,
         $itemStringPath,
@@ -3864,6 +4384,10 @@ function Invoke-TSMMailingPatch {
     $patches.Add(@{ Name = "Item string stat key"; Targets = @($itemStringPath);           Action = { Update-TSMItemStringFile -FilePath $itemStringPath } })
     $patches.Add(@{ Name = "Auction query stats";  Targets = @($auctionQueryPath);         Action = { Update-TSMAuctionQueryFile -FilePath $auctionQueryPath } })
     $patches.Add(@{ Name = "Post scan debug";        Targets = @($postScanPath);             Action = { Update-TSMPostScanDebugFile -FilePath $postScanPath } })
+    $patches.Add(@{ Name = "Banking move context"; Targets = @($bankingMoveContextPath);   Action = { Update-TSMBankingMoveContextFile -FilePath $bankingMoveContextPath } })
+    $patches.Add(@{ Name = "Warehousing restock";  Targets = @($operationsCorePath);        Action = { Update-TSMOperationsCoreFile -FilePath $operationsCorePath } })
+    $patches.Add(@{ Name = "Banking util stats";    Targets = @($bankingUtilPath);          Action = { Update-TSMBankingUtilFile -FilePath $bankingUtilPath } })
+    $patches.Add(@{ Name = "Banking auctioning";    Targets = @($bankingAuctioningPath);    Action = { Update-TSMBankingAuctioningFile -FilePath $bankingAuctioningPath } })
     $patches.Add(@{ Name = "Cancel scan";            Targets = @($cancelScanPath);           Action = { Update-TSMCancelScanFile -FilePath $cancelScanPath } })
     $patches.Add(@{ Name = "Auctioning bag list";    Targets = @($auctioningBagScrollTablePath); Action = { Update-TSMAuctioningBagScrollTableFile -FilePath $auctioningBagScrollTablePath } })
     $patches.Add(@{ Name = "Default UI compat";      Targets = @($craftingUiPath, $auctionUiPath); Action = { Update-TSMDefaultUICompatibilityFiles -CraftingFilePath $craftingUiPath -AuctionFilePath $auctionUiPath } })

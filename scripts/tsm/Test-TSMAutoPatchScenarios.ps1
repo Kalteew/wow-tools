@@ -167,6 +167,40 @@ try {
         Stop-TSMPatchTransaction
     }
 
+    # Un patch qui ajoute une fonction avant son ancrage laisse cet ancrage dans le
+    # resultat. Si une generation suivante le rematche, la fonction est inseree une
+    # seconde fois : Lua retient alors la derniere definition, donc le correctif
+    # disparait sans le moindre bruit, et Test-TSMPatchLuaSyntax ne voit rien.
+    Write-Host "Scenario 7 - aucune definition dupliquee apres deux passages" -ForegroundColor Cyan
+    $sandbox = New-Sandbox -Name "no-duplicate-definitions"
+    try {
+        $firstRun = Invoke-TSMMailingPatch -AddonPath $sandbox -Quiet
+        $result = Invoke-TSMMailingPatch -AddonPath $sandbox -Quiet
+        Assert-Test -Name "le second passage ne change rien" -Condition (-not $result.Changed) `
+            -Detail $result.Status
+
+        # Seuls les fichiers que le patch reecrit sont concernes : ailleurs, une
+        # ligne "function" repetee appartient a une lib tierce ou a un exemple en
+        # commentaire.
+        $duplicates = New-Object System.Collections.Generic.List[string]
+        foreach ($relativePath in $firstRun.ChangedFiles) {
+            $fullPath = Join-Path $sandbox $relativePath
+            $seen = @{}
+            foreach ($line in [System.IO.File]::ReadAllLines($fullPath)) {
+                if ($line -like "function *") {
+                    if ($seen.ContainsKey($line)) {
+                        $duplicates.Add("$relativePath : $line")
+                    }
+                    $seen[$line] = $true
+                }
+            }
+        }
+        Assert-Test -Name "aucune fonction definie deux fois" -Condition ($duplicates.Count -eq 0) `
+            -Detail (($duplicates | Select-Object -First 5) -join " | ")
+    } catch {
+        Assert-Test -Name "le double passage ne leve pas d'exception" -Condition $false -Detail $_.Exception.Message
+    }
+
     Write-Host "Scenario 6 - cycle d'alerte sur echec persistant" -ForegroundColor Cyan
     $sandbox = New-Sandbox -Name "alert-cycle"
     $apiFile = Join-Path $sandbox "Core\API.lua"
