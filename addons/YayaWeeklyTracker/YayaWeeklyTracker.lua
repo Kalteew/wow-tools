@@ -1125,6 +1125,7 @@ local TRACKER_DEFAULTS = {
     trackProfessionDisenchants = true,
     trackProfessionTools = true,
     trackProfessionToolEnchants = true,
+    trackProfessionGear = true,
     trackSparksOfTides = true,
     autoBuyAbundanceEnchantingBags = false,
     autoBuyAbundanceFusedVitality = false,
@@ -1158,6 +1159,7 @@ runtimeState.trackingOptions = {
     { category = "Metiers Midnight", key = "trackProfessionDisenchants", label = "Dez Enchantement" },
     { category = "Metiers Midnight", key = "trackProfessionTools", label = "Outils metiers" },
     { category = "Metiers Midnight", key = "trackProfessionToolEnchants", label = "Enchantements des outils" },
+    { category = "Metiers Midnight", key = "trackProfessionGear", label = "Equipement de metier (rare+ et ilvl >= 232)" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceEnchantingBags", label = "Acheter automatiquement les sacs de matériaux d'enchantement" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceFusedVitality", label = "Acheter automatiquement les Fused Vitality" },
     { category = "Conteneurs", key = "autoOpenContainers", label = "Proposer l'ouverture securisee des conteneurs YWT" },
@@ -1262,6 +1264,41 @@ runtimeState.professionToolEnchantments = {
                 "vitesse d'artisanat",
             },
         },
+    },
+}
+-- Equipement de metier : l'outil plus ses accessoires. La stat d'un outil est
+-- tiree au hasard sur l'exemplaire, mais les accessoires portent des stats
+-- fixes : leur conformite ne depend donc que de la rarete et du niveau d'objet.
+-- Le seuil est strict (`> minimumItemLevel`), soit du bleu au-dessus de 232.
+runtimeState.professionGear = {
+    minimumQuality = 3,
+    -- Seuil inclusif : un objet est conforme a partir de ce niveau. Les objets
+    -- de metier rares plafonnent a 232 (rang de craft maximal), donc exiger
+    -- strictement plus de 232 imposerait de l'epique et rendrait le rappel
+    -- impossible a satisfaire en bleu. Reglable par `/ywt stuff ilvl <n>`.
+    minimumItemLevel = 232,
+    -- L'alchimie profite du Multicraft sur ses consommables et YayaQueue equipe
+    -- l'outil correspondant juste avant ces crafts : il faut donc un exemplaire
+    -- Multicrafting en sac, en plus de l'outil Resourcefulness porte par defaut.
+    baggedMulticraftToolSkillLineIDs = { [2906] = true },
+    -- Rang rare (bleu) de l'equipement de metier Midnight : l'outil, puis les
+    -- deux accessoires. Ces itemIDs ne sont que des CANDIDATS : chacun est
+    -- valide en jeu (emplacement d'equipement et ligne de metier) avant d'etre
+    -- propose, pour qu'une donnee fausse n'ajoute jamais un objet inadapte a la
+    -- file. Le rang de craft d'un objet ne change pas son itemID, seulement ses
+    -- bonusId : un achat ne peut donc pas viser un ilvl precis.
+    rareCandidatesBySkillLineID = {
+        [2906] = { tool = 245778, gear = { 239635, 244626 } },
+        [2907] = { tool = 238018, gear = { 237952, 244628 } },
+        [2909] = { tool = 244176, gear = { 239637, 240960 } },
+        [2910] = { tool = 244718, gear = { 244624, 244710 } },
+        [2912] = { tool = 238014, gear = { 239639, 244621 } },
+        [2913] = { tool = 245776, gear = { 240957, 240958 } },
+        [2914] = { tool = 244714, gear = { 240959, 244630 } },
+        [2915] = { tool = 238017, gear = { 237951, 244625 } },
+        [2916] = { tool = 238015, gear = { 244716, 244720 } },
+        [2917] = { tool = 238016, gear = { 244622, 244623 } },
+        [2918] = { tool = 244708, gear = { 237950, 239640 } },
     },
 }
 runtimeState.abundanceEnchantingBagItemID = 250755
@@ -4166,6 +4203,125 @@ trackerUI.RequestToolItemData = function(itemID)
     return true
 end
 
+-- Un emplacement de metier est conforme s'il porte un objet au moins rare dont
+-- le niveau d'objet depasse le seuil. Ne jamais conclure sur un objet dont la
+-- rarete ou le niveau ne sont pas encore charges : ce serait signaler un
+-- equipement non conforme alors que seule la donnee manque.
+trackerUI.GetProfessionGearMinimumItemLevel = function()
+    local configured = tonumber(GetAccountDB().professionGearMinimumItemLevel)
+    if configured and configured > 0 then
+        return configured
+    end
+    return runtimeState.professionGear.minimumItemLevel
+end
+
+trackerUI.EvaluateProfessionGearSlot = function(slotID, isToolSlot)
+    local slotState = { slotID = slotID, isToolSlot = isToolSlot == true }
+    if type(GetInventoryItemLink) ~= "function" then
+        slotState.pending = true
+        return slotState
+    end
+
+    local itemLink = SafeCall(GetInventoryItemLink, "player", slotID)
+    if type(itemLink) ~= "string" or itemLink == "" then
+        -- Un slot sans lien est reellement vide : le client rend le lien d'un
+        -- objet equipe meme quand ses donnees ne sont pas encore chargees.
+        slotState.empty = true
+        return slotState
+    end
+    slotState.itemLink = itemLink
+    slotState.itemID = type(GetInventoryItemID) == "function"
+        and tonumber(SafeCall(GetInventoryItemID, "player", slotID))
+        or nil
+
+    if C_Item and type(C_Item.GetItemInfoInstant) == "function" then
+        slotState.equipLoc = select(4, SafeCall(C_Item.GetItemInfoInstant, itemLink))
+    elseif type(GetItemInfoInstant) == "function" then
+        slotState.equipLoc = select(4, SafeCall(GetItemInfoInstant, itemLink))
+    end
+    slotState.isTool = slotState.equipLoc == "INVTYPE_PROFESSION_TOOL"
+
+    -- SafeCall ne propage que cinq valeurs de retour : lire la rarete en
+    -- troisieme position est sur, mais le niveau d'objet doit venir de
+    -- GetDetailedItemLevelInfo, qui tient compte des ameliorations.
+    local itemName, _, quality = SafeCall(GetItemInfo, itemLink)
+    local itemLevel = type(GetDetailedItemLevelInfo) == "function"
+        and tonumber(SafeCall(GetDetailedItemLevelInfo, itemLink))
+        or nil
+    slotState.itemName = itemName
+    quality = tonumber(quality)
+    if not quality or not itemLevel then
+        if slotState.itemID then
+            trackerUI.RequestToolItemData(slotState.itemID)
+        end
+        slotState.pending = true
+        return slotState
+    end
+
+    slotState.quality = quality
+    slotState.itemLevel = itemLevel
+    local minimumItemLevel = trackerUI.GetProfessionGearMinimumItemLevel()
+    slotState.lowQuality = quality < runtimeState.professionGear.minimumQuality
+    slotState.lowItemLevel = itemLevel < minimumItemLevel
+    slotState.ok = not slotState.lowQuality and not slotState.lowItemLevel
+    return slotState
+end
+
+-- GetProfessionSlots peut indexer a partir de 0 ou de 1 selon les versions du
+-- client : balayer les deux conventions plutot que d'en supposer une.
+-- Libelle lisible d'un emplacement fautif pour l'infobulle. Sur un slot vide la
+-- nature de l'objet attendu est inconnue : se rabattre sur la position, l'outil
+-- etant toujours le premier emplacement rendu par GetProfessionSlots.
+trackerUI.DescribeProfessionGearSlot = function(slotState)
+    local slotLabel = (slotState.isTool or slotState.isToolSlot) and "Outil" or "Accessoire"
+    if slotState.empty then
+        return ("%s : vide"):format(slotLabel)
+    end
+    local itemLabel = slotState.itemName or ("item:" .. tostring(slotState.itemID or "?"))
+    local reasons = {}
+    if slotState.lowQuality then
+        reasons[#reasons + 1] = "rarete sous rare"
+    end
+    if slotState.lowItemLevel then
+        reasons[#reasons + 1] = ("ilvl %s < %d"):format(
+            tostring(slotState.itemLevel or "?"),
+            trackerUI.GetProfessionGearMinimumItemLevel())
+    end
+    if #reasons == 0 then
+        return ("%s : %s"):format(slotLabel, itemLabel)
+    end
+    return ("%s : %s (%s)"):format(slotLabel, itemLabel, table.concat(reasons, ", "))
+end
+
+trackerUI.CollectProfessionGearSlots = function(profession, slots, toolSlot)
+    local gear = profession.gear
+    local seen = {}
+    for index = 0, 10 do
+        local slotID = tonumber(slots[index])
+        if slotID and not seen[slotID] then
+            seen[slotID] = true
+            local slotState = trackerUI.EvaluateProfessionGearSlot(slotID, slotID == toolSlot)
+            gear.slots[#gear.slots + 1] = slotState
+            if slotState.pending then
+                gear.pending = true
+            elseif slotState.empty then
+                gear.emptyCount = gear.emptyCount + 1
+                gear.nonCompliantCount = gear.nonCompliantCount + 1
+            else
+                if slotState.lowQuality then
+                    gear.lowQualityCount = gear.lowQualityCount + 1
+                end
+                if slotState.lowItemLevel then
+                    gear.lowItemLevelCount = gear.lowItemLevelCount + 1
+                end
+                if not slotState.ok then
+                    gear.nonCompliantCount = gear.nonCompliantCount + 1
+                end
+            end
+        end
+    end
+end
+
 trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotIndex)
     local function ReturnPending()
         trackerUI.RequestToolItemData(itemID)
@@ -4348,9 +4504,25 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             hasEquippedTool = false,
             equippedToolPending = false,
             hasResourcefulnessTool = false,
+            hasEquippedResourcefulnessTool = false,
+            hasBaggedMulticraftTool = false,
+            requiresBaggedMulticraftTool =
+                runtimeState.professionGear.baggedMulticraftToolSkillLineIDs[row.skillLineID] == true,
             toolScanPending = false,
             professionID = nil,
             toolSlot = nil,
+            gear = {
+                slots = {},
+                emptyCount = 0,
+                lowQualityCount = 0,
+                lowItemLevelCount = 0,
+                -- Un emplacement peut cumuler rarete et niveau insuffisants :
+                -- compter les emplacements fautifs, pas les motifs, sinon le
+                -- total depasse le nombre reel d'emplacements.
+                nonCompliantCount = 0,
+                pending = false,
+                slotsKnown = false,
+            },
         }
     end
 
@@ -4490,7 +4662,12 @@ trackerUI.FindToolEnchantState = function(trackedRows)
                 elseif toolSlot then
                     profession.equippedToolPending = true
                 end
+                profession.gear.slotsKnown = true
+                trackerUI.CollectProfessionGearSlots(profession, slots, toolSlot)
             end
+        end
+        if not profession.gear.slotsKnown then
+            profession.gear.pending = true
         end
     end
 
@@ -4533,13 +4710,28 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         for _, tool in ipairs(profession.tools) do
             if tool.statKey == "resourcefulness" then
                 profession.hasResourcefulnessTool = true
-                break
+                if tool.source == "equipment" then
+                    profession.hasEquippedResourcefulnessTool = true
+                end
+            elseif tool.statKey == "multicrafting" and tool.source == "bag" then
+                profession.hasBaggedMulticraftTool = true
             end
         end
         -- Un scan incomplet ne doit pas declarer un outil absent : sans cache
         -- precedent, FindToolEnchantState renvoie un resultat encore partiel.
         profession.toolScanPending = result.pending == true
             or profession.equippedToolPending == true
+        local gear = profession.gear
+        debugParts[#debugParts + 1] = ("gear[%d] slots=%d empty=%d lowQ=%d lowIlvl=%d bad=%d pending=%s rfEq=%s mcBag=%s"):format(
+            row.skillLineID,
+            #gear.slots,
+            gear.emptyCount,
+            gear.lowQualityCount,
+            gear.lowItemLevelCount,
+            gear.nonCompliantCount,
+            tostring(gear.pending),
+            tostring(profession.hasEquippedResourcefulnessTool),
+            tostring(profession.hasBaggedMulticraftTool))
         debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d apply=%d equipped=%s rf=%s pending=%s"):format(
             row.skillLineID,
             tostring(profession.professionID),
@@ -4828,6 +5020,172 @@ trackerUI.PullToolEnchantItems = function()
     end
     trackerUI.InvalidateToolEnchantCache()
     ScheduleTrackerRefresh(0.15, false)
+end
+
+-- Un candidat n'est propose que si le client confirme son emplacement
+-- d'equipement et sa ligne de metier. Retourne nil quand la donnee de l'objet
+-- n'est pas encore chargee : indecis n'est pas invalide.
+trackerUI.IsProfessionGearCandidateValid = function(itemID, skillLineID, wantTool)
+    local equipLoc
+    if C_Item and type(C_Item.GetItemInfoInstant) == "function" then
+        equipLoc = select(4, SafeCall(C_Item.GetItemInfoInstant, itemID))
+    end
+    if not equipLoc and type(GetItemInfoInstant) == "function" then
+        equipLoc = select(4, SafeCall(GetItemInfoInstant, itemID))
+    end
+    if not equipLoc then
+        trackerUI.RequestToolItemData(itemID)
+        return nil
+    end
+    if equipLoc ~= (wantTool and "INVTYPE_PROFESSION_TOOL" or "INVTYPE_PROFESSION_GEAR") then
+        return false
+    end
+
+    if not C_TradeSkillUI or type(C_TradeSkillUI.GetSkillLineForGear) ~= "function" then
+        return nil
+    end
+    local gearSkillLineID = tonumber(SafeCall(C_TradeSkillUI.GetSkillLineForGear, itemID))
+    if not gearSkillLineID then
+        return nil
+    end
+    if gearSkillLineID == skillLineID
+        or runtimeState.baseProfessionToMidnightSkillLineID[gearSkillLineID] == skillLineID then
+        return true
+    end
+    return false
+end
+
+-- Plan d'achat de l'equipement de metier : un exemplaire du rang rare par
+-- emplacement non conforme, moins ce qui est deja demande a YayaQueue. Le stock
+-- possede n'est deliberement pas deduit : deux exemplaires du meme itemID
+-- peuvent differer par leur rang de craft, donc en posseder un ne dit pas qu'un
+-- exemplaire conforme est disponible.
+trackerUI.BuildProfessionGearPurchasePlan = function(trackedRows)
+    trackedRows = trackedRows or GetTrackedMidnightProfessions()
+    local state = trackerUI.FindToolEnchantState(trackedRows)
+    local plan = { entries = {}, quantity = 0, pending = false, invalidCandidates = {} }
+
+    local function ItemName(itemID)
+        return SafeCall(GetItemInfo, itemID) or ("item:" .. tostring(itemID))
+    end
+
+    local function Add(itemID, skillLineID, professionLabel, wantTool, reason)
+        local valid = trackerUI.IsProfessionGearCandidateValid(itemID, skillLineID, wantTool)
+        if valid == nil then
+            plan.pending = true
+            return false
+        end
+        if valid == false then
+            plan.invalidCandidates[#plan.invalidCandidates + 1] = itemID
+            return false
+        end
+        local queued = YayaQueueAPI and type(YayaQueueAPI.GetDirectItemQuantity) == "function"
+            and tonumber(YayaQueueAPI.GetDirectItemQuantity(itemID))
+            or 0
+        if (queued or 0) > 0 then
+            return false
+        end
+        plan.entries[#plan.entries + 1] = {
+            itemID = itemID,
+            itemName = ItemName(itemID),
+            quantity = 1,
+            skillLineID = skillLineID,
+            professionLabel = professionLabel,
+            reason = reason,
+        }
+        plan.quantity = plan.quantity + 1
+        return true
+    end
+
+    for _, row in ipairs(trackedRows) do
+        local profession = state.bySkillLineID[row.skillLineID]
+        local gear = profession and profession.gear or nil
+        local candidates = runtimeState.professionGear.rareCandidatesBySkillLineID[row.skillLineID]
+        if gear and candidates then
+            local professionLabel = profession.label or tostring(row.skillLineID)
+            if gear.pending then
+                plan.pending = true
+            else
+                local missingToolSlots, missingGearSlots = 0, 0
+                for _, slotState in ipairs(gear.slots) do
+                    if slotState.empty or (not slotState.pending and not slotState.ok) then
+                        if slotState.isTool or slotState.isToolSlot then
+                            missingToolSlots = missingToolSlots + 1
+                        else
+                            missingGearSlots = missingGearSlots + 1
+                        end
+                    end
+                end
+                if missingToolSlots > 0 and candidates.tool then
+                    Add(candidates.tool, row.skillLineID, professionLabel, true, "outil")
+                end
+                -- Les deux emplacements d'accessoire acceptent n'importe quel
+                -- accessoire du metier : proposer autant de candidats distincts
+                -- qu'il y a d'emplacements a completer.
+                local added = 0
+                for _, itemID in ipairs(candidates.gear or EMPTY_TABLE) do
+                    if added >= missingGearSlots then
+                        break
+                    end
+                    if Add(itemID, row.skillLineID, professionLabel, false, "accessoire") then
+                        added = added + 1
+                    end
+                end
+            end
+            -- L'outil Multicrafting en sac de l'alchimie partage l'itemID de
+            -- l'outil Resourcefulness : seule la statistique tiree au hasard les
+            -- distingue, et elle n'est pas ciblable a l'achat.
+            if profession.requiresBaggedMulticraftTool
+                and profession.hasBaggedMulticraftTool == false
+                and not profession.toolScanPending
+                and candidates.tool then
+                Add(candidates.tool, row.skillLineID, professionLabel, true, "outil Multicrafting en sac")
+            end
+        end
+    end
+
+    return plan
+end
+
+trackerUI.QueueProfessionGearPurchases = function()
+    if not YayaQueueAPI or type(YayaQueueAPI.AddItem) ~= "function" then
+        print("YWT: YayaQueue n'est pas disponible")
+        return
+    end
+
+    local plan = trackerUI.BuildProfessionGearPurchasePlan()
+    local queuedQuantity = 0
+    for _, entry in ipairs(plan.entries) do
+        YayaQueueAPI.AddItem(entry.itemID, entry.quantity, entry.itemName)
+        queuedQuantity = queuedQuantity + entry.quantity
+    end
+    if queuedQuantity > 0 and type(YayaQueueAPI.Refresh) == "function" then
+        YayaQueueAPI.Refresh()
+    end
+    if queuedQuantity > 0 then
+        print(("YWT: %d objet(s) d'equipement de metier ajoute(s) a YayaQueue"):format(queuedQuantity))
+    end
+    trackerUI.InvalidateToolEnchantCache()
+    ScheduleTrackerRefresh(0.05, false)
+end
+
+trackerUI.UpdateProfessionGearBuyButton = function(plan)
+    local button = trackerFrame and trackerFrame.professionGearBuyButton
+    if not button then
+        return false
+    end
+    if not plan or (plan.quantity or 0) <= 0 then
+        button.gearPlan = nil
+        button:Hide()
+        return false
+    end
+
+    local queueAvailable = YayaQueueAPI and type(YayaQueueAPI.AddItem) == "function"
+    button:SetText(("Acheter stuff YQ x%d"):format(plan.quantity))
+    button:SetEnabled(queueAvailable == true)
+    button.gearPlan = plan
+    button:Show()
+    return true
 end
 
 trackerUI.QueueToolEnchantPurchases = function()
@@ -5673,6 +6031,7 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     local trackProfessionDisenchants = accountDB.trackProfessionDisenchants ~= false
     local trackProfessionTools = accountDB.trackProfessionTools ~= false
     local trackProfessionToolEnchants = accountDB.trackProfessionToolEnchants ~= false
+    local trackProfessionGear = accountDB.trackProfessionGear ~= false
     local remainingTreasures, totalTreasures = CountRemainingTrackedQuests(config.treasureQuestIDs)
     if remainingTreasures > 0 then
         Push(oneTimeTokens,
@@ -5796,7 +6155,7 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
             "category")
     end
 
-    local toolStatus = (trackProfessionTools or trackProfessionToolEnchants)
+    local toolStatus = (trackProfessionTools or trackProfessionToolEnchants or trackProfessionGear)
         and trackerUI.GetProfessionToolEnchantStatus(row)
         or EMPTY_TABLE
     if trackProfessionTools
@@ -5812,6 +6171,41 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         and not toolStatus.toolScanPending then
         Push(oneTimeTokens, ("outil%sRF"):format(NB),
             "Aucun outil Resourcefulness possede", "warning")
+    end
+    if trackProfessionGear then
+        local gear = toolStatus.gear or EMPTY_TABLE
+        -- Un scan incomplet ne doit pas declarer un equipement non conforme :
+        -- meme regle que les autres rappels d'outils.
+        if not gear.pending and (gear.nonCompliantCount or 0) > 0 then
+            local details = {}
+            for _, slotState in ipairs(gear.slots or EMPTY_TABLE) do
+                if slotState.empty or (not slotState.pending and not slotState.ok) then
+                    details[#details + 1] = trackerUI.DescribeProfessionGearSlot(slotState)
+                end
+            end
+            Push(oneTimeTokens,
+                ("stuff%sx%d"):format(NB, gear.nonCompliantCount),
+                ("Emplacements de metier a completer (rare+ et ilvl >= %d) :\n%s"):format(
+                    trackerUI.GetProfessionGearMinimumItemLevel(),
+                    table.concat(details, "\n")),
+                "warning")
+        end
+        -- Rappel distinct de `outil RF` : posseder un outil Resourcefulness ne
+        -- dit pas qu'il est porte, et c'est l'outil porte qui compte.
+        if toolStatus.hasResourcefulnessTool == true
+            and toolStatus.hasEquippedResourcefulnessTool == false
+            and not toolStatus.toolScanPending then
+            Push(oneTimeTokens, ("RF%snon equipe"):format(NB),
+                "Un outil Resourcefulness est possede mais l'outil equipe porte une autre statistique",
+                "warning")
+        end
+        if toolStatus.requiresBaggedMulticraftTool
+            and toolStatus.hasBaggedMulticraftTool == false
+            and not toolStatus.toolScanPending then
+            Push(oneTimeTokens, ("MC%ssac"):format(NB),
+                "Aucun outil Multicrafting en sac : YayaQueue ne pourra pas l'equiper avant les crafts qui multicraftent",
+                "warning")
+        end
     end
     if trackProfessionToolEnchants then
         -- pairs sur une table hachee : l'ordre change d'un rafraichissement a
@@ -7588,6 +7982,7 @@ trackerUI.actionButtonFields = {
     "treasureButton",
     "toolEnchantPullButton",
     "toolEnchantBuyButton",
+    "professionGearBuyButton",
     "autoOpenButton",
 }
 
@@ -7851,8 +8246,9 @@ UpdateTracker = function()
         local accountDB = GetAccountDB()
         local trackProfessionTools = accountDB.trackProfessionTools ~= false
         local trackProfessionToolEnchants = accountDB.trackProfessionToolEnchants ~= false
+        local trackProfessionGear = accountDB.trackProfessionGear ~= false
         local toolEnchantState
-        if trackProfessionTools or trackProfessionToolEnchants then
+        if trackProfessionTools or trackProfessionToolEnchants or trackProfessionGear then
             toolEnchantState = DebugSafeCall("FindToolEnchantState", trackerUI.FindToolEnchantState, trackedRows)
         end
         if trackProfessionToolEnchants and toolEnchantState then
@@ -7874,6 +8270,16 @@ UpdateTracker = function()
             trackerUI.UpdateToolEnchantApplyButtons,
             trackProfessionToolEnchants and toolEnchantState or nil
         ) or 0
+        local hasProfessionGearBuyButton = DebugSafeCall(
+            "UpdateProfessionGearBuyButton",
+            trackerUI.UpdateProfessionGearBuyButton,
+            trackProfessionGear
+                and DebugSafeCall(
+                    "BuildProfessionGearPurchasePlan",
+                    trackerUI.BuildProfessionGearPurchasePlan,
+                    trackedRows)
+                or nil
+        ) or false
         local autoOpenApi = _G.YayaWeeklyTrackerAutoOpen
         local autoOpenButton = autoOpenApi
             and type(autoOpenApi.GetActionButton) == "function"
@@ -7895,10 +8301,10 @@ UpdateTracker = function()
             and not (InCombatLockdown and InCombatLockdown()) then
             autoOpenButton:Hide()
         end
-        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|fm=%d|wb=%d|tt=%s|tep=%s|teb=%s|tea=%d|ao=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton), toolEnchantApplyButtonCount, tostring(hasAutoOpenButton))
+        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|fm=%d|wb=%d|tt=%s|tep=%s|teb=%s|tea=%d|pgb=%s|ao=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton), toolEnchantApplyButtonCount, tostring(hasProfessionGearBuyButton), tostring(hasAutoOpenButton))
         if trackerDebugSignature ~= debugSignatures.tracker then
             debugSignatures.tracker = trackerDebugSignature
-            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d mergeButtons=%d warbankTreatiseButtons=%d treasureButton=%s toolPull=%s toolBuy=%s toolApply=%d autoOpen=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton), toolEnchantApplyButtonCount, tostring(hasAutoOpenButton))
+            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d mergeButtons=%d warbankTreatiseButtons=%d treasureButton=%s toolPull=%s toolBuy=%s toolApply=%d gearBuy=%s autoOpen=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton), toolEnchantApplyButtonCount, tostring(hasProfessionGearBuyButton), tostring(hasAutoOpenButton))
         end
         local hasUsefulEntry = false
         for _, entry in ipairs(entries) do
@@ -7907,7 +8313,7 @@ UpdateTracker = function()
                 break
             end
         end
-        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and finishingReagentMergeButtonCount == 0 and warbankTreatiseButtonCount == 0 and not hasTreasureButton and not hasToolEnchantPullButton and not hasToolEnchantBuyButton and toolEnchantApplyButtonCount == 0 and not hasAutoOpenButton then
+        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and finishingReagentMergeButtonCount == 0 and warbankTreatiseButtonCount == 0 and not hasTreasureButton and not hasToolEnchantPullButton and not hasToolEnchantBuyButton and toolEnchantApplyButtonCount == 0 and not hasProfessionGearBuyButton and not hasAutoOpenButton then
             DebugLog("UpdateTracker hide frame: all professions complete and no other actions")
             trackerFrame:Hide()
             if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
@@ -7975,6 +8381,7 @@ UpdateTracker = function()
         AddAction(hasTreasureButton and trackerFrame.treasureButton)
         AddAction(hasToolEnchantPullButton and trackerFrame.toolEnchantPullButton)
         AddAction(hasToolEnchantBuyButton and trackerFrame.toolEnchantBuyButton)
+        AddAction(hasProfessionGearBuyButton and trackerFrame.professionGearBuyButton)
         for index = 1, toolEnchantApplyButtonCount do
             AddAction(trackerFrame.toolEnchantApplyButtons[index])
         end
@@ -8461,6 +8868,49 @@ trackerUI.CreateTrackerFrame = function()
     end)
     trackerFrame.toolEnchantBuyButton:SetScript("OnLeave", GameTooltip_Hide)
 
+    trackerFrame.professionGearBuyButton = CreateFrame("Button", addonName .. "ProfessionGearBuyButton", trackerFrame, "UIPanelButtonTemplate")
+    trackerFrame.professionGearBuyButton:SetSize(178, YayaCore.UI.ACTION.height)
+    trackerFrame.professionGearBuyButton:RegisterForClicks("AnyUp", "AnyDown")
+    trackerFrame.professionGearBuyButton:SetText("Acheter stuff YQ")
+    trackerFrame.professionGearBuyButton:Hide()
+    trackerFrame.professionGearBuyButton:SetScript("OnClick", function(_, _, down)
+        if down then
+            return
+        end
+        trackerUI.QueueProfessionGearPurchases()
+    end)
+    trackerFrame.professionGearBuyButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Ajoute l'equipement de metier manquant a la queue YayaQueue.")
+        local plan = self.gearPlan
+        for _, entry in ipairs(plan and plan.entries or EMPTY_TABLE) do
+            GameTooltip:AddLine(
+                ("%s : %s (%s)"):format(
+                    entry.professionLabel or "?",
+                    entry.itemName or ("item:" .. tostring(entry.itemID)),
+                    entry.reason or "?"),
+                0.7, 0.7, 0.7, true)
+        end
+        -- Limite reelle de la file : elle achete l'annonce la moins chere de
+        -- l'itemID demande. Le rang de craft et la statistique d'un outil ne
+        -- sont pas des identites d'achat, ils ne peuvent donc pas etre filtres.
+        GameTooltip:AddLine(
+            ("Rang de craft non filtre : verifie l'annonce, l'objet doit etre ilvl >= %d."):format(
+                trackerUI.GetProfessionGearMinimumItemLevel()),
+            1, 0.6, 0.2, true)
+        GameTooltip:AddLine(
+            "Pour un outil, la statistique tiree au hasard n'est pas ciblable non plus.",
+            1, 0.6, 0.2, true)
+        if plan and plan.pending then
+            GameTooltip:AddLine("Scan encore incomplet : le plan peut evoluer.", 1, 0.6, 0.2, true)
+        end
+        if not self:IsEnabled() then
+            GameTooltip:AddLine("YayaQueue n'est pas disponible.", 1, 0.6, 0.2, true)
+        end
+        GameTooltip:Show()
+    end)
+    trackerFrame.professionGearBuyButton:SetScript("OnLeave", GameTooltip_Hide)
+
     trackerFrame.toolEnchantApplyButtons = {}
     -- Les outils de rechange en sac ont chacun leur bouton : 11 ne couvrait
     -- que les metiers, pas les exemplaires supplementaires.
@@ -8615,6 +9065,40 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             elseif command == "log clear" then
                 ClearPersistentDebugLog()
                 print("YWT: Log vide")
+            elseif command:match("^stuff%s+ilvl%s+%d+$") then
+                local value = tonumber(command:match("^stuff%s+ilvl%s+(%d+)$"))
+                GetAccountDB().professionGearMinimumItemLevel = value
+                trackerUI.InvalidateToolEnchantCache()
+                ScheduleTrackerRefresh(0, false)
+                print(("YWT: Equipement de metier conforme a partir de l'ilvl %d"):format(value))
+            elseif command == "stuff ilvl" then
+                print(("YWT: Equipement de metier conforme a partir de l'ilvl %d (defaut %d)"):format(
+                    trackerUI.GetProfessionGearMinimumItemLevel(),
+                    runtimeState.professionGear.minimumItemLevel))
+            elseif command == "stuff ilvl reset" then
+                GetAccountDB().professionGearMinimumItemLevel = nil
+                trackerUI.InvalidateToolEnchantCache()
+                ScheduleTrackerRefresh(0, false)
+                print(("YWT: Seuil d'ilvl de l'equipement de metier remis a %d"):format(
+                    runtimeState.professionGear.minimumItemLevel))
+            elseif command == "stuff" then
+                local accountDB = GetAccountDB()
+                local isEnabled = accountDB.trackProfessionGear ~= false
+                accountDB.trackProfessionGear = not isEnabled
+                trackerUI.InvalidateToolEnchantCache()
+                ScheduleTrackerRefresh(0, false)
+                print(("YWT: Equipement de metier %s"):format(
+                    accountDB.trackProfessionGear and "active" or "desactive"))
+            elseif command == "stuff on" then
+                GetAccountDB().trackProfessionGear = true
+                trackerUI.InvalidateToolEnchantCache()
+                ScheduleTrackerRefresh(0, false)
+                print("YWT: Equipement de metier active")
+            elseif command == "stuff off" then
+                GetAccountDB().trackProfessionGear = false
+                trackerUI.InvalidateToolEnchantCache()
+                ScheduleTrackerRefresh(0, false)
+                print("YWT: Equipement de metier desactive")
             elseif command == "traites" then
                 local accountDB = GetAccountDB()
                 local isEnabled = accountDB.trackTreatises ~= false
