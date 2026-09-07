@@ -1609,6 +1609,32 @@ local function ClearPersistentDebugLog()
     GetAccountDB().debugLog = {}
 end
 
+-- Journalise une erreur fatale sans dependre du mode debug, et l'imprime une
+-- seule fois par message distinct. La ligne affichee dans la frame est tronquee
+-- par sa largeur : le chat et le journal persistant en gardent le texte entier,
+-- lisible apres coup avec `/ywt log`.
+runtimeState.lastFatalDiagnostic = nil
+runtimeState.LogFatalDiagnostic = function(message)
+    local text = tostring(message or "erreur inconnue")
+    -- Un rafraichissement echoue se repete plusieurs fois par seconde : sans
+    -- cette garde, le journal se remplirait du meme message et ecraserait
+    -- l'historique utile.
+    if runtimeState.lastFatalDiagnostic == text then
+        return
+    end
+    runtimeState.lastFatalDiagnostic = text
+    AppendPersistentDebugLog("YWT FATAL " .. text)
+
+    local line = "YWT: erreur, texte complet ci-dessous et dans /ywt log"
+    if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+        DEFAULT_CHAT_FRAME:AddMessage(YayaCore.UI.HEX.danger .. line .. "|r")
+        DEFAULT_CHAT_FRAME:AddMessage(text)
+    elseif print then
+        print(line)
+        print(text)
+    end
+end
+
 local function DebugLog(message, ...)
     if not IsDebugEnabled() then
         return
@@ -8483,7 +8509,9 @@ UpdateTracker = function()
 
     if not ok then
         DebugLog("UpdateTracker fatal: %s", tostring(err))
-        runtimeState.showTrackerDiagnostic(("YWT: |cffff6666%s|r"):format(tostring(err)))
+        runtimeState.LogFatalDiagnostic(err)
+        runtimeState.showTrackerDiagnostic(
+            ("YWT: %serreur, voir le chat ou /ywt log|r"):format(YayaCore.UI.HEX.danger))
     end
 end
 

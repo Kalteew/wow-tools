@@ -227,6 +227,33 @@ Assauts N'Zoth :
 - majeurs : `57157`, `56064`
 - mineurs : `55350`, `56308`, `57008`, `57728`
 
+Erreur de rafraichissement :
+
+- `UpdateTracker` tourne dans un `pcall` : quand il echoue, la section affiche
+  une seule ligne rouge a la place de son contenu. Cette ligne est coupee par la
+  largeur de la frame, donc elle ne dit plus que `YWT: erreur, voir le chat ou
+  /ywt log` et le texte entier part ailleurs
+- le texte complet est imprime une fois dans le chat et ecrit dans le journal
+  persistant sous `YWT FATAL`, **sans dependre du mode debug** : c'est justement
+  quand le debug est eteint que l'erreur surprend. Il se relit apres coup avec
+  `/ywt log`, meme apres un `/reload`
+- un rafraichissement echoue se repete plusieurs fois par seconde : seul le
+  premier message d'une serie identique est imprime et journalise, pour ne pas
+  ecraser l'historique
+
+Tests hors jeu :
+
+- `addons/YayaWeeklyTracker/Tests/test_tracker_refresh.lua` charge la suite Yaya
+  complete avec un client simule (`Tests/wow_env.lua`) et un personnage
+  alchimiste equipe (`Tests/game_state.lua`), rejoue le cycle d'evenements, puis
+  echoue si le moindre message d'erreur apparait ou si le scan d'equipement de
+  metier ne rend plus le verdict attendu
+- il se lance avec le reste de la suite par
+  `pwsh -NoProfile -File .\scripts\Test-Addons.ps1`
+- ce que ces tests ne couvrent pas : les mesures reelles de frame, les boutons
+  securises et tout ce qui depend du client. Une validation en jeu reste
+  necessaire pour l'affichage et les clics
+
 Commande :
 
 - `/ywt reset` pour remettre la frame a sa position par defaut
