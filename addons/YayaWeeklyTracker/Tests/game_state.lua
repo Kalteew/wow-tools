@@ -79,11 +79,14 @@ end
 function GetDetailedItemLevelInfo(v)
     for slot, slotData in pairs(EQUIPPED) do
         if LinkFor(slotData.itemID) == v then
-            return slotData.itemLevel
+            return slotData.itemLevel, false, slotData.itemLevel
         end
     end
     local item = ITEMS[IdFromLink(v)]
-    return item and 232 or nil
+    if item then
+        return 232, false, 232
+    end
+    return nil, false, nil
 end
 C_Item.GetItemInfoInstant = GetItemInfoInstant
 C_Item.GetItemQualityByID = function(id)
@@ -156,7 +159,7 @@ function GetDetailedItemLevelInfo(v)
     for bag, slots in pairs(BAG_CONTENT) do
         for slot, entry in pairs(slots) do
             if BagLink(entry.itemID) == v then
-                return entry.itemLevel
+                return entry.itemLevel, false, entry.itemLevel
             end
         end
     end

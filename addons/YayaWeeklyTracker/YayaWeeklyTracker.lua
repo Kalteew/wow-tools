@@ -1498,6 +1498,12 @@ for _, details in pairs(NZOTH_ASSAULT_DETAILS) do
     end
 end
 
+-- Propage jusqu'a CINQ valeurs de retour. Deux consequences a garder en tete :
+-- lire au-dela de la cinquieme rend toujours nil, et imbriquer un SafeCall dans
+-- une fonction qui interprete son deuxieme argument passe les retours suivants
+-- en prime. `tonumber(SafeCall(GetDetailedItemLevelInfo, link))` prenait ainsi
+-- le booleen d'apercu pour une base numerique et levait. Affecter d'abord dans
+-- une variable pour ne retenir que la premiere valeur.
 local function SafeCall(func, ...)
     if type(func) ~= "function" then
         return nil
@@ -4274,9 +4280,15 @@ trackerUI.EvaluateProfessionGearSlot = function(slotID, isToolSlot)
     -- troisieme position est sur, mais le niveau d'objet doit venir de
     -- GetDetailedItemLevelInfo, qui tient compte des ameliorations.
     local itemName, _, quality = SafeCall(GetItemInfo, itemLink)
-    local itemLevel = type(GetDetailedItemLevelInfo) == "function"
-        and tonumber(SafeCall(GetDetailedItemLevelInfo, itemLink))
-        or nil
+    -- GetDetailedItemLevelInfo rend trois valeurs : niveau effectif, apercu
+    -- (booleen) et niveau de base. Les passer telles quelles a tonumber ferait
+    -- du booleen sa base numerique et leverait. Une affectation simple ne
+    -- retient que la premiere.
+    local detailedItemLevel
+    if type(GetDetailedItemLevelInfo) == "function" then
+        detailedItemLevel = SafeCall(GetDetailedItemLevelInfo, itemLink)
+    end
+    local itemLevel = tonumber(detailedItemLevel)
     slotState.itemName = itemName
     quality = tonumber(quality)
     if not quality or not itemLevel then
@@ -4463,9 +4475,13 @@ trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotInd
     -- applique plus haut. Reste le niveau d'objet, lu sur le lien unique pour
     -- tenir compte du rang de craft. `compliant` vaut nil quand ce niveau n'est
     -- pas lisible : inconnu n'est pas non conforme.
-    local itemLevel = type(GetDetailedItemLevelInfo) == "function"
-        and tonumber(SafeCall(GetDetailedItemLevelInfo, itemLink))
-        or nil
+    -- Meme piege que dans EvaluateProfessionGearSlot : ne retenir que la
+    -- premiere des trois valeurs rendues par GetDetailedItemLevelInfo.
+    local detailedItemLevel
+    if type(GetDetailedItemLevelInfo) == "function" then
+        detailedItemLevel = SafeCall(GetDetailedItemLevelInfo, itemLink)
+    end
+    local itemLevel = tonumber(detailedItemLevel)
     local compliant = nil
     if itemLevel then
         compliant = itemLevel >= trackerUI.GetProfessionGearMinimumItemLevel()

@@ -192,7 +192,10 @@ function GetInventoryItemLink() return nil end
 function GetInventoryItemID() return nil end
 function GetItemInfo() return nil end
 function GetItemInfoInstant() return nil end
-function GetDetailedItemLevelInfo() return nil end
+-- Trois valeurs, comme le client : niveau effectif, apercu (booleen), niveau de
+-- base. Un stub qui n'en rendrait qu'une masquerait tout appel qui passe ses
+-- retours a une fonction attendant un seul argument.
+function GetDetailedItemLevelInfo() return nil, false, nil end
 function GetContainerNumSlots() return 0 end
 function IsQuestFlaggedCompleted() return false end
 function GetQuestLogIndexByID() return nil end
