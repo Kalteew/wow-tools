@@ -4278,6 +4278,9 @@ end
 trackerUI.DescribeProfessionGearSlot = function(slotState)
     local slotLabel = (slotState.isTool or slotState.isToolSlot) and "Outil" or "Accessoire"
     if slotState.empty then
+        if slotState.isToolSlot or slotState.isTool then
+            return ("%s : aucun outil conforme possede"):format(slotLabel)
+        end
         return ("%s : vide"):format(slotLabel)
     end
     local itemLabel = slotState.itemName or ("item:" .. tostring(slotState.itemID or "?"))
@@ -4305,20 +4308,63 @@ trackerUI.CollectProfessionGearSlots = function(profession, slots, toolSlot)
             seen[slotID] = true
             local slotState = trackerUI.EvaluateProfessionGearSlot(slotID, slotID == toolSlot)
             gear.slots[#gear.slots + 1] = slotState
-            if slotState.pending then
-                gear.pending = true
-            elseif slotState.empty then
+        end
+    end
+end
+
+-- Le verdict d'un emplacement n'est arrete qu'ici, une fois les sacs scannes.
+-- L'emplacement d'outil est juge sur la POSSESSION d'au moins un outil conforme,
+-- pas sur l'outil porte : YayaQueue echange l'outil Multicraft et l'outil
+-- Resourcefulness selon la recette, donc ce qui est porte a un instant donne ne
+-- dit rien, et un verdict sur le port ferait clignoter le rappel au rythme des
+-- echanges. Les accessoires, eux, ne tournent pas : leur emplacement se juge
+-- bien sur ce qu'il porte.
+trackerUI.SummarizeProfessionGear = function(profession)
+    local gear = profession.gear
+    gear.emptyCount, gear.lowQualityCount = 0, 0
+    gear.lowItemLevelCount, gear.nonCompliantCount = 0, 0
+
+    local hasCompliantTool, toolComplianceUnknown = false, false
+    for _, tool in ipairs(profession.tools) do
+        if tool.compliant == true then
+            hasCompliantTool = true
+        elseif tool.compliant == nil then
+            toolComplianceUnknown = true
+        end
+    end
+    gear.hasCompliantTool = hasCompliantTool
+    gear.toolComplianceUnknown = toolComplianceUnknown
+
+    for _, slotState in ipairs(gear.slots) do
+        -- La nature de l'emplacement decide, jamais l'objet qui s'y trouve :
+        -- `isToolSlot` vient de la position rendue par GetProfessionSlots.
+        if slotState.isToolSlot then
+            if hasCompliantTool then
+                slotState.compliant = true
+                slotState.satisfiedByOwnedTool = slotState.ok ~= true
+            elseif toolComplianceUnknown or slotState.pending then
+                slotState.compliant = nil
+            else
+                slotState.compliant = false
+            end
+        elseif slotState.pending then
+            slotState.compliant = nil
+        else
+            slotState.compliant = slotState.ok == true
+        end
+
+        if slotState.compliant == nil then
+            gear.pending = true
+        elseif slotState.compliant == false then
+            gear.nonCompliantCount = gear.nonCompliantCount + 1
+            if slotState.empty then
                 gear.emptyCount = gear.emptyCount + 1
-                gear.nonCompliantCount = gear.nonCompliantCount + 1
             else
                 if slotState.lowQuality then
                     gear.lowQualityCount = gear.lowQualityCount + 1
                 end
                 if slotState.lowItemLevel then
                     gear.lowItemLevelCount = gear.lowItemLevelCount + 1
-                end
-                if not slotState.ok then
-                    gear.nonCompliantCount = gear.nonCompliantCount + 1
                 end
             end
         end
@@ -4387,6 +4433,17 @@ trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotInd
     end
 
     local statInfo = runtimeState.professionToolEnchantments.byStat[statKey]
+    -- Tout outil retenu ici est deja rare ou mieux : le filtre de rarete est
+    -- applique plus haut. Reste le niveau d'objet, lu sur le lien unique pour
+    -- tenir compte du rang de craft. `compliant` vaut nil quand ce niveau n'est
+    -- pas lisible : inconnu n'est pas non conforme.
+    local itemLevel = type(GetDetailedItemLevelInfo) == "function"
+        and tonumber(SafeCall(GetDetailedItemLevelInfo, itemLink))
+        or nil
+    local compliant = nil
+    if itemLevel then
+        compliant = itemLevel >= trackerUI.GetProfessionGearMinimumItemLevel()
+    end
     return {
         itemID = itemID,
         itemLink = itemLink,
@@ -4397,6 +4454,9 @@ trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotInd
         source = source,
         bagID = bagID,
         slotIndex = slotIndex,
+        quality = tonumber(quality),
+        itemLevel = itemLevel,
+        compliant = compliant,
     }, false, true
 end
 
@@ -4507,7 +4567,6 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             hasEquippedTool = false,
             equippedToolPending = false,
             hasResourcefulnessTool = false,
-            hasEquippedResourcefulnessTool = false,
             hasBaggedMulticraftTool = false,
             requiresBaggedMulticraftTool =
                 runtimeState.professionGear.baggedMulticraftToolSkillLineIDs[row.skillLineID] == true,
@@ -4521,8 +4580,12 @@ trackerUI.FindToolEnchantState = function(trackedRows)
                 lowItemLevelCount = 0,
                 -- Un emplacement peut cumuler rarete et niveau insuffisants :
                 -- compter les emplacements fautifs, pas les motifs, sinon le
-                -- total depasse le nombre reel d'emplacements.
+                -- total depasse le nombre reel d'emplacements. Les compteurs
+                -- sont arretes par SummarizeProfessionGear, une fois les sacs
+                -- scannes, car l'emplacement d'outil se juge sur la possession.
                 nonCompliantCount = 0,
+                hasCompliantTool = false,
+                toolComplianceUnknown = false,
                 pending = false,
                 slotsKnown = false,
             },
@@ -4710,12 +4773,11 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         end
         -- Presence d'un outil Resourcefulness, equipe ou en sac : la stat est
         -- celle lue au tooltip de chaque exemplaire, jamais un enchantement.
+        -- Possession, jamais port : dans un flux multi-outil l'exemplaire porte
+        -- change au fil des recettes, un outil garde en sac compte donc autant.
         for _, tool in ipairs(profession.tools) do
             if tool.statKey == "resourcefulness" then
                 profession.hasResourcefulnessTool = true
-                if tool.source == "equipment" then
-                    profession.hasEquippedResourcefulnessTool = true
-                end
             elseif tool.statKey == "multicrafting" and tool.source == "bag" then
                 profession.hasBaggedMulticraftTool = true
             end
@@ -4724,8 +4786,9 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         -- precedent, FindToolEnchantState renvoie un resultat encore partiel.
         profession.toolScanPending = result.pending == true
             or profession.equippedToolPending == true
+        trackerUI.SummarizeProfessionGear(profession)
         local gear = profession.gear
-        debugParts[#debugParts + 1] = ("gear[%d] slots=%d empty=%d lowQ=%d lowIlvl=%d bad=%d pending=%s rfEq=%s mcBag=%s"):format(
+        debugParts[#debugParts + 1] = ("gear[%d] slots=%d empty=%d lowQ=%d lowIlvl=%d bad=%d pending=%s tool=%s rfOwned=%s mcBag=%s"):format(
             row.skillLineID,
             #gear.slots,
             gear.emptyCount,
@@ -4733,7 +4796,8 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             gear.lowItemLevelCount,
             gear.nonCompliantCount,
             tostring(gear.pending),
-            tostring(profession.hasEquippedResourcefulnessTool),
+            tostring(gear.hasCompliantTool),
+            tostring(profession.hasResourcefulnessTool),
             tostring(profession.hasBaggedMulticraftTool))
         debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d apply=%d equipped=%s rf=%s pending=%s"):format(
             row.skillLineID,
@@ -5111,7 +5175,7 @@ trackerUI.BuildProfessionGearPurchasePlan = function(trackedRows)
             else
                 local missingToolSlots, missingGearSlots = 0, 0
                 for _, slotState in ipairs(gear.slots) do
-                    if slotState.empty or (not slotState.pending and not slotState.ok) then
+                    if slotState.compliant == false then
                         if slotState.isTool or slotState.isToolSlot then
                             missingToolSlots = missingToolSlots + 1
                         else
@@ -6187,7 +6251,7 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         if not gear.pending and (gear.nonCompliantCount or 0) > 0 then
             local details = {}
             for _, slotState in ipairs(gear.slots or EMPTY_TABLE) do
-                if slotState.empty or (not slotState.pending and not slotState.ok) then
+                if slotState.compliant == false then
                     details[#details + 1] = trackerUI.DescribeProfessionGearSlot(slotState)
                 end
             end
@@ -6196,16 +6260,6 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
                 ("Emplacements de metier a completer (rare+ et ilvl >= %d) :\n%s"):format(
                     trackerUI.GetProfessionGearMinimumItemLevel(),
                     table.concat(details, "\n")),
-                "warning")
-        end
-        -- Rappel distinct de `outil RF` : posseder un outil Resourcefulness ne
-        -- dit pas qu'il est porte, et c'est l'outil porte qui compte.
-        if resourcefulnessApplies
-            and toolStatus.hasResourcefulnessTool == true
-            and toolStatus.hasEquippedResourcefulnessTool == false
-            and not toolStatus.toolScanPending then
-            Push(oneTimeTokens, ("RF%snon equipe"):format(NB),
-                "Un outil Resourcefulness est possede mais l'outil equipe porte une autre statistique",
                 "warning")
         end
         if toolStatus.requiresBaggedMulticraftTool
