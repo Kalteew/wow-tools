@@ -129,6 +129,7 @@ local MIDNIGHT_PROFESSION_CONFIGS = {
     [2912] = {
         order = 5,
         label = "Herb",
+        gathering = true,
         weeklyKnowledgeCap = 6,
         weeklyLootQuestIDs = { 81425, 81426, 81427, 81428, 81429, 81430 },
         trainerMinSkill = 1,
@@ -169,6 +170,7 @@ local MIDNIGHT_PROFESSION_CONFIGS = {
     [2916] = {
         order = 9,
         label = "Mine",
+        gathering = true,
         weeklyKnowledgeCap = 6,
         weeklyLootQuestIDs = { 88673, 88674, 88675, 88676, 88677, 88678 },
         trainerMinSkill = 1,
@@ -179,6 +181,7 @@ local MIDNIGHT_PROFESSION_CONFIGS = {
     [2917] = {
         order = 10,
         label = "Skin",
+        gathering = true,
         weeklyKnowledgeCap = 6,
         weeklyLootQuestIDs = { 88534, 88549, 88537, 88536, 88530, 88529 },
         trainerMinSkill = 1,
@@ -6164,9 +6167,14 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         Push(oneTimeTokens, ("outil%sKO"):format(NB),
             "Aucun outil de metier equipe", "warning")
     end
+    -- Resourcefulness economise les reactifs d'un craft : les metiers de recolte
+    -- n'en tirent rien, leurs outils jouent sur Perception, Deftness ou Finesse.
+    -- Les deux rappels RF sont donc reserves aux metiers de craft.
+    local resourcefulnessApplies = config.gathering ~= true
     -- Rappel independant du precedent : un metier peut avoir un outil equipe
     -- correct sans posseder le moindre exemplaire Resourcefulness.
     if trackProfessionTools
+        and resourcefulnessApplies
         and toolStatus.hasResourcefulnessTool == false
         and not toolStatus.toolScanPending then
         Push(oneTimeTokens, ("outil%sRF"):format(NB),
@@ -6192,7 +6200,8 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         end
         -- Rappel distinct de `outil RF` : posseder un outil Resourcefulness ne
         -- dit pas qu'il est porte, et c'est l'outil porte qui compte.
-        if toolStatus.hasResourcefulnessTool == true
+        if resourcefulnessApplies
+            and toolStatus.hasResourcefulnessTool == true
             and toolStatus.hasEquippedResourcefulnessTool == false
             and not toolStatus.toolScanPending then
             Push(oneTimeTokens, ("RF%snon equipe"):format(NB),
