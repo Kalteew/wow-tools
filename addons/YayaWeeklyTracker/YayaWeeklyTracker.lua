@@ -1196,6 +1196,12 @@ runtimeState.tradeSkillBootstrapProfessionID = nil
 runtimeState.itemDataLoadPending = {}
 runtimeState.itemDataLoadRetryAt = {}
 runtimeState.itemDataLoadCooldownSeconds = 5
+-- Les globals de stat exposes par le client sont ITEM_MOD_<STAT>_SHORT : les
+-- variantes ITEM_MOD_<STAT>_RATING* n'existent pas, donc la detection reposait
+-- en pratique sur les seuls alias. Or les libelles localises sont des faux amis
+-- entre langues : en francais Resourcefulness s'affiche "Ingeniosite" et
+-- Ingenuity "Inventivite", donc l'alias "ingeniosite" attache a Ingenuity
+-- classait tout outil RF comme outil Ingenuity.
 runtimeState.professionToolEnchantments = {
     statOrder = { "perception", "resourcefulness", "finesse", "multicrafting", "ingenuity", "deftness" },
     byStat = {
@@ -1204,7 +1210,7 @@ runtimeState.professionToolEnchantments = {
             shortLabel = "Perception",
             itemID = 243965,
             enchantID = 7975,
-            statKeys = { "ITEM_MOD_PERCEPTION_RATING_SHORT", "ITEM_MOD_PERCEPTION_RATING" },
+            statKeys = { "ITEM_MOD_PERCEPTION_SHORT" },
             tooltipAliases = { "perception" },
         },
         resourcefulness = {
@@ -1212,15 +1218,15 @@ runtimeState.professionToolEnchantments = {
             shortLabel = "RF",
             itemID = 243967,
             enchantID = 7977,
-            statKeys = { "ITEM_MOD_RESOURCEFULNESS_RATING_SHORT", "ITEM_MOD_RESOURCEFULNESS_RATING" },
-            tooltipAliases = { "resourcefulness", "débrouillardise" },
+            statKeys = { "ITEM_MOD_RESOURCEFULNESS_SHORT", "PROFESSIONS_OUTPUT_RESOURCEFULNESS_TITLE" },
+            tooltipAliases = { "resourcefulness", "ingéniosité" },
         },
         finesse = {
             label = "Finesse",
             shortLabel = "Finesse",
             itemID = 243993,
             enchantID = 8003,
-            statKeys = { "ITEM_MOD_FINESSE_RATING_SHORT", "ITEM_MOD_FINESSE_RATING" },
+            statKeys = { "ITEM_MOD_FINESSE_SHORT" },
             tooltipAliases = { "finesse" },
         },
         multicrafting = {
@@ -1228,7 +1234,7 @@ runtimeState.professionToolEnchantments = {
             shortLabel = "MC",
             itemID = 243995,
             enchantID = 8005,
-            statKeys = { "ITEM_MOD_MULTICRAFT_RATING_SHORT", "ITEM_MOD_MULTICRAFT_RATING" },
+            statKeys = { "ITEM_MOD_MULTICRAFT_SHORT", "PROFESSIONS_OUTPUT_MULTICRAFT_TITLE" },
             tooltipAliases = { "multicrafting", "multicraft", "fabrication multiple" },
         },
         ingenuity = {
@@ -1236,8 +1242,8 @@ runtimeState.professionToolEnchantments = {
             shortLabel = "Ingenuity",
             itemID = 244025,
             enchantID = 8035,
-            statKeys = { "ITEM_MOD_INGENUITY_RATING_SHORT", "ITEM_MOD_INGENUITY_RATING" },
-            tooltipAliases = { "ingenuity", "ingéniosité" },
+            statKeys = { "ITEM_MOD_INGENUITY_SHORT", "PROFESSIONS_OUTPUT_INGENUITY_TITLE" },
+            tooltipAliases = { "ingenuity", "inventivité" },
         },
         deftness = {
             label = "Deftness",
@@ -1245,12 +1251,16 @@ runtimeState.professionToolEnchantments = {
             itemID = 244023,
             enchantID = 8033,
             statKeys = {
-                "ITEM_MOD_DEFTNESS_RATING_SHORT",
-                "ITEM_MOD_DEFTNESS_RATING",
-                "ITEM_MOD_CRAFTING_SPEED_RATING_SHORT",
-                "ITEM_MOD_CRAFTING_SPEED_RATING",
+                "ITEM_MOD_DEFTNESS_SHORT",
+                "ITEM_MOD_CRAFTING_SPEED_SHORT",
             },
-            tooltipAliases = { "deftness", "dextérité", "crafting speed", "vitesse de fabrication" },
+            tooltipAliases = {
+                "deftness",
+                "adresse",
+                "crafting speed",
+                "vitesse d’artisanat",
+                "vitesse d'artisanat",
+            },
         },
     },
 }
@@ -4075,19 +4085,26 @@ trackerUI.GetToolEnchantStat = function(itemLink)
 
             for _, line in ipairs(tooltipData.lines) do
                 local text = Normalize(line.leftText) .. " " .. Normalize(line.rightText)
+                -- Retenir le libelle le plus long qui matche la ligne, jamais le
+                -- premier de statOrder : un libelle d'une autre langue peut etre
+                -- le faux ami d'une stat testee plus tot.
+                local bestStatKey, bestLength = nil, 0
+                local function Consider(statKey, needle)
+                    if needle ~= "" and #needle > bestLength and text:find(needle, 1, true) then
+                        bestStatKey, bestLength = statKey, #needle
+                    end
+                end
                 for _, statKey in ipairs(runtimeState.professionToolEnchantments.statOrder) do
                     local statInfo = runtimeState.professionToolEnchantments.byStat[statKey]
                     for _, key in ipairs(statInfo.statKeys or EMPTY_TABLE) do
-                        local localizedName = Normalize(_G[key])
-                        if localizedName ~= "" and text:find(localizedName, 1, true) then
-                            return statKey
-                        end
+                        Consider(statKey, Normalize(_G[key]))
                     end
                     for _, alias in ipairs(statInfo.tooltipAliases or EMPTY_TABLE) do
-                        if text:find(Normalize(alias), 1, true) then
-                            return statKey
-                        end
+                        Consider(statKey, Normalize(alias))
                     end
+                end
+                if bestStatKey then
+                    return bestStatKey
                 end
             end
             return nil, false
