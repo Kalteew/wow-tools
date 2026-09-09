@@ -3451,9 +3451,25 @@ function YQQuality.GetConcentrationPhialState(entry)
     }
 end
 
+--- Marchandise (empilable, achat par quantite) ou objet (achat a l'enchere).
+--
+-- `GetItemInfo` rend une quinzaine de valeurs et `SafeCall` n'en propage
+-- qu'une : `select(8, SafeCall(GetItemInfo, itemID))` ne rendait donc **rien du
+-- tout**, jamais un nombre, et tout objet passait pour une marchandise. La file
+-- cherchait alors chaque equipement avec `GetNumCommoditySearchResults`, qui ne
+-- rend jamais rien pour un objet non empilable : aucune annonce, aucun prix,
+-- aucun achat possible, depuis toujours. Le pcall doit donc porter directement
+-- sur l'appel, pour que `select` voie la liste complete.
 local function IsCommodityItem(itemID)
-    local maxStack = select(8, SafeCall(GetItemInfo, itemID))
-    if type(maxStack) ~= "number" then
+    local maxStack
+    if type(GetItemInfo) == "function" then
+        local ok, _, _, _, _, _, _, _, stackCount = pcall(GetItemInfo, itemID)
+        if ok then
+            maxStack = tonumber(stackCount)
+        end
+    end
+    if not maxStack then
+        -- Donnees pas encore chargees : ne rien affirmer, redemander l'objet.
         WarmItemData(itemID)
         return true
     end
@@ -6796,7 +6812,14 @@ state.TaskNeedsSearch = function(task)
     if not state.searchCache[task.itemID] then
         return true
     end
-    return task.variantKey ~= nil and state.GetTaskAuctionCache(task) == nil
+    if task.variantKey == nil then
+        return false
+    end
+    local view = state.GetTaskAuctionCache(task)
+    -- Vue absente, ou capturee sur le chemin des marchandises alors que l'objet
+    -- n'en est pas une : dans les deux cas la variante n'a jamais ete jugee, et
+    -- s'en contenter laissait la ligne sur « [?] » pour la session entiere.
+    return view == nil or view.unresolved == true
 end
 
 local function NeedsAuctionSearch(summary)

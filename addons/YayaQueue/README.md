@@ -89,6 +89,8 @@ Notes :
 - les items marchand sont detectes quand ils ont deja ete vus sur un marchand, y compris s’ils sont lies quand ramasses ; l’ID utilise l’API moderne `C_MerchantFrame.GetItemInfo()` si l’ancienne API globale ne le fournit pas
 - l'achat automatique marchand lance une seule séquence par ouverture ; chaque item accepté n'est soumis qu'une fois, avec vérification des sacs et jusqu'à 10 relances pour les échecs
 - les items non-commodities a l'HV sont achetes une enchere a la fois
+- la categorie marchandise/objet est la **porte d'entree de tout achat HV**, et elle se lisait faux pour tout le monde : `select(8, SafeCall(GetItemInfo, itemID))` ne rendait rien du tout, car le `SafeCall` de cet addon ne propage qu'**une** valeur. `maxStack` valait donc toujours `nil` et `IsCommodityItem` repondait toujours « marchandise ». Chaque equipement etait alors cherche avec `GetNumCommoditySearchResults`, qui ne rend jamais rien pour un objet non empilable : aucune annonce, aucun prix, aucun achat possible, et une ligne bloquee sur `[?]`. Le `pcall` porte desormais directement sur `GetItemInfo`, pour que `select` voie la liste complete. `Tests/test_itemvariants.lua` verrouille les deux cas avec une doublure qui rend bien ses quinze valeurs
+- une vue de cache marquee `unresolved` (capturee sur le chemin des marchandises alors que l'objet n'en est pas une) redemande une recherche au lieu de rester en place : s'en contenter laissait la ligne sur `[?]` pour la session entiere
 
 ### Variantes d'achat (equipement de metier)
 

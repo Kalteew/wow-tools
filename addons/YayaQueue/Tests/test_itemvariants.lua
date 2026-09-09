@@ -56,6 +56,12 @@ for _, name in ipairs({
     chunks[#chunks + 1] = body
 end
 
+-- IsCommodityItem est un local de chunk, pas un champ de `state` : on l'extrait
+-- par son nom de fonction.
+local commodityBody = source:match("(local function IsCommodityItem%(itemID%).-\nend)\n")
+assert(commodityBody, "IsCommodityItem introuvable dans la source")
+chunks[#chunks + 1] = commodityBody:gsub("^local function", "function")
+
 for _, name in ipairs({
     "NormalizeItemVariant",
     "GetItemVariantKey",
@@ -97,6 +103,23 @@ ITEM_MOD_CRAFTING_SPEED_SHORT = "Vitesse d’artisanat"
 
 local ITEM_LEVEL_BY_LINK = {}
 local TOOLTIP_STAT_BY_LINK = {}
+
+-- GetItemInfo rend quinze valeurs, dont la huitieme est la taille de pile.
+-- La doublure doit les rendre toutes : une doublure plus courte masquerait
+-- exactement le bug que ce test surveille.
+local MAX_STACK_BY_ITEM = {}
+WARMED_ITEMS = {}
+function WarmItemData(itemID)
+    WARMED_ITEMS[itemID] = (WARMED_ITEMS[itemID] or 0) + 1
+end
+function GetItemInfo(itemID)
+    local maxStack = MAX_STACK_BY_ITEM[itemID]
+    if not maxStack then
+        return nil
+    end
+    return "Nom", "|Hitem:" .. tostring(itemID) .. "|h[Nom]|h", 3, 232, 0,
+        "Divers", "Divers", maxStack, "INVTYPE_PROFESSION_TOOL", "texture", 0, 4, 0, 2
+end
 
 function GetDetailedItemLevelInfo(link)
     local itemLevel = ITEM_LEVEL_BY_LINK[link]
@@ -161,6 +184,27 @@ TOOLTIP_STAT_BY_LINK[MC_NO_MISSIVE_LINK] = "Fabrication multiple"
 TOOLTIP_STAT_BY_LINK[RF_LOW_RANK_LINK] = "Ingéniosité"
 TOOLTIP_STAT_BY_LINK[BASE_LINK] = false
 TOOLTIP_STAT_BY_LINK[UNLOADED_LINK] = nil
+
+section("Marchandise ou objet : la porte d'entree de tout achat HV")
+
+-- Un outil de metier ne s'empile pas, un reactif si. La file cherche les deux
+-- par des API differentes : se tromper de categorie revient a interroger
+-- GetNumCommoditySearchResults pour un equipement, qui ne rend jamais rien.
+MAX_STACK_BY_ITEM[245778] = 1        -- Sin'dorei Alchemist's Mixing Rod
+MAX_STACK_BY_ITEM[243967] = 200      -- Enchant Tool - Amani Resourcefulness
+equals("un outil de metier est un objet, pas une marchandise",
+    IsCommodityItem(245778), false)
+equals("un enchantement empilable est une marchandise",
+    IsCommodityItem(243967), true)
+-- Le piege historique : `select(8, SafeCall(GetItemInfo, id))` ne rendait rien,
+-- car SafeCall ne propage qu'une valeur. Tout objet passait pour une
+-- marchandise, et aucun equipement n'a jamais pu etre cherche.
+equals("la taille de pile est bien lue, pas perdue en route",
+    select(8, GetItemInfo(245778)), 1)
+equals("un objet inconnu ne tranche pas et redemande ses donnees",
+    IsCommodityItem(999999), true)
+equals("les donnees de l'objet inconnu ont ete redemandees",
+    (WARMED_ITEMS[999999] or 0) > 0, true)
 
 section("Lecture de la statistique dans la langue du client")
 
