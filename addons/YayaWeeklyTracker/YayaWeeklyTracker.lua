@@ -5478,10 +5478,16 @@ trackerUI.UpdateProfessionGearBuyButton = function(plan)
 
     local queueAvailable = YayaQueueAPI and type(YayaQueueAPI.AddItem) == "function"
     -- Les enchantements comptent a part : sans cette distinction, un `x4` sur
-    -- trois emplacements fautifs passait pour une erreur de comptage.
-    button:SetText(plan.enchantQuantity > 0
-        and ("Acheter stuff YQ x%d +%de"):format(plan.gearQuantity, plan.enchantQuantity)
-        or ("Acheter stuff YQ x%d"):format(plan.gearQuantity))
+    -- trois emplacements fautifs passait pour une erreur de comptage. Un plan
+    -- reduit au seul enchantement arrive quand le candidat d'outil est refuse
+    -- ou pas encore charge : le libelle doit alors dire ce qu'il achete.
+    if plan.gearQuantity <= 0 then
+        button:SetText(("Acheter ench outil YQ x%d"):format(plan.enchantQuantity))
+    elseif plan.enchantQuantity > 0 then
+        button:SetText(("Acheter stuff YQ x%d +%de"):format(plan.gearQuantity, plan.enchantQuantity))
+    else
+        button:SetText(("Acheter stuff YQ x%d"):format(plan.gearQuantity))
+    end
     button:SetEnabled(queueAvailable == true)
     button.gearPlan = plan
     button:Show()
