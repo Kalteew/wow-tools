@@ -5304,11 +5304,20 @@ local function BuildQueueSummary()
         if task.variant then
             -- Le stock se compte par variante : posseder un outil rang 1
             -- annulait la demande d'un outil rang maximal, et la tache
-            -- disparaissait sans que rien ne soit achete. La boite aux lettres
-            -- et les sorties craftees ne savent pas distinguer les variantes :
-            -- elles ne peuvent donc rien satisfaire ici.
+            -- disparaissait sans que rien ne soit achete.
             task.owned = state.CountOwnedVariant(itemID, task.variant) or 0
-            task.mailbox = 0
+            -- `GetMailboxCount` n'est pas un scan de courrier : c'est le
+            -- compteur des achats deja payes et pas encore recus. Un objet non
+            -- empilable achete a l'hotel des ventes arrive par courrier, donc
+            -- ni dans les sacs ni a l'equipement : sans cette soustraction la
+            -- ligne gardait son manquant et le meme outil se rachetait a chaque
+            -- clic. Le compteur est porte par l'itemID, donc un achat en
+            -- transit masque aussi la variante voisine du meme objet jusqu'a la
+            -- livraison ; masquer une ligne de trop est sans consequence, en
+            -- racheter une vaut de l'or.
+            task.mailbox = YQQuality.GetIngenuityPhialCount(itemID, GetMailboxCount)
+            -- Une sortie craftee n'a pas de variante : elle ne peut satisfaire
+            -- aucune demande de rang ou de statistique.
             task.queuedOutput = 0
         else
             task.owned = YQQuality.GetIngenuityPhialCount(
