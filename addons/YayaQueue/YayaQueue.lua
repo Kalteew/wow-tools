@@ -120,8 +120,17 @@ local CONFIG = {
     },
     debugNextCraft = false,
     DEBUG_LOG_LIMIT = 400,
-    COMMODITY_SORT = { sortOrder = 0, reverseSort = false },
-    ITEM_SORTS = { { sortOrder = 4, reverseSort = false } },
+    -- Aucun tri n'est envoye avec une requete de recherche, comme le fait
+    -- TradeSkillMaster pour toutes les siennes. L'ordre par defaut du serveur
+    -- est deja le prix croissant, et de toute facon la file relit toutes les
+    -- annonces pour retenir la moins chere conforme : un tri n'apporte rien.
+    -- En revanche un `sortOrder` que le serveur refuse fait rendre une requete
+    -- vide, sans erreur ni evenement, et la recherche semble alors ne rien
+    -- trouver. `ITEM_SORTS` portait un `sortOrder = 4` code en dur, valeur
+    -- jamais verifiee contre `Enum.AuctionHouseSortOrder` ; `COMMODITY_SORT`
+    -- n'etait meme pas un tableau, donc deja vu comme vide par l'API. C'est le
+    -- chemin des marchandises qui fonctionnait, et lui seul.
+    AUCTION_SEARCH_SORTS = {},
     KNOWN_VENDOR_ITEMS = {
         [38682] = true, -- Enchanting Vellum
         [240991] = true, -- Sunglass Vial
@@ -208,6 +217,7 @@ local state = {
         statusMessage = "",
     },
     searchCache = {},
+    debugCountSignatures = {},
     merchantIndexByItemID = {},
     merchantAutoBuyGeneration = 0,
     merchantAutoBuyScheduled = false,
@@ -1940,6 +1950,41 @@ end
 -- Vue de cache propre a une tache : une tache portant une variante ne lit que
 -- les annonces conformes a cette variante, jamais la meilleure annonce toutes
 -- variantes confondues, qui est justement le rang 1 a statistique quelconque.
+-- Une requete dont l'evenement n'arrive jamais laissait `activeSearch` pose
+-- pour toute la session : plus aucune recherche, plus aucun achat, et rien pour
+-- le dire. Un envoi qui n'a pas repondu au bout de ce delai est abandonne, et la
+-- file reprend son cours.
+state.staleSearchSeconds = 6
+
+state.ClearStaleActiveSearch = function()
+    local active = state.ah.activeSearch
+    if not active or not active.startedAt then
+        return false
+    end
+    local now = GetTime and GetTime() or 0
+    if now - active.startedAt < state.staleSearchSeconds then
+        return false
+    end
+    DebugPrint(
+        "search-stale item=" .. tostring(active.itemID)
+            .. " purpose=" .. tostring(active.purpose)
+            .. " waited=" .. string.format("%.1f", now - active.startedAt)
+    )
+    state.ah.activeSearch = nil
+    return true
+end
+
+state.CountTableKeys = function(value)
+    if type(value) ~= "table" then
+        return 0
+    end
+    local count = 0
+    for _ in pairs(value) do
+        count = count + 1
+    end
+    return count
+end
+
 state.GetTaskAuctionCache = function(task)
     local cache = task and state.searchCache[task.itemID] or nil
     if not cache then
@@ -3139,6 +3184,17 @@ local function DebugPrintReagentCount(prefix, itemID, needed, mailbox)
     local immediateOwned = GetOwnedCount(itemID)
     local totalOwned = GetTotalOwnedCount(itemID)
     local name = GetItemName(itemID)
+    -- Une meme ligne repetee a l'identique n'apprend rien et rend le journal
+    -- illisible : seul un changement de compte merite une trace.
+    local signature = table.concat({
+        tostring(prefix), tostring(needed or 0), tostring(immediateOwned),
+        tostring(totalOwned), tostring(mailbox or 0),
+    }, "|")
+    local signatureKey = tostring(prefix) .. ":" .. tostring(itemID)
+    if state.debugCountSignatures[signatureKey] == signature then
+        return
+    end
+    state.debugCountSignatures[signatureKey] = signature
     DebugPrint(
         prefix
             .. " item="
@@ -5258,12 +5314,31 @@ local function BuildQueueSummary()
             then
                 task.missing = math.max(task.missing, YQQuality.GetConcentrationPhialPurchaseQuantity())
             end
+            -- Le panier decide si une recherche HV aura lieu un jour : une
+            -- tache rangee en marchand ou en « a acquerir » n'est jamais
+            -- cherchee, et rien ne le disait.
+            local bucket
             if IsKnownVendorItem(itemID) then
+                bucket = "vendor"
                 table.insert(summary.vendorTasks, task)
             elseif IsSoulboundReagent(itemID) then
+                bucket = "acquire"
                 table.insert(summary.acquireTasks, task)
             else
+                bucket = "auction"
                 table.insert(summary.auctionTasks, task)
+            end
+            local bucketKey = "bucket:" .. tostring(itemID) .. tostring(task.variantKey or "")
+            local bucketSignature = bucket .. "|" .. tostring(task.missing)
+            if state.debugCountSignatures[bucketKey] ~= bucketSignature then
+                state.debugCountSignatures[bucketKey] = bucketSignature
+                DebugPrint(
+                    "queue-bucket item=" .. tostring(itemID)
+                        .. " variant=" .. tostring(state.DescribeItemVariant(task.variant))
+                        .. " missing=" .. tostring(task.missing)
+                        .. " bucket=" .. bucket
+                        .. " bindType=" .. tostring(select(14, GetItemInfo(itemID)))
+                )
             end
         end
     end
@@ -9736,6 +9811,15 @@ local function CaptureSearchCache(itemID, searchItemKey)
             )
         end
     end
+
+    DebugPrint(
+        "search-capture item=" .. tostring(itemID)
+            .. " kind=" .. tostring(cache.kind)
+            .. " listings=" .. tostring(cache.available)
+            .. " hasResults=" .. tostring(cache.hasResults)
+            .. " unitPrice=" .. tostring(cache.unitPrice)
+            .. " variants=" .. tostring(state.CountTableKeys(cache.variants))
+    )
 
     if cache.unitPrice and cache.unitPrice > 0 then
         cache.capturedAt = time and time() or math.floor(GetTime and GetTime() or 0)
@@ -15007,10 +15091,18 @@ end
 local function SendSearchQuery(itemID, purpose)
     local itemKey = state.MakeSearchItemKey(itemID)
     if not itemKey or not C_AuctionHouse or type(C_AuctionHouse.SendSearchQuery) ~= "function" then
+        -- L'API n'existe que l'hotel des ventes ouvert : un envoi impossible
+        -- doit se voir, sinon la file semble chercher sans fin.
+        DebugPrint(
+            "search-send item=" .. tostring(itemID)
+                .. " purpose=" .. tostring(purpose)
+                .. " abort=" .. (itemKey and "no-api" or "no-itemkey")
+        )
         return false
     end
 
     if C_AuctionHouse.IsThrottledMessageSystemReady and not C_AuctionHouse.IsThrottledMessageSystemReady() then
+        DebugPrint("search-send item=" .. tostring(itemID) .. " deferred=throttle")
         state.ah.waitingSearch = {
             itemID = itemID,
             purpose = purpose,
@@ -15026,14 +15118,29 @@ local function SendSearchQuery(itemID, purpose)
         itemID = itemID,
         purpose = purpose,
         itemKey = itemKey,
+        startedAt = GetTime and GetTime() or 0,
     }
     state.ah.statusMessage = "Recherche " .. GetItemName(itemID)
-    C_AuctionHouse.SendSearchQuery(itemKey, isCommodity and CONFIG.COMMODITY_SORT or CONFIG.ITEM_SORTS, not isCommodity)
+    local sent = pcall(
+        C_AuctionHouse.SendSearchQuery,
+        itemKey,
+        CONFIG.AUCTION_SEARCH_SORTS,
+        not isCommodity
+    )
+    DebugPrint(
+        "search-send item=" .. tostring(itemID)
+            .. " purpose=" .. tostring(purpose)
+            .. " kind=" .. (isCommodity and "commodity" or "item")
+            .. " keyItem=" .. tostring(itemKey.itemID)
+            .. " keyLevel=" .. tostring(itemKey.itemLevel)
+            .. " sent=" .. tostring(sent)
+    )
     ScheduleRefresh()
     return true
 end
 
 local function ProcessNextQueuedSearch()
+    state.ClearStaleActiveSearch()
     if state.ah.activeSearch or state.ah.waitingSearch then
         return
     end
@@ -15053,7 +15160,16 @@ local function StartSearchAll(summary)
     local queue = {}
     local queued = {}
     for _, task in ipairs(summary.auctionTasks) do
-        if state.TaskNeedsSearch(task) and not queued[task.itemID] then
+        local needsSearch = state.TaskNeedsSearch(task)
+        DebugPrint(
+            "search-plan item=" .. tostring(task.itemID)
+                .. " variant=" .. tostring(state.DescribeItemVariant(task.variant))
+                .. " missing=" .. tostring(task.missing)
+                .. " needsSearch=" .. tostring(needsSearch)
+                .. " cached=" .. tostring(state.searchCache[task.itemID] ~= nil)
+                .. " alreadyQueued=" .. tostring(queued[task.itemID] == true)
+        )
+        if needsSearch and not queued[task.itemID] then
             queued[task.itemID] = true
             table.insert(queue, task.itemID)
         end
@@ -15061,6 +15177,7 @@ local function StartSearchAll(summary)
 
     if #queue == 0 then
         state.ah.statusMessage = "Recherche deja faite"
+        DebugPrint("search-plan nothing-to-search tasks=" .. tostring(#summary.auctionTasks))
         ScheduleRefresh()
         return
     end
@@ -15170,6 +15287,12 @@ end
 
 local function BuyNext(summary)
     local task, view = GetNextPurchasableTask(summary)
+    DebugPrint(
+        "buy-next picked=" .. tostring(task and task.itemID)
+            .. " variant=" .. tostring(task and state.DescribeItemVariant(task.variant))
+            .. " available=" .. tostring(view and view.available)
+            .. " tasks=" .. tostring(#summary.auctionTasks)
+    )
     if task and view then
         StartPurchaseFromCache(summary, task.itemID, task)
         return
@@ -15203,8 +15326,26 @@ local function BuyNext(summary)
 end
 
 state.OnAuctionActionClick = function()
+    state.ClearStaleActiveSearch()
     local summary = BuildQueueSummary()
     PruneSearchCache(summary)
+
+    -- Point d'entree de tout le flux HV : sans cette trace, un flux qui ne
+    -- demarre pas est indiscernable d'un flux qui ne trouve rien.
+    local busy = state.ah.pendingCommodity and "pendingCommodity"
+        or state.ah.pendingItem and "pendingItem"
+        or state.ah.activeSearch and "activeSearch"
+        or state.ah.waitingSearch and "waitingSearch"
+        or (state.ah.searchQueue and #state.ah.searchQueue > 0) and "searchQueue"
+        or nil
+    DebugPrint(
+        "ah-click tasks=" .. tostring(#summary.auctionTasks)
+            .. " busy=" .. tostring(busy)
+            .. " needsSearch=" .. tostring(NeedsAuctionSearch(summary))
+            .. " apiReady=" .. tostring(
+                type(C_AuctionHouse) == "table"
+                    and type(C_AuctionHouse.SendSearchQuery) == "function")
+    )
 
     if #summary.auctionTasks == 0 then
         state.ah.statusMessage = "Aucun achat HV"
@@ -15212,7 +15353,7 @@ state.OnAuctionActionClick = function()
         return
     end
 
-    if state.ah.pendingCommodity or state.ah.pendingItem or state.ah.activeSearch or state.ah.waitingSearch or (state.ah.searchQueue and #state.ah.searchQueue > 0) then
+    if busy then
         return
     end
 
@@ -15225,8 +15366,19 @@ end
 
 local function HandleSearchResults(itemID, searchItemKey)
     if not (state.ah.activeSearch and state.ah.activeSearch.itemID == itemID) then
+        -- Un resultat qui ne correspond a aucune recherche en cours vient d'un
+        -- autre addon AH, ou d'une recherche que la file croit terminee.
+        DebugPrint(
+            "search-result ignored item=" .. tostring(itemID)
+                .. " active=" .. tostring(state.ah.activeSearch and state.ah.activeSearch.itemID)
+        )
         return
     end
+    DebugPrint(
+        "search-result item=" .. tostring(itemID)
+            .. " purpose=" .. tostring(state.ah.activeSearch.purpose)
+            .. " keyLevel=" .. tostring(searchItemKey and searchItemKey.itemLevel)
+    )
 
     CaptureSearchCache(itemID, searchItemKey or state.ah.activeSearch.itemKey)
 
