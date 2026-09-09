@@ -2147,6 +2147,12 @@ state.EnsureDB = function()
     if type(YayaQueueDB.debugLog) ~= "table" then
         YayaQueueDB.debugLog = {}
     end
+    -- Le mode debug est account-wide et survit au rechargement : c'est la base
+    -- qui en est la source, CONFIG n'en est que le reflet d'execution. Sans
+    -- cela, tout /reload le remettait silencieusement a l'arret, et le journal
+    -- ne gardait plus que la session d'avant.
+    YayaQueueDB.debugEnabled = YayaQueueDB.debugEnabled == true
+    CONFIG.debugNextCraft = YayaQueueDB.debugEnabled
     if YayaQueueDB.autoBuyVendor == nil then
         YayaQueueDB.autoBuyVendor = true
     end
@@ -16748,9 +16754,20 @@ SlashCmdList.YAYAQUEUE = function(message)
         ResetQueue()
         return
     end
-    if command == "debug" then
-        CONFIG.debugNextCraft = not CONFIG.debugNextCraft
-        Print("Debug " .. (CONFIG.debugNextCraft and "active" or "inactif"))
+    local debugArgument = command:match("^debug%s+(o[nf]f?)$")
+    if command == "debug" or debugArgument then
+        state.EnsureDB()
+        local wanted
+        if debugArgument == "on" then
+            wanted = true
+        elseif debugArgument == "off" then
+            wanted = false
+        else
+            wanted = not CONFIG.debugNextCraft
+        end
+        db.debugEnabled = wanted
+        CONFIG.debugNextCraft = wanted
+        Print("Debug " .. (wanted and "active" or "inactif") .. ", conserve apres /reload")
         return
     end
     if command == "options" then
