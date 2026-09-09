@@ -111,9 +111,47 @@ else
     end
 end
 
+-- 3. Le plan d'achat vise bien une variante, et emmene l'enchantement avec.
+--
+-- L'etat de jeu porte exactement le cas qui motive tout : l'outil equipe est un
+-- Resourcefulness rang maximal (rien a acheter de ce cote), mais l'exemplaire
+-- Multicrafting garde en sac est ilvl 206. Le plan doit donc demander un outil
+-- Multicrafting ilvl >= 232 -- pas l'itemID nu, qui rendrait le rang 1 -- et
+-- l'enchantement Multicraft (243995) avec lui. Les deux emplacements
+-- d'accessoire fautifs completent le plan, sur le rang seul.
+local planTrace
+for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
+    if entry:find("Profession gear plan", 1, true) then
+        planTrace = entry
+    end
+end
+if not planTrace then
+    Fail("aucune trace de plan d'achat d'equipement : le test ne couvre plus rien")
+else
+    if not planTrace:find("multicrafting:232", 1, true) then
+        Fail("l'outil Multicrafting n'est pas demande sur sa variante :: " .. planTrace)
+    end
+    if not planTrace:find("1x243995/enchant", 1, true) then
+        Fail("l'enchantement Multicraft ne part pas avec l'outil :: " .. planTrace)
+    end
+    if planTrace:find("resourcefulness:", 1, true) then
+        Fail("un outil Resourcefulness conforme est possede, il ne doit rien declencher :: " .. planTrace)
+    end
+    -- Deux accessoires fautifs : l'un sous le seuil, l'autre absent.
+    if not planTrace:find("rank:232", 1, true) then
+        Fail("les accessoires ne sont pas demandes sur le rang :: " .. planTrace)
+    end
+    if not planTrace:find("gear=3 ench=1", 1, true) then
+        Fail("le decompte du plan est inattendu :: " .. planTrace)
+    end
+    if planTrace:find("unknownStats=[1-9]") then
+        Fail("une statistique demandee n'a pas de bonusId connu :: " .. planTrace)
+    end
+end
+
 if failures > 0 then
     print(("%d echec(s)"):format(failures))
     os.exit(1)
 end
 
-print("test_tracker_refresh : rafraichissement sans erreur, scan d'equipement conforme")
+print("test_tracker_refresh : rafraichissement sans erreur, scan d'equipement conforme, plan d'achat par variante")

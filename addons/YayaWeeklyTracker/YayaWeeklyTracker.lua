@@ -1288,6 +1288,17 @@ runtimeState.professionGear = {
     -- l'outil correspondant juste avant ces crafts : il faut donc un exemplaire
     -- Multicrafting en sac, en plus de l'outil Resourcefulness porte par defaut.
     baggedMulticraftToolSkillLineIDs = { [2906] = true },
+    -- La statistique d'un outil est portee par un bonusId de son lien, pas par
+    -- un modificateur : le croisement de vingt-cinq liens complets sur quatre
+    -- outils differents donne 8952 pour Resourcefulness et 8953 pour Multicraft,
+    -- sans collision (meme constat que la cle de stat du patch TSM). C'est ce
+    -- bonusId que YayaQueue lit sur l'annonce avant d'acheter : sans lui, la
+    -- file prend l'annonce la moins chere, soit le rang 1 a statistique
+    -- quelconque. Une stat absente de cette table n'est donc pas achetable.
+    statBonusIDs = {
+        resourcefulness = 8952,
+        multicrafting = 8953,
+    },
     -- Rang rare (bleu) de l'equipement de metier Midnight : l'outil, puis les
     -- deux accessoires. Ces itemIDs ne sont que des CANDIDATS : chacun est
     -- valide en jeu (emplacement d'equipement et ligne de metier) avant d'etre
@@ -1367,6 +1378,7 @@ local debugSignatures = {
     warbankTreatises = nil,
     toolEnchants = nil,
     toolEnchantPlan = nil,
+    professionGearPlan = nil,
 }
 local GetContainerItemIDCompat
 local GetContainerNumSlotsCompat
@@ -4367,15 +4379,34 @@ trackerUI.SummarizeProfessionGear = function(profession)
     gear.lowItemLevelCount, gear.nonCompliantCount = 0, 0
 
     local hasCompliantTool, toolComplianceUnknown = false, false
+    -- La statistique compte autant que le rang : un outil ilvl 232 qui ne porte
+    -- pas Resourcefulness ne satisfait pas l'exigence, et c'est cette variante
+    -- manquante que l'achat doit viser. `pendingStats` retient les exemplaires
+    -- dont le niveau d'objet n'est pas encore lisible : inconnu n'est pas absent,
+    -- sinon un rappel apparait le temps d'un chargement et la file achete un
+    -- doublon.
+    local compliantStats, baggedCompliantStats, pendingStats = {}, {}, {}
     for _, tool in ipairs(profession.tools) do
         if tool.compliant == true then
             hasCompliantTool = true
+            if tool.statKey then
+                compliantStats[tool.statKey] = true
+                if tool.source == "bag" then
+                    baggedCompliantStats[tool.statKey] = true
+                end
+            end
         elseif tool.compliant == nil then
             toolComplianceUnknown = true
+            if tool.statKey then
+                pendingStats[tool.statKey] = true
+            end
         end
     end
     gear.hasCompliantTool = hasCompliantTool
     gear.toolComplianceUnknown = toolComplianceUnknown
+    gear.compliantToolStats = compliantStats
+    gear.compliantBaggedToolStats = baggedCompliantStats
+    gear.pendingToolStats = pendingStats
 
     for _, slotState in ipairs(gear.slots) do
         -- La nature de l'emplacement decide, jamais l'objet qui s'y trouve :
@@ -4411,6 +4442,44 @@ trackerUI.SummarizeProfessionGear = function(profession)
             end
         end
     end
+end
+
+-- Ce qui manque a un metier cote outil, statistique comprise. Un seul endroit
+-- en decide : le plan d'achat, les rappels et le besoin d'enchantement en
+-- decoulent. Deux calculs separes divergeaient, et la file achetait alors un
+-- outil sans son enchantement, ou l'inverse.
+trackerUI.GetProfessionToolNeeds = function(profession, config)
+    local needs = {}
+    if not profession or profession.toolScanPending then
+        return needs, true
+    end
+
+    local gear = profession.gear or EMPTY_TABLE
+    local compliant = gear.compliantToolStats or EMPTY_TABLE
+    local baggedCompliant = gear.compliantBaggedToolStats or EMPTY_TABLE
+    local pendingStats = gear.pendingToolStats or EMPTY_TABLE
+
+    if config and config.gathering == true then
+        -- Resourcefulness n'economise que des reactifs de craft : un outil de
+        -- recolte se juge sur son seul rang, et sa statistique n'est pas ciblee.
+        if gear.hasCompliantTool == false and gear.toolComplianceUnknown ~= true then
+            needs[#needs + 1] = { reason = "outil" }
+        end
+    elseif compliant.resourcefulness ~= true and pendingStats.resourcefulness ~= true then
+        needs[#needs + 1] = { statKey = "resourcefulness", reason = "outil Resourcefulness" }
+    end
+
+    if profession.requiresBaggedMulticraftTool
+        and baggedCompliant.multicrafting ~= true
+        and pendingStats.multicrafting ~= true then
+        needs[#needs + 1] = {
+            statKey = "multicrafting",
+            reason = "outil Multicrafting en sac",
+            bagged = true,
+        }
+    end
+
+    return needs, false
 end
 
 trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotIndex)
@@ -4590,6 +4659,7 @@ trackerUI.FindToolEnchantState = function(trackedRows)
     local result = {
         bySkillLineID = {},
         requiredByItemID = {},
+        futureToolEnchantByItemID = {},
         pullPlan = {},
         buyPlan = {},
         planByItemID = {},
@@ -4632,9 +4702,13 @@ trackerUI.FindToolEnchantState = function(trackedRows)
                 nonCompliantCount = 0,
                 hasCompliantTool = false,
                 toolComplianceUnknown = false,
+                compliantToolStats = {},
+                compliantBaggedToolStats = {},
+                pendingToolStats = {},
                 pending = false,
                 slotsKnown = false,
             },
+            toolNeeds = {},
         }
     end
 
@@ -4833,8 +4907,30 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         profession.toolScanPending = result.pending == true
             or profession.equippedToolPending == true
         trackerUI.SummarizeProfessionGear(profession)
+        profession.toolNeeds = trackerUI.GetProfessionToolNeeds(profession, row.config)
+        -- L'enchantement part avec l'outil : un outil achete nu resterait a
+        -- enchanter, et son rappel n'apparaitrait qu'au scan suivant, une fois
+        -- l'achat fait. Le besoin rejoint donc `requiredByItemID`, si bien que
+        -- la Warbank est fouillee avant l'hotel des ventes comme pour les autres
+        -- enchantements. Un besoin sans statistique (metier de recolte) n'en
+        -- demande aucun : la stat de l'outil achete n'est pas connue d'avance.
+        for _, need in ipairs(profession.toolNeeds) do
+            local needStatInfo = need.statKey
+                and runtimeState.professionToolEnchantments.byStat[need.statKey]
+                or nil
+            if needStatInfo then
+                result.requiredByItemID[needStatInfo.itemID] =
+                    (result.requiredByItemID[needStatInfo.itemID] or 0) + 1
+                result.futureToolEnchantByItemID[needStatInfo.itemID] =
+                    (result.futureToolEnchantByItemID[needStatInfo.itemID] or 0) + 1
+            end
+        end
         local gear = profession.gear
-        debugParts[#debugParts + 1] = ("gear[%d] slots=%d empty=%d lowQ=%d lowIlvl=%d bad=%d pending=%s tool=%s rfOwned=%s mcBag=%s"):format(
+        local needParts = {}
+        for _, need in ipairs(profession.toolNeeds) do
+            needParts[#needParts + 1] = need.statKey or "any"
+        end
+        debugParts[#debugParts + 1] = ("gear[%d] slots=%d empty=%d lowQ=%d lowIlvl=%d bad=%d pending=%s tool=%s rfOwned=%s rfOk=%s mcBag=%s mcBagOk=%s needs=%s"):format(
             row.skillLineID,
             #gear.slots,
             gear.emptyCount,
@@ -4844,7 +4940,10 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             tostring(gear.pending),
             tostring(gear.hasCompliantTool),
             tostring(profession.hasResourcefulnessTool),
-            tostring(profession.hasBaggedMulticraftTool))
+            tostring(gear.compliantToolStats.resourcefulness == true),
+            tostring(profession.hasBaggedMulticraftTool),
+            tostring(gear.compliantBaggedToolStats.multicrafting == true),
+            #needParts > 0 and table.concat(needParts, "+") or "none")
         debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d apply=%d equipped=%s rf=%s pending=%s"):format(
             row.skillLineID,
             tostring(profession.professionID),
@@ -5168,45 +5267,94 @@ trackerUI.IsProfessionGearCandidateValid = function(itemID, skillLineID, wantToo
     return false
 end
 
--- Plan d'achat de l'equipement de metier : un exemplaire du rang rare par
--- emplacement non conforme, moins ce qui est deja demande a YayaQueue. Le stock
--- possede n'est deliberement pas deduit : deux exemplaires du meme itemID
--- peuvent differer par leur rang de craft, donc en posseder un ne dit pas qu'un
--- exemplaire conforme est disponible.
+-- Variante d'achat d'un objet d'equipement de metier : le rang minimal, et pour
+-- un outil la statistique exigee. YayaQueue s'en sert pour ecarter les annonces
+-- non conformes au lieu de prendre la moins chere. Une statistique dont le
+-- bonusId est inconnu ne rend aucune variante : mieux vaut ne rien proposer que
+-- viser une annonce au hasard.
+trackerUI.BuildProfessionGearVariant = function(statKey)
+    local variant = { minItemLevel = trackerUI.GetProfessionGearMinimumItemLevel() }
+    if not statKey then
+        return variant
+    end
+
+    local bonusID = runtimeState.professionGear.statBonusIDs[statKey]
+    if not bonusID then
+        return nil
+    end
+    local statInfo = runtimeState.professionToolEnchantments.byStat[statKey]
+    variant.statKey = statKey
+    variant.statLabel = statInfo and statInfo.label or statKey
+    variant.bonusIDs = { bonusID }
+    return variant
+end
+
+-- Plan d'achat de l'equipement de metier : un exemplaire conforme par besoin
+-- constate, moins ce qui est deja demande a YayaQueue pour cette meme variante.
+-- Le stock possede n'est pas deduit ici : c'est la variante qui dit ce qui
+-- manque, et deux exemplaires du meme itemID peuvent differer par leur rang de
+-- craft comme par leur statistique.
 trackerUI.BuildProfessionGearPurchasePlan = function(trackedRows)
     trackedRows = trackedRows or GetTrackedMidnightProfessions()
     local state = trackerUI.FindToolEnchantState(trackedRows)
-    local plan = { entries = {}, quantity = 0, pending = false, invalidCandidates = {} }
+    local plan = {
+        entries = {},
+        quantity = 0,
+        gearQuantity = 0,
+        enchantQuantity = 0,
+        pending = false,
+        invalidCandidates = {},
+        unknownStats = {},
+    }
 
     local function ItemName(itemID)
         return SafeCall(GetItemInfo, itemID) or ("item:" .. tostring(itemID))
     end
 
-    local function Add(itemID, skillLineID, professionLabel, wantTool, reason)
-        local valid = trackerUI.IsProfessionGearCandidateValid(itemID, skillLineID, wantTool)
-        if valid == nil then
-            plan.pending = true
+    -- La quantite deja en file se compte par variante : l'outil Resourcefulness
+    -- et l'outil Multicrafting de l'alchimie partagent un itemID, et un compte
+    -- global ferait passer le second pour deja demande.
+    local function QueuedQuantity(itemID, variant)
+        if not YayaQueueAPI or type(YayaQueueAPI.GetDirectItemQuantity) ~= "function" then
+            return 0
+        end
+        return tonumber(YayaQueueAPI.GetDirectItemQuantity(itemID, variant)) or 0
+    end
+
+    local function Add(itemID, quantity, variant, skillLineID, professionLabel, wantTool, reason)
+        if not itemID or quantity <= 0 then
             return false
         end
-        if valid == false then
-            plan.invalidCandidates[#plan.invalidCandidates + 1] = itemID
-            return false
+        if wantTool ~= nil then
+            local valid = trackerUI.IsProfessionGearCandidateValid(itemID, skillLineID, wantTool)
+            if valid == nil then
+                plan.pending = true
+                return false
+            end
+            if valid == false then
+                plan.invalidCandidates[#plan.invalidCandidates + 1] = itemID
+                return false
+            end
         end
-        local queued = YayaQueueAPI and type(YayaQueueAPI.GetDirectItemQuantity) == "function"
-            and tonumber(YayaQueueAPI.GetDirectItemQuantity(itemID))
-            or 0
-        if (queued or 0) > 0 then
+        local missing = quantity - QueuedQuantity(itemID, variant)
+        if missing <= 0 then
             return false
         end
         plan.entries[#plan.entries + 1] = {
             itemID = itemID,
             itemName = ItemName(itemID),
-            quantity = 1,
+            quantity = missing,
+            variant = variant,
             skillLineID = skillLineID,
             professionLabel = professionLabel,
             reason = reason,
         }
-        plan.quantity = plan.quantity + 1
+        plan.quantity = plan.quantity + missing
+        if variant then
+            plan.gearQuantity = plan.gearQuantity + missing
+        else
+            plan.enchantQuantity = plan.enchantQuantity + missing
+        end
         return true
     end
 
@@ -5216,45 +5364,79 @@ trackerUI.BuildProfessionGearPurchasePlan = function(trackedRows)
         local candidates = runtimeState.professionGear.rareCandidatesBySkillLineID[row.skillLineID]
         if gear and candidates then
             local professionLabel = profession.label or tostring(row.skillLineID)
+            -- Les outils suivent `toolNeeds`, seul juge de ce qui manque : un
+            -- outil conforme mais sans la bonne statistique laisse le besoin
+            -- ouvert, alors que l'emplacement, lui, est satisfait.
+            for _, need in ipairs(profession.toolNeeds or EMPTY_TABLE) do
+                local variant = trackerUI.BuildProfessionGearVariant(need.statKey)
+                if not variant then
+                    plan.unknownStats[#plan.unknownStats + 1] = need.statKey or "?"
+                elseif candidates.tool then
+                    Add(candidates.tool, 1, variant, row.skillLineID, professionLabel, true, need.reason)
+                end
+            end
             if gear.pending then
                 plan.pending = true
             else
-                local missingToolSlots, missingGearSlots = 0, 0
+                local missingGearSlots = 0
                 for _, slotState in ipairs(gear.slots) do
-                    if slotState.compliant == false then
-                        if slotState.isTool or slotState.isToolSlot then
-                            missingToolSlots = missingToolSlots + 1
-                        else
-                            missingGearSlots = missingGearSlots + 1
-                        end
+                    if slotState.compliant == false and not slotState.isToolSlot then
+                        missingGearSlots = missingGearSlots + 1
                     end
-                end
-                if missingToolSlots > 0 and candidates.tool then
-                    Add(candidates.tool, row.skillLineID, professionLabel, true, "outil")
                 end
                 -- Les deux emplacements d'accessoire acceptent n'importe quel
                 -- accessoire du metier : proposer autant de candidats distincts
-                -- qu'il y a d'emplacements a completer.
+                -- qu'il y a d'emplacements a completer. Leurs statistiques sont
+                -- fixes, seul le rang est exige.
                 local added = 0
                 for _, itemID in ipairs(candidates.gear or EMPTY_TABLE) do
                     if added >= missingGearSlots then
                         break
                     end
-                    if Add(itemID, row.skillLineID, professionLabel, false, "accessoire") then
+                    local variant = trackerUI.BuildProfessionGearVariant(nil)
+                    if Add(itemID, 1, variant, row.skillLineID, professionLabel, false, "accessoire") then
                         added = added + 1
                     end
                 end
             end
-            -- L'outil Multicrafting en sac de l'alchimie partage l'itemID de
-            -- l'outil Resourcefulness : seule la statistique tiree au hasard les
-            -- distingue, et elle n'est pas ciblable a l'achat.
-            if profession.requiresBaggedMulticraftTool
-                and profession.hasBaggedMulticraftTool == false
-                and not profession.toolScanPending
-                and candidates.tool then
-                Add(candidates.tool, row.skillLineID, professionLabel, true, "outil Multicrafting en sac")
-            end
         end
+    end
+
+    -- Les enchantements des outils a acheter, plafonnes par le deficit reel
+    -- calcule par le scan : sacs, Warbank et file deja deduits. Un scroll
+    -- d'enchantement est une marchandise banale, sans variante a cibler.
+    for itemID, quantity in pairs(state.futureToolEnchantByItemID or EMPTY_TABLE) do
+        local planned = state.planByItemID[itemID]
+        local buyQuantity = math.min(quantity, planned and planned.buy or 0)
+        if buyQuantity > 0 then
+            Add(itemID, buyQuantity, nil, nil, nil, nil, "enchantement de l'outil achete")
+        end
+    end
+
+    -- Le plan est journalise : c'est la seule facon de savoir en jeu pourquoi
+    -- un objet est propose, ou ne l'est pas, sans deviner. La signature evite
+    -- de reecrire la meme ligne a chaque rafraichissement.
+    local planParts = {}
+    for _, entry in ipairs(plan.entries) do
+        planParts[#planParts + 1] = ("%dx%d/%s"):format(
+            entry.quantity,
+            entry.itemID,
+            entry.variant
+                and (tostring(entry.variant.statKey or "rank")
+                    .. ":" .. tostring(entry.variant.minItemLevel or 0))
+                or "enchant")
+    end
+    table.sort(planParts)
+    local planSignature = ("gear=%d ench=%d pending=%s invalid=%d unknownStats=%d :: %s"):format(
+        plan.gearQuantity,
+        plan.enchantQuantity,
+        tostring(plan.pending),
+        #plan.invalidCandidates,
+        #plan.unknownStats,
+        #planParts > 0 and table.concat(planParts, ",") or "none")
+    if planSignature ~= debugSignatures.professionGearPlan then
+        debugSignatures.professionGearPlan = planSignature
+        DebugLog("Profession gear plan = %s", planSignature)
     end
 
     return plan
@@ -5269,14 +5451,15 @@ trackerUI.QueueProfessionGearPurchases = function()
     local plan = trackerUI.BuildProfessionGearPurchasePlan()
     local queuedQuantity = 0
     for _, entry in ipairs(plan.entries) do
-        YayaQueueAPI.AddItem(entry.itemID, entry.quantity, entry.itemName)
+        YayaQueueAPI.AddItem(entry.itemID, entry.quantity, entry.itemName, entry.variant)
         queuedQuantity = queuedQuantity + entry.quantity
     end
     if queuedQuantity > 0 and type(YayaQueueAPI.Refresh) == "function" then
         YayaQueueAPI.Refresh()
     end
     if queuedQuantity > 0 then
-        print(("YWT: %d objet(s) d'equipement de metier ajoute(s) a YayaQueue"):format(queuedQuantity))
+        print(("YWT: %d equipement(s) et %d enchantement(s) d'outil ajoute(s) a YayaQueue"):format(
+            plan.gearQuantity, plan.enchantQuantity))
     end
     trackerUI.InvalidateToolEnchantCache()
     ScheduleTrackerRefresh(0.05, false)
@@ -5294,7 +5477,11 @@ trackerUI.UpdateProfessionGearBuyButton = function(plan)
     end
 
     local queueAvailable = YayaQueueAPI and type(YayaQueueAPI.AddItem) == "function"
-    button:SetText(("Acheter stuff YQ x%d"):format(plan.quantity))
+    -- Les enchantements comptent a part : sans cette distinction, un `x4` sur
+    -- trois emplacements fautifs passait pour une erreur de comptage.
+    button:SetText(plan.enchantQuantity > 0
+        and ("Acheter stuff YQ x%d +%de"):format(plan.gearQuantity, plan.enchantQuantity)
+        or ("Acheter stuff YQ x%d"):format(plan.gearQuantity))
     button:SetEnabled(queueAvailable == true)
     button.gearPlan = plan
     button:Show()
@@ -6282,13 +6469,26 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     -- Les deux rappels RF sont donc reserves aux metiers de craft.
     local resourcefulnessApplies = config.gathering ~= true
     -- Rappel independant du precedent : un metier peut avoir un outil equipe
-    -- correct sans posseder le moindre exemplaire Resourcefulness.
+    -- correct sans posseder le moindre exemplaire Resourcefulness. Le rang
+    -- compte autant que la statistique : un exemplaire Resourcefulness sous le
+    -- seuil ne satisfait pas l'exigence, et le rappel dit alors lequel des deux
+    -- manque, sinon il passe pour faux.
+    local gearStatus = toolStatus.gear or EMPTY_TABLE
+    local hasCompliantResourcefulnessTool =
+        (gearStatus.compliantToolStats or EMPTY_TABLE).resourcefulness == true
+    local resourcefulnessPending =
+        (gearStatus.pendingToolStats or EMPTY_TABLE).resourcefulness == true
     if trackProfessionTools
         and resourcefulnessApplies
-        and toolStatus.hasResourcefulnessTool == false
+        and not hasCompliantResourcefulnessTool
+        and not resourcefulnessPending
         and not toolStatus.toolScanPending then
         Push(oneTimeTokens, ("outil%sRF"):format(NB),
-            "Aucun outil Resourcefulness possede", "warning")
+            toolStatus.hasResourcefulnessTool
+                and ("Outil Resourcefulness possede mais sous le seuil de %d d'ilvl"):format(
+                    trackerUI.GetProfessionGearMinimumItemLevel())
+                or "Aucun outil Resourcefulness possede",
+            "warning")
     end
     if trackProfessionGear then
         local gear = toolStatus.gear or EMPTY_TABLE
@@ -6308,11 +6508,18 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
                     table.concat(details, "\n")),
                 "warning")
         end
+        -- Meme regle que le rappel Resourcefulness : l'exemplaire en sac doit
+        -- aussi tenir le seuil de rang, sans quoi YayaQueue equiperait un outil
+        -- Multicrafting qui ne vaut rien.
         if toolStatus.requiresBaggedMulticraftTool
-            and toolStatus.hasBaggedMulticraftTool == false
+            and (gear.compliantBaggedToolStats or EMPTY_TABLE).multicrafting ~= true
+            and (gear.pendingToolStats or EMPTY_TABLE).multicrafting ~= true
             and not toolStatus.toolScanPending then
             Push(oneTimeTokens, ("MC%ssac"):format(NB),
-                "Aucun outil Multicrafting en sac : YayaQueue ne pourra pas l'equiper avant les crafts qui multicraftent",
+                toolStatus.hasBaggedMulticraftTool
+                    and ("Outil Multicrafting en sac sous le seuil de %d d'ilvl"):format(
+                        trackerUI.GetProfessionGearMinimumItemLevel())
+                    or "Aucun outil Multicrafting en sac : YayaQueue ne pourra pas l'equiper avant les crafts qui multicraftent",
                 "warning")
         end
     end
@@ -8995,23 +9202,38 @@ trackerUI.CreateTrackerFrame = function()
         GameTooltip:SetText("Ajoute l'equipement de metier manquant a la queue YayaQueue.")
         local plan = self.gearPlan
         for _, entry in ipairs(plan and plan.entries or EMPTY_TABLE) do
+            local variantLabel = entry.variant
+                and (entry.variant.statLabel
+                    and ("%s, ilvl >= %d"):format(entry.variant.statLabel, entry.variant.minItemLevel or 0)
+                    or ("ilvl >= %d"):format(entry.variant.minItemLevel or 0))
+                or nil
             GameTooltip:AddLine(
-                ("%s : %s (%s)"):format(
-                    entry.professionLabel or "?",
+                ("%sx %s (%s%s)"):format(
+                    tostring(entry.quantity or 1),
                     entry.itemName or ("item:" .. tostring(entry.itemID)),
+                    entry.professionLabel and (entry.professionLabel .. " ") or "",
                     entry.reason or "?"),
                 0.7, 0.7, 0.7, true)
+            if variantLabel then
+                GameTooltip:AddLine(("    variante exigee : %s"):format(variantLabel), 0.5, 0.8, 1, true)
+            end
         end
-        -- Limite reelle de la file : elle achete l'annonce la moins chere de
-        -- l'itemID demande. Le rang de craft et la statistique d'un outil ne
-        -- sont pas des identites d'achat, ils ne peuvent donc pas etre filtres.
+        -- La file ecarte desormais les annonces non conformes : ce que le
+        -- bouton promet est ce qui sera achete, ou rien. Le rappel qui suit dit
+        -- ce qu'il advient quand aucune annonce ne convient, pour que le
+        -- silence ne passe pas pour une panne.
         GameTooltip:AddLine(
-            ("Rang de craft non filtre : verifie l'annonce, l'objet doit etre ilvl >= %d."):format(
+            ("YayaQueue n'achete qu'une annonce conforme (rang ilvl >= %d, statistique exigee pour un outil)."):format(
                 trackerUI.GetProfessionGearMinimumItemLevel()),
-            1, 0.6, 0.2, true)
+            0.7, 1, 0.7, true)
         GameTooltip:AddLine(
-            "Pour un outil, la statistique tiree au hasard n'est pas ciblable non plus.",
+            "Sans annonce conforme, la ligne HV reste a zero disponible plutot que d'acheter un rang 1.",
             1, 0.6, 0.2, true)
+        for _, statKey in ipairs(plan and plan.unknownStats or EMPTY_TABLE) do
+            GameTooltip:AddLine(
+                ("Statistique %s non ciblable : aucun bonusId connu, rien n'est propose."):format(statKey),
+                1, 0.4, 0.4, true)
+        end
         if plan and plan.pending then
             GameTooltip:AddLine("Scan encore incomplet : le plan peut evoluer.", 1, 0.6, 0.2, true)
         end

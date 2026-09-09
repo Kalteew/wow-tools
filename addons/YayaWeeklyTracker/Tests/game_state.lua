@@ -184,10 +184,26 @@ C_TooltipInfo.GetHyperlink = function(link)
     return previousTooltip(link)
 end
 
+-- Sans stock de banque d'aventuriers connu, le plan d'achat des enchantements
+-- reste a zero par prudence : rien ne dit que l'objet n'y dort pas deja. TSM
+-- est la source de ce stock hors ouverture de banque, et l'utilisateur l'a
+-- toujours charge : la doublure rend donc un stock connu et vide.
+TSM_API = {
+    ToItemString = function(value) return value end,
+    GetWarbankQuantity = function() return 0 end,
+}
+
 QUEUE_CALLS = {}
 YayaQueueAPI = {
-    AddItem = function(itemID, quantity, itemName)
-        QUEUE_CALLS[#QUEUE_CALLS + 1] = ("AddItem %s x%s"):format(tostring(itemID), tostring(quantity))
+    -- La signature suit celle de l'addon : la variante est le quatrieme
+    -- argument, et c'est elle qui distingue deux demandes du meme itemID.
+    AddItem = function(itemID, quantity, itemName, variant)
+        QUEUE_CALLS[#QUEUE_CALLS + 1] = ("AddItem %s x%s %s"):format(
+            tostring(itemID),
+            tostring(quantity),
+            variant
+                and (tostring(variant.statKey or "rank") .. ":" .. tostring(variant.minItemLevel))
+                or "sans-variante")
         return true
     end,
     RemoveItem = function(itemID, quantity)

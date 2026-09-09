@@ -21,7 +21,7 @@ Addon Retail simple pour :
 - ajouter en une fois les first crafts connus non realises dont le cout CraftSim est strictement inferieur a 1000 po
 - exclure automatiquement des first crafts les recettes qui consomment un Spark, de l'Artisan's Mettle/Acuity ou du Fused Vitality
 - garder une frame flottante a l'ecran pour suivre la queue
-- accepter des ajouts externes via `YayaQueueAPI.AddRecipe(...)`, des besoins supplementaires via `YayaQueueAPI.AddItem(...)`, leur lecture via `YayaQueueAPI.GetDirectItemQuantity(...)`, leur retrait via `YayaQueueAPI.RemoveItem(...)` et des cibles idempotentes via `YayaQueueAPI.SetItemTarget(...)`
+- accepter des ajouts externes via `YayaQueueAPI.AddRecipe(...)`, des besoins supplementaires via `YayaQueueAPI.AddItem(itemID, quantite, nom [, variante])`, leur lecture via `YayaQueueAPI.GetDirectItemQuantity(itemID [, variante])`, leur retrait via `YayaQueueAPI.RemoveItem(itemID, quantite [, variante])` et des cibles idempotentes via `YayaQueueAPI.SetItemTarget(...)`
 - afficher ce qu'il reste a acheter a l'HV ou au marchand
 - garder a l'HV les composants PvP echangeables achetes contre une monnaie, meme s'ils sont proposes par un vendeur
 - afficher `Acquérir X` pour les composants soulbound, sans les envoyer vers l'HV
@@ -89,6 +89,19 @@ Notes :
 - les items marchand sont detectes quand ils ont deja ete vus sur un marchand, y compris s’ils sont lies quand ramasses ; l’ID utilise l’API moderne `C_MerchantFrame.GetItemInfo()` si l’ancienne API globale ne le fournit pas
 - l'achat automatique marchand lance une seule séquence par ouverture ; chaque item accepté n'est soumis qu'une fois, avec vérification des sacs et jusqu'à 10 relances pour les échecs
 - les items non-commodities a l'HV sont achetes une enchere a la fois
+
+### Variantes d'achat (equipement de metier)
+
+- un itemID ne suffit pas a decrire un equipement de metier : le rang de craft et la statistique aleatoire d'un outil vivent dans les **bonusId du lien**, pas dans l'itemID. Acheter l'annonce la moins chere de l'itemID revenait donc a acheter le rang 1 a statistique quelconque
+- une demande directe peut porter une **variante** : `{ minItemLevel = 232, bonusIDs = { 8952 }, statLabel = "Resourcefulness" }`. Son identite est deduite de la seule contrainte (rang + bonusId tries), jamais du libelle, si bien que deux appelants qui exigent la meme chose partagent la meme demande
+- une demande a variante forme sa **propre tache** : le stock possede comme les annonces achetables changent avec la contrainte. L'outil Resourcefulness et l'outil Multicrafting d'un metier partagent leur itemID et coexistent donc en deux lignes, distinguees dans la liste par `<statistique ilvl>=seuil>`
+- le stock est compte par variante, en relisant les liens des sacs, des banques et des emplacements equipes : posseder un outil rang 1 n'annule plus la demande d'un outil rang maximal. La boite aux lettres et les sorties craftees ne savent pas distinguer une variante, elles ne satisfont donc aucune demande de ce type
+- une seule recherche HV sert toutes les variantes d'un itemID. La cle de recherche est celle rendue par l'evenement, donc celle que le serveur a reellement servie ; quand `GetItemKeyRequiresLevel` l'exige, la cle emporte le niveau d'objet demande, sinon un niveau nul rend toutes les annonces et le tri se fait sur les liens
+- chaque annonce est jugee sur son lien : bonusId exige present, puis `GetDetailedItemLevelInfo` au seuil. Un lien encore illisible n'est ni retenu ni ecarte, et les donnees de l'objet sont redemandees. **Sans annonce conforme, rien n'est achete** : la ligne reste a zero disponible plutot que de prendre un rang inferieur
+- la ligne HV dit ce qu'elle exige et ce qu'elle a refuse : `[2 conf., 37 hors variante]`. Son infobulle est celle de la meilleure annonce **conforme**, ce qui montre le rang et la statistique reellement vises ; le seul itemID rendait l'objet de base, ilvl 32 et statistique encore aleatoire
+- `RemoveItem` sans variante ne touche que les demandes sans variante : une livraison d'objet ne connait que son itemID, et ce retrait effacait autrement la demande de la variante voisine. Une demande a variante s'eteint d'elle-meme des que l'exemplaire conforme est possede
+- `SetItemTarget` ne retargette lui aussi que les demandes sans variante : ecraser la quantite d'un equipement exige ferait disparaitre sa contrainte
+- `Tests/test_itemvariants.lua` rejoue la lecture des bonusId sur des liens reels releves dans les SavedVariables, y compris le piege du champ 13 : c'est lui qui porte le **nombre** de bonusId, et sans ce comptage le nombre de modificateurs qui suit passait pour un bonusId
 - lorsqu'un achat HV suivi par YQ arrive dans les sacs, sa quantite est retiree de la demande directe YQ ; elle ne reapparait donc pas apres consommation de l'item
 - la statistique d’un outil est lue au tooltip de son lien unique, `GetItemStats` ne servant que de repli : cette stat est tirée au hasard sur l’exemplaire et l’API peut ne décrire que l’objet de base
 - les outils des sacs sont rattachés à leur métier par `professionID` résolu depuis leur ligne de métier, plus par comparaison directe de `skillLineID` : la ligne retenue par métier pouvait être celle d’une ancienne extension et la jointure échouait en silence

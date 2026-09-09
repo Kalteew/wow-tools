@@ -1538,6 +1538,246 @@ local function NormalizeTargetQuality(value)
     return math.floor(value)
 end
 
+-- Variante d'achat : un itemID ne suffit pas a decrire un equipement de metier.
+-- Le rang de craft et la statistique aleatoire d'un outil vivent dans les
+-- bonusIds du lien, jamais dans l'itemID, si bien qu'acheter l'annonce la moins
+-- chere de l'itemID revient a acheter le rang 1 a statistique quelconque.
+-- Ces helpers vivent sur `state` et non en locals de chunk : YayaQueue.lua est
+-- a quelques variables de la limite des 200 que Lua 5.1 autorise par chunk.
+state.NormalizeItemVariant = function(rawVariant)
+    if type(rawVariant) ~= "table" then
+        return nil
+    end
+
+    local minItemLevel = math.floor(tonumber(rawVariant.minItemLevel) or 0)
+    local bonusIDs
+    for _, bonusID in ipairs(type(rawVariant.bonusIDs) == "table" and rawVariant.bonusIDs or {}) do
+        bonusID = tonumber(bonusID)
+        if bonusID and bonusID > 0 then
+            bonusIDs = bonusIDs or {}
+            bonusIDs[#bonusIDs + 1] = math.floor(bonusID)
+        end
+    end
+    if bonusIDs then
+        table.sort(bonusIDs)
+    end
+    if minItemLevel <= 0 and not bonusIDs then
+        return nil
+    end
+
+    local statLabel = type(rawVariant.statLabel) == "string" and rawVariant.statLabel ~= ""
+        and rawVariant.statLabel
+        or nil
+    return {
+        minItemLevel = minItemLevel > 0 and minItemLevel or nil,
+        bonusIDs = bonusIDs,
+        statLabel = statLabel,
+    }
+end
+
+-- Identite d'une variante, deduite de la seule contrainte d'achat : deux
+-- demandes de meme rang et memes bonusIds sont la meme demande, quel que soit
+-- le libelle que l'appelant y a mis.
+state.GetItemVariantKey = function(variant)
+    if type(variant) ~= "table" then
+        return nil
+    end
+    return ("i%s+b%s"):format(
+        tostring(variant.minItemLevel or 0),
+        variant.bonusIDs and table.concat(variant.bonusIDs, ",") or "-")
+end
+
+state.DescribeItemVariant = function(variant)
+    if type(variant) ~= "table" then
+        return nil
+    end
+    local parts = {}
+    if variant.statLabel then
+        parts[#parts + 1] = variant.statLabel
+    elseif variant.bonusIDs then
+        parts[#parts + 1] = "bonus " .. table.concat(variant.bonusIDs, "/")
+    end
+    if variant.minItemLevel then
+        parts[#parts + 1] = ("ilvl>=%d"):format(variant.minItemLevel)
+    end
+    if #parts == 0 then
+        return nil
+    end
+    return table.concat(parts, " ")
+end
+
+state.GetLinkBonusIDs = function(itemLink)
+    if type(itemLink) ~= "string" then
+        return nil
+    end
+    local payload = itemLink:match("|Hitem:([^|]+)|h") or itemLink:match("item:([%d:%-]+)")
+    if not payload then
+        return nil
+    end
+    -- item:id:enchant:g1:g2:g3:g4:suffix:uniqueID:level:specID:modifiers:
+    -- numBonusIDs:bonusID1:...  Le champ 13 porte le nombre de bonusIds, les
+    -- suivants les bonusIds eux-memes. Compter est indispensable : les champs
+    -- qui suivent (modificateurs, crafting) sont des nombres eux aussi.
+    local fields = {}
+    for field in (payload .. ":"):gmatch("([^:]*):") do
+        fields[#fields + 1] = field
+    end
+    local count = tonumber(fields[13]) or 0
+    if count <= 0 then
+        return nil
+    end
+    local bonusIDs = {}
+    for index = 14, 13 + count do
+        local bonusID = tonumber(fields[index])
+        if bonusID then
+            bonusIDs[bonusID] = true
+        end
+    end
+    return bonusIDs
+end
+
+-- Verdict d'un lien face a une variante. `nil` veut dire « pas encore
+-- decidable » : un lien dont le niveau d'objet n'est pas lisible ne doit ni
+-- etre achete, ni etre declare non conforme.
+state.DoesLinkMatchVariant = function(itemLink, variant)
+    if type(variant) ~= "table" then
+        return true
+    end
+    if type(itemLink) ~= "string" or itemLink == "" then
+        return nil
+    end
+
+    if variant.bonusIDs then
+        local bonusIDs = state.GetLinkBonusIDs(itemLink)
+        if not bonusIDs then
+            return false
+        end
+        local matched = false
+        for _, bonusID in ipairs(variant.bonusIDs) do
+            if bonusIDs[bonusID] then
+                matched = true
+                break
+            end
+        end
+        if not matched then
+            return false
+        end
+    end
+
+    if variant.minItemLevel then
+        local itemLevel
+        if type(GetDetailedItemLevelInfo) == "function" then
+            -- GetDetailedItemLevelInfo rend trois valeurs : niveau effectif,
+            -- apercu (booleen) et niveau de base. Passer l'appel a tonumber
+            -- ferait du booleen sa base numerique et leverait. On affecte donc
+            -- d'abord, ce qui ne retient que le niveau effectif.
+            local detailedItemLevel = SafeCall(GetDetailedItemLevelInfo, itemLink)
+            itemLevel = tonumber(detailedItemLevel)
+        end
+        if not itemLevel then
+            return nil
+        end
+        if itemLevel < variant.minItemLevel then
+            return false
+        end
+    end
+
+    return true
+end
+
+-- Ce qui est deja possede pour une variante donnee. `C_Item.GetItemCount` ne
+-- sait compter qu'un itemID : il sert d'ecremage, puis les liens des sacs et des
+-- emplacements equipes tranchent. Sans ce comptage par variante, posseder un
+-- outil rang 1 annulait la demande d'un outil rang maximal.
+state.CountOwnedVariant = function(itemID, variant)
+    itemID = tonumber(itemID) or 0
+    if itemID <= 0 then
+        return 0
+    end
+    if type(variant) ~= "table" then
+        return nil
+    end
+
+    local total = C_Item and type(C_Item.GetItemCount) == "function"
+        and (C_Item.GetItemCount(itemID, true, false, true, true) or 0)
+        or 0
+    if total <= 0 then
+        return 0
+    end
+
+    local owned = 0
+    local maxBagIndex = math.max(NUM_TOTAL_EQUIPPED_BAG_SLOTS or 0, NUM_BAG_SLOTS or 0, 5)
+    for bagID = 0, maxBagIndex do
+        local slotCount = C_Container and type(C_Container.GetContainerNumSlots) == "function"
+            and (C_Container.GetContainerNumSlots(bagID) or 0)
+            or 0
+        for slotIndex = 1, slotCount do
+            local link = C_Container.GetContainerItemLink and C_Container.GetContainerItemLink(bagID, slotIndex)
+            if link and tonumber(link:match("item:(%d+)")) == itemID
+                and state.DoesLinkMatchVariant(link, variant) == true then
+                owned = owned + 1
+            end
+        end
+    end
+
+    -- Les emplacements de metier ne sont pas dans les sacs et portent des
+    -- identifiants au-dela de l'equipement classique : balayer large coute
+    -- quelques appels et evite de redemander un outil deja porte.
+    if type(GetInventoryItemLink) == "function" then
+        for slotID = 1, 30 do
+            local link = SafeCall(GetInventoryItemLink, "player", slotID)
+            if type(link) == "string" and tonumber(link:match("item:(%d+)")) == itemID
+                and state.DoesLinkMatchVariant(link, variant) == true then
+                owned = owned + 1
+            end
+        end
+    end
+
+    return owned
+end
+
+-- Les variantes reellement demandees pour un itemID, telles qu'elles sont en
+-- file. Une seule recherche HV par itemID les alimente toutes : chacune garde
+-- son propre decompte d'annonces conformes, ecartees et illisibles, afin que la
+-- ligne HV puisse dire pourquoi elle ne trouve rien.
+state.CollectItemVariantDemands = function(itemID)
+    local demands = {}
+    itemID = tonumber(itemID) or 0
+    if itemID <= 0 or type(db) ~= "table" or type(db.queue) ~= "table" then
+        return demands
+    end
+
+    for _, entry in ipairs(db.queue) do
+        if entry.queueKind == "direct_item" and tonumber(entry.itemID) == itemID and entry.variant then
+            local key = state.GetItemVariantKey(entry.variant)
+            if key and not demands[key] then
+                demands[key] = {
+                    key = key,
+                    variant = entry.variant,
+                    available = 0,
+                    rejected = 0,
+                    pending = 0,
+                }
+            end
+        end
+    end
+    return demands
+end
+
+-- Vue de cache propre a une tache : une tache portant une variante ne lit que
+-- les annonces conformes a cette variante, jamais la meilleure annonce toutes
+-- variantes confondues, qui est justement le rang 1 a statistique quelconque.
+state.GetTaskAuctionCache = function(task)
+    local cache = task and state.searchCache[task.itemID] or nil
+    if not cache then
+        return nil, nil
+    end
+    if not task.variantKey then
+        return cache, cache
+    end
+    return cache.variants and cache.variants[task.variantKey] or nil, cache
+end
+
 local function NormalizeDirectItemEntry(rawEntry)
     local itemID = tonumber(rawEntry and rawEntry.itemID) or tonumber(rawEntry and rawEntry.directItemID) or 0
     if itemID <= 0 then
@@ -1552,6 +1792,7 @@ local function NormalizeDirectItemEntry(rawEntry)
         directQuantity = quantity,
         concentrationPhial = rawEntry.concentrationPhial == true,
         shatterMote = rawEntry.shatterMote == true,
+        variant = state.NormalizeItemVariant(rawEntry.variant),
         queueKind = rawEntry.queueKind == "direct_item" and "direct_item" or "direct_item",
     }
 end
@@ -2984,11 +3225,40 @@ local function IsCommodityItem(itemID)
     return maxStack > 1
 end
 
-local function MakeItemKey(itemID)
+-- Un itemKey de niveau nul rend toutes les annonces d'un itemID, rangs
+-- confondus. Ce n'est pas vrai de tous les objets : pour un equipement, le
+-- serveur peut exiger le niveau d'objet dans la cle, et une recherche a zero ne
+-- rend alors rien. `GetItemKeyRequiresLevel` tranche, et le niveau demande vient
+-- de la variante en file.
+local function MakeItemKey(itemID, itemLevel)
     if not C_AuctionHouse or type(C_AuctionHouse.MakeItemKey) ~= "function" then
         return nil
     end
-    return C_AuctionHouse.MakeItemKey(itemID, 0, 0, 0)
+    return C_AuctionHouse.MakeItemKey(itemID, math.floor(tonumber(itemLevel) or 0), 0, 0)
+end
+
+state.GetVariantSearchItemLevel = function(itemID)
+    local minimum
+    for _, demand in pairs(state.CollectItemVariantDemands(itemID)) do
+        local itemLevel = tonumber(demand.variant and demand.variant.minItemLevel)
+        if itemLevel and (not minimum or itemLevel < minimum) then
+            minimum = itemLevel
+        end
+    end
+    return minimum
+end
+
+state.MakeSearchItemKey = function(itemID)
+    local itemKey = MakeItemKey(itemID)
+    local itemLevel = state.GetVariantSearchItemLevel(itemID)
+    if not itemKey or not itemLevel then
+        return itemKey
+    end
+    if C_AuctionHouse and type(C_AuctionHouse.GetItemKeyRequiresLevel) == "function"
+        and SafeCall(C_AuctionHouse.GetItemKeyRequiresLevel, itemKey) == true then
+        return MakeItemKey(itemID, itemLevel) or itemKey
+    end
+    return itemKey
 end
 
 local function FormatMoneyEstimate(value)
@@ -3958,7 +4228,15 @@ end
 local function SortTaskList(tasks)
     table.sort(tasks, function(left, right)
         if left.name == right.name then
-            return (left.itemID or left.recipeID or 0) < (right.itemID or right.recipeID or 0)
+            local leftID = left.itemID or left.recipeID or 0
+            local rightID = right.itemID or right.recipeID or 0
+            if leftID == rightID then
+                -- Deux variantes du meme objet portent le meme nom et le meme
+                -- itemID : sans ce dernier critere, leurs deux lignes
+                -- s'echangent d'un rafraichissement a l'autre.
+                return tostring(left.variantKey or "") < tostring(right.variantKey or "")
+            end
+            return leftID < rightID
         end
         return left.name < right.name
     end)
@@ -4691,19 +4969,29 @@ local function BuildQueueSummary()
             local quantity = ClampQuantity(entry.directQuantity or 1)
             if itemID > 0 and quantity > 0 then
                 WarmItemData(itemID)
-                if not neededByItemID[itemID] then
-                    neededByItemID[itemID] = {
+                -- Une demande portant une variante forme sa propre tache : le
+                -- rang et la statistique exiges changent ce qui est possede
+                -- comme ce qui est achetable, donc les fusionner avec une
+                -- demande nue rendrait les deux comptes faux. La cle reste
+                -- l'itemID quand il n'y a pas de variante, pour ne rien changer
+                -- au reste de la file.
+                local variantKey = state.GetItemVariantKey(entry.variant)
+                local taskKey = variantKey and (tostring(itemID) .. "#" .. variantKey) or itemID
+                if not neededByItemID[taskKey] then
+                    neededByItemID[taskKey] = {
                         itemID = itemID,
                         name = entry.itemName or GetItemName(itemID),
                         needed = 0,
                         immediateNeeded = 0,
                         shatterMote = false,
+                        variant = entry.variant,
+                        variantKey = variantKey,
                     }
                 end
-                neededByItemID[itemID].needed = neededByItemID[itemID].needed + quantity
+                neededByItemID[taskKey].needed = neededByItemID[taskKey].needed + quantity
                 if entry.shatterMote == true then
-                    neededByItemID[itemID].shatterMote = true
-                    neededByItemID[itemID].immediateNeeded = (neededByItemID[itemID].immediateNeeded or 0) + quantity
+                    neededByItemID[taskKey].shatterMote = true
+                    neededByItemID[taskKey].immediateNeeded = (neededByItemID[taskKey].immediateNeeded or 0) + quantity
                 end
             end
         end
@@ -4755,18 +5043,30 @@ local function BuildQueueSummary()
         end
     end
 
-    for itemID, task in pairs(neededByItemID) do
+    for _, task in pairs(neededByItemID) do
+        local itemID = task.itemID
         task.name = GetItemName(itemID)
         task.quality, task.qualitySimplified = YQQuality.GetProfessionItemQuality(itemID)
-        task.owned = YQQuality.GetIngenuityPhialCount(
-            itemID,
-            (itemID == CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[1]
-                or itemID == CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[2])
-                and GetImmediateOwnedCount
-                or GetTotalOwnedCount
-        )
-        task.mailbox = YQQuality.GetIngenuityPhialCount(itemID, GetMailboxCount)
-        task.queuedOutput = math.max(0, tonumber(plannedOutputs[itemID]) or 0)
+        if task.variant then
+            -- Le stock se compte par variante : posseder un outil rang 1
+            -- annulait la demande d'un outil rang maximal, et la tache
+            -- disparaissait sans que rien ne soit achete. La boite aux lettres
+            -- et les sorties craftees ne savent pas distinguer les variantes :
+            -- elles ne peuvent donc rien satisfaire ici.
+            task.owned = state.CountOwnedVariant(itemID, task.variant) or 0
+            task.mailbox = 0
+            task.queuedOutput = 0
+        else
+            task.owned = YQQuality.GetIngenuityPhialCount(
+                itemID,
+                (itemID == CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[1]
+                    or itemID == CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[2])
+                    and GetImmediateOwnedCount
+                    or GetTotalOwnedCount
+            )
+            task.mailbox = YQQuality.GetIngenuityPhialCount(itemID, GetMailboxCount)
+            task.queuedOutput = math.max(0, tonumber(plannedOutputs[itemID]) or 0)
+        end
         DebugPrintReagentCount("queue-summary", itemID, task.needed, task.mailbox)
         task.missing = math.max(0, task.needed - task.owned - task.queuedOutput)
         if (tonumber(task.immediateNeeded) or 0) > 0 and task.shatterMote ~= true then
@@ -4852,6 +5152,7 @@ local function BuildCraftTasks(summary)
             name = task.name,
             itemID = tonumber(task.itemID),
             quality = YQQuality.GetTaskQualityText(task),
+            variantLabel = state.DescribeItemVariant(task.variant),
         }
     end
 
@@ -4884,10 +5185,13 @@ end
 
 --- Libelle affiche d'une tache : badge colore, nom, qualite.
 local function FormatCraftTask(task)
-    return ("%s %s%s"):format(
+    -- La variante fait partie du nom de la ligne : deux demandes du meme itemID
+    -- pour deux statistiques d'outil differentes sont autrement indiscernables.
+    return ("%s %s%s%s"):format(
         YayaCore.UI.Colorize(CRAFT_KIND_TONE[task.kind] or "text", task.badge),
         task.name or "?",
-        task.quality or ""
+        task.quality or "",
+        task.variantLabel and (" " .. YayaCore.UI.Colorize("accent", "<" .. task.variantLabel .. ">")) or ""
     )
 end
 
@@ -6227,29 +6531,49 @@ function YQQuality.ConfirmPendingMerge()
     return true
 end
 
+-- Une variante peut manquer de vue de cache : capture avant qu'elle n'entre en
+-- file, ou prise pour une marchandise le temps que les donnees de l'objet
+-- arrivent. Le meme predicat sert a decider de chercher et a composer la file
+-- de recherche, sinon le bouton reclame une recherche que rien ne lance.
+state.TaskNeedsSearch = function(task)
+    if not state.searchCache[task.itemID] then
+        return true
+    end
+    return task.variantKey ~= nil and state.GetTaskAuctionCache(task) == nil
+end
+
 local function NeedsAuctionSearch(summary)
     for _, task in ipairs(summary.auctionTasks) do
-        if not state.searchCache[task.itemID] then
+        if state.TaskNeedsSearch(task) then
             return true
         end
     end
     return false
 end
 
+-- Un itemID peut porter deux taches : l'outil Resourcefulness et l'outil
+-- Multicrafting d'un metier partagent leur itemID et ne different que par la
+-- variante exigee. Preferer celle qui a une annonce conforme, sinon la premiere
+-- venue serait bloquee alors que l'autre est achetable.
 local function FindAuctionTask(summary, itemID)
+    local fallback
     for _, task in ipairs(summary.auctionTasks) do
         if task.itemID == itemID then
-            return task
+            fallback = fallback or task
+            local view = state.GetTaskAuctionCache(task)
+            if view and (tonumber(view.available) or 0) > 0 then
+                return task
+            end
         end
     end
-    return nil
+    return fallback
 end
 
 local function GetNextPurchasableTask(summary)
     for _, task in ipairs(summary.auctionTasks) do
-        local cache = state.searchCache[task.itemID]
-        if cache and cache.available and cache.available > 0 then
-            return task, cache
+        local view = state.GetTaskAuctionCache(task)
+        if view and view.available and view.available > 0 then
+            return task, view
         end
     end
     return nil, nil
@@ -9214,7 +9538,10 @@ function YQQuality.GetExpectedAuctionPrice(itemID, kind)
     return nil, nil, nil
 end
 
-local function CaptureSearchCache(itemID)
+-- `searchItemKey` est la cle rendue par l'evenement, donc celle que le serveur
+-- a reellement servie : la reconstruire de zero ferait manquer les resultats
+-- d'un equipement dont la cle porte un niveau d'objet.
+local function CaptureSearchCache(itemID, searchItemKey)
     if type(itemID) ~= "number" or itemID <= 0 then
         return
     end
@@ -9232,7 +9559,17 @@ local function CaptureSearchCache(itemID)
         expectedCapturedAt = expectedCapturedAt,
     }
 
+    -- Les variantes sont collectees avant la bifurcation : une demande a
+    -- variante doit trouver sa vue de cache meme quand l'objet vient d'etre pris
+    -- pour une marchandise, faute de donnees chargees. Sans cette vue, la file
+    -- se croirait sans recherche et en relancerait une a chaque passage.
+    cache.variants = state.CollectItemVariantDemands(itemID)
+
     if cache.kind == "commodity" then
+        for _, demand in pairs(cache.variants) do
+            demand.unresolved = true
+        end
+        WarmItemData(itemID)
         local resultCount = C_AuctionHouse and C_AuctionHouse.GetNumCommoditySearchResults and C_AuctionHouse.GetNumCommoditySearchResults(itemID) or 0
         for index = 1, resultCount do
             local info = C_AuctionHouse.GetCommoditySearchResultInfo(itemID, index)
@@ -9245,7 +9582,11 @@ local function CaptureSearchCache(itemID)
             end
         end
     else
-        local itemKey = MakeItemKey(itemID)
+        -- Une seule recherche sert toutes les variantes de l'itemID : le tri se
+        -- fait ici, sur le lien de chaque annonce, et nulle part ailleurs. Sans
+        -- ce tri la file retenait la meilleure annonce toutes variantes
+        -- confondues, soit le rang 1 a statistique quelconque.
+        local itemKey = searchItemKey or state.MakeSearchItemKey(itemID)
         local resultCount = itemKey and C_AuctionHouse and C_AuctionHouse.GetNumItemSearchResults and C_AuctionHouse.GetNumItemSearchResults(itemKey) or 0
         for index = 1, resultCount do
             local info = itemKey and C_AuctionHouse.GetItemSearchResultInfo(itemKey, index) or nil
@@ -9253,20 +9594,47 @@ local function CaptureSearchCache(itemID)
             local quantity = info and info.quantity or 0
             if buyoutAmount > 0 and quantity > 0 then
                 local unitPrice = math.floor(buyoutAmount / quantity)
+                local auction = {
+                    auctionID = info.auctionID,
+                    buyoutAmount = buyoutAmount,
+                    quantity = quantity,
+                    unitPrice = unitPrice,
+                    itemLink = info.itemLink,
+                }
                 cache.hasResults = true
                 cache.available = cache.available + quantity
                 if not cache.bestAuction or unitPrice < cache.bestAuction.unitPrice then
-                    cache.bestAuction = {
-                        auctionID = info.auctionID,
-                        buyoutAmount = buyoutAmount,
-                        quantity = quantity,
-                        unitPrice = unitPrice,
-                    }
+                    cache.bestAuction = auction
+                end
+                for _, demand in pairs(cache.variants) do
+                    local verdict = state.DoesLinkMatchVariant(info.itemLink, demand.variant)
+                    if verdict == true then
+                        demand.available = demand.available + quantity
+                        if not demand.bestAuction or unitPrice < demand.bestAuction.unitPrice then
+                            demand.bestAuction = auction
+                        end
+                    elseif verdict == false then
+                        demand.rejected = demand.rejected + quantity
+                    else
+                        -- Lien pas encore lisible : ni conforme, ni ecarte. Le
+                        -- redemander evite un verdict fonde sur du vide.
+                        demand.pending = demand.pending + quantity
+                        WarmItemData(itemID)
+                    end
                 end
             end
         end
         if cache.bestAuction then
             cache.unitPrice = cache.bestAuction.unitPrice
+        end
+        for _, demand in pairs(cache.variants) do
+            demand.hasResults = cache.hasResults
+            demand.expectedPrice = cache.expectedPrice
+            demand.expectedSource = cache.expectedSource
+            demand.expectedCapturedAt = cache.expectedCapturedAt
+            if demand.bestAuction then
+                demand.unitPrice = demand.bestAuction.unitPrice
+            end
         end
     end
 
@@ -9299,12 +9667,12 @@ function craftUI.BuildAuctionTasks(summary)
     local hasUnknownEstimate = false
 
     for _, task in ipairs(summary.auctionTasks) do
-        local cache = state.searchCache[task.itemID]
+        local view, cache = state.GetTaskAuctionCache(task)
         local estimateText = "?"
-        if cache and cache.unitPrice and cache.unitPrice > 0 then
-            local itemEstimate = cache.unitPrice * task.missing
+        if view and view.unitPrice and view.unitPrice > 0 then
+            local itemEstimate = view.unitPrice * task.missing
             estimateText = FormatMoneyEstimate(itemEstimate)
-                .. " (" .. FormatMoneyEstimate(cache.unitPrice) .. "/u)"
+                .. " (" .. FormatMoneyEstimate(view.unitPrice) .. "/u)"
             totalEstimate = totalEstimate + itemEstimate
         else
             hasUnknownEstimate = true
@@ -9316,9 +9684,20 @@ function craftUI.BuildAuctionTasks(summary)
             name = task.name,
             quality = YQQuality.GetTaskQualityText(task),
             missing = task.missing,
-            available = cache and tostring(cache.available or 0) or "?",
+            available = view and tostring(view.available or 0) or "?",
             estimate = estimateText,
             known = estimateText ~= "?",
+            -- Une tache a variante montre ce qu'elle exige et ce que l'hotel
+            -- des ventes lui a refuse : sans ca, un « 0 dispo » devant des
+            -- dizaines d'annonces passe pour une panne de recherche.
+            variantLabel = state.DescribeItemVariant(task.variant),
+            variantRejected = view and view.rejected or nil,
+            variantPending = view and view.pending or nil,
+            searched = cache ~= nil and not (view and view.unresolved),
+            -- Le lien de la meilleure annonce conforme sert d'infobulle : le
+            -- seul itemID rend l'objet de base, rang 1 et statistique
+            -- aleatoire, ce qui laissait croire que la file visait ca.
+            itemLink = view and view.bestAuction and view.bestAuction.itemLink or nil,
         }
     end
 
@@ -9335,12 +9714,35 @@ function craftUI.InitAuctionRow(row, task)
         tooltipAnchor = "ANCHOR_RIGHT",
     })
 
+    -- Le badge de disponibilite dit aussi ce qui a ete ecarte. L'infobulle
+    -- d'une ligne portant un objet est celle de l'objet : elle est prise par le
+    -- lien de l'annonce conforme, seule facon de montrer le rang et la
+    -- statistique reellement vises. Le pourquoi d'un zero doit donc tenir dans
+    -- le libelle, sinon il n'a nulle part ou s'afficher.
+    local function AvailabilityBadge()
+        if not task.variantLabel then
+            return "[" .. tostring(task.available) .. "]"
+        end
+        if not task.searched then
+            return "[?]"
+        end
+        local badge = tostring(task.available) .. " conf."
+        if (task.variantRejected or 0) > 0 then
+            badge = badge .. ", " .. tostring(task.variantRejected) .. " hors variante"
+        end
+        if (task.variantPending or 0) > 0 then
+            badge = badge .. ", " .. tostring(task.variantPending) .. " a charger"
+        end
+        return "[" .. badge .. "]"
+    end
+
     local function Label()
-        return ("%dx %s%s  %s"):format(
+        return ("%dx %s%s%s  %s"):format(
             task.missing or 0,
             task.name or "?",
             task.quality or "",
-            UI.Colorize("muted", "[" .. tostring(task.available) .. "]")
+            task.variantLabel and (" " .. UI.Colorize("accent", "<" .. task.variantLabel .. ">")) or "",
+            UI.Colorize("muted", AvailabilityBadge())
         )
     end
 
@@ -9349,7 +9751,7 @@ function craftUI.InitAuctionRow(row, task)
     row.value:SetText(task.estimate)
     row.SetTone(task.known and "text" or "textMuted")
     row.label:SetText(Label())
-    row.SetItemTarget(task.itemID, nil, function(name)
+    row.SetItemTarget(task.itemID, task.itemLink, function(name)
         task.name = name
         row.label:SetText(Label())
     end)
@@ -14504,7 +14906,7 @@ local function EnsureAuctionUI()
 end
 
 local function SendSearchQuery(itemID, purpose)
-    local itemKey = MakeItemKey(itemID)
+    local itemKey = state.MakeSearchItemKey(itemID)
     if not itemKey or not C_AuctionHouse or type(C_AuctionHouse.SendSearchQuery) ~= "function" then
         return false
     end
@@ -14524,6 +14926,7 @@ local function SendSearchQuery(itemID, purpose)
     state.ah.activeSearch = {
         itemID = itemID,
         purpose = purpose,
+        itemKey = itemKey,
     }
     state.ah.statusMessage = "Recherche " .. GetItemName(itemID)
     C_AuctionHouse.SendSearchQuery(itemKey, isCommodity and CONFIG.COMMODITY_SORT or CONFIG.ITEM_SORTS, not isCommodity)
@@ -14549,8 +14952,10 @@ end
 
 local function StartSearchAll(summary)
     local queue = {}
+    local queued = {}
     for _, task in ipairs(summary.auctionTasks) do
-        if not state.searchCache[task.itemID] then
+        if state.TaskNeedsSearch(task) and not queued[task.itemID] then
+            queued[task.itemID] = true
             table.insert(queue, task.itemID)
         end
     end
@@ -14576,9 +14981,11 @@ function YQQuality.PlacePendingItemPurchase(pending)
         pending.unitPrice,
         pending.expectedPrice
     )
+    local purchaseLabel = pending.quantity .. "x " .. pending.name
+        .. (pending.variantLabel and (" <" .. pending.variantLabel .. ">") or "")
     state.ah.statusMessage = warning
-        and (warning .. " | Achat " .. pending.quantity .. "x " .. pending.name)
-        or ("Achat " .. pending.quantity .. "x " .. pending.name)
+        and (warning .. " | Achat " .. purchaseLabel)
+        or ("Achat " .. purchaseLabel)
     C_AuctionHouse.PlaceBid(pending.auctionID, pending.buyoutAmount)
     state.searchCache[pending.itemID] = nil
     C_Timer.After(0.5, ScheduleRefresh)
@@ -14586,17 +14993,23 @@ function YQQuality.PlacePendingItemPurchase(pending)
     return true
 end
 
-local function StartPurchaseFromCache(summary, itemID)
-    local task = FindAuctionTask(summary, itemID)
-    local cache = task and state.searchCache[itemID] or nil
-    if not task or not cache or not cache.available or cache.available <= 0 then
-        state.ah.statusMessage = "Aucun resultat pour " .. GetItemName(itemID)
+-- `task` est passe explicitement quand l'appelant a deja choisi sa ligne : deux
+-- variantes du meme itemID donnent deux taches, et retrouver la premiere par
+-- itemID achetait pour la mauvaise.
+local function StartPurchaseFromCache(summary, itemID, task)
+    task = task or FindAuctionTask(summary, itemID)
+    local view, cache = state.GetTaskAuctionCache(task)
+    if not task or not cache or not view or not view.available or view.available <= 0 then
+        local variantLabel = task and state.DescribeItemVariant(task.variant) or nil
+        state.ah.statusMessage = variantLabel
+            and ("Aucune annonce " .. variantLabel .. " pour " .. GetItemName(itemID))
+            or ("Aucun resultat pour " .. GetItemName(itemID))
         ScheduleRefresh()
         return
     end
 
     if cache.kind == "commodity" then
-        local quantity = math.min(task.missing, cache.available)
+        local quantity = math.min(task.missing, view.available)
         if quantity <= 0 then
             state.ah.statusMessage = "Aucune quantite dispo"
             ScheduleRefresh()
@@ -14619,7 +15032,7 @@ local function StartPurchaseFromCache(summary, itemID)
         return
     end
 
-    local auction = cache.bestAuction
+    local auction = view.bestAuction
     if not auction then
         state.ah.statusMessage = "Aucune enchere achetable"
         ScheduleRefresh()
@@ -14631,8 +15044,9 @@ local function StartPurchaseFromCache(summary, itemID)
         itemID = itemID,
         quantity = math.max(1, math.min(task.missing, auction.quantity or 1)),
         name = task.name,
-        expectedPrice = cache.expectedPrice,
-        expectedSource = cache.expectedSource,
+        variantLabel = state.DescribeItemVariant(task.variant),
+        expectedPrice = view.expectedPrice,
+        expectedSource = view.expectedSource,
         auctionID = auction.auctionID,
         buyoutAmount = auction.buyoutAmount,
         unitPrice = auction.unitPrice,
@@ -14656,9 +15070,9 @@ local function StartPurchaseFromCache(summary, itemID)
 end
 
 local function BuyNext(summary)
-    local task, cache = GetNextPurchasableTask(summary)
-    if task and cache then
-        StartPurchaseFromCache(summary, task.itemID)
+    local task, view = GetNextPurchasableTask(summary)
+    if task and view then
+        StartPurchaseFromCache(summary, task.itemID, task)
         return
     end
 
@@ -14669,8 +15083,12 @@ local function BuyNext(summary)
 
     local retryEmptySearch = false
     for _, auctionTask in ipairs(summary.auctionTasks) do
-        local emptyCache = state.searchCache[auctionTask.itemID]
-        if emptyCache and (tonumber(emptyCache.available) or 0) <= 0 then
+        local emptyView = state.GetTaskAuctionCache(auctionTask)
+        -- Une variante sans annonce conforme mais avec des annonces ecartees a
+        -- bien ete cherchee : relancer la recherche ne changerait rien, et la
+        -- boucle repartirait sans fin. Seul un cache vraiment vide se rejoue.
+        if emptyView and (tonumber(emptyView.available) or 0) <= 0
+            and (tonumber(emptyView.rejected) or 0) <= 0 then
             state.searchCache[auctionTask.itemID] = nil
             retryEmptySearch = true
         end
@@ -14706,12 +15124,12 @@ state.OnAuctionActionClick = function()
     end
 end
 
-local function HandleSearchResults(itemID)
+local function HandleSearchResults(itemID, searchItemKey)
     if not (state.ah.activeSearch and state.ah.activeSearch.itemID == itemID) then
         return
     end
 
-    CaptureSearchCache(itemID)
+    CaptureSearchCache(itemID, searchItemKey or state.ah.activeSearch.itemKey)
 
     local purpose = state.ah.activeSearch.purpose
     state.ah.activeSearch = nil
@@ -15459,7 +15877,7 @@ handle.ItemSearchResultsUpdated = function(event, arg1, arg2, arg3)
     if event == "ITEM_SEARCH_RESULTS_UPDATED" then
         local itemID = type(arg1) == "table" and arg1.itemID or nil
         if itemID then
-            HandleSearchResults(itemID)
+            HandleSearchResults(itemID, type(arg1) == "table" and arg1 or nil)
         end
         return true
     end
@@ -15813,7 +16231,13 @@ function YayaQueueAPI.SyncPatronOrders(orderIDs, professionID)
     return removed, removedOrderIDs
 end
 
-function YayaQueueAPI.AddItem(itemID, quantity, itemName)
+--- Ajoute une demande d'achat direct.
+--
+-- `variant` decrit, pour un equipement de metier, le rang minimal et la
+-- statistique exigee : deux demandes du meme itemID pour des variantes
+-- differentes restent deux demandes distinctes, car l'outil Resourcefulness et
+-- l'outil Multicrafting d'un metier partagent leur itemID.
+function YayaQueueAPI.AddItem(itemID, quantity, itemName, variant)
     state.EnsureDB()
     itemID = tonumber(itemID) or 0
     if itemID <= 0 then
@@ -15824,16 +16248,19 @@ function YayaQueueAPI.AddItem(itemID, quantity, itemName)
         itemID = itemID,
         quantity = quantity,
         itemName = itemName,
+        variant = variant,
         queueKind = "direct_item",
     })
     if not directEntry then
         return false, "Invalid direct item entry"
     end
 
+    local directVariantKey = state.GetItemVariantKey(directEntry.variant)
     for _, entry in ipairs(db.queue) do
         if entry.queueKind == "direct_item"
             and entry.itemID == directEntry.itemID
             and entry.shatterMote ~= true
+            and state.GetItemVariantKey(entry.variant) == directVariantKey
         then
             entry.directQuantity = ClampQuantity((entry.directQuantity or 0) + directEntry.directQuantity)
             entry.itemName = directEntry.itemName
@@ -15853,23 +16280,38 @@ function YayaQueueAPI.AddItem(itemID, quantity, itemName)
     return true
 end
 
-function YayaQueueAPI.GetDirectItemQuantity(itemID)
+--- Quantite deja demandee pour un itemID.
+--
+-- Avec `variant`, seules les demandes de cette variante sont comptees : sans
+-- cette distinction, l'outil Multicrafting d'un metier passait pour deja
+-- demande des que son jumeau Resourcefulness etait en file.
+function YayaQueueAPI.GetDirectItemQuantity(itemID, variant)
     state.EnsureDB()
     itemID = tonumber(itemID) or 0
     if itemID <= 0 then
         return 0
     end
 
+    local variantKey = state.GetItemVariantKey(state.NormalizeItemVariant(variant))
     local quantity = 0
     for _, entry in ipairs(db.queue) do
-        if entry.queueKind == "direct_item" and tonumber(entry.itemID) == itemID then
+        if entry.queueKind == "direct_item" and tonumber(entry.itemID) == itemID
+            and (variantKey == nil or state.GetItemVariantKey(entry.variant) == variantKey)
+        then
             quantity = quantity + math.max(0, math.floor(tonumber(entry.directQuantity) or 0))
         end
     end
     return quantity
 end
 
-function YayaQueueAPI.RemoveItem(itemID, quantity)
+--- Retire une demande d'achat direct.
+--
+-- Sans `variant`, seules les demandes sans variante sont touchees : une
+-- livraison d'objet ne connait que son itemID, et laisser ce retrait entamer un
+-- equipement de metier exige effacait la demande de la variante voisine. Une
+-- demande a variante se retire en la nommant, ou s'eteint d'elle-meme des que
+-- l'exemplaire conforme est possede.
+function YayaQueueAPI.RemoveItem(itemID, quantity, variant)
     state.EnsureDB()
     itemID = tonumber(itemID) or 0
     quantity = math.floor(tonumber(quantity) or 0)
@@ -15880,12 +16322,14 @@ function YayaQueueAPI.RemoveItem(itemID, quantity)
         return false, "Invalid quantity"
     end
 
+    local variantKey = state.GetItemVariantKey(state.NormalizeItemVariant(variant))
     local quantityLeft = quantity
     local removedQuantity = 0
     local itemName = GetItemName(itemID)
     for index = #db.queue, 1, -1 do
         local entry = db.queue[index]
-        if quantityLeft > 0 and entry.queueKind == "direct_item" and tonumber(entry.itemID) == itemID then
+        if quantityLeft > 0 and entry.queueKind == "direct_item" and tonumber(entry.itemID) == itemID
+            and state.GetItemVariantKey(entry.variant) == variantKey then
             local currentQuantity = math.max(0, math.floor(tonumber(entry.directQuantity) or 0))
             local removedFromEntry = math.min(currentQuantity, quantityLeft)
             local remainingQuantity = currentQuantity - removedFromEntry
@@ -15932,6 +16376,10 @@ function YayaQueueAPI.SetItemTarget(itemID, quantity, itemName)
         if entry.queueKind == "direct_item"
             and entry.itemID == directEntry.itemID
             and entry.shatterMote ~= true
+            -- Un objectif sans variante ne retargette qu'une demande sans
+            -- variante : ecraser la quantite d'un equipement de metier exige
+            -- ferait disparaitre sa contrainte de rang et de statistique.
+            and entry.variant == nil
         then
             entry.directQuantity = directEntry.directQuantity
             entry.itemName = directEntry.itemName
