@@ -390,6 +390,10 @@ runtimeState.mergeableFinishingReagents = {
     [260630] = { outputItemID = 247788, order = 3, label = "Ingenuity" }, -- Ingenious Identifier -> Ingenious Identity
 }
 runtimeState.containerWhitelist = {
+    [235052] = true, -- Weathered Mysterious Satchel, uncommon
+    [235911] = true, -- Weathered Mysterious Satchel, rare
+    [236944] = true, -- Weathered Mysterious Satchel, epic
+    [235054] = true, -- Pristine Mysterious Satchel, epic
     [241131] = true, -- Amani Lapis Prism
     [241132] = true, -- Amani Lapis Prism
     [241133] = true, -- Tenebrous Amethyst Prism
