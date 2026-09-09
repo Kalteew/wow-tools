@@ -69,6 +69,9 @@ for _, name in ipairs({
     "GetLinkBonusIDs",
     "MatchesVariantStat",
     "DoesLinkMatchVariant",
+    "GetItemVariantTaskKey",
+    "AddVariantIncomingPurchase",
+    "SettleVariantIncoming",
 }) do
     local body = source:match("(state%." .. name .. " = function%(.-\nend)\n")
     assert(body, "state." .. name .. " introuvable dans la source")
@@ -78,7 +81,7 @@ end
 -- Les fonctions extraites resolvent `state`, `SafeCall` et l'API du client
 -- comme des globales : la doublure doit rendre autant de valeurs que la vraie
 -- API, sinon le test masque exactement la classe de bug qu'il surveille.
-state = {}
+state = { incomingItemCounts = {}, observedItemCounts = {} }
 
 function SafeCall(func, ...)
     if type(func) ~= "function" then
@@ -320,6 +323,41 @@ equals("statistique et rang", state.DescribeItemVariant(rfVariant), "Resourceful
 equals("rang seul", state.DescribeItemVariant(rankOnlyVariant), "ilvl>=232")
 equals("une statistique inconnue s'affiche telle quelle",
     state.DescribeItemVariant(unknownVariant), "inexistante ilvl>=232")
+
+section("Achats en transit : par variante, jamais par itemID")
+
+-- Un objet non empilable achete a l'hotel des ventes arrive par courrier : il
+-- n'est ni dans les sacs ni a l'equipement, et seul le compteur de transit
+-- empeche de le racheter a chaque clic. Il doit etre propre a la variante, car
+-- l'outil Resourcefulness et l'outil Multicrafting partagent leur itemID.
+local RF_KEY = state.GetItemVariantTaskKey(245778, state.GetItemVariantKey(rfVariant))
+local MC_KEY = state.GetItemVariantTaskKey(245778, state.GetItemVariantKey(mcVariant))
+
+equals("les deux variantes du meme itemID ont deux cles de tache",
+    RF_KEY ~= MC_KEY, true)
+equals("une demande sans variante n'a pas de cle de tache",
+    state.GetItemVariantTaskKey(245778, nil), nil)
+
+-- Achat de l'outil Resourcefulness, aucun exemplaire possede avant.
+state.AddVariantIncomingPurchase(RF_KEY, 1, 0)
+equals("l'achat RF est en transit", state.SettleVariantIncoming(RF_KEY, 0), 1)
+equals("l'achat RF ne masque pas la ligne MC", state.SettleVariantIncoming(MC_KEY, 0), 0)
+
+-- Le courrier est releve : l'exemplaire conforme entre dans les sacs.
+equals("la livraison solde le transit RF", state.SettleVariantIncoming(RF_KEY, 1), 0)
+equals("et le transit reste solde", state.SettleVariantIncoming(RF_KEY, 1), 0)
+equals("la ligne MC reste achetable", state.SettleVariantIncoming(MC_KEY, 0), 0)
+
+-- Un stock present avant l'achat ne doit pas passer pour la livraison.
+state.AddVariantIncomingPurchase(MC_KEY, 1, 2)
+equals("le stock d'avant l'achat ne solde rien",
+    state.SettleVariantIncoming(MC_KEY, 2), 1)
+equals("seule une hausse reelle solde le transit",
+    state.SettleVariantIncoming(MC_KEY, 3), 0)
+
+equals("une quantite nulle n'entre pas en transit",
+    state.AddVariantIncomingPurchase(RF_KEY, 0, 0), false)
+equals("une cle absente ne compte rien", state.SettleVariantIncoming(nil, 5), 0)
 
 print("")
 print(("%d reussite(s), %d echec(s)"):format(passed, failed))

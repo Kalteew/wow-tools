@@ -1974,6 +1974,60 @@ state.ClearStaleActiveSearch = function()
     return true
 end
 
+--- Achats en transit d'une variante, et solde a la livraison.
+--
+-- Le compteur general est porte par l'itemID, ce qui suffit tant qu'un itemID
+-- ne designe qu'une chose. Ce n'est pas le cas d'un outil de metier : l'outil
+-- Resourcefulness et l'outil Multicrafting partagent le leur, et un achat en
+-- transit masquait alors les deux lignes jusqu'a la livraison, interdisant
+-- d'acheter le second. Chaque variante tient donc son propre compte, sous une
+-- cle « itemID#variante ».
+--
+-- La livraison se solde en comparant le stock **de la variante** a celui
+-- observe au moment de l'achat : c'est la seule mesure qui sache dire laquelle
+-- des deux vient d'arriver.
+state.SettleVariantIncoming = function(taskKey, owned)
+    if type(taskKey) ~= "string" then
+        return 0
+    end
+
+    local previous = state.observedItemCounts[taskKey]
+    local incoming = state.incomingItemCounts[taskKey] or 0
+    if type(previous) == "number" and owned > previous and incoming > 0 then
+        local received = math.min(incoming, owned - previous)
+        incoming = math.max(0, incoming - received)
+        state.incomingItemCounts[taskKey] = incoming > 0 and incoming or nil
+    end
+    state.observedItemCounts[taskKey] = owned
+    return incoming
+end
+
+state.AddVariantIncomingPurchase = function(taskKey, quantity, ownedBefore)
+    if type(taskKey) ~= "string" then
+        return false
+    end
+    quantity = math.max(0, math.floor(tonumber(quantity) or 0))
+    if quantity <= 0 then
+        return false
+    end
+
+    state.incomingItemCounts[taskKey] = (state.incomingItemCounts[taskKey] or 0) + quantity
+    -- L'observation de reference est celle prise juste avant l'achat : sans
+    -- elle, le premier passage de solde prendrait le stock actuel pour un gain
+    -- et effacerait le transit sans que rien ne soit arrive.
+    state.observedItemCounts[taskKey] = tonumber(ownedBefore)
+        or state.observedItemCounts[taskKey]
+        or 0
+    return true
+end
+
+state.GetItemVariantTaskKey = function(itemID, variantKey)
+    if not variantKey then
+        return nil
+    end
+    return tostring(itemID) .. "#" .. tostring(variantKey)
+end
+
 state.CountTableKeys = function(value)
     if type(value) ~= "table" then
         return 0
@@ -3139,12 +3193,15 @@ local function FinalizePendingItemPurchase()
         return
     end
 
-    AddIncomingPurchase(
-        state.ah.pendingItem.itemID,
-        state.ah.pendingItem.quantity,
-        state.ah.pendingItem.ownedBefore
-    )
-    state.ah.statusMessage = "Achete " .. state.ah.pendingItem.quantity .. "x " .. state.ah.pendingItem.name
+    local pending = state.ah.pendingItem
+    local variantTaskKey = state.GetItemVariantTaskKey(pending.itemID, pending.variantKey)
+    if variantTaskKey then
+        state.AddVariantIncomingPurchase(variantTaskKey, pending.quantity, pending.ownedBefore)
+    else
+        AddIncomingPurchase(pending.itemID, pending.quantity, pending.ownedBefore)
+    end
+    state.ah.statusMessage = "Achete " .. pending.quantity .. "x " .. pending.name
+        .. (pending.variantLabel and (" <" .. pending.variantLabel .. ">") or "")
     state.ah.pendingItem = nil
 end
 
@@ -5297,7 +5354,7 @@ local function BuildQueueSummary()
         end
     end
 
-    for _, task in pairs(neededByItemID) do
+    for taskKey, task in pairs(neededByItemID) do
         local itemID = task.itemID
         task.name = GetItemName(itemID)
         task.quality, task.qualitySimplified = YQQuality.GetProfessionItemQuality(itemID)
@@ -5306,16 +5363,14 @@ local function BuildQueueSummary()
             -- annulait la demande d'un outil rang maximal, et la tache
             -- disparaissait sans que rien ne soit achete.
             task.owned = state.CountOwnedVariant(itemID, task.variant) or 0
-            -- `GetMailboxCount` n'est pas un scan de courrier : c'est le
-            -- compteur des achats deja payes et pas encore recus. Un objet non
-            -- empilable achete a l'hotel des ventes arrive par courrier, donc
-            -- ni dans les sacs ni a l'equipement : sans cette soustraction la
-            -- ligne gardait son manquant et le meme outil se rachetait a chaque
-            -- clic. Le compteur est porte par l'itemID, donc un achat en
-            -- transit masque aussi la variante voisine du meme objet jusqu'a la
-            -- livraison ; masquer une ligne de trop est sans consequence, en
-            -- racheter une vaut de l'or.
-            task.mailbox = YQQuality.GetIngenuityPhialCount(itemID, GetMailboxCount)
+            -- Un objet non empilable achete a l'hotel des ventes arrive par
+            -- courrier, donc ni dans les sacs ni a l'equipement : sans compter
+            -- les achats en transit, la ligne gardait son manquant et le meme
+            -- outil se rachetait a chaque clic. Ce compte est propre a la
+            -- variante, sinon acheter l'outil Resourcefulness masquait aussi la
+            -- ligne de l'outil Multicrafting, qui partage son itemID, et
+            -- interdisait de l'acheter avant d'avoir releve le courrier.
+            task.mailbox = state.SettleVariantIncoming(taskKey, task.owned)
             -- Une sortie craftee n'a pas de variante : elle ne peut satisfaire
             -- aucune demande de rang ou de statistique.
             task.queuedOutput = 0
@@ -15330,12 +15385,18 @@ local function StartPurchaseFromCache(summary, itemID, task)
         quantity = math.max(1, math.min(task.missing, auction.quantity or 1)),
         name = task.name,
         variantLabel = state.DescribeItemVariant(task.variant),
+        variantKey = task.variantKey,
         expectedPrice = view.expectedPrice,
         expectedSource = view.expectedSource,
         auctionID = auction.auctionID,
         buyoutAmount = auction.buyoutAmount,
         unitPrice = auction.unitPrice,
-        ownedBefore = GetImmediateOwnedCount(itemID),
+        -- Le stock de reference suit la demande : pour une variante, compter
+        -- l'itemID entier ferait passer un exemplaire d'une autre statistique
+        -- pour la livraison attendue.
+        ownedBefore = task.variant
+            and (state.CountOwnedVariant(itemID, task.variant) or 0)
+            or GetImmediateOwnedCount(itemID),
     }
     local highPrice = YQQuality.GetHighPriceConfirmation(itemID, auction.unitPrice)
     if highPrice then
