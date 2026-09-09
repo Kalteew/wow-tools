@@ -1288,17 +1288,6 @@ runtimeState.professionGear = {
     -- l'outil correspondant juste avant ces crafts : il faut donc un exemplaire
     -- Multicrafting en sac, en plus de l'outil Resourcefulness porte par defaut.
     baggedMulticraftToolSkillLineIDs = { [2906] = true },
-    -- La statistique d'un outil est portee par un bonusId de son lien, pas par
-    -- un modificateur : le croisement de vingt-cinq liens complets sur quatre
-    -- outils differents donne 8952 pour Resourcefulness et 8953 pour Multicraft,
-    -- sans collision (meme constat que la cle de stat du patch TSM). C'est ce
-    -- bonusId que YayaQueue lit sur l'annonce avant d'acheter : sans lui, la
-    -- file prend l'annonce la moins chere, soit le rang 1 a statistique
-    -- quelconque. Une stat absente de cette table n'est donc pas achetable.
-    statBonusIDs = {
-        resourcefulness = 8952,
-        multicrafting = 8953,
-    },
     -- Rang rare (bleu) de l'equipement de metier Midnight : l'outil, puis les
     -- deux accessoires. Ces itemIDs ne sont que des CANDIDATS : chacun est
     -- valide en jeu (emplacement d'equipement et ligne de metier) avant d'etre
@@ -5269,23 +5258,23 @@ end
 
 -- Variante d'achat d'un objet d'equipement de metier : le rang minimal, et pour
 -- un outil la statistique exigee. YayaQueue s'en sert pour ecarter les annonces
--- non conformes au lieu de prendre la moins chere. Une statistique dont le
--- bonusId est inconnu ne rend aucune variante : mieux vaut ne rien proposer que
--- viser une annonce au hasard.
+-- non conformes au lieu de prendre la moins chere. La statistique voyage par sa
+-- cle interne, jamais par son libelle : YayaQueue la relit au tooltip de chaque
+-- annonce, dans la langue du client, comme le tracker le fait des outils
+-- possedes. Le bonusId de statistique n'existe que sur un exemplaire craft avec
+-- une Missive, il ne peut donc pas servir de critere.
 trackerUI.BuildProfessionGearVariant = function(statKey)
     local variant = { minItemLevel = trackerUI.GetProfessionGearMinimumItemLevel() }
     if not statKey then
         return variant
     end
 
-    local bonusID = runtimeState.professionGear.statBonusIDs[statKey]
-    if not bonusID then
+    local statInfo = runtimeState.professionToolEnchantments.byStat[statKey]
+    if not statInfo then
         return nil
     end
-    local statInfo = runtimeState.professionToolEnchantments.byStat[statKey]
     variant.statKey = statKey
-    variant.statLabel = statInfo and statInfo.label or statKey
-    variant.bonusIDs = { bonusID }
+    variant.statLabel = statInfo.label
     return variant
 end
 

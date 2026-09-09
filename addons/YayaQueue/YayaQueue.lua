@@ -1538,6 +1538,125 @@ local function NormalizeTargetQuality(value)
     return math.floor(value)
 end
 
+-- Statistiques de metier, telles que le client les nomme. Les globals qui
+-- existent sont `ITEM_MOD_<STAT>_SHORT` et `PROFESSIONS_OUTPUT_<STAT>_TITLE` ;
+-- les variantes `_RATING_SHORT` / `_RATING` n'existent pas et rendaient la
+-- detection muette. Les libelles sont des faux amis d'une langue a l'autre :
+-- en francais Resourcefulness s'affiche `Ingéniosité` et Ingenuity
+-- `Inventivité`, si bien qu'un outil RF etait lu comme un outil Ingenuity, ou
+-- pas lu du tout. Meme table que YayaWeeklyTracker, qui lit ces memes outils.
+state.professionStats = {
+    order = { "perception", "resourcefulness", "finesse", "multicrafting", "ingenuity", "deftness" },
+    byKey = {
+        perception = {
+            label = "Perception",
+            globals = { "ITEM_MOD_PERCEPTION_SHORT" },
+            aliases = { "perception" },
+        },
+        resourcefulness = {
+            label = "Resourcefulness",
+            globals = { "ITEM_MOD_RESOURCEFULNESS_SHORT", "PROFESSIONS_OUTPUT_RESOURCEFULNESS_TITLE" },
+            aliases = { "resourcefulness", "ingéniosité" },
+        },
+        finesse = {
+            label = "Finesse",
+            globals = { "ITEM_MOD_FINESSE_SHORT" },
+            aliases = { "finesse" },
+        },
+        multicrafting = {
+            label = "Multicrafting",
+            globals = { "ITEM_MOD_MULTICRAFT_SHORT", "PROFESSIONS_OUTPUT_MULTICRAFT_TITLE" },
+            aliases = { "multicrafting", "multicraft", "fabrication multiple" },
+        },
+        ingenuity = {
+            label = "Ingenuity",
+            globals = { "ITEM_MOD_INGENUITY_SHORT", "PROFESSIONS_OUTPUT_INGENUITY_TITLE" },
+            aliases = { "ingenuity", "inventivité" },
+        },
+        deftness = {
+            label = "Deftness",
+            globals = { "ITEM_MOD_DEFTNESS_SHORT", "ITEM_MOD_CRAFTING_SPEED_SHORT" },
+            aliases = { "deftness", "adresse", "crafting speed", "vitesse d’artisanat", "vitesse d'artisanat" },
+        },
+    },
+    -- Un bonusId de statistique n'apparait que sur un exemplaire craft avec une
+    -- Missive (le lien porte alors le modificateur 48 avec l'itemID de la
+    -- Missive) : `8952` vaut Resourcefulness et `8953` Multicraft. Un outil
+    -- craft sans Missive n'en porte aucun, sa statistique n'existe qu'au
+    -- tooltip. Ces identifiants ne servent donc qu'a nommer une variante et de
+    -- repli quand le tooltip n'est pas encore lisible, jamais de critere
+    -- principal.
+    bonusIDByKey = {
+        resourcefulness = 8952,
+        multicrafting = 8953,
+    },
+}
+
+state.professionStats.NormalizeText = function(text)
+    if type(text) ~= "string" then
+        return ""
+    end
+    text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    text = text:gsub("%s+", " ")
+    return string.lower(text)
+end
+
+--- Statistique nommee par une ligne de texte du client.
+--
+-- Le libelle le plus long l'emporte, jamais le premier teste : sinon un faux
+-- ami d'une autre statistique emporte la decision.
+state.professionStats.ReadTextStatKey = function(text)
+    if type(text) ~= "string" or text == "" then
+        return nil
+    end
+    local bestStatKey, bestLength = nil, 0
+    for _, statKey in ipairs(state.professionStats.order) do
+        local info = state.professionStats.byKey[statKey]
+        local function Consider(needle)
+            needle = state.professionStats.NormalizeText(needle)
+            if needle ~= "" and #needle > bestLength and text:find(needle, 1, true) then
+                bestStatKey, bestLength = statKey, #needle
+            end
+        end
+        for _, key in ipairs(info.globals or {}) do
+            Consider(_G[key])
+        end
+        for _, alias in ipairs(info.aliases or {}) do
+            Consider(alias)
+        end
+    end
+    return bestStatKey
+end
+
+--- Statistique d'un exemplaire, lue au tooltip de son lien unique.
+--
+-- Renvoie `statKey, pending`. `pending` vaut vrai quand le tooltip n'est pas
+-- encore lisible : inconnu n'est pas absent, et un verdict pris sur du vide
+-- ferait acheter n'importe quoi.
+state.professionStats.ReadLinkStatKey = function(link)
+    if type(link) ~= "string" or link == ""
+        or type(C_TooltipInfo) ~= "table"
+        or type(C_TooltipInfo.GetHyperlink) ~= "function"
+    then
+        return nil, true
+    end
+
+    local data = SafeCall(C_TooltipInfo.GetHyperlink, link)
+    if type(data) ~= "table" or type(data.lines) ~= "table" then
+        return nil, true
+    end
+
+    for _, line in ipairs(data.lines) do
+        local text = state.professionStats.NormalizeText(line.leftText)
+            .. " " .. state.professionStats.NormalizeText(line.rightText)
+        local statKey = state.professionStats.ReadTextStatKey(text)
+        if statKey then
+            return statKey, false
+        end
+    end
+    return nil, false
+end
+
 -- Variante d'achat : un itemID ne suffit pas a decrire un equipement de metier.
 -- Le rang de craft et la statistique aleatoire d'un outil vivent dans les
 -- bonusIds du lien, jamais dans l'itemID, si bien qu'acheter l'annonce la moins
@@ -1550,41 +1669,49 @@ state.NormalizeItemVariant = function(rawVariant)
     end
 
     local minItemLevel = math.floor(tonumber(rawVariant.minItemLevel) or 0)
-    local bonusIDs
-    for _, bonusID in ipairs(type(rawVariant.bonusIDs) == "table" and rawVariant.bonusIDs or {}) do
-        bonusID = tonumber(bonusID)
-        if bonusID and bonusID > 0 then
-            bonusIDs = bonusIDs or {}
-            bonusIDs[#bonusIDs + 1] = math.floor(bonusID)
+    -- Une statistique inconnue de la table est conservee telle quelle : aucune
+    -- annonce ne se lira ainsi, donc rien ne sera achete et la ligne le dira.
+    -- La laisser tomber elargirait la demande a n'importe quelle statistique.
+    local statKey = type(rawVariant.statKey) == "string" and rawVariant.statKey ~= ""
+        and rawVariant.statKey
+        or nil
+    -- Une demande ecrite avant que la statistique ne soit nommee ne portait que
+    -- le bonusId : le retrouver evite d'orpheliner une demande deja persistee,
+    -- qui reapparaitrait alors en double.
+    if not statKey then
+        for _, bonusID in ipairs(type(rawVariant.bonusIDs) == "table" and rawVariant.bonusIDs or {}) do
+            for key, knownID in pairs(state.professionStats.bonusIDByKey) do
+                if tonumber(bonusID) == knownID then
+                    statKey = key
+                    break
+                end
+            end
+            if statKey then
+                break
+            end
         end
     end
-    if bonusIDs then
-        table.sort(bonusIDs)
-    end
-    if minItemLevel <= 0 and not bonusIDs then
+    if minItemLevel <= 0 and not statKey then
         return nil
     end
 
-    local statLabel = type(rawVariant.statLabel) == "string" and rawVariant.statLabel ~= ""
-        and rawVariant.statLabel
-        or nil
     return {
         minItemLevel = minItemLevel > 0 and minItemLevel or nil,
-        bonusIDs = bonusIDs,
-        statLabel = statLabel,
+        statKey = statKey,
     }
 end
 
--- Identite d'une variante, deduite de la seule contrainte d'achat : deux
--- demandes de meme rang et memes bonusIds sont la meme demande, quel que soit
--- le libelle que l'appelant y a mis.
+-- Identite d'une variante, deduite de la seule contrainte d'achat : meme rang
+-- minimal et meme statistique valent la meme demande. La cle retient la
+-- statistique par sa cle interne, jamais par son libelle : celui-ci change de
+-- langue, la cle non.
 state.GetItemVariantKey = function(variant)
     if type(variant) ~= "table" then
         return nil
     end
-    return ("i%s+b%s"):format(
+    return ("i%s+s%s"):format(
         tostring(variant.minItemLevel or 0),
-        variant.bonusIDs and table.concat(variant.bonusIDs, ",") or "-")
+        tostring(variant.statKey or "-"))
 end
 
 state.DescribeItemVariant = function(variant)
@@ -1592,10 +1719,9 @@ state.DescribeItemVariant = function(variant)
         return nil
     end
     local parts = {}
-    if variant.statLabel then
-        parts[#parts + 1] = variant.statLabel
-    elseif variant.bonusIDs then
-        parts[#parts + 1] = "bonus " .. table.concat(variant.bonusIDs, "/")
+    if variant.statKey then
+        local info = state.professionStats.byKey[variant.statKey]
+        parts[#parts + 1] = info and info.label or variant.statKey
     end
     if variant.minItemLevel then
         parts[#parts + 1] = ("ilvl>=%d"):format(variant.minItemLevel)
@@ -1636,9 +1762,66 @@ state.GetLinkBonusIDs = function(itemLink)
     return bonusIDs
 end
 
+--- Verdict de la statistique d'un lien face a celle exigee.
+--
+-- Le tooltip est autoritaire : c'est la seule source qui nomme la statistique
+-- d'un outil craft sans Missive, et c'est deja ainsi que YayaWeeklyTracker lit
+-- les outils possedes. Le bonusId ne sert qu'en repli, quand le tooltip n'est
+-- pas encore lisible.
+state.MatchesVariantStat = function(itemLink, statKey)
+    local linkStatKey, pending = state.professionStats.ReadLinkStatKey(itemLink)
+    if linkStatKey then
+        return linkStatKey == statKey
+    end
+    if not pending then
+        -- Tooltip lu, aucune statistique nommee : l'objet n'est pas un outil a
+        -- statistique aleatoire, il ne peut donc pas satisfaire la demande.
+        return false
+    end
+
+    local bonusIDs = state.GetLinkBonusIDs(itemLink)
+    if not bonusIDs then
+        return nil
+    end
+    local wantedBonusID = state.professionStats.bonusIDByKey[statKey]
+    if wantedBonusID and bonusIDs[wantedBonusID] then
+        return true
+    end
+    for otherKey, otherBonusID in pairs(state.professionStats.bonusIDByKey) do
+        if otherKey ~= statKey and bonusIDs[otherBonusID] then
+            return false
+        end
+    end
+    return nil
+end
+
+--- Ce qu'une annonce ecartee portait reellement, pour le journal de debug.
+state.DescribeVariantSample = function(itemLink)
+    if type(itemLink) ~= "string" or itemLink == "" then
+        return "none"
+    end
+    local statKey, statPending = state.professionStats.ReadLinkStatKey(itemLink)
+    local itemLevel
+    if type(GetDetailedItemLevelInfo) == "function" then
+        local detailedItemLevel = SafeCall(GetDetailedItemLevelInfo, itemLink)
+        itemLevel = tonumber(detailedItemLevel)
+    end
+    local bonusIDs = state.GetLinkBonusIDs(itemLink)
+    local bonusParts = {}
+    for bonusID in pairs(bonusIDs or {}) do
+        bonusParts[#bonusParts + 1] = tostring(bonusID)
+    end
+    table.sort(bonusParts)
+    return ("stat=%s%s ilvl=%s bonus=%s"):format(
+        tostring(statKey),
+        statPending and "(pending)" or "",
+        tostring(itemLevel),
+        #bonusParts > 0 and table.concat(bonusParts, "/") or "-")
+end
+
 -- Verdict d'un lien face a une variante. `nil` veut dire « pas encore
--- decidable » : un lien dont le niveau d'objet n'est pas lisible ne doit ni
--- etre achete, ni etre declare non conforme.
+-- decidable » : un lien dont le niveau d'objet ou la statistique ne sont pas
+-- lisibles ne doit ni etre achete, ni etre declare non conforme.
 state.DoesLinkMatchVariant = function(itemLink, variant)
     if type(variant) ~= "table" then
         return true
@@ -1647,20 +1830,10 @@ state.DoesLinkMatchVariant = function(itemLink, variant)
         return nil
     end
 
-    if variant.bonusIDs then
-        local bonusIDs = state.GetLinkBonusIDs(itemLink)
-        if not bonusIDs then
-            return false
-        end
-        local matched = false
-        for _, bonusID in ipairs(variant.bonusIDs) do
-            if bonusIDs[bonusID] then
-                matched = true
-                break
-            end
-        end
-        if not matched then
-            return false
+    if variant.statKey then
+        local statVerdict = state.MatchesVariantStat(itemLink, variant.statKey)
+        if statVerdict ~= true then
+            return statVerdict
         end
     end
 
@@ -3225,40 +3398,24 @@ local function IsCommodityItem(itemID)
     return maxStack > 1
 end
 
--- Un itemKey de niveau nul rend toutes les annonces d'un itemID, rangs
--- confondus. Ce n'est pas vrai de tous les objets : pour un equipement, le
--- serveur peut exiger le niveau d'objet dans la cle, et une recherche a zero ne
--- rend alors rien. `GetItemKeyRequiresLevel` tranche, et le niveau demande vient
--- de la variante en file.
-local function MakeItemKey(itemID, itemLevel)
+local function MakeItemKey(itemID)
     if not C_AuctionHouse or type(C_AuctionHouse.MakeItemKey) ~= "function" then
         return nil
     end
-    return C_AuctionHouse.MakeItemKey(itemID, math.floor(tonumber(itemLevel) or 0), 0, 0)
+    return C_AuctionHouse.MakeItemKey(itemID, 0, 0, 0)
 end
 
-state.GetVariantSearchItemLevel = function(itemID)
-    local minimum
-    for _, demand in pairs(state.CollectItemVariantDemands(itemID)) do
-        local itemLevel = tonumber(demand.variant and demand.variant.minItemLevel)
-        if itemLevel and (not minimum or itemLevel < minimum) then
-            minimum = itemLevel
-        end
-    end
-    return minimum
-end
-
+--- Cle de recherche d'un itemID.
+--
+-- Le niveau d'objet reste a zero, y compris pour un equipement : c'est le seul
+-- niveau qui rend toutes les annonces d'un itemID, et TSM force lui aussi zero
+-- pour ne pas casser son scan. Mettre le rang exige dans la cle paraissait plus
+-- precis, mais une cle qui ne tombe pas pile sur le niveau d'une annonce ne rend
+-- rien du tout, et le tri se fait de toute facon sur le lien de chaque annonce.
+-- La trace `variant-scan` journalise `keyLevel` et `requiresLevel` : si un jour
+-- le serveur refuse le niveau nul, c'est la qu'on le verra.
 state.MakeSearchItemKey = function(itemID)
-    local itemKey = MakeItemKey(itemID)
-    local itemLevel = state.GetVariantSearchItemLevel(itemID)
-    if not itemKey or not itemLevel then
-        return itemKey
-    end
-    if C_AuctionHouse and type(C_AuctionHouse.GetItemKeyRequiresLevel) == "function"
-        and SafeCall(C_AuctionHouse.GetItemKeyRequiresLevel, itemKey) == true then
-        return MakeItemKey(itemID, itemLevel) or itemKey
-    end
-    return itemKey
+    return MakeItemKey(itemID)
 end
 
 local function FormatMoneyEstimate(value)
@@ -7171,47 +7328,24 @@ end
 -- decrire que l'objet de base. Un outil lu "none" declenchait un rechargement
 -- d'objet qui n'arrivait jamais, et le scan restait bloque sur son etat vide.
 -- YayaWeeklyTracker lit deja ces memes outils par tooltip avec succes.
-state.craftGear.tooltipRoleAliases = {
-    multicraft = { "multicrafting", "multicraft", "multi-craft", "fabrication multiple" },
-    resourcefulness = { "resourcefulness", "resource", "ressource", "debrouillardise", "d\195\169brouillardise" },
+-- Les deux roles d'outil dont le flux de craft a besoin, dits dans le
+-- vocabulaire de state.professionStats : c'est desormais cette table unique
+-- qui porte les libelles du client. Les anciennes listes visaient les globals
+-- `_RATING*`, qui n'existent pas, et des alias inventes : sur un client
+-- francais un outil Resourcefulness affiche `Ingeniosite` et n'etait donc
+-- reconnu par rien, ce qui laissait son role a `none`.
+state.craftGear.statKeyByRole = {
+    multicraft = "multicrafting",
+    resourcefulness = "resourcefulness",
 }
-state.craftGear.tooltipRoleGlobals = {
-    multicraft = { "ITEM_MOD_MULTICRAFT_RATING_SHORT", "ITEM_MOD_MULTICRAFT_RATING" },
-    resourcefulness = { "ITEM_MOD_RESOURCEFULNESS_RATING_SHORT", "ITEM_MOD_RESOURCEFULNESS_RATING" },
+state.craftGear.roleByStatKey = {
+    multicrafting = "multicraft",
+    resourcefulness = "resourcefulness",
 }
 
 state.craftGear.GetRoleFromTooltip = function(link)
-    if type(link) ~= "string" or link == ""
-        or type(C_TooltipInfo) ~= "table"
-        or type(C_TooltipInfo.GetHyperlink) ~= "function"
-    then
-        return nil
-    end
-
-    local data = SafeCall(C_TooltipInfo.GetHyperlink, link)
-    if type(data) ~= "table" or type(data.lines) ~= "table" then
-        return nil
-    end
-
-    local function Normalize(text)
-        if type(text) ~= "string" then
-            return ""
-        end
-        text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-        return string.lower(text)
-    end
-
-    for _, line in ipairs(data.lines) do
-        local text = Normalize(line.leftText) .. " " .. Normalize(line.rightText)
-        if text ~= " " then
-            for _, role in ipairs({ "multicraft", "resourcefulness" }) do
-                if state.craftGear.MatchesRoleText(text, role) then
-                    return role
-                end
-            end
-        end
-    end
-    return nil
+    local statKey = state.professionStats.ReadLinkStatKey(link)
+    return statKey and state.craftGear.roleByStatKey[statKey] or nil
 end
 
 state.craftGear.GetRoleForLink = function(link)
@@ -7219,59 +7353,10 @@ state.craftGear.GetRoleForLink = function(link)
         return "none"
     end
 
-    local tooltipRole = state.craftGear.GetRoleFromTooltip(link)
-    if tooltipRole then
-        return tooltipRole
-    end
-
-    local stats
-    if type(C_Item) == "table" and type(C_Item.GetItemStats) == "function" then
-        stats = SafeCall(C_Item.GetItemStats, link)
-    elseif type(GetItemStats) == "function" then
-        stats = SafeCall(GetItemStats, link)
-    end
-    if type(stats) ~= "table" then
-        return "none"
-    end
-
-    local function HasStat(keys)
-        for _, key in ipairs(keys) do
-            local value = stats[key]
-            if tonumber(value) and tonumber(value) > 0 then
-                return true
-            end
-        end
-        return false
-    end
-
-    local multicraftKeys = {
-        "ITEM_MOD_MULTICRAFT_RATING_SHORT",
-        "ITEM_MOD_MULTICRAFT_RATING",
-    }
-    local resourcefulnessKeys = {
-        "ITEM_MOD_RESOURCEFULNESS_RATING_SHORT",
-        "ITEM_MOD_RESOURCEFULNESS_RATING",
-    }
-    for _, key in ipairs({
-        _G.ITEM_MOD_MULTICRAFT_RATING_SHORT,
-        _G.ITEM_MOD_MULTICRAFT_RATING,
-    }) do
-        if key then multicraftKeys[#multicraftKeys + 1] = key end
-    end
-    for _, key in ipairs({
-        _G.ITEM_MOD_RESOURCEFULNESS_RATING_SHORT,
-        _G.ITEM_MOD_RESOURCEFULNESS_RATING,
-    }) do
-        if key then resourcefulnessKeys[#resourcefulnessKeys + 1] = key end
-    end
-
-    if HasStat(multicraftKeys) then
-        return "multicraft"
-    end
-    if HasStat(resourcefulnessKeys) then
-        return "resourcefulness"
-    end
-    return "none"
+    -- Aucun repli sur GetItemStats : la statistique d'un outil est tiree au
+    -- hasard sur l'exemplaire, et cette API peut ne decrire que l'objet de base.
+    -- Un repli qui decrit le mauvais objet est pire qu'un role inconnu.
+    return state.craftGear.GetRoleFromTooltip(link) or "none"
 end
 
 state.craftGear.GetBagItem = function(bagID, slotIndex)
@@ -7678,20 +7763,14 @@ end
 -- "ingenios" qui designe en realite l'Ingeniosite : le role annonce etait
 -- faux. On compare desormais aux libelles du client, alias en secours.
 state.craftGear.MatchesRoleText = function(text, role)
-    for _, key in ipairs(state.craftGear.tooltipRoleGlobals[role] or {}) do
-        local localized = _G[key]
-        if type(localized) == "string" and localized ~= "" then
-            if text:find(string.lower(localized), 1, true) then
-                return true
-            end
-        end
+    local wantedStatKey = state.craftGear.statKeyByRole[role]
+    if not wantedStatKey then
+        return false
     end
-    for _, alias in ipairs(state.craftGear.tooltipRoleAliases[role] or {}) do
-        if text:find(alias, 1, true) then
-            return true
-        end
-    end
-    return false
+    -- Meme lecture que pour un lien : le libelle le plus long l'emporte, donc
+    -- l'Ingeniosite francaise ne peut plus etre prise pour de l'Ingenuity.
+    return state.professionStats.ReadTextStatKey(state.professionStats.NormalizeText(text))
+        == wantedStatKey
 end
 
 state.craftGear.HasBonusStat = function(bonusStats, role)
@@ -9614,10 +9693,12 @@ local function CaptureSearchCache(itemID, searchItemKey)
                             demand.bestAuction = auction
                         end
                     elseif verdict == false then
+                        demand.rejectedLink = demand.rejectedLink or info.itemLink
                         demand.rejected = demand.rejected + quantity
                     else
                         -- Lien pas encore lisible : ni conforme, ni ecarte. Le
                         -- redemander evite un verdict fonde sur du vide.
+                        demand.pendingLink = demand.pendingLink or info.itemLink
                         demand.pending = demand.pending + quantity
                         WarmItemData(itemID)
                     end
@@ -9635,6 +9716,24 @@ local function CaptureSearchCache(itemID, searchItemKey)
             if demand.bestAuction then
                 demand.unitPrice = demand.bestAuction.unitPrice
             end
+            -- Une variante qui ne trouve rien doit dire pourquoi : sans le
+            -- detail d'une annonce ecartee, « 0 conforme » devant trente
+            -- annonces est indiscernable d'une recherche en panne.
+            DebugPrint(
+                "variant-scan item=" .. tostring(itemID)
+                    .. " variant=" .. tostring(state.DescribeItemVariant(demand.variant))
+                    .. " keyLevel=" .. tostring(itemKey and itemKey.itemLevel)
+                    .. " requiresLevel=" .. tostring(
+                        itemKey and C_AuctionHouse
+                            and type(C_AuctionHouse.GetItemKeyRequiresLevel) == "function"
+                            and SafeCall(C_AuctionHouse.GetItemKeyRequiresLevel, itemKey))
+                    .. " listings=" .. tostring(cache.available)
+                    .. " conform=" .. tostring(demand.available)
+                    .. " rejected=" .. tostring(demand.rejected)
+                    .. " pending=" .. tostring(demand.pending)
+                    .. " sample=" .. state.DescribeVariantSample(
+                        demand.rejectedLink or demand.pendingLink)
+            )
         end
     end
 
