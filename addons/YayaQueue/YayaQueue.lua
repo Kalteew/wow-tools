@@ -3460,24 +3460,43 @@ local function IsCommodityItem(itemID)
     return maxStack > 1
 end
 
-local function MakeItemKey(itemID)
+local function MakeItemKey(itemID, itemLevel)
     if not C_AuctionHouse or type(C_AuctionHouse.MakeItemKey) ~= "function" then
         return nil
     end
-    return C_AuctionHouse.MakeItemKey(itemID, 0, 0, 0)
+    return C_AuctionHouse.MakeItemKey(itemID, math.floor(tonumber(itemLevel) or 0), 0, 0)
 end
 
---- Cle de recherche d'un itemID.
+--- Niveau d'objet exige par les variantes en file pour cet itemID.
 --
--- Le niveau d'objet reste a zero, y compris pour un equipement : c'est le seul
--- niveau qui rend toutes les annonces d'un itemID, et TSM force lui aussi zero
--- pour ne pas casser son scan. Mettre le rang exige dans la cle paraissait plus
--- precis, mais une cle qui ne tombe pas pile sur le niveau d'une annonce ne rend
--- rien du tout, et le tri se fait de toute facon sur le lien de chaque annonce.
--- La trace `variant-scan` journalise `keyLevel` et `requiresLevel` : si un jour
--- le serveur refuse le niveau nul, c'est la qu'on le verra.
-state.MakeSearchItemKey = function(itemID)
-    return MakeItemKey(itemID)
+-- Le plus bas des seuils demandes : c'est celui qui rend le plus d'annonces
+-- conformes, le tri par variante se faisant ensuite sur chaque lien.
+state.GetVariantSearchItemLevel = function(itemID)
+    local minimum
+    for _, demand in pairs(state.CollectItemVariantDemands(itemID)) do
+        local itemLevel = tonumber(demand.variant and demand.variant.minItemLevel)
+        if itemLevel and (not minimum or itemLevel < minimum) then
+            minimum = itemLevel
+        end
+    end
+    return minimum
+end
+
+--- Cle de recherche d'un itemID, eventuellement au niveau d'objet exige.
+--
+-- Un niveau nul rend toutes les annonces d'une marchandise, mais **pas** celles
+-- d'un equipement : le serveur range les resultats sous la cle exacte des
+-- annonces, niveau d'objet compris, et une recherche a zero ne rend alors rien.
+-- Mesure a l'appui : les deux enchantements (marchandises) ont des snapshots de
+-- prix frais, les six equipements n'en ont jamais eu un seul, alors que le
+-- snapshot est pris avant tout filtrage par variante.
+--
+-- `GetItemKeyRequiresLevel` ne sert pas d'arbitre ici : elle depend d'un
+-- `GetItemKeyInfo` asynchrone et repond faux tant que la cle n'est pas chargee,
+-- ce qui ramenerait justement au niveau nul. On tente donc le niveau nul, puis
+-- le niveau exige si rien ne revient (cf. `state.ah.activeSearch.levelRetry`).
+state.MakeSearchItemKey = function(itemID, itemLevel)
+    return MakeItemKey(itemID, itemLevel)
 end
 
 local function FormatMoneyEstimate(value)
@@ -9882,6 +9901,11 @@ function craftUI.BuildAuctionTasks(summary)
             variantLabel = state.DescribeItemVariant(task.variant),
             variantRejected = view and view.rejected or nil,
             variantPending = view and view.pending or nil,
+            -- Annonces vues pour l'itemID, toutes variantes confondues : c'est
+            -- ce qui distingue « l'hotel des ventes n'a rien » de « rien ne
+            -- correspond a la variante », deux pannes tres differentes que le
+            -- meme zero rendait indiscernables.
+            listings = cache and cache.available or nil,
             searched = cache ~= nil and not (view and view.unresolved),
             -- Le lien de la meilleure annonce conforme sert d'infobulle : le
             -- seul itemID rend l'objet de base, rang 1 et statistique
@@ -9914,6 +9938,9 @@ function craftUI.InitAuctionRow(row, task)
         end
         if not task.searched then
             return "[?]"
+        end
+        if (tonumber(task.listings) or 0) <= 0 then
+            return "[aucune annonce]"
         end
         local badge = tostring(task.available) .. " conf."
         if (task.variantRejected or 0) > 0 then
@@ -15094,8 +15121,8 @@ local function EnsureAuctionUI()
     CreateAuctionTab()
 end
 
-local function SendSearchQuery(itemID, purpose)
-    local itemKey = state.MakeSearchItemKey(itemID)
+local function SendSearchQuery(itemID, purpose, itemLevel)
+    local itemKey = state.MakeSearchItemKey(itemID, itemLevel)
     if not itemKey or not C_AuctionHouse or type(C_AuctionHouse.SendSearchQuery) ~= "function" then
         -- L'API n'existe que l'hotel des ventes ouvert : un envoi impossible
         -- doit se voir, sinon la file semble chercher sans fin.
@@ -15112,6 +15139,7 @@ local function SendSearchQuery(itemID, purpose)
         state.ah.waitingSearch = {
             itemID = itemID,
             purpose = purpose,
+            itemLevel = itemLevel,
         }
         state.ah.statusMessage = "Throttle en attente"
         ScheduleRefresh()
@@ -15124,6 +15152,9 @@ local function SendSearchQuery(itemID, purpose)
         itemID = itemID,
         purpose = purpose,
         itemKey = itemKey,
+        -- Une reprise au niveau exige n'a lieu qu'une fois : sans ce drapeau,
+        -- un itemID sans aucune annonce relancerait sa recherche sans fin.
+        levelRetry = itemLevel ~= nil,
         startedAt = GetTime and GetTime() or 0,
     }
     state.ah.statusMessage = "Recherche " .. GetItemName(itemID)
@@ -15389,7 +15420,27 @@ local function HandleSearchResults(itemID, searchItemKey)
     CaptureSearchCache(itemID, searchItemKey or state.ah.activeSearch.itemKey)
 
     local purpose = state.ah.activeSearch.purpose
+    local levelRetried = state.ah.activeSearch.levelRetry == true
     state.ah.activeSearch = nil
+
+    -- Aucune annonce sous la cle de niveau nul : pour un equipement c'est le
+    -- cas normal, le serveur rangeant ses resultats sous le niveau exact des
+    -- annonces. On retente une seule fois au niveau exige par la variante.
+    local cache = state.searchCache[itemID]
+    if not levelRetried and cache and (tonumber(cache.available) or 0) <= 0 then
+        local retryItemLevel = state.GetVariantSearchItemLevel(itemID)
+        if retryItemLevel then
+            state.searchCache[itemID] = nil
+            DebugPrint(
+                "search-retry item=" .. tostring(itemID)
+                    .. " itemLevel=" .. tostring(retryItemLevel)
+                    .. " reason=no-listing-at-level-0"
+            )
+            SendSearchQuery(itemID, purpose, retryItemLevel)
+            ScheduleRefresh()
+            return
+        end
+    end
     if purpose == "scan" then
         ProcessNextQueuedSearch()
     else
@@ -15404,7 +15455,7 @@ end
 local function ResumeSearches()
     if state.ah.waitingSearch then
         local pending = state.ah.waitingSearch
-        SendSearchQuery(pending.itemID, pending.purpose)
+        SendSearchQuery(pending.itemID, pending.purpose, pending.itemLevel)
         return
     end
 
