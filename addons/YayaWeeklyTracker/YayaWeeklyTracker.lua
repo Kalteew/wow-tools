@@ -1285,9 +1285,13 @@ runtimeState.professionGear = {
     -- impossible a satisfaire en bleu. Reglable par `/ywt stuff ilvl <n>`.
     minimumItemLevel = 232,
     -- L'alchimie profite du Multicraft sur ses consommables et YayaQueue equipe
-    -- l'outil correspondant juste avant ces crafts : il faut donc un exemplaire
-    -- Multicrafting en sac, en plus de l'outil Resourcefulness porte par defaut.
-    baggedMulticraftToolSkillLineIDs = { [2906] = true },
+    -- l'outil correspondant juste avant ces crafts : il faut donc en posseder un
+    -- exemplaire, en plus de l'outil Resourcefulness porte par defaut. Possession
+    -- et non port : l'echange sort l'outil porte vers les sacs, donc un outil
+    -- Multicrafting deja equipe se prete au meme va-et-vient qu'un outil garde
+    -- en sac. Exiger le sac reclamait un second exemplaire des que le premier
+    -- etait porte.
+    multicraftToolSkillLineIDs = { [2906] = true },
     -- Rang rare (bleu) de l'equipement de metier Midnight : l'outil, puis les
     -- deux accessoires. Ces itemIDs ne sont que des CANDIDATS : chacun est
     -- valide en jeu (emplacement d'equipement et ligne de metier) avant d'etre
@@ -4374,15 +4378,12 @@ trackerUI.SummarizeProfessionGear = function(profession)
     -- dont le niveau d'objet n'est pas encore lisible : inconnu n'est pas absent,
     -- sinon un rappel apparait le temps d'un chargement et la file achete un
     -- doublon.
-    local compliantStats, baggedCompliantStats, pendingStats = {}, {}, {}
+    local compliantStats, pendingStats = {}, {}
     for _, tool in ipairs(profession.tools) do
         if tool.compliant == true then
             hasCompliantTool = true
             if tool.statKey then
                 compliantStats[tool.statKey] = true
-                if tool.source == "bag" then
-                    baggedCompliantStats[tool.statKey] = true
-                end
             end
         elseif tool.compliant == nil then
             toolComplianceUnknown = true
@@ -4394,7 +4395,6 @@ trackerUI.SummarizeProfessionGear = function(profession)
     gear.hasCompliantTool = hasCompliantTool
     gear.toolComplianceUnknown = toolComplianceUnknown
     gear.compliantToolStats = compliantStats
-    gear.compliantBaggedToolStats = baggedCompliantStats
     gear.pendingToolStats = pendingStats
 
     for _, slotState in ipairs(gear.slots) do
@@ -4445,7 +4445,6 @@ trackerUI.GetProfessionToolNeeds = function(profession, config)
 
     local gear = profession.gear or EMPTY_TABLE
     local compliant = gear.compliantToolStats or EMPTY_TABLE
-    local baggedCompliant = gear.compliantBaggedToolStats or EMPTY_TABLE
     local pendingStats = gear.pendingToolStats or EMPTY_TABLE
 
     if config and config.gathering == true then
@@ -4458,13 +4457,17 @@ trackerUI.GetProfessionToolNeeds = function(profession, config)
         needs[#needs + 1] = { statKey = "resourcefulness", reason = "outil Resourcefulness" }
     end
 
-    if profession.requiresBaggedMulticraftTool
-        and baggedCompliant.multicrafting ~= true
+    -- Meme regle que l'emplacement d'outil : la possession decide, jamais le
+    -- port. YayaQueue equipe l'outil Multicrafting depuis les sacs, mais
+    -- l'echange y renvoie l'outil qui sort, donc un exemplaire deja equipe est
+    -- exactement ce qu'il faut -- il est meme deja en place. Juger sur le sac
+    -- faisait reclamer un second outil des que le premier etait porte.
+    if profession.requiresMulticraftTool
+        and compliant.multicrafting ~= true
         and pendingStats.multicrafting ~= true then
         needs[#needs + 1] = {
             statKey = "multicrafting",
-            reason = "outil Multicrafting en sac",
-            bagged = true,
+            reason = "outil Multicrafting",
         }
     end
 
@@ -4672,9 +4675,9 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             hasEquippedTool = false,
             equippedToolPending = false,
             hasResourcefulnessTool = false,
-            hasBaggedMulticraftTool = false,
-            requiresBaggedMulticraftTool =
-                runtimeState.professionGear.baggedMulticraftToolSkillLineIDs[row.skillLineID] == true,
+            hasMulticraftTool = false,
+            requiresMulticraftTool =
+                runtimeState.professionGear.multicraftToolSkillLineIDs[row.skillLineID] == true,
             toolScanPending = false,
             professionID = nil,
             toolSlot = nil,
@@ -4692,7 +4695,6 @@ trackerUI.FindToolEnchantState = function(trackedRows)
                 hasCompliantTool = false,
                 toolComplianceUnknown = false,
                 compliantToolStats = {},
-                compliantBaggedToolStats = {},
                 pendingToolStats = {},
                 pending = false,
                 slotsKnown = false,
@@ -4887,8 +4889,8 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         for _, tool in ipairs(profession.tools) do
             if tool.statKey == "resourcefulness" then
                 profession.hasResourcefulnessTool = true
-            elseif tool.statKey == "multicrafting" and tool.source == "bag" then
-                profession.hasBaggedMulticraftTool = true
+            elseif tool.statKey == "multicrafting" then
+                profession.hasMulticraftTool = true
             end
         end
         -- Un scan incomplet ne doit pas declarer un outil absent : sans cache
@@ -4919,7 +4921,7 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         for _, need in ipairs(profession.toolNeeds) do
             needParts[#needParts + 1] = need.statKey or "any"
         end
-        debugParts[#debugParts + 1] = ("gear[%d] slots=%d empty=%d lowQ=%d lowIlvl=%d bad=%d pending=%s tool=%s rfOwned=%s rfOk=%s mcBag=%s mcBagOk=%s needs=%s"):format(
+        debugParts[#debugParts + 1] = ("gear[%d] slots=%d empty=%d lowQ=%d lowIlvl=%d bad=%d pending=%s tool=%s rfOwned=%s rfOk=%s mcOwned=%s mcOk=%s needs=%s"):format(
             row.skillLineID,
             #gear.slots,
             gear.emptyCount,
@@ -4930,8 +4932,8 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             tostring(gear.hasCompliantTool),
             tostring(profession.hasResourcefulnessTool),
             tostring(gear.compliantToolStats.resourcefulness == true),
-            tostring(profession.hasBaggedMulticraftTool),
-            tostring(gear.compliantBaggedToolStats.multicrafting == true),
+            tostring(profession.hasMulticraftTool),
+            tostring(gear.compliantToolStats.multicrafting == true),
             #needParts > 0 and table.concat(needParts, "+") or "none")
         debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d apply=%d equipped=%s rf=%s pending=%s"):format(
             row.skillLineID,
@@ -6503,18 +6505,20 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
                     table.concat(details, "\n")),
                 "warning")
         end
-        -- Meme regle que le rappel Resourcefulness : l'exemplaire en sac doit
+        -- Meme regle que le rappel Resourcefulness : l'exemplaire possede doit
         -- aussi tenir le seuil de rang, sans quoi YayaQueue equiperait un outil
-        -- Multicrafting qui ne vaut rien.
-        if toolStatus.requiresBaggedMulticraftTool
-            and (gear.compliantBaggedToolStats or EMPTY_TABLE).multicrafting ~= true
+        -- Multicrafting qui ne vaut rien. Le rappel ne regarde pas ou dort
+        -- l'outil : un exemplaire Multicrafting porte est deja en place pour les
+        -- crafts qui multicraftent, et repart en sac au prochain echange.
+        if toolStatus.requiresMulticraftTool
+            and (gear.compliantToolStats or EMPTY_TABLE).multicrafting ~= true
             and (gear.pendingToolStats or EMPTY_TABLE).multicrafting ~= true
             and not toolStatus.toolScanPending then
-            Push(oneTimeTokens, ("MC%ssac"):format(NB),
-                toolStatus.hasBaggedMulticraftTool
-                    and ("Outil Multicrafting en sac sous le seuil de %d d'ilvl"):format(
+            Push(oneTimeTokens, ("MC%sKO"):format(NB),
+                toolStatus.hasMulticraftTool
+                    and ("Outil Multicrafting possede mais sous le seuil de %d d'ilvl"):format(
                         trackerUI.GetProfessionGearMinimumItemLevel())
-                    or "Aucun outil Multicrafting en sac : YayaQueue ne pourra pas l'equiper avant les crafts qui multicraftent",
+                    or "Aucun outil Multicrafting possede : YayaQueue ne pourra pas l'equiper avant les crafts qui multicraftent",
                 "warning")
         end
     end

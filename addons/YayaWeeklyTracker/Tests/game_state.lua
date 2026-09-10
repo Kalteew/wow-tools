@@ -193,6 +193,15 @@ TSM_API = {
     GetWarbankQuantity = function() return 0 end,
 }
 
+-- Bascule d'outillage rejouable par les tests : l'exemplaire Multicrafting
+-- passe a l'equipement au rang maximal, et un exemplaire Resourcefulness
+-- conforme prend sa place en sac. C'est l'etat d'un alchimiste qui vient de
+-- multicrafter, YayaQueue ayant renvoye l'outil sortant dans les sacs.
+function EquipMulticraftToolFixture()
+    ITEMS[245778].stat = "Fabrication multiple"
+    BAG_CONTENT[0][1] = { itemID = 245778, itemLevel = 232, stat = "Ingéniosité" }
+end
+
 QUEUE_CALLS = {}
 YayaQueueAPI = {
     -- La signature suit celle de l'addon : la variante est le quatrieme

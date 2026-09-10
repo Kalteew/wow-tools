@@ -106,8 +106,13 @@ else
     if not gearTrace:find("tool=true") then
         Fail("un outil conforme est possede mais n'est pas reconnu :: " .. gearTrace)
     end
-    if not gearTrace:find("mcBag=true") then
+    -- L'exemplaire Multicrafting dort en sac a l'ilvl 206 : possede, donc vu,
+    -- mais sous le seuil, donc l'achat reste a faire.
+    if not gearTrace:find("mcOwned=true") then
         Fail("l'outil Multicrafting en sac n'est pas vu :: " .. gearTrace)
+    end
+    if not gearTrace:find("mcOk=false") then
+        Fail("un outil Multicrafting ilvl 206 passe pour conforme :: " .. gearTrace)
     end
 end
 
@@ -149,9 +154,56 @@ else
     end
 end
 
+-- 4. Un outil Multicrafting EQUIPE satisfait l'exigence autant qu'un outil
+-- garde en sac.
+--
+-- YayaQueue equipe l'outil Multicrafting depuis les sacs avant les crafts qui
+-- multicraftent, mais l'echange renvoie en sac l'outil qui sort : porter
+-- l'exemplaire Multicrafting revient au meme, il est meme deja en place. Juger
+-- sur la seule presence en sac faisait reclamer un second exemplaire des que le
+-- premier etait porte, et le plan d'achat en achetait un doublon.
+EquipMulticraftToolFixture()
+FireEvent("PLAYER_EQUIPMENT_CHANGED")
+FireEvent("BAG_UPDATE_DELAYED")
+RunTimers(5)
+
+local swappedGearTrace, swappedPlanTrace
+for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
+    if entry:find("gear%[2906%]") then
+        swappedGearTrace = entry
+    end
+    if entry:find("Profession gear plan", 1, true) then
+        swappedPlanTrace = entry
+    end
+end
+if not swappedGearTrace then
+    Fail("aucune trace de scan d'equipement apres l'echange d'outil")
+else
+    if not swappedGearTrace:find("mcOwned=true") or not swappedGearTrace:find("mcOk=true") then
+        Fail("l'outil Multicrafting equipe n'est pas reconnu conforme :: " .. swappedGearTrace)
+    end
+    if not swappedGearTrace:find("needs=none", 1, true) then
+        Fail("un besoin d'outil subsiste alors que les deux statistiques sont possedees :: "
+            .. swappedGearTrace)
+    end
+end
+if not swappedPlanTrace then
+    Fail("aucune trace de plan d'achat apres l'echange d'outil")
+else
+    if swappedPlanTrace:find("multicrafting:", 1, true) then
+        Fail("un outil Multicrafting conforme est equipe, il ne doit rien declencher :: "
+            .. swappedPlanTrace)
+    end
+    -- Restent les deux accessoires, sur le rang seul, et plus aucun
+    -- enchantement d'outil a acheter puisque plus aucun outil n'est demande.
+    if not swappedPlanTrace:find("gear=2 ench=0", 1, true) then
+        Fail("le decompte du plan est inattendu apres l'echange d'outil :: " .. swappedPlanTrace)
+    end
+end
+
 if failures > 0 then
     print(("%d echec(s)"):format(failures))
     os.exit(1)
 end
 
-print("test_tracker_refresh : rafraichissement sans erreur, scan d'equipement conforme, plan d'achat par variante")
+print("test_tracker_refresh : rafraichissement sans erreur, scan d'equipement conforme, plan d'achat par variante, outil Multicrafting equipe reconnu")
