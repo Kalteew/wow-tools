@@ -1350,8 +1350,6 @@ local midnightCaches = {
     surplusReagentsDirty = true,
     finishingReagentMerges = nil,
     finishingReagentMergesDirty = true,
-    warbankTreatises = nil,
-    warbankTreatisesDirty = true,
     -- L'instantane lui-meme vit dans le SavedVariable ; ce drapeau ne dit que
     -- s'il faut le reecrire au prochain passage banque ouverte.
     warbankInventoryDirty = true,
@@ -1371,11 +1369,10 @@ local debugSignatures = {
     trackedProfessions = nil,
     tracker = nil,
     treasure = nil,
-    warbankTreatises = nil,
+    midnightTreatises = nil,
     warbankInventory = nil,
     toolEnchants = nil,
-    toolEnchantPlan = nil,
-    professionGearPlan = nil,
+    professionSupplyPlan = nil,
 }
 local GetContainerItemIDCompat
 local GetContainerNumSlotsCompat
@@ -1482,16 +1479,13 @@ trackerUI.UnlockItemActionButtons = function()
     Unlock(frame.recipeButton)
     Unlock(frame.knowledgeButton)
     Unlock(frame.payoutButton)
-    -- Le bouton de recuperation Warbank se verrouille le temps d'un transfert,
-    -- il doit donc figurer ici : sans cela il resterait grise a vie.
-    Unlock(frame.toolEnchantPullButton)
+    -- Le bouton d'approvisionnement se verrouille le temps d'un transfert :
+    -- sans ce deverrouillage il resterait grise a vie.
+    Unlock(frame.professionSupplyButton)
     for _, button in ipairs(frame.surplusReagentButtons or EMPTY_TABLE) do
         Unlock(button)
     end
     for _, button in ipairs(frame.finishingReagentMergeButtons or EMPTY_TABLE) do
-        Unlock(button)
-    end
-    for _, button in ipairs(frame.warbankTreatiseButtons or EMPTY_TABLE) do
         Unlock(button)
     end
     for _, button in ipairs(frame.toolEnchantApplyButtons or EMPTY_TABLE) do
@@ -1692,7 +1686,6 @@ trackerUI.itemActionCooldownButtonFields = {
 trackerUI.itemActionCooldownButtonLists = {
     "surplusReagentButtons",
     "finishingReagentMergeButtons",
-    "warbankTreatiseButtons",
     "toolEnchantApplyButtons",
 }
 
@@ -3552,11 +3545,10 @@ local function FindArtisanConsortiumPayoutInBags()
     return result
 end
 
--- Les deux caches decrivent le meme contenu et se periment donc ensemble. Les
--- invalider d'un seul geste evite la panne discrete du site oublie : le plan
--- vivrait alors un rafraichissement de retard sur l'instantane.
-trackerUI.InvalidateWarbankTreatiseCache = function()
-    midnightCaches.warbankTreatisesDirty = true
+-- Tout ce qui decrit le contenu de la banque de compte se perime d'un seul
+-- geste : un site oublie ferait vivre le plan un rafraichissement de retard
+-- sur l'instantane, et proposerait de recuperer un emplacement deja vide.
+trackerUI.InvalidateWarbankCaches = function()
     midnightCaches.warbankInventoryDirty = true
 end
 
@@ -3569,7 +3561,7 @@ trackerUI.InstallWarbankRefreshHooks = function()
     local hooks = runtimeState.warbankRefreshHooks
     local function RefreshWarbankButtons(source)
         DebugLog("Warbank selection changed via %s", tostring(source))
-        trackerUI.InvalidateWarbankTreatiseCache()
+        trackerUI.InvalidateWarbankCaches()
         trackerUI.InvalidateToolEnchantCache()
         ScheduleTrackerRefresh(0.05, false)
     end
@@ -3701,19 +3693,17 @@ trackerUI.GetAccountBankBagIDs = function()
     return bagIDs
 end
 
-trackerUI.FindMissingMidnightTreatisesInWarbank = function(trackedRows)
-    if GetAccountDB().trackTreatises == false or not trackerUI.IsAccountBankOpen() then
-        local closedResult = { bankOpen = false, matches = EMPTY_TABLE }
-        midnightCaches.warbankTreatises = closedResult
-        midnightCaches.warbankTreatisesDirty = false
-        return closedResult
-    end
-    if not midnightCaches.warbankTreatisesDirty and midnightCaches.warbankTreatises then
-        return midnightCaches.warbankTreatises
+-- Les traites hebdomadaires encore a obtenir. La Warbank n'est pas consultee
+-- ici : le plan d'approvisionnement s'en charge, ce qui permet de savoir qu'un
+-- traite y dort meme banque fermee -- ce que l'ancien scan, court-circuite des
+-- que la banque etait fermee, ne pouvait pas dire.
+trackerUI.GetMissingMidnightTreatises = function(trackedRows)
+    if GetAccountDB().trackTreatises == false then
+        return EMPTY_TABLE
     end
 
     trackedRows = trackedRows or GetTrackedMidnightProfessions()
-    local missingBySkillLineID = {}
+    local missing = {}
     for _, row in ipairs(trackedRows) do
         local config = MIDNIGHT_PROFESSION_CONFIGS[row.skillLineID]
         local treatiseInfo = MIDNIGHT_TREATISES_BY_SKILL_LINE_ID[row.skillLineID]
@@ -3721,75 +3711,25 @@ trackerUI.FindMissingMidnightTreatisesInWarbank = function(trackedRows)
             and row.skillLevel >= (config.treatiseMinSkill or math.huge)
             and not IsQuestDone(treatiseInfo.weeklyQuestID)
             and trackerUI.GetOwnedItemCount(treatiseInfo.itemID) <= 0 then
-            missingBySkillLineID[row.skillLineID] = {
+            missing[#missing + 1] = {
+                skillLineID = row.skillLineID,
                 label = config.label or tostring(row.skillLineID),
                 itemID = treatiseInfo.itemID,
             }
         end
     end
 
-    local matchesBySkillLineID = {}
-    for _, bagID in ipairs(trackerUI.GetAccountBankBagIDs()) do
-        local slotCount = GetContainerNumSlotsCompat(bagID)
-        for slotIndex = 1, slotCount do
-            local itemID = GetContainerItemIDCompat(bagID, slotIndex)
-            local skillLineID = itemID and MIDNIGHT_KNOWLEDGE_ITEM_SKILL_LINE_IDS[itemID] or nil
-            local missing = skillLineID and missingBySkillLineID[skillLineID] or nil
-            if missing and missing.itemID == itemID and not matchesBySkillLineID[skillLineID] then
-                matchesBySkillLineID[skillLineID] = {
-                    skillLineID = skillLineID,
-                    label = missing.label,
-                    bagID = bagID,
-                    slotIndex = slotIndex,
-                    itemID = itemID,
-                    itemLink = GetContainerItemLinkCompat(bagID, slotIndex),
-                    itemName = GetItemInfo and GetItemInfo(itemID) or nil,
-                    stackCount = math.max(GetContainerItemCountCompat(bagID, slotIndex), 1),
-                }
-            end
-        end
-    end
-
-    local matches = {}
-    for _, row in ipairs(trackedRows) do
-        local match = matchesBySkillLineID[row.skillLineID]
-        if match then
-            matches[#matches + 1] = match
-        end
-    end
-
     local debugParts = {}
-    for _, match in ipairs(matches) do
-        debugParts[#debugParts + 1] = ("%s:%d:%d"):format(
-            match.label or "?",
-            match.itemID or 0,
-            match.stackCount or 0
-        )
+    for _, entry in ipairs(missing) do
+        debugParts[#debugParts + 1] = ("%s:%d"):format(entry.label or "?", entry.itemID or 0)
     end
     local debugSignature = table.concat(debugParts, ",")
-    if debugSignature ~= debugSignatures.warbankTreatises then
-        debugSignatures.warbankTreatises = debugSignature
-        DebugLog("Warbank treatises = %s", debugSignature ~= "" and debugSignature or "none")
+    if debugSignature ~= debugSignatures.midnightTreatises then
+        debugSignatures.midnightTreatises = debugSignature
+        DebugLog("Midnight treatises = %s", debugSignature ~= "" and debugSignature or "none")
     end
 
-    local result = { bankOpen = true, matches = matches }
-    midnightCaches.warbankTreatises = result
-    midnightCaches.warbankTreatisesDirty = false
-    return result
-end
-
--- Un seul traite par clic : le reste du stack demeure en Warbank, ou les
--- autres personnages du compte le trouveront.
-trackerUI.PullWarbankTreatise = function(button)
-    if not button then
-        return false
-    end
-    return trackerUI.PullFromWarbank({
-        itemID = button.itemID,
-        bagID = button.bagID,
-        slotIndex = button.slotIndex,
-        quantity = 1,
-    }, button)
+    return missing
 end
 
 trackerUI.FindSurplusReagentContainersInBags = function()
@@ -4453,40 +4393,6 @@ trackerUI.UpdateFinishingReagentMergeButtons = function(states)
     return visibleCount
 end
 
-trackerUI.UpdateWarbankTreatiseButtons = function(state)
-    local buttons = trackerFrame and trackerFrame.warbankTreatiseButtons or EMPTY_TABLE
-    local matches = state and state.bankOpen and state.matches or EMPTY_TABLE
-    local visibleCount = 0
-
-    for index, button in ipairs(buttons) do
-        local match = matches[index]
-        if match and match.bagID and match.slotIndex then
-            if not button.itemActionLocked then
-                button:SetEnabled(true)
-            end
-            button.skillLineID = match.skillLineID
-            button.itemID = match.itemID
-            button.itemLink = match.itemLink
-            button.itemName = match.itemName
-            button.bagID = match.bagID
-            button.slotIndex = match.slotIndex
-            button:SetText(("Récupérer traité %s x1"):format(match.label or ""))
-            button:Show()
-            visibleCount = visibleCount + 1
-        else
-            button.skillLineID = nil
-            button.itemID = nil
-            button.itemLink = nil
-            button.itemName = nil
-            button.bagID = nil
-            button.slotIndex = nil
-            button:Hide()
-        end
-    end
-
-    return visibleCount
-end
-
 trackerUI.GetOwnedItemCount = function(itemID)
     if type(itemID) ~= "number" or itemID <= 0 then
         return 0
@@ -4969,62 +4875,6 @@ trackerUI.GetToolEnchantWarbankQuantity = function(itemID)
     end
 end
 
-trackerUI.GetToolEnchantBankStock = function(requiredItemIDs)
-    local stock = {}
-    local slots = {}
-    local knownByItemID = {}
-    local bankOpen = trackerUI.IsAccountBankOpen()
-    local bankKnown = false
-    local bankBagIDs = bankOpen and trackerUI.GetAccountBankBagIDs() or EMPTY_TABLE
-    if bankOpen then
-        bankKnown = #bankBagIDs > 0
-        for _, bagID in ipairs(bankBagIDs) do
-            local slotCount = GetContainerNumSlotsCompat(bagID)
-            for slotIndex = 1, slotCount do
-                local itemID = GetContainerItemIDCompat(bagID, slotIndex)
-                if itemID and requiredItemIDs[itemID] then
-                    local stackCount = math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
-                    stock[itemID] = (stock[itemID] or 0) + stackCount
-                    slots[itemID] = slots[itemID] or {}
-                    slots[itemID][#slots[itemID] + 1] = {
-                        bagID = bagID,
-                        slotIndex = slotIndex,
-                        stackCount = stackCount,
-                    }
-                end
-            end
-        end
-        for itemID in pairs(requiredItemIDs) do
-            knownByItemID[itemID] = bankKnown
-        end
-    end
-
-    for itemID in pairs(requiredItemIDs) do
-        local tsmQuantity = trackerUI.GetToolEnchantWarbankQuantity(itemID)
-        if not bankOpen and tsmQuantity ~= nil then
-            stock[itemID] = tsmQuantity
-            knownByItemID[itemID] = true
-        end
-    end
-
-    bankKnown = next(requiredItemIDs) == nil
-    for itemID in pairs(requiredItemIDs) do
-        if knownByItemID[itemID] ~= true then
-            bankKnown = false
-            break
-        end
-        bankKnown = true
-    end
-
-    return {
-        bankOpen = bankOpen,
-        bankKnown = bankKnown,
-        knownByItemID = knownByItemID,
-        stock = stock,
-        slots = slots,
-    }
-end
-
 trackerUI.FindToolEnchantState = function(trackedRows)
     if not midnightCaches.toolEnchantsDirty and midnightCaches.toolEnchants then
         return midnightCaches.toolEnchants
@@ -5034,17 +4884,13 @@ trackerUI.FindToolEnchantState = function(trackedRows)
     local previous = midnightCaches.toolEnchants
     local result = {
         bySkillLineID = {},
+        -- Les enchantements reclames par les outils DEJA POSSEDES. Ceux des
+        -- outils encore a acheter n'entrent pas ici : ils naissent du besoin
+        -- d'outil, et c'est le plan d'approvisionnement qui les emet, juste
+        -- apres l'outil qui les porte.
         requiredByItemID = {},
-        futureToolEnchantByItemID = {},
-        pullPlan = {},
-        buyPlan = {},
-        planByItemID = {},
         applyEnchants = {},
-        pullQuantity = 0,
-        buyQuantity = 0,
         pending = false,
-        bankOpen = false,
-        bankKnown = false,
         debugItems = {},
     }
     local trackedSkillLineIDs = {}
@@ -5285,21 +5131,9 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         profession.toolNeeds = trackerUI.GetProfessionToolNeeds(profession, row.config)
         -- L'enchantement part avec l'outil : un outil achete nu resterait a
         -- enchanter, et son rappel n'apparaitrait qu'au scan suivant, une fois
-        -- l'achat fait. Le besoin rejoint donc `requiredByItemID`, si bien que
-        -- la Warbank est fouillee avant l'hotel des ventes comme pour les autres
-        -- enchantements. Un besoin sans statistique (metier de recolte) n'en
-        -- demande aucun : la stat de l'outil achete n'est pas connue d'avance.
-        for _, need in ipairs(profession.toolNeeds) do
-            local needStatInfo = need.statKey
-                and runtimeState.professionToolEnchantments.byStat[need.statKey]
-                or nil
-            if needStatInfo then
-                result.requiredByItemID[needStatInfo.itemID] =
-                    (result.requiredByItemID[needStatInfo.itemID] or 0) + 1
-                result.futureToolEnchantByItemID[needStatInfo.itemID] =
-                    (result.futureToolEnchantByItemID[needStatInfo.itemID] or 0) + 1
-            end
-        end
+        -- l'achat fait. Le plan d'approvisionnement emet donc l'enchantement
+        -- juste apres l'outil qu'il commande, et le scanner ne connait que les
+        -- enchantements des outils deja possedes.
         local gear = profession.gear
         local needParts = {}
         for _, need in ipairs(profession.toolNeeds) do
@@ -5355,72 +5189,6 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         return previous
     end
 
-    local bankState = trackerUI.GetToolEnchantBankStock(result.requiredByItemID)
-    result.bankOpen = bankState.bankOpen
-    result.bankKnown = bankState.bankKnown
-    for itemID, requiredQuantity in pairs(result.requiredByItemID) do
-        local bankItemKnown = bankState.knownByItemID[itemID] == true
-        local bagQuantity = trackerUI.GetOwnedItemCount(itemID)
-        local bankQuantity = bankState.stock[itemID] or 0
-        local pullQuantity = bankItemKnown
-            and math.max(math.min(requiredQuantity - bagQuantity, bankQuantity), 0)
-            or 0
-        local buyDeficit = bankItemKnown
-            and math.max(requiredQuantity - bagQuantity - bankQuantity, 0)
-            or 0
-        local directQuantity = 0
-        if YayaQueueAPI and type(YayaQueueAPI.GetDirectItemQuantity) == "function" then
-            directQuantity = tonumber(YayaQueueAPI.GetDirectItemQuantity(itemID)) or 0
-        end
-        local buyQuantity = math.max(buyDeficit - directQuantity, 0)
-        local itemName = type(GetItemInfo) == "function" and SafeCall(GetItemInfo, itemID) or nil
-        -- Le besoin brut et les trois soustractions restent visibles : sans ce
-        -- detail, un bouton qui propose moins que le nombre d'outils signales
-        -- est indiscernable d'un bug de comptage.
-        result.planByItemID[itemID] = {
-            itemID = itemID,
-            itemName = itemName,
-            required = requiredQuantity,
-            bag = bagQuantity,
-            bank = bankQuantity,
-            bankKnown = bankItemKnown,
-            queued = directQuantity,
-            pull = pullQuantity,
-            buy = buyQuantity,
-        }
-        if pullQuantity > 0 then
-            result.pullPlan[#result.pullPlan + 1] = {
-                itemID = itemID,
-                quantity = pullQuantity,
-                slots = bankState.slots[itemID] or EMPTY_TABLE,
-            }
-            result.pullQuantity = result.pullQuantity + pullQuantity
-        end
-        if buyQuantity > 0 then
-            result.buyPlan[#result.buyPlan + 1] = {
-                itemID = itemID,
-                quantity = buyQuantity,
-                itemName = itemName or ("item:" .. tostring(itemID)),
-            }
-            result.buyQuantity = result.buyQuantity + buyQuantity
-        end
-    end
-
-    local planParts = {}
-    for itemID, plan in pairs(result.planByItemID) do
-        planParts[#planParts + 1] = ("%d req=%d bag=%d bank=%d(known=%s) queued=%d pull=%d buy=%d"):format(
-            itemID, plan.required, plan.bag, plan.bank, tostring(plan.bankKnown),
-            plan.queued, plan.pull, plan.buy)
-    end
-    table.sort(planParts)
-    local planSignature = #planParts > 0 and table.concat(planParts, " | ") or "none"
-    if planSignature ~= debugSignatures.toolEnchantPlan then
-        debugSignatures.toolEnchantPlan = planSignature
-        DebugLog("Tool enchant plan = %s", planSignature)
-    end
-
-    table.sort(result.pullPlan, function(left, right) return left.itemID < right.itemID end)
-    table.sort(result.buyPlan, function(left, right) return left.itemID < right.itemID end)
     -- L'outil equipe passe avant les outils de rechange : le pool de boutons
     -- est borne, et c'est lui qui doit rester visible quand il y a trop
     -- d'actions a afficher.
@@ -5592,7 +5360,7 @@ trackerUI.PullFromWarbank = function(request, button)
     local sourceInfo = SafeCall(C_Container.GetContainerItemInfo, request.bagID, request.slotIndex)
     local stackCount = tonumber(sourceInfo and sourceInfo.stackCount) or 0
     if not sourceInfo or tonumber(sourceInfo.itemID) ~= request.itemID or stackCount <= 0 then
-        trackerUI.InvalidateWarbankTreatiseCache()
+        trackerUI.InvalidateWarbankCaches()
         trackerUI.InvalidateToolEnchantCache()
         ScheduleTrackerRefresh(0, false)
         return false
@@ -5640,34 +5408,10 @@ trackerUI.PullFromWarbank = function(request, button)
     -- Verrou anti-multiclic : deux clics avant BAG_UPDATE_DELAYED relisaient le
     -- meme plan et sortaient deux fois l'objet.
     trackerUI.LockItemActionButton(button)
-    trackerUI.InvalidateWarbankTreatiseCache()
+    trackerUI.InvalidateWarbankCaches()
     trackerUI.InvalidateToolEnchantCache()
     trackerUI.RequestItemActionRefresh()
     return true
-end
-
-trackerUI.PullToolEnchantItems = function(button)
-    local state = trackerUI.FindToolEnchantState(GetTrackedMidnightProfessions())
-    if not state.bankOpen or not state.bankKnown or #state.pullPlan == 0 then
-        print("YWT: ouvre la Warbank pour récupérer les enchantements disponibles")
-        return false
-    end
-
-    for _, plan in ipairs(state.pullPlan) do
-        for _, slot in ipairs(plan.slots or EMPTY_TABLE) do
-            if (slot.stackCount or 0) > 0 then
-                return trackerUI.PullFromWarbank({
-                    itemID = plan.itemID,
-                    bagID = slot.bagID,
-                    slotIndex = slot.slotIndex,
-                    quantity = math.min(plan.quantity, slot.stackCount or 1),
-                }, button)
-            end
-        end
-    end
-
-    print("YWT: aucun stack d'enchantement disponible dans la Warbank")
-    return false
 end
 
 -- Un candidat n'est propose que si le client confirme son emplacement
@@ -5725,20 +5469,34 @@ trackerUI.BuildProfessionGearVariant = function(statKey)
     return variant
 end
 
--- Plan d'achat de l'equipement de metier : un exemplaire conforme par besoin
--- constate, moins ce qui est deja demande a YayaQueue pour cette meme variante.
--- Le stock possede n'est pas deduit ici : c'est la variante qui dit ce qui
--- manque, et deux exemplaires du meme itemID peuvent differer par leur rang de
--- craft comme par leur statistique.
-trackerUI.BuildProfessionGearPurchasePlan = function(trackedRows)
+-- Plan d'approvisionnement : tout ce qui manque a l'equipement de metier, et
+-- pour chaque manque, ce que la Warbank peut fournir avant l'hotel des ventes.
+--
+-- Une seule arithmetique, appliquee a TOUT besoin -- outil, accessoire,
+-- enchantement, traite :
+--
+--   pull = min(besoin - possede, exemplaires conformes en Warbank)
+--   buy  = besoin - possede - pull - deja en file, mais SEULEMENT si la
+--          Warbank a rendu un verdict net ; sinon l'entree est bloquee.
+--
+-- Bloquer plutot que decider est le point important : un exemplaire dont on ne
+-- sait pas s'il convient ne doit ni etre propose a la recuperation, ni etre
+-- rachete. C'est l'indecis de trackerUI.warbank.Resolve, propage jusqu'ici.
+--
+-- Le stock possede n'est pas deduit d'un besoin a variante : c'est la variante
+-- qui dit ce qui manque, et deux exemplaires du meme itemID peuvent differer
+-- par leur rang comme par leur statistique.
+trackerUI.BuildProfessionSupplyPlan = function(trackedRows)
     trackedRows = trackedRows or GetTrackedMidnightProfessions()
     local state = trackerUI.FindToolEnchantState(trackedRows)
     local plan = {
         entries = {},
-        quantity = 0,
+        pullQuantity = 0,
+        buyQuantity = 0,
         gearQuantity = 0,
         enchantQuantity = 0,
         pending = false,
+        blocked = {},
         invalidCandidates = {},
         unknownStats = {},
     }
@@ -5747,22 +5505,14 @@ trackerUI.BuildProfessionGearPurchasePlan = function(trackedRows)
         return SafeCall(GetItemInfo, itemID) or ("item:" .. tostring(itemID))
     end
 
-    -- La quantite deja en file se compte par variante : l'outil Resourcefulness
-    -- et l'outil Multicrafting de l'alchimie partagent un itemID, et un compte
-    -- global ferait passer le second pour deja demande.
-    local function QueuedQuantity(itemID, variant)
-        if not YayaQueueAPI or type(YayaQueueAPI.GetDirectItemQuantity) ~= "function" then
-            return 0
-        end
-        return tonumber(YayaQueueAPI.GetDirectItemQuantity(itemID, variant)) or 0
-    end
-
-    local function Add(itemID, quantity, variant, skillLineID, professionLabel, wantTool, reason)
-        if not itemID or quantity <= 0 then
+    local function Add(itemID, need, variant, options)
+        options = options or EMPTY_TABLE
+        if not itemID or need <= 0 then
             return false
         end
-        if wantTool ~= nil then
-            local valid = trackerUI.IsProfessionGearCandidateValid(itemID, skillLineID, wantTool)
+        if options.wantTool ~= nil then
+            local valid = trackerUI.IsProfessionGearCandidateValid(
+                itemID, options.skillLineID, options.wantTool)
             if valid == nil then
                 plan.pending = true
                 return false
@@ -5772,26 +5522,76 @@ trackerUI.BuildProfessionGearPurchasePlan = function(trackedRows)
                 return false
             end
         end
-        local missing = quantity - QueuedQuantity(itemID, variant)
+
+        local owned = variant and 0 or trackerUI.GetOwnedItemCount(itemID)
+        local missing = math.max(need - owned, 0)
         if missing <= 0 then
             return false
         end
+
+        -- La quantite deja en file se compte PAR VARIANTE : l'outil
+        -- Resourcefulness et l'outil Multicrafting d'un metier partagent leur
+        -- itemID, et un compte global ferait passer le second pour demande.
+        local queued = 0
+        if YayaQueueAPI and type(YayaQueueAPI.GetDirectItemQuantity) == "function" then
+            queued = tonumber(YayaQueueAPI.GetDirectItemQuantity(itemID, variant)) or 0
+        end
+
+        local warbank = trackerUI.warbank.Resolve(itemID, variant)
+        local pull = math.max(math.min(missing, warbank.matched), 0)
+        local buy = 0
+        if options.pullOnly then
+            buy = 0
+        elseif warbank.known and warbank.undecided == 0 then
+            buy = math.max(missing - pull - queued, 0)
+        else
+            plan.blocked[#plan.blocked + 1] = {
+                itemID = itemID,
+                itemName = ItemName(itemID),
+                reason = warbank.undecided > 0
+                    and "variante indeterminee en Warbank"
+                    or "stock Warbank inconnu",
+            }
+        end
+
+        if pull <= 0 and buy <= 0 then
+            return false
+        end
+
         plan.entries[#plan.entries + 1] = {
             itemID = itemID,
             itemName = ItemName(itemID),
-            quantity = missing,
             variant = variant,
-            skillLineID = skillLineID,
-            professionLabel = professionLabel,
-            reason = reason,
+            need = missing,
+            owned = owned,
+            queued = queued,
+            warbank = warbank,
+            pull = pull,
+            buy = buy,
+            reason = options.reason,
+            skillLineID = options.skillLineID,
+            professionLabel = options.professionLabel,
         }
-        plan.quantity = plan.quantity + missing
+        plan.pullQuantity = plan.pullQuantity + pull
+        plan.buyQuantity = plan.buyQuantity + buy
         if variant then
-            plan.gearQuantity = plan.gearQuantity + missing
+            plan.gearQuantity = plan.gearQuantity + buy
         else
-            plan.enchantQuantity = plan.enchantQuantity + missing
+            plan.enchantQuantity = plan.enchantQuantity + buy
         end
         return true
+    end
+
+    -- Les enchantements se cumulent AVANT d'etre proposes. Deux besoins du
+    -- meme parchemin -- un outil possede a re-enchanter, un outil encore a
+    -- acheter -- se partagent le meme stock : les traiter separement ferait
+    -- deduire deux fois le meme exemplaire en sac, et n'en acheterait aucun.
+    local enchantNeeds = {}
+    local enchantReason = {}
+
+    for itemID, quantity in pairs(state.requiredByItemID or EMPTY_TABLE) do
+        enchantNeeds[itemID] = (enchantNeeds[itemID] or 0) + quantity
+        enchantReason[itemID] = "enchantement d'un outil possede"
     end
 
     for _, row in ipairs(trackedRows) do
@@ -5808,9 +5608,30 @@ trackerUI.BuildProfessionGearPurchasePlan = function(trackedRows)
                 if not variant then
                     plan.unknownStats[#plan.unknownStats + 1] = need.statKey or "?"
                 elseif candidates.tool then
-                    Add(candidates.tool, 1, variant, row.skillLineID, professionLabel, true, need.reason)
+                    Add(candidates.tool, 1, variant, {
+                        wantTool = true,
+                        skillLineID = row.skillLineID,
+                        professionLabel = professionLabel,
+                        reason = need.reason,
+                    })
+                    -- L'enchantement part avec l'outil : un outil obtenu nu
+                    -- resterait a enchanter, et son rappel n'apparaitrait qu'au
+                    -- scan suivant. Un outil de recolte, demande sans
+                    -- statistique, n'en reclame aucun : la stat de l'exemplaire
+                    -- obtenu n'est pas connue d'avance.
+                    local needStatInfo = need.statKey
+                        and runtimeState.professionToolEnchantments.byStat[need.statKey]
+                        or nil
+                    if needStatInfo then
+                        enchantNeeds[needStatInfo.itemID] =
+                            (enchantNeeds[needStatInfo.itemID] or 0) + 1
+                        enchantReason[needStatInfo.itemID] =
+                            enchantReason[needStatInfo.itemID]
+                            or "enchantement de l'outil achete"
+                    end
                 end
             end
+
             if gear.pending then
                 plan.pending = true
             else
@@ -5829,8 +5650,12 @@ trackerUI.BuildProfessionGearPurchasePlan = function(trackedRows)
                     if added >= missingGearSlots then
                         break
                     end
-                    local variant = trackerUI.BuildProfessionGearVariant(nil)
-                    if Add(itemID, 1, variant, row.skillLineID, professionLabel, false, "accessoire") then
+                    if Add(itemID, 1, trackerUI.BuildProfessionGearVariant(nil), {
+                        wantTool = false,
+                        skillLineID = row.skillLineID,
+                        professionLabel = professionLabel,
+                        reason = "accessoire",
+                    }) then
                         added = added + 1
                     end
                 end
@@ -5838,15 +5663,20 @@ trackerUI.BuildProfessionGearPurchasePlan = function(trackedRows)
         end
     end
 
-    -- Les enchantements des outils a acheter, plafonnes par le deficit reel
-    -- calcule par le scan : sacs, Warbank et file deja deduits. Un scroll
-    -- d'enchantement est une marchandise banale, sans variante a cibler.
-    for itemID, quantity in pairs(state.futureToolEnchantByItemID or EMPTY_TABLE) do
-        local planned = state.planByItemID[itemID]
-        local buyQuantity = math.min(quantity, planned and planned.buy or 0)
-        if buyQuantity > 0 then
-            Add(itemID, buyQuantity, nil, nil, nil, nil, "enchantement de l'outil achete")
-        end
+    for itemID, quantity in pairs(enchantNeeds) do
+        Add(itemID, quantity, nil, { reason = enchantReason[itemID] })
+    end
+
+    -- Les traites ne se recuperent que depuis la Warbank : aucun candidat
+    -- d'achat n'est tenu pour eux, et un traite absent de la banque n'est pas
+    -- commande a l'hotel des ventes.
+    for _, treatise in ipairs(trackerUI.GetMissingMidnightTreatises(trackedRows)) do
+        Add(treatise.itemID, 1, nil, {
+            pullOnly = true,
+            skillLineID = treatise.skillLineID,
+            professionLabel = treatise.label,
+            reason = "traite " .. tostring(treatise.label or ""),
+        })
     end
 
     -- Le plan est journalise : c'est la seule facon de savoir en jeu pourquoi
@@ -5854,139 +5684,136 @@ trackerUI.BuildProfessionGearPurchasePlan = function(trackedRows)
     -- de reecrire la meme ligne a chaque rafraichissement.
     local planParts = {}
     for _, entry in ipairs(plan.entries) do
-        planParts[#planParts + 1] = ("%dx%d/%s"):format(
-            entry.quantity,
+        planParts[#planParts + 1] = ("%dx%d/%s%s"):format(
+            entry.buy > 0 and entry.buy or entry.pull,
             entry.itemID,
             entry.variant
                 and (tostring(entry.variant.statKey or "rank")
                     .. ":" .. tostring(entry.variant.minItemLevel or 0))
-                or "enchant")
+                or "enchant",
+            entry.pull > 0 and ("+wb" .. entry.pull) or "")
     end
     table.sort(planParts)
-    local planSignature = ("gear=%d ench=%d pending=%s invalid=%d unknownStats=%d :: %s"):format(
+    local planSignature = ("gear=%d ench=%d pull=%d blocked=%d pending=%s invalid=%d unknownStats=%d :: %s"):format(
         plan.gearQuantity,
         plan.enchantQuantity,
+        plan.pullQuantity,
+        #plan.blocked,
         tostring(plan.pending),
         #plan.invalidCandidates,
         #plan.unknownStats,
         #planParts > 0 and table.concat(planParts, ",") or "none")
-    if planSignature ~= debugSignatures.professionGearPlan then
-        debugSignatures.professionGearPlan = planSignature
-        DebugLog("Profession gear plan = %s", planSignature)
+    if planSignature ~= debugSignatures.professionSupplyPlan then
+        debugSignatures.professionSupplyPlan = planSignature
+        DebugLog("Profession supply plan = %s", planSignature)
     end
 
     return plan
 end
 
-trackerUI.QueueProfessionGearPurchases = function()
+-- Le prochain objet que la Warbank peut rendre, avec son emplacement. Un seul
+-- par appel : le bouton sort les objets un a un.
+trackerUI.FindNextSupplyPull = function(plan)
+    for _, entry in ipairs(plan and plan.entries or EMPTY_TABLE) do
+        if entry.pull > 0 then
+            for _, slot in ipairs(entry.warbank and entry.warbank.slots or EMPTY_TABLE) do
+                if slot.bagID and slot.slotIndex and (slot.stackCount or 0) > 0 then
+                    return {
+                        itemID = entry.itemID,
+                        bagID = slot.bagID,
+                        slotIndex = slot.slotIndex,
+                        quantity = math.min(entry.pull, slot.stackCount or 1),
+                        label = entry.itemName,
+                    }
+                end
+            end
+        end
+    end
+    return nil
+end
+
+trackerUI.QueueProfessionSupplyPurchases = function(plan)
     if not YayaQueueAPI or type(YayaQueueAPI.AddItem) ~= "function" then
         print("YWT: YayaQueue n'est pas disponible")
-        return
+        return false
     end
 
-    local plan = trackerUI.BuildProfessionGearPurchasePlan()
+    plan = plan or trackerUI.BuildProfessionSupplyPlan()
     local queuedQuantity = 0
     for _, entry in ipairs(plan.entries) do
-        YayaQueueAPI.AddItem(entry.itemID, entry.quantity, entry.itemName, entry.variant)
-        queuedQuantity = queuedQuantity + entry.quantity
-    end
-    if queuedQuantity > 0 and type(YayaQueueAPI.Refresh) == "function" then
-        YayaQueueAPI.Refresh()
+        if entry.buy > 0 then
+            YayaQueueAPI.AddItem(entry.itemID, entry.buy, entry.itemName, entry.variant)
+            queuedQuantity = queuedQuantity + entry.buy
+        end
     end
     if queuedQuantity > 0 then
-        print(("YWT: %d equipement(s) et %d enchantement(s) d'outil ajoute(s) a YayaQueue"):format(
+        if type(YayaQueueAPI.Refresh) == "function" then
+            YayaQueueAPI.Refresh()
+        end
+        print(("YWT: %d equipement(s) et %d enchantement(s) ajoute(s) a YayaQueue"):format(
             plan.gearQuantity, plan.enchantQuantity))
     end
     trackerUI.InvalidateToolEnchantCache()
     ScheduleTrackerRefresh(0.05, false)
+    return queuedQuantity > 0
 end
 
-trackerUI.UpdateProfessionGearBuyButton = function(plan)
-    local button = trackerFrame and trackerFrame.professionGearBuyButton
+-- Un seul bouton, et son libelle annonce ce que le PROCHAIN clic va faire :
+-- sortir un objet de la Warbank tant qu'il y en a et qu'elle est ouverte,
+-- mettre en file l'achat du reste sinon. C'est « si present en Warbank, sinon
+-- l'hotel des ventes » ramene a un seul geste, que l'autoclicker peut marteler
+-- jusqu'a extinction.
+trackerUI.UpdateProfessionSupplyButton = function(plan)
+    local button = trackerFrame and trackerFrame.professionSupplyButton
     if not button then
         return false
     end
-    if not plan or (plan.quantity or 0) <= 0 then
-        button.gearPlan = nil
+    if not plan or (#plan.entries == 0 and #plan.blocked == 0) then
+        button.supplyPlan = nil
+        button.supplyPull = nil
         button:Hide()
         return false
     end
 
+    -- La recuperation n'est proposee que banque ouverte : les emplacements de
+    -- l'instantane ne sont adressables que la. Le plan, lui, sait deja que
+    -- l'objet y dort, et c'est ce qui empeche de le racheter entre-temps.
+    local pullRequest = trackerUI.IsAccountBankOpen()
+        and trackerUI.FindNextSupplyPull(plan)
+        or nil
     local queueAvailable = YayaQueueAPI and type(YayaQueueAPI.AddItem) == "function"
-    -- Les enchantements comptent a part : sans cette distinction, un `x4` sur
-    -- trois emplacements fautifs passait pour une erreur de comptage. Un plan
-    -- reduit au seul enchantement arrive quand le candidat d'outil est refuse
-    -- ou pas encore charge : le libelle doit alors dire ce qu'il achete.
-    if plan.gearQuantity <= 0 then
-        button:SetText(("Acheter ench outil YQ x%d"):format(plan.enchantQuantity))
-    elseif plan.enchantQuantity > 0 then
-        button:SetText(("Acheter stuff YQ x%d +%de"):format(plan.gearQuantity, plan.enchantQuantity))
+    local enabled
+
+    if pullRequest then
+        button:SetText(("Récupérer WB x%d"):format(plan.pullQuantity))
+        enabled = true
+    elseif plan.buyQuantity > 0 then
+        -- Les enchantements comptent a part : sans cette distinction, un `x4`
+        -- sur trois emplacements fautifs passait pour une erreur de comptage.
+        if plan.gearQuantity <= 0 then
+            button:SetText(("Acheter ench YQ x%d"):format(plan.enchantQuantity))
+        elseif plan.enchantQuantity > 0 then
+            button:SetText(("Acheter stuff YQ x%d +%de"):format(
+                plan.gearQuantity, plan.enchantQuantity))
+        else
+            button:SetText(("Acheter stuff YQ x%d"):format(plan.gearQuantity))
+        end
+        enabled = queueAvailable == true
+    elseif plan.pullQuantity > 0 then
+        button:SetText(("Récupérer WB x%d"):format(plan.pullQuantity))
+        enabled = false
     else
-        button:SetText(("Acheter stuff YQ x%d"):format(plan.gearQuantity))
+        button:SetText(("Approvisionner x%d"):format(#plan.blocked))
+        enabled = false
     end
-    button:SetEnabled(queueAvailable == true)
-    button.gearPlan = plan
+
+    button.supplyPlan = plan
+    button.supplyPull = pullRequest
+    if not button.itemActionLocked then
+        button:SetEnabled(enabled == true)
+    end
     button:Show()
     return true
-end
-
-trackerUI.QueueToolEnchantPurchases = function()
-    if not YayaQueueAPI or type(YayaQueueAPI.AddItem) ~= "function" then
-        print("YWT: YayaQueue n'est pas disponible")
-        return
-    end
-
-    local state = trackerUI.FindToolEnchantState(GetTrackedMidnightProfessions())
-    local queuedQuantity = 0
-    for _, plan in ipairs(state.buyPlan or EMPTY_TABLE) do
-        if plan.quantity > 0 then
-            YayaQueueAPI.AddItem(plan.itemID, plan.quantity, plan.itemName)
-            queuedQuantity = queuedQuantity + plan.quantity
-        end
-    end
-    if queuedQuantity > 0 and type(YayaQueueAPI.Refresh) == "function" then
-        YayaQueueAPI.Refresh()
-        print(("YWT: %d enchantement(s) ajouté(s) à YayaQueue"):format(queuedQuantity))
-    end
-    trackerUI.InvalidateToolEnchantCache()
-    ScheduleTrackerRefresh(0.05, false)
-end
-
-trackerUI.UpdateToolEnchantButtons = function(state)
-    local pullButton = trackerFrame and trackerFrame.toolEnchantPullButton
-    local buyButton = trackerFrame and trackerFrame.toolEnchantBuyButton
-    if not pullButton or not buyButton then
-        return false, false
-    end
-
-    local hasPull = state and (state.pullQuantity or 0) > 0
-    local hasBuy = state and (state.buyQuantity or 0) > 0
-    if hasPull then
-        local canPull = state.bankOpen and state.bankKnown and #state.pullPlan > 0
-        pullButton:SetText(("Pull enchants Warbank x%d"):format(state.pullQuantity))
-        -- Le verrou pose par un transfert en cours prime : le rendre a l'etat
-        -- du plan rearmerait le bouton avant BAG_UPDATE_DELAYED.
-        if not pullButton.itemActionLocked then
-            pullButton:SetEnabled(canPull)
-        end
-        pullButton.pullState = state
-        pullButton:Show()
-    else
-        pullButton.pullState = nil
-        pullButton:Hide()
-    end
-
-    if hasBuy then
-        local queueAvailable = YayaQueueAPI and type(YayaQueueAPI.AddItem) == "function"
-        buyButton:SetText(("Acheter enchants YQ x%d"):format(state.buyQuantity))
-        buyButton:SetEnabled(queueAvailable == true)
-        buyButton.buyState = state
-        buyButton:Show()
-    else
-        buyButton.buyState = nil
-        buyButton:Hide()
-    end
-    return hasPull, hasBuy
 end
 
 trackerUI.UpdateToolEnchantApplyButtons = function(state)
@@ -8744,16 +8571,13 @@ trackerUI.actionButtonFields = {
     "recipeButton",
     "recipeMarlButton",
     "treasureButton",
-    "toolEnchantPullButton",
-    "toolEnchantBuyButton",
-    "professionGearBuyButton",
+    "professionSupplyButton",
     "autoOpenButton",
 }
 
 trackerUI.actionButtonPools = {
     "surplusReagentButtons",
     "finishingReagentMergeButtons",
-    "warbankTreatiseButtons",
     "toolEnchantApplyButtons",
 }
 
@@ -8997,14 +8821,12 @@ UpdateTracker = function()
         local payoutItemState = DebugSafeCall("FindArtisanConsortiumPayoutInBags", FindArtisanConsortiumPayoutInBags)
         local surplusReagentStates = DebugSafeCall("FindSurplusReagentContainersInBags", trackerUI.FindSurplusReagentContainersInBags)
         local finishingReagentMergeStates = DebugSafeCall("FindMergeableFinishingReagentsInBags", trackerUI.FindMergeableFinishingReagentsInBags)
-        local warbankTreatiseState = DebugSafeCall("FindMissingMidnightTreatisesInWarbank", trackerUI.FindMissingMidnightTreatisesInWarbank, trackedRows)
         local hasKnowledgeButton = DebugSafeCall("UpdateMidnightKnowledgeButton", trackerUI.UpdateMidnightKnowledgeButton, knowledgeItemState) or false
         local hasRecipeButton = DebugSafeCall("UpdateMidnightRecipeButton", trackerUI.UpdateMidnightRecipeButton, recipeItemState) or false
         local hasRecipeMarlButton = DebugSafeCall("UpdateMidnightRecipeTransferButton", trackerUI.UpdateMidnightRecipeTransferButton, trackedRows) or false
         local hasPayoutButton = DebugSafeCall("UpdateArtisanConsortiumPayoutButton", trackerUI.UpdateArtisanConsortiumPayoutButton, payoutItemState) or false
         local surplusButtonCount = DebugSafeCall("UpdateSurplusReagentButtons", trackerUI.UpdateSurplusReagentButtons, surplusReagentStates) or 0
         local finishingReagentMergeButtonCount = DebugSafeCall("UpdateFinishingReagentMergeButtons", trackerUI.UpdateFinishingReagentMergeButtons, finishingReagentMergeStates) or 0
-        local warbankTreatiseButtonCount = DebugSafeCall("UpdateWarbankTreatiseButtons", trackerUI.UpdateWarbankTreatiseButtons, warbankTreatiseState) or 0
         DebugSafeCall("EnsureEnchantingWeeklyQueueItem", trackerUI.EnsureEnchantingWeeklyQueueItem, trackedRows)
         local hasTreasureButton = DebugSafeCall("UpdateMidnightTreasureButton", trackerUI.UpdateMidnightTreasureButton, trackedRows) or false
         local accountDB = GetAccountDB()
@@ -9026,25 +8848,18 @@ UpdateTracker = function()
                 toolEnchantState
             )
         end
-        local hasToolEnchantPullButton, hasToolEnchantBuyButton = DebugSafeCall(
-            "UpdateToolEnchantButtons",
-            trackerUI.UpdateToolEnchantButtons,
-            trackProfessionToolEnchants and toolEnchantState or nil
-        )
-        hasToolEnchantPullButton = hasToolEnchantPullButton or false
-        hasToolEnchantBuyButton = hasToolEnchantBuyButton or false
         local toolEnchantApplyButtonCount = DebugSafeCall(
             "UpdateToolEnchantApplyButtons",
             trackerUI.UpdateToolEnchantApplyButtons,
             trackProfessionToolEnchants and toolEnchantState or nil
         ) or 0
-        local hasProfessionGearBuyButton = DebugSafeCall(
-            "UpdateProfessionGearBuyButton",
-            trackerUI.UpdateProfessionGearBuyButton,
+        local hasSupplyButton = DebugSafeCall(
+            "UpdateProfessionSupplyButton",
+            trackerUI.UpdateProfessionSupplyButton,
             trackProfessionGear
                 and DebugSafeCall(
-                    "BuildProfessionGearPurchasePlan",
-                    trackerUI.BuildProfessionGearPurchasePlan,
+                    "BuildProfessionSupplyPlan",
+                    trackerUI.BuildProfessionSupplyPlan,
                     trackedRows)
                 or nil
         ) or false
@@ -9069,10 +8884,10 @@ UpdateTracker = function()
             and not (InCombatLockdown and InCombatLockdown()) then
             autoOpenButton:Hide()
         end
-        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|fm=%d|wb=%d|tt=%s|tep=%s|teb=%s|tea=%d|pgb=%s|ao=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton), toolEnchantApplyButtonCount, tostring(hasProfessionGearBuyButton), tostring(hasAutoOpenButton))
+        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|fm=%d|tt=%s|tea=%d|sup=%s|ao=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, tostring(hasTreasureButton), toolEnchantApplyButtonCount, tostring(hasSupplyButton), tostring(hasAutoOpenButton))
         if trackerDebugSignature ~= debugSignatures.tracker then
             debugSignatures.tracker = trackerDebugSignature
-            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d mergeButtons=%d warbankTreatiseButtons=%d treasureButton=%s toolPull=%s toolBuy=%s toolApply=%d gearBuy=%s autoOpen=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, warbankTreatiseButtonCount, tostring(hasTreasureButton), tostring(hasToolEnchantPullButton), tostring(hasToolEnchantBuyButton), toolEnchantApplyButtonCount, tostring(hasProfessionGearBuyButton), tostring(hasAutoOpenButton))
+            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d mergeButtons=%d treasureButton=%s toolApply=%d supplyButton=%s autoOpen=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, tostring(hasTreasureButton), toolEnchantApplyButtonCount, tostring(hasSupplyButton), tostring(hasAutoOpenButton))
         end
         local hasUsefulEntry = false
         for _, entry in ipairs(entries) do
@@ -9081,7 +8896,7 @@ UpdateTracker = function()
                 break
             end
         end
-        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and finishingReagentMergeButtonCount == 0 and warbankTreatiseButtonCount == 0 and not hasTreasureButton and not hasToolEnchantPullButton and not hasToolEnchantBuyButton and toolEnchantApplyButtonCount == 0 and not hasProfessionGearBuyButton and not hasAutoOpenButton then
+        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and finishingReagentMergeButtonCount == 0 and not hasTreasureButton and toolEnchantApplyButtonCount == 0 and not hasSupplyButton and not hasAutoOpenButton then
             DebugLog("UpdateTracker hide frame: all professions complete and no other actions")
             trackerFrame:Hide()
             if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
@@ -9143,13 +8958,8 @@ UpdateTracker = function()
         for index = 1, finishingReagentMergeButtonCount do
             AddAction(trackerFrame.finishingReagentMergeButtons[index])
         end
-        for index = 1, warbankTreatiseButtonCount do
-            AddAction(trackerFrame.warbankTreatiseButtons[index])
-        end
         AddAction(hasTreasureButton and trackerFrame.treasureButton)
-        AddAction(hasToolEnchantPullButton and trackerFrame.toolEnchantPullButton)
-        AddAction(hasToolEnchantBuyButton and trackerFrame.toolEnchantBuyButton)
-        AddAction(hasProfessionGearBuyButton and trackerFrame.professionGearBuyButton)
+        AddAction(hasSupplyButton and trackerFrame.professionSupplyButton)
         for index = 1, toolEnchantApplyButtonCount do
             AddAction(trackerFrame.toolEnchantApplyButtons[index])
         end
@@ -9529,32 +9339,6 @@ trackerUI.CreateTrackerFrame = function()
         trackerFrame.finishingReagentMergeButtons[index] = button
     end
 
-    trackerFrame.warbankTreatiseButtons = {}
-    for index = 1, 11 do
-        local button = CreateFrame("Button", addonName .. "WarbankTreatiseButton" .. index, trackerFrame, "UIPanelButtonTemplate")
-        button:SetSize(178, YayaCore.UI.ACTION.height)
-        button:RegisterForClicks("AnyUp")
-        button:SetText("Récupérer traité")
-        button:Hide()
-        button:SetScript("OnClick", function(self, _, down)
-            if down then
-                return
-            end
-            trackerUI.PullWarbankTreatise(self)
-        end)
-        button:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_TOP")
-            GameTooltip:SetText("Récupère un seul traité depuis la Warbank.")
-            if self.itemLink then
-                GameTooltip:AddLine(self.itemLink, 0.5, 0.8, 1, true)
-            end
-            GameTooltip:AddLine("Le reste du stack reste dans la Warbank.", 1, 1, 1, true)
-            GameTooltip:Show()
-        end)
-        button:SetScript("OnLeave", GameTooltip_Hide)
-        trackerFrame.warbankTreatiseButtons[index] = button
-    end
-
     trackerFrame.treasureButton = CreateFrame("Button", addonName .. "TreasureButton", trackerFrame, "UIPanelButtonTemplate")
     trackerFrame.treasureButton:SetSize(178, YayaCore.UI.ACTION.height)
     trackerFrame.treasureButton:RegisterForClicks("AnyUp")
@@ -9574,115 +9358,92 @@ trackerUI.CreateTrackerFrame = function()
     end)
     trackerFrame.treasureButton:SetScript("OnLeave", GameTooltip_Hide)
 
-    trackerFrame.toolEnchantPullButton = CreateFrame("Button", addonName .. "ToolEnchantPullButton", trackerFrame, "UIPanelButtonTemplate")
-    trackerFrame.toolEnchantPullButton:SetSize(178, YayaCore.UI.ACTION.height)
-    trackerFrame.toolEnchantPullButton:RegisterForClicks("AnyUp", "AnyDown")
-    trackerFrame.toolEnchantPullButton:SetText("Pull enchants Warbank")
-    trackerFrame.toolEnchantPullButton:Hide()
-    trackerFrame.toolEnchantPullButton:SetScript("OnClick", function(self, _, down)
+    trackerFrame.professionSupplyButton = CreateFrame("Button", addonName .. "ProfessionSupplyButton", trackerFrame, "UIPanelButtonTemplate")
+    trackerFrame.professionSupplyButton:SetSize(178, YayaCore.UI.ACTION.height)
+    trackerFrame.professionSupplyButton:RegisterForClicks("AnyUp", "AnyDown")
+    trackerFrame.professionSupplyButton:SetText("Approvisionner")
+    trackerFrame.professionSupplyButton:Hide()
+    trackerFrame.professionSupplyButton:SetScript("OnClick", function(self, _, down)
         if down then
             return
         end
-        trackerUI.PullToolEnchantItems(self)
+        -- La Warbank d'abord, l'hotel des ventes ensuite : c'est la regle du
+        -- plan, et le libelle du bouton l'a deja annoncee.
+        if self.supplyPull then
+            trackerUI.PullFromWarbank(self.supplyPull, self)
+        else
+            trackerUI.QueueProfessionSupplyPurchases(self.supplyPlan)
+        end
     end)
-    trackerFrame.toolEnchantPullButton:SetScript("OnEnter", function(self)
+    trackerFrame.professionSupplyButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Récupère uniquement la quantité nécessaire depuis la Warbank.")
-        local state = self.pullState
-        if state and state.pullQuantity then
-            GameTooltip:AddLine(("À récupérer : %d"):format(state.pullQuantity), 1, 1, 1, true)
-        end
-        -- Le compteur annonce le reste a faire ; un clic ne sort qu'un objet.
-        GameTooltip:AddLine("Un clic sort un seul objet : reclique jusqu'à extinction.", 0.7, 0.7, 0.7, true)
-        if not self:IsEnabled() then
-            GameTooltip:AddLine("Ouvre la Warbank et attends le chargement de son contenu.", 1, 0.6, 0.2, true)
-        end
-        GameTooltip:Show()
-    end)
-    trackerFrame.toolEnchantPullButton:SetScript("OnLeave", GameTooltip_Hide)
+        GameTooltip:SetText("Complete l'equipement de metier : Warbank d'abord, hotel des ventes ensuite.")
+        local plan = self.supplyPlan
 
-    trackerFrame.toolEnchantBuyButton = CreateFrame("Button", addonName .. "ToolEnchantBuyButton", trackerFrame, "UIPanelButtonTemplate")
-    trackerFrame.toolEnchantBuyButton:SetSize(178, YayaCore.UI.ACTION.height)
-    trackerFrame.toolEnchantBuyButton:RegisterForClicks("AnyUp", "AnyDown")
-    trackerFrame.toolEnchantBuyButton:SetText("Acheter enchants YQ")
-    trackerFrame.toolEnchantBuyButton:Hide()
-    trackerFrame.toolEnchantBuyButton:SetScript("OnClick", function(_, _, down)
-        if down then
-            return
-        end
-        trackerUI.QueueToolEnchantPurchases()
-    end)
-    trackerFrame.toolEnchantBuyButton:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Ajoute les déficits d'enchantements à la queue YayaQueue.")
-        local state = self.buyState
-        if state and state.buyQuantity then
-            GameTooltip:AddLine(("À acheter : %d"):format(state.buyQuantity), 1, 1, 1, true)
-        end
-        for _, plan in pairs(state and state.planByItemID or EMPTY_TABLE) do
-            if plan.required > 0 then
-                GameTooltip:AddLine(
-                    ("%s : %d requis - %d sacs - %d banque - %d en file = %d"):format(
-                        plan.itemName or ("item:" .. tostring(plan.itemID)),
-                        plan.required, plan.bag, plan.bank, plan.queued, plan.buy),
-                    0.7, 0.7, 0.7, true)
-                if not plan.bankKnown then
-                    GameTooltip:AddLine(
-                        "Stock Warbank inconnu : ouvre la Warbank ou charge TSM.",
-                        1, 0.6, 0.2, true)
-                end
+        local function DescribeVariant(variant)
+            if not variant then
+                return nil
             end
+            if variant.statLabel then
+                return ("%s, ilvl >= %d"):format(variant.statLabel, variant.minItemLevel or 0)
+            end
+            return ("ilvl >= %d"):format(variant.minItemLevel or 0)
         end
-        if not self:IsEnabled() then
-            GameTooltip:AddLine("YayaQueue n'est pas disponible.", 1, 0.4, 0.4, true)
-        end
-        GameTooltip:Show()
-    end)
-    trackerFrame.toolEnchantBuyButton:SetScript("OnLeave", GameTooltip_Hide)
 
-    trackerFrame.professionGearBuyButton = CreateFrame("Button", addonName .. "ProfessionGearBuyButton", trackerFrame, "UIPanelButtonTemplate")
-    trackerFrame.professionGearBuyButton:SetSize(178, YayaCore.UI.ACTION.height)
-    trackerFrame.professionGearBuyButton:RegisterForClicks("AnyUp", "AnyDown")
-    trackerFrame.professionGearBuyButton:SetText("Acheter stuff YQ")
-    trackerFrame.professionGearBuyButton:Hide()
-    trackerFrame.professionGearBuyButton:SetScript("OnClick", function(_, _, down)
-        if down then
-            return
-        end
-        trackerUI.QueueProfessionGearPurchases()
-    end)
-    trackerFrame.professionGearBuyButton:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Ajoute l'equipement de metier manquant a la queue YayaQueue.")
-        local plan = self.gearPlan
-        for _, entry in ipairs(plan and plan.entries or EMPTY_TABLE) do
-            local variantLabel = entry.variant
-                and (entry.variant.statLabel
-                    and ("%s, ilvl >= %d"):format(entry.variant.statLabel, entry.variant.minItemLevel or 0)
-                    or ("ilvl >= %d"):format(entry.variant.minItemLevel or 0))
-                or nil
+        local function AddEntryLine(entry, quantity, colorR, colorG, colorB)
             GameTooltip:AddLine(
                 ("%sx %s (%s%s)"):format(
-                    tostring(entry.quantity or 1),
+                    tostring(quantity),
                     entry.itemName or ("item:" .. tostring(entry.itemID)),
                     entry.professionLabel and (entry.professionLabel .. " ") or "",
                     entry.reason or "?"),
-                0.7, 0.7, 0.7, true)
+                colorR, colorG, colorB, true)
+            local variantLabel = DescribeVariant(entry.variant)
             if variantLabel then
                 GameTooltip:AddLine(("    variante exigee : %s"):format(variantLabel), 0.5, 0.8, 1, true)
             end
         end
-        -- La file ecarte desormais les annonces non conformes : ce que le
-        -- bouton promet est ce qui sera achete, ou rien. Le rappel qui suit dit
-        -- ce qu'il advient quand aucune annonce ne convient, pour que le
-        -- silence ne passe pas pour une panne.
-        GameTooltip:AddLine(
-            ("YayaQueue n'achete qu'une annonce conforme (rang ilvl >= %d, statistique exigee pour un outil)."):format(
-                trackerUI.GetProfessionGearMinimumItemLevel()),
-            0.7, 1, 0.7, true)
-        GameTooltip:AddLine(
-            "Sans annonce conforme, la ligne HV reste a zero disponible plutot que d'acheter un rang 1.",
-            1, 0.6, 0.2, true)
+
+        if plan and plan.pullQuantity > 0 then
+            GameTooltip:AddLine("A recuperer depuis la Warbank :", 0.6, 1, 0.6, true)
+            for _, entry in ipairs(plan.entries) do
+                if entry.pull > 0 then
+                    AddEntryLine(entry, entry.pull, 0.7, 0.9, 0.7)
+                end
+            end
+            if not trackerUI.IsAccountBankOpen() then
+                GameTooltip:AddLine(
+                    "Ouvre la Warbank pour les sortir ; en attendant, ils ne sont pas rachetes.",
+                    1, 0.8, 0.4, true)
+            else
+                GameTooltip:AddLine("Un clic sort un seul objet : reclique jusqu'a extinction.",
+                    0.7, 0.7, 0.7, true)
+            end
+        end
+
+        if plan and plan.buyQuantity > 0 then
+            GameTooltip:AddLine("A acheter a l'hotel des ventes :", 1, 0.9, 0.6, true)
+            for _, entry in ipairs(plan.entries) do
+                if entry.buy > 0 then
+                    AddEntryLine(entry, entry.buy, 0.7, 0.7, 0.7)
+                end
+            end
+            -- La file ecarte les annonces non conformes : ce que le bouton
+            -- promet est ce qui sera achete, ou rien. Sans ce rappel, le
+            -- silence passerait pour une panne.
+            GameTooltip:AddLine(
+                ("YayaQueue n'achete qu'une annonce conforme (rang ilvl >= %d, statistique exigee pour un outil)."):format(
+                    trackerUI.GetProfessionGearMinimumItemLevel()),
+                0.7, 1, 0.7, true)
+        end
+
+        for _, blocked in ipairs(plan and plan.blocked or EMPTY_TABLE) do
+            GameTooltip:AddLine(
+                ("%s : %s, ni recupere ni achete."):format(
+                    blocked.itemName or ("item:" .. tostring(blocked.itemID)),
+                    blocked.reason or "verdict Warbank inconnu"),
+                1, 0.6, 0.2, true)
+        end
         for _, statKey in ipairs(plan and plan.unknownStats or EMPTY_TABLE) do
             GameTooltip:AddLine(
                 ("Statistique %s non ciblable : aucun bonusId connu, rien n'est propose."):format(statKey),
@@ -9692,11 +9453,11 @@ trackerUI.CreateTrackerFrame = function()
             GameTooltip:AddLine("Scan encore incomplet : le plan peut evoluer.", 1, 0.6, 0.2, true)
         end
         if not self:IsEnabled() then
-            GameTooltip:AddLine("YayaQueue n'est pas disponible.", 1, 0.6, 0.2, true)
+            GameTooltip:AddLine("Rien d'actionnable pour l'instant.", 1, 0.6, 0.2, true)
         end
         GameTooltip:Show()
     end)
-    trackerFrame.professionGearBuyButton:SetScript("OnLeave", GameTooltip_Hide)
+    trackerFrame.professionSupplyButton:SetScript("OnLeave", GameTooltip_Hide)
 
     trackerFrame.toolEnchantApplyButtons = {}
     -- Les outils de rechange en sac ont chacun leur bouton : 11 ne couvrait
@@ -9834,7 +9595,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
                 InvalidateArtisanConsortiumPayoutCache()
                 trackerUI.InvalidateSurplusReagentContainerCache()
                 trackerUI.InvalidateFinishingReagentMergeCache()
-                trackerUI.InvalidateWarbankTreatiseCache()
+                trackerUI.InvalidateWarbankCaches()
                 trackerUI.InvalidateToolEnchantCache()
                 debugSignatures.knowledge = nil
                 debugSignatures.payout = nil
@@ -9842,7 +9603,9 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
                 debugSignatures.trackedProfessions = nil
                 debugSignatures.tracker = nil
                 debugSignatures.treasure = nil
-                debugSignatures.warbankTreatises = nil
+                debugSignatures.midnightTreatises = nil
+                debugSignatures.warbankInventory = nil
+                debugSignatures.professionSupplyPlan = nil
                 debugSignatures.toolEnchants = nil
                 DebugLog("Forced debug refresh")
             elseif command == "log" then
@@ -9970,7 +9733,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             end
         end
         QueuePendingNzothCache(questID)
-        trackerUI.InvalidateWarbankTreatiseCache()
+        trackerUI.InvalidateWarbankCaches()
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "BAG_UPDATE_DELAYED" then
         runtimeState.itemActionRefreshPending = true
@@ -9982,7 +9745,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         InvalidateArtisanConsortiumPayoutCache()
         trackerUI.InvalidateSurplusReagentContainerCache()
         trackerUI.InvalidateFinishingReagentMergeCache()
-        trackerUI.InvalidateWarbankTreatiseCache()
+        trackerUI.InvalidateWarbankCaches()
         trackerUI.InvalidateToolEnchantCache()
         ScheduleTrackerRefresh(0, false)
         if runtimeState.abundanceEnchantingPurchasePending then
@@ -9993,18 +9756,18 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         end
     elseif event == "BANKFRAME_OPENED" then
         trackerUI.InstallWarbankRefreshHooks()
-        trackerUI.InvalidateWarbankTreatiseCache()
+        trackerUI.InvalidateWarbankCaches()
         trackerUI.InvalidateToolEnchantCache()
         ScheduleTrackerRefresh(0.05, false)
         if C_Timer and type(C_Timer.After) == "function" then
             C_Timer.After(0.75, function()
-                trackerUI.InvalidateWarbankTreatiseCache()
+                trackerUI.InvalidateWarbankCaches()
                 trackerUI.InvalidateToolEnchantCache()
                 ScheduleTrackerRefresh(0, false)
             end)
         end
     elseif event == "BANKFRAME_CLOSED" then
-        trackerUI.InvalidateWarbankTreatiseCache()
+        trackerUI.InvalidateWarbankCaches()
         trackerUI.InvalidateToolEnchantCache()
         ScheduleTrackerRefresh(0, false)
     elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW"
@@ -10012,12 +9775,12 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         local interactionType = ...
         if Enum and Enum.PlayerInteractionType
             and interactionType == Enum.PlayerInteractionType.AccountBanker then
-            trackerUI.InvalidateWarbankTreatiseCache()
+            trackerUI.InvalidateWarbankCaches()
             trackerUI.InvalidateToolEnchantCache()
             ScheduleTrackerRefresh(event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" and 0.05 or 0, false)
         end
     elseif event == "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED" then
-        trackerUI.InvalidateWarbankTreatiseCache()
+        trackerUI.InvalidateWarbankCaches()
         trackerUI.InvalidateToolEnchantCache()
         ScheduleTrackerRefresh(0.05, false)
     elseif event == "PLAYER_ENTERING_WORLD"
@@ -10026,7 +9789,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         or event == "TRADE_SKILL_SHOW"
         or event == "TRADE_SKILL_DATA_SOURCE_CHANGED" then
         InvalidateTrackedMidnightProfessions()
-        trackerUI.InvalidateWarbankTreatiseCache()
+        trackerUI.InvalidateWarbankCaches()
         trackerUI.InvalidateToolEnchantCache()
         ScheduleTrackerRefresh(0.05, true)
         trackerUI.ArmTradeSkillBootstrap(eventFrame)

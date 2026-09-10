@@ -124,9 +124,16 @@ end
 -- Multicrafting ilvl >= 232 -- pas l'itemID nu, qui rendrait le rang 1 -- et
 -- l'enchantement Multicraft (243995) avec lui. Les deux emplacements
 -- d'accessoire fautifs completent le plan, sur le rang seul.
+--
+-- Les trois enchantements sont desormais dans LE MEME plan : celui de l'outil
+-- a acheter (243995), et ceux des deux outils deja possedes mais nus -- le
+-- Resourcefulness equipe (243967) et le Multicrafting en sac (243995 lui
+-- aussi). Tant qu'il y avait deux boutons, ce plan-ci n'annoncait que le
+-- premier et les deux autres vivaient sur l'autre bouton, si bien qu'aucun des
+-- deux compteurs ne disait ce qui manquait vraiment.
 local planTrace
 for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
-    if entry:find("Profession gear plan", 1, true) then
+    if entry:find("Profession supply plan", 1, true) then
         planTrace = entry
     end
 end
@@ -136,8 +143,11 @@ else
     if not planTrace:find("multicrafting:232", 1, true) then
         Fail("l'outil Multicrafting n'est pas demande sur sa variante :: " .. planTrace)
     end
-    if not planTrace:find("1x243995/enchant", 1, true) then
-        Fail("l'enchantement Multicraft ne part pas avec l'outil :: " .. planTrace)
+    if not planTrace:find("2x243995/enchant", 1, true) then
+        Fail("les deux enchantements Multicraft ne sont pas demandes :: " .. planTrace)
+    end
+    if not planTrace:find("1x243967/enchant", 1, true) then
+        Fail("l'enchantement de l'outil Resourcefulness nu manque :: " .. planTrace)
     end
     if planTrace:find("resourcefulness:", 1, true) then
         Fail("un outil Resourcefulness conforme est possede, il ne doit rien declencher :: " .. planTrace)
@@ -146,7 +156,7 @@ else
     if not planTrace:find("rank:232", 1, true) then
         Fail("les accessoires ne sont pas demandes sur le rang :: " .. planTrace)
     end
-    if not planTrace:find("gear=3 ench=1", 1, true) then
+    if not planTrace:find("gear=3 ench=3", 1, true) then
         Fail("le decompte du plan est inattendu :: " .. planTrace)
     end
     if planTrace:find("unknownStats=[1-9]") then
@@ -172,7 +182,7 @@ for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
     if entry:find("gear%[2906%]") then
         swappedGearTrace = entry
     end
-    if entry:find("Profession gear plan", 1, true) then
+    if entry:find("Profession supply plan", 1, true) then
         swappedPlanTrace = entry
     end
 end
@@ -194,9 +204,10 @@ else
         Fail("un outil Multicrafting conforme est equipe, il ne doit rien declencher :: "
             .. swappedPlanTrace)
     end
-    -- Restent les deux accessoires, sur le rang seul, et plus aucun
-    -- enchantement d'outil a acheter puisque plus aucun outil n'est demande.
-    if not swappedPlanTrace:find("gear=2 ench=0", 1, true) then
+    -- Restent les deux accessoires sur le rang seul, et les enchantements des
+    -- deux outils possedes : aucun outil n'est plus a acheter, mais les deux
+    -- exemplaires en main sont toujours nus.
+    if not swappedPlanTrace:find("gear=2 ench=2", 1, true) then
         Fail("le decompte du plan est inattendu apres l'echange d'outil :: " .. swappedPlanTrace)
     end
 end
@@ -325,15 +336,19 @@ OpenWarbankFixture()
 FireEvent("BANKFRAME_OPENED")
 RunTimers(5)
 
-local treatiseButton = _G.YayaWeeklyTrackerWarbankTreatiseButton1
-if not treatiseButton or not treatiseButton:IsShown() then
-    Fail("le bouton de traite Warbank n'apparait pas alors qu'un stack y dort")
+local supplyButton = _G.YayaWeeklyTrackerProfessionSupplyButton
+if not supplyButton or not supplyButton:IsShown() then
+    Fail("le bouton d'approvisionnement n'apparait pas alors qu'il reste des manques")
+elseif not (supplyButton.__text or ""):find("Récupérer WB") then
+    -- Warbank ouverte et objets conformes dedans : le prochain clic recupere,
+    -- il n'achete pas. Le libelle doit le dire.
+    Fail("le bouton n'annonce pas la recuperation Warbank :: " .. tostring(supplyButton.__text))
 else
     TRANSFER_CALLS = {}
-    treatiseButton.__scripts.OnClick(treatiseButton, "LeftButton", false)
-    -- Stack de trois : un split d'une unite, puis le depot dans les sacs.
-    if TRANSFER_CALLS[1] ~= "Split 16:1 x1" then
-        Fail("le transfert ne sort pas une seule unite du bon emplacement :: "
+    supplyButton.__scripts.OnClick(supplyButton, "LeftButton", false)
+    -- L'accessoire conforme dort en 14:3, seul exemplaire de sa pile.
+    if TRANSFER_CALLS[1] ~= "Pickup 14:3" then
+        Fail("le transfert ne part pas du bon emplacement Warbank :: "
             .. tostring(TRANSFER_CALLS[1]))
     end
     if not (TRANSFER_CALLS[2] or ""):find("^Pickup ") then
@@ -345,21 +360,34 @@ else
 
     -- Verrou anti-multiclic : rien avant le rafraichissement suivant.
     local afterFirst = #TRANSFER_CALLS
-    treatiseButton.__scripts.OnClick(treatiseButton, "LeftButton", false)
+    supplyButton.__scripts.OnClick(supplyButton, "LeftButton", false)
     if #TRANSFER_CALLS ~= afterFirst then
         Fail("un second clic immediat sort un deuxieme objet")
     end
 
     -- Curseur charge : le transfert doit renoncer, sinon il echange
     -- silencieusement ce que le curseur porte contre l'objet vise.
-    treatiseButton.itemActionLocked = false
+    supplyButton.itemActionLocked = false
     local previousCursor = GetCursorInfo
     GetCursorInfo = function() return "item", 12345 end
     TRANSFER_CALLS = {}
-    treatiseButton.__scripts.OnClick(treatiseButton, "LeftButton", false)
+    supplyButton.__scripts.OnClick(supplyButton, "LeftButton", false)
     GetCursorInfo = previousCursor
     if #TRANSFER_CALLS ~= 0 then
         Fail("un curseur charge n'empeche pas le transfert")
+    end
+end
+
+-- 8. Un seul bouton : les trois anciens ont disparu, et le raccourci partage
+-- ne peut plus tomber sur un doublon.
+for _, name in ipairs({
+    "YayaWeeklyTrackerToolEnchantPullButton",
+    "YayaWeeklyTrackerToolEnchantBuyButton",
+    "YayaWeeklyTrackerProfessionGearBuyButton",
+    "YayaWeeklyTrackerWarbankTreatiseButton1",
+}) do
+    if _G[name] then
+        Fail("un bouton remplace existe encore : " .. name)
     end
 end
 CloseWarbankFixture()
