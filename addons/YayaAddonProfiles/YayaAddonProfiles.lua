@@ -30,7 +30,7 @@ local promptReloadCheck
 local sortHeaders = {}
 local selectedCharacterIds = {}
 local characterIdsByIndex = {}
-local lastSelectedCharacterIndex
+local lastSelectedCharacterId
 local reloadQueued = false
 local pendingLoginProfile
 local ToggleSelectedCharacter
@@ -724,6 +724,38 @@ local function SetSortKey(key)
 	end
 end
 
+-- Ordre d'affichage courant, hors de RefreshUi parce que la selection par plage
+-- en depend : le shift-clic doit pouvoir parcourir les lignes meme quand la
+-- fenetre n'a pas encore ete construite, et surtout relire l'ordre du moment
+-- plutot que celui d'un tri precedent.
+local function RebuildCharacterOrder(characters)
+	local previousCount = #characterIdsByIndex
+	for index, character in ipairs(characters) do
+		characterIdsByIndex[index] = character.id
+	end
+	for index = #characters + 1, previousCount do
+		characterIdsByIndex[index] = nil
+	end
+	return characterIdsByIndex
+end
+
+-- Position d'affichage d'un personnage, ou nil s'il n'est plus a l'ecran.
+local function CharacterDisplayIndex(characterId)
+	if not characterId then
+		return nil
+	end
+	for index = 1, #characterIdsByIndex do
+		if characterIdsByIndex[index] == characterId then
+			return index
+		end
+	end
+	return nil
+end
+
+local function IsCharacterSelected(characterId)
+	return selectedCharacterIds[characterId] == true
+end
+
 local function GetSelectedCharacterCount()
 	local count = 0
 	for _ in pairs(selectedCharacterIds) do
@@ -736,7 +768,7 @@ local function ClearSelectedCharacters()
 	for characterId in pairs(selectedCharacterIds) do
 		selectedCharacterIds[characterId] = nil
 	end
-	lastSelectedCharacterIndex = nil
+	lastSelectedCharacterId = nil
 end
 
 local function SelectAllCharacters()
@@ -817,18 +849,14 @@ local function RefreshUi()
 	-- sur la frame. Il voyage dans un objet d'affichage, jamais dans l'entree
 	-- persistee, qui partirait telle quelle dans les SavedVariables.
 	local characters = SortedCharacters()
-	local previousCount = #characterIdsByIndex
+	RebuildCharacterOrder(characters)
 	local characterItems = {}
 	for index, character in ipairs(characters) do
-		characterIdsByIndex[index] = character.id
 		characterItems[index] = {
 			id = character.id,
 			character = character,
 			index = index,
 		}
-	end
-	for index = #characters + 1, previousCount do
-		characterIdsByIndex[index] = nil
 	end
 	if characterList then
 		-- Ici le repeint suffit, et c'est une propriete de l'initialiseur, pas
@@ -836,6 +864,12 @@ local function RefreshUi()
 		-- le niveau depuis l'etat vivant, jamais depuis l'element. Cocher un
 		-- personnage ne retire ni n'ajoute personne et ne change pas l'ordre,
 		-- donc les elements deja dans le fournisseur restent exacts.
+		--
+		-- Encore faut-il que le repeint repeigne : UI.CreateScrollList rejoue
+		-- l'initialiseur ligne par ligne, la ScrollBox seule se contenterait de
+		-- remettre en page des lignes deja acquises, donc deja peintes. Refresh
+		-- rend false quand il n'a rien pu redessiner, et SetItems prend alors le
+		-- relais.
 		--
 		-- La signature porte les identifiants dans leur ordre d'affichage :
 		-- deux jeux egaux garantissent aussi des index de zebrure identiques.
@@ -871,19 +905,38 @@ local function RefreshUi()
 		.. (assigned and (active and "conforme" or (reason or "correction au prochain login")) or "sans profil"))
 end
 
+-- L'ancre d'une selection par plage est un identifiant, jamais un index : un
+-- clic sur un en-tete de colonne renumerote toutes les lignes, et un index
+-- garde d'un tri precedent designe alors un autre personnage -- ou plus
+-- personne, ce qui indexait la table de selection avec nil et faisait sauter le
+-- clic sur une erreur Lua. L'index de l'element recu est lui aussi relu depuis
+-- l'ordre courant : il a ete fige dans l'element au moment ou la ligne a ete
+-- poussee dans la liste.
 ToggleSelectedCharacter = function(characterId, characterIndex)
-	if IsShiftKeyDown() and lastSelectedCharacterIndex then
-		local firstIndex = math.min(lastSelectedCharacterIndex, characterIndex)
-		local lastIndex = math.max(lastSelectedCharacterIndex, characterIndex)
-		for index = firstIndex, lastIndex do
-			selectedCharacterIds[characterIdsByIndex[index]] = true
+	if not characterId then
+		return
+	end
+
+	local clickedIndex = CharacterDisplayIndex(characterId) or characterIndex
+	local anchorIndex
+	if IsShiftKeyDown() then
+		anchorIndex = CharacterDisplayIndex(lastSelectedCharacterId)
+	end
+
+	if anchorIndex and clickedIndex then
+		for index = math.min(anchorIndex, clickedIndex), math.max(anchorIndex, clickedIndex) do
+			local rangeId = characterIdsByIndex[index]
+			if rangeId then
+				selectedCharacterIds[rangeId] = true
+			end
 		end
 	elseif selectedCharacterIds[characterId] then
 		selectedCharacterIds[characterId] = nil
 	else
 		selectedCharacterIds[characterId] = true
 	end
-	lastSelectedCharacterIndex = characterIndex
+
+	lastSelectedCharacterId = characterId
 	RefreshUi()
 end
 
@@ -949,13 +1002,8 @@ local function InitProfileRow(row, item)
 	row.label:SetText(item.name)
 	row:SetScript("OnClick", OnProfileRowClick)
 
-	if item.selected then
-		row.bg:SetColorTexture(UI.Unpack(UI.COLOR.selected))
-		row.label:SetTextColor(UI.Unpack(UI.COLOR.accent))
-	else
-		row.SetStripe(item.index)
-		row.label:SetTextColor(UI.Unpack(UI.COLOR.text))
-	end
+	row.SetSelected(item.selected, item.index)
+	row.label:SetTextColor(UI.Unpack(item.selected and UI.COLOR.accent or UI.COLOR.text))
 
 	row.SetTooltip(item.name, item.assigned .. " personnage(s) sur ce profil.")
 end
@@ -1018,16 +1066,22 @@ local function InitCharacterRow(row, item)
 	local character = item.character
 	local assignment = DB.assignments[item.id]
 	local level = character.level
+	-- L'etat vivant, pas l'element : celui-ci a ete fige au dernier SetItems,
+	-- alors que la selection change a chaque clic.
+	local selected = IsCharacterSelected(item.id)
 
 	row.Reset()
 	row.yapItem = item
 	row:SetScript("OnClick", OnCharacterRowClick)
-	row.SetStripe(item.index)
+	row.SetSelected(selected, item.index)
 
 	row.label:SetText("|c" .. (character.color or "ffffffff") .. character.id .. "|r")
 	row.value:SetText(assignment or "-")
 	row.value:SetTextColor(UI.Unpack(assignment and UI.COLOR.text or UI.COLOR.textMuted))
-	row.yapCheck:SetChecked(selectedCharacterIds[item.id] == true)
+	-- La case a bascule toute seule au clic : la remettre sur l'etat reel, sans
+	-- quoi un shift-clic sur une ligne deja prise la decoche a l'ecran alors
+	-- qu'elle reste dans la selection.
+	row.yapCheck:SetChecked(selected)
 
 	row.yapLevel:SetText(level and tostring(level) or "-")
 	if not level then
@@ -1489,4 +1543,14 @@ YayaAddonProfiles_Internal = {
 	CompareCharacters = CompareCharacters,
 	SortedCharacters = SortedCharacters,
 	SetSortKey = SetSortKey,
+	RebuildCharacterOrder = RebuildCharacterOrder,
+	CharacterDisplayIndex = CharacterDisplayIndex,
+	ToggleSelectedCharacter = function(...)
+		return ToggleSelectedCharacter(...)
+	end,
+	IsCharacterSelected = IsCharacterSelected,
+	GetSelectedCharacterCount = GetSelectedCharacterCount,
+	ClearSelectedCharacters = ClearSelectedCharacters,
+	SelectAllCharacters = SelectAllCharacters,
+	SelectUnassignedCharacters = SelectUnassignedCharacters,
 }
