@@ -385,8 +385,13 @@ else
         Fail("le transfert ne part pas du bon emplacement Warbank :: "
             .. tostring(TRANSFER_CALLS[1]))
     end
-    if not (TRANSFER_CALLS[2] or ""):find("^Pickup ") then
-        Fail("l'objet sorti n'est pas depose dans les sacs :: " .. tostring(TRANSFER_CALLS[2]))
+    -- La destination doit etre un emplacement VIDE. Un exemplaire du meme
+    -- objet dort en 0:4 : le designer comme destination faisait executer au
+    -- jeu un echange a deux sens, et l'objet du sac -- soulbound des qu'il a
+    -- ete equipe une fois -- repartait vers la Warbank, qui le refusait.
+    if TRANSFER_CALLS[2] ~= "Pickup 0:5" then
+        Fail("l'objet sorti n'est pas depose dans un emplacement vide :: "
+            .. tostring(TRANSFER_CALLS[2]))
     end
     if #TRANSFER_CALLS ~= 2 then
         Fail(("un clic a produit %d appels de transfert au lieu de 2"):format(#TRANSFER_CALLS))

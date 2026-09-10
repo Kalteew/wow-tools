@@ -5308,26 +5308,64 @@ trackerUI.GetProfessionToolEnchantStatus = function(row)
     return state.bySkillLineID[row and row.skillLineID] or { missingTools = {} }
 end
 
+-- Les sacs portes par le personnage, et EUX SEULS. Les conteneurs de banque
+-- repondent a `GetContainerNumSlots` des que la banque est ouverte -- c'est-a-
+-- dire exactement quand on transfere -- donc une borne calculee sur
+-- `NUM_TOTAL_EQUIPPED_BAG_SLOTS` laissait le balayage entrer dans la Warbank et
+-- y designer une destination. Le sac de reactifs est a part : il n'accepte que
+-- des reactifs, et un outil depose la est refuse sans erreur Lua.
+trackerUI.GetPlayerBagIDs = function()
+    local bagIndex = Enum and Enum.BagIndex or EMPTY_TABLE
+    local backpack = tonumber(bagIndex.Backpack) or 0
+    local lastBag = tonumber(NUM_BAG_SLOTS) or 4
+    local bagIDs = { backpack }
+    for bagID = backpack + 1, backpack + lastBag do
+        bagIDs[#bagIDs + 1] = bagID
+    end
+    return bagIDs, tonumber(bagIndex.ReagentBag)
+end
+
 -- Emplacement de sac capable d'accueillir `quantity` exemplaires : une pile
--- entamee du meme objet d'abord, un emplacement vide sinon. Rien de specifique
--- aux enchantements malgre son ancien nom.
+-- entamee du meme objet d'abord, un emplacement vide sinon.
+--
+-- La taille de pile inconnue vaut UN, jamais 200 : un outil de metier ne
+-- s'empile pas, et le prendre pour empilable faisait designer comme
+-- destination l'emplacement d'un exemplaire deja possede. Le jeu executait
+-- alors un echange a deux sens -- l'objet du sac partait vers la Warbank -- et
+-- le refusait s'il etait soulbound, ce qui est le cas de tout outil deja
+-- equipe une fois.
 trackerUI.FindBagDestination = function(itemID, quantity)
     if not C_Container or type(C_Container.GetContainerItemInfo) ~= "function" then
         return nil, nil
     end
 
-    local maxStack = type(GetItemInfo) == "function" and select(8, SafeCall(GetItemInfo, itemID)) or 200
-    maxStack = math.max(1, tonumber(maxStack) or 200)
-    local maxBagIndex = math.max(NUM_TOTAL_EQUIPPED_BAG_SLOTS or 0, NUM_BAG_SLOTS or 0, 5)
+    local maxStack = 1
+    if type(GetItemInfo) == "function" then
+        local stackSize = select(8, SafeCall(GetItemInfo, itemID))
+        maxStack = math.max(1, tonumber(stackSize) or 1)
+    end
+    local isReagent = false
+    if C_Item and type(C_Item.GetItemInfoInstant) == "function" then
+        -- classID 7 = Reagent, le seul contenu accepte par le sac de reactifs.
+        isReagent = select(6, SafeCall(C_Item.GetItemInfoInstant, itemID)) == 7
+    end
+
+    local bagIDs, reagentBagID = trackerUI.GetPlayerBagIDs()
+    if isReagent and reagentBagID then
+        bagIDs[#bagIDs + 1] = reagentBagID
+    end
+
     local emptyBag, emptySlot
-    for bagID = 0, maxBagIndex do
+    for _, bagID in ipairs(bagIDs) do
         local slotCount = GetContainerNumSlotsCompat(bagID)
         for slotIndex = 1, slotCount do
             local info = SafeCall(C_Container.GetContainerItemInfo, bagID, slotIndex)
             if not info then
-                emptyBag = emptyBag or bagID
-                emptySlot = emptySlot or slotIndex
-            elseif tonumber(info.itemID) == itemID
+                if not emptyBag then
+                    emptyBag, emptySlot = bagID, slotIndex
+                end
+            elseif maxStack > 1
+                and tonumber(info.itemID) == itemID
                 and (tonumber(info.stackCount) or 0) + quantity <= maxStack then
                 return bagID, slotIndex
             end
@@ -5412,15 +5450,30 @@ trackerUI.PullFromWarbank = function(request, button)
         return false
     end
 
+    DebugLog("Warbank pull item=%d x%d from=%s:%s to=%s:%s",
+        request.itemID, amount,
+        tostring(request.bagID), tostring(request.slotIndex),
+        tostring(destinationBag), tostring(destinationSlot))
+
     local placed = pcall(C_Container.PickupContainerItem, destinationBag, destinationSlot)
-    if not placed then
+    -- `pcall` ne dit rien du verdict du jeu : un depot refuse n'est pas une
+    -- erreur Lua, seulement un message a l'ecran. Le curseur, lui, ne ment
+    -- pas -- s'il porte encore quelque chose, le transfert a echoue.
+    local cursorStillLoaded = type(GetCursorInfo) == "function"
+        and select(1, GetCursorInfo()) ~= nil
+    if not placed or cursorStillLoaded then
         -- Split puis Pickup ne forment pas un geste atomique : entre les deux,
         -- l'objet est sur le curseur. L'y laisser bloquerait tous les clics
         -- suivants, y compris ceux du joueur.
         if type(ClearCursor) == "function" then
             pcall(ClearCursor)
         end
-        print("YWT: impossible de déposer l'objet dans les sacs")
+        print("YWT: dépôt refusé par le jeu, curseur libéré")
+        DebugLog("Warbank pull refused item=%d to=%s:%s",
+            request.itemID, tostring(destinationBag), tostring(destinationSlot))
+        trackerUI.InvalidateWarbankCaches()
+        trackerUI.InvalidateToolEnchantCache()
+        ScheduleTrackerRefresh(0, false)
         return false
     end
 

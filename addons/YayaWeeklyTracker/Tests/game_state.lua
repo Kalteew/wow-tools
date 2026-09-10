@@ -128,6 +128,11 @@ local BAG_CONTENT = {
         [1] = { itemID = 245778, itemLevel = 206, stat = "Fabrication multiple" },
         [2] = { itemID = 245777, itemLevel = 232 },
         [3] = { itemID = 239635, itemLevel = 232 },
+        -- Un exemplaire de l'accessoire vise dort deja en sac. Sa taille de
+        -- pile n'est pas renseignee par cette doublure, exactement comme un
+        -- objet pas encore en cache cote client : la destination ne doit pas
+        -- pour autant le prendre pour une pile a completer.
+        [4] = { itemID = 244626, itemLevel = 232 },
     },
 }
 
@@ -136,7 +141,7 @@ local function BagLink(itemID) return "|cffa335ee|Hitem:" .. itemID .. "::::::::
 C_Container.GetContainerNumSlots = function(bag)
     local content = BAG_CONTENT[bag]
     if not content then return 0 end
-    return 4
+    return 7
 end
 C_Container.GetContainerItemID = function(bag, slot)
     local entry = BAG_CONTENT[bag] and BAG_CONTENT[bag][slot]
@@ -412,5 +417,5 @@ ITEMS[245779] = { name = "Sin'dorei Alchemist's Spare Rod", quality = 3,
                   equipLoc = "INVTYPE_PROFESSION_TOOL", skillLine = ALCH_SKILL_LINE,
                   stat = "Perception" }
 function AddUnboundToolFixture()
-    BAG_CONTENT[0][4] = { itemID = 245779, itemLevel = 232, stat = "Perception", unbound = true }
+    BAG_CONTENT[0][7] = { itemID = 245779, itemLevel = 232, stat = "Perception", unbound = true }
 end
