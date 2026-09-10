@@ -1130,6 +1130,9 @@ local TRACKER_DEFAULTS = {
     trackProfessionDarkmoon = true,
     trackProfessionLoots = true,
     trackProfessionDisenchants = true,
+    -- Heritees : `trackProfessionGear` les a absorbees. Elles restent
+    -- declarees pour que la migration ait une valeur a lire et qu'un retour a
+    -- une version precedente retrouve son reglage.
     trackProfessionTools = true,
     trackProfessionToolEnchants = true,
     trackProfessionGear = true,
@@ -1164,9 +1167,7 @@ runtimeState.trackingOptions = {
     { category = "Metiers Midnight", key = "trackProfessionDarkmoon", label = "DMF metiers" },
     { category = "Metiers Midnight", key = "trackProfessionLoots", label = "Loots metiers" },
     { category = "Metiers Midnight", key = "trackProfessionDisenchants", label = "Dez Enchantement" },
-    { category = "Metiers Midnight", key = "trackProfessionTools", label = "Outils metiers" },
-    { category = "Metiers Midnight", key = "trackProfessionToolEnchants", label = "Enchantements des outils" },
-    { category = "Metiers Midnight", key = "trackProfessionGear", label = "Equipement de metier (rare+ et ilvl >= 232)" },
+    { category = "Metiers Midnight", key = "trackProfessionGear", label = "Equipement de metier : outils, accessoires, enchantements" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceEnchantingBags", label = "Acheter automatiquement les sacs de matériaux d'enchantement" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceFusedVitality", label = "Acheter automatiquement les Fused Vitality" },
     { category = "Conteneurs", key = "autoOpenContainers", label = "Proposer l'ouverture securisee des conteneurs YWT" },
@@ -1569,6 +1570,18 @@ local function GetAccountDB()
                 YayaWeeklyTrackerAccountDB[key] = false
             end
         end
+    end
+    -- `trackProfessionGear` a absorbe `trackProfessionTools` et
+    -- `trackProfessionToolEnchants`, qui decoupaient la meme regle en trois.
+    -- La valeur retenue est le OU des trois : personne ne perd un rappel qu'il
+    -- avait active. Les anciennes cles ne sont pas effacees -- un retour a une
+    -- version precedente les relirait.
+    if YayaWeeklyTrackerAccountDB.trackProfessionGearMerged == nil then
+        YayaWeeklyTrackerAccountDB.trackProfessionGearMerged = true
+        local merged = YayaWeeklyTrackerAccountDB.trackProfessionGear ~= false
+            or YayaWeeklyTrackerAccountDB.trackProfessionTools ~= false
+            or YayaWeeklyTrackerAccountDB.trackProfessionToolEnchants ~= false
+        YayaWeeklyTrackerAccountDB.trackProfessionGear = merged
     end
     for _, option in ipairs(runtimeState.trackingOptions) do
         if YayaWeeklyTrackerAccountDB[option.key] == nil then
@@ -4716,14 +4729,40 @@ trackerUI.GetProfessionToolNeeds = function(profession, config)
     local compliant = gear.compliantToolStats or EMPTY_TABLE
     local pendingStats = gear.pendingToolStats or EMPTY_TABLE
 
+    -- « Possede mais sous le seuil » n'est pas « absent » : le rappel doit dire
+    -- lequel des deux manque, sinon il passe pour faux devant un outil qu'on a
+    -- sous les yeux. La nuance est portee par le besoin lui-meme, pour que les
+    -- jetons de ligne n'aient rien a recalculer.
+    local function OwnsStat(statKey)
+        for _, tool in ipairs(profession.tools or EMPTY_TABLE) do
+            if tool.statKey == statKey then
+                return true
+            end
+        end
+        return false
+    end
+    local function StatNeed(statKey, reason)
+        local statInfo = runtimeState.professionToolEnchantments.byStat[statKey]
+        return {
+            statKey = statKey,
+            reason = reason,
+            shortLabel = statInfo and statInfo.shortLabel or statKey,
+            ownedUnderRank = OwnsStat(statKey),
+        }
+    end
+
     if config and config.gathering == true then
         -- Resourcefulness n'economise que des reactifs de craft : un outil de
         -- recolte se juge sur son seul rang, et sa statistique n'est pas ciblee.
         if gear.hasCompliantTool == false and gear.toolComplianceUnknown ~= true then
-            needs[#needs + 1] = { reason = "outil" }
+            needs[#needs + 1] = {
+                reason = "outil",
+                shortLabel = "outil",
+                ownedUnderRank = #(profession.tools or EMPTY_TABLE) > 0,
+            }
         end
     elseif compliant.resourcefulness ~= true and pendingStats.resourcefulness ~= true then
-        needs[#needs + 1] = { statKey = "resourcefulness", reason = "outil Resourcefulness" }
+        needs[#needs + 1] = StatNeed("resourcefulness", "outil Resourcefulness")
     end
 
     -- Meme regle que l'emplacement d'outil : la possession decide, jamais le
@@ -4734,10 +4773,7 @@ trackerUI.GetProfessionToolNeeds = function(profession, config)
     if profession.requiresMulticraftTool
         and compliant.multicrafting ~= true
         and pendingStats.multicrafting ~= true then
-        needs[#needs + 1] = {
-            statKey = "multicrafting",
-            reason = "outil Multicrafting",
-        }
+        needs[#needs + 1] = StatNeed("multicrafting", "outil Multicrafting")
     end
 
     return needs, false
@@ -5552,6 +5588,7 @@ trackerUI.BuildProfessionSupplyPlan = function(trackedRows)
             pull = pull,
             buy = buy,
             reason = options.reason,
+            pullOnly = options.pullOnly == true,
             skillLineID = options.skillLineID,
             professionLabel = options.professionLabel,
         }
@@ -5673,7 +5710,7 @@ trackerUI.BuildProfessionSupplyPlan = function(trackedRows)
             entry.variant
                 and (tostring(entry.variant.statKey or "rank")
                     .. ":" .. tostring(entry.variant.minItemLevel or 0))
-                or "enchant",
+                or (entry.pullOnly and "traite" or "enchant"),
             entry.pull > 0 and ("+wb" .. entry.pull) or "")
     end
     table.sort(planParts)
@@ -6585,8 +6622,6 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     local trackProfessionWeeklies = accountDB.trackProfessionWeeklies ~= false
     local trackProfessionLoots = accountDB.trackProfessionLoots ~= false
     local trackProfessionDisenchants = accountDB.trackProfessionDisenchants ~= false
-    local trackProfessionTools = accountDB.trackProfessionTools ~= false
-    local trackProfessionToolEnchants = accountDB.trackProfessionToolEnchants ~= false
     local trackProfessionGear = accountDB.trackProfessionGear ~= false
     local remainingTreasures, totalTreasures = CountRemainingTrackedQuests(config.treasureQuestIDs)
     if remainingTreasures > 0 then
@@ -6711,101 +6746,95 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
             "category")
     end
 
-    local toolStatus = (trackProfessionTools or trackProfessionToolEnchants or trackProfessionGear)
+    -- Deux jetons, et rien de recalcule. `stuff` compte le materiel qui
+    -- manque -- outils et accessoires confondus -- et `ench` les
+    -- enchantements a poser. Les quatre anciens jetons decoupaient la meme
+    -- regle en morceaux, sous deux options differentes : `outil RF` et `MC KO`
+    -- etaient litteralement le meme calcul, et couper l'option des outils ne
+    -- faisait que deplacer le rappel dans le compteur `stuff`, qui juge le
+    -- meme emplacement.
+    local toolStatus = trackProfessionGear
         and trackerUI.GetProfessionToolEnchantStatus(row)
         or EMPTY_TABLE
-    if trackProfessionTools
-        and toolStatus.hasEquippedTool == false
-        and not toolStatus.equippedToolPending then
-        Push(oneTimeTokens, ("outil%sKO"):format(NB),
-            "Aucun outil de metier equipe", "warning")
-    end
-    -- Resourcefulness economise les reactifs d'un craft : les metiers de recolte
-    -- n'en tirent rien, leurs outils jouent sur Perception, Deftness ou Finesse.
-    -- Les deux rappels RF sont donc reserves aux metiers de craft.
-    local resourcefulnessApplies = config.gathering ~= true
-    -- Rappel independant du precedent : un metier peut avoir un outil equipe
-    -- correct sans posseder le moindre exemplaire Resourcefulness. Le rang
-    -- compte autant que la statistique : un exemplaire Resourcefulness sous le
-    -- seuil ne satisfait pas l'exigence, et le rappel dit alors lequel des deux
-    -- manque, sinon il passe pour faux.
-    local gearStatus = toolStatus.gear or EMPTY_TABLE
-    local hasCompliantResourcefulnessTool =
-        (gearStatus.compliantToolStats or EMPTY_TABLE).resourcefulness == true
-    local resourcefulnessPending =
-        (gearStatus.pendingToolStats or EMPTY_TABLE).resourcefulness == true
-    if trackProfessionTools
-        and resourcefulnessApplies
-        and not hasCompliantResourcefulnessTool
-        and not resourcefulnessPending
-        and not toolStatus.toolScanPending then
-        Push(oneTimeTokens, ("outil%sRF"):format(NB),
-            toolStatus.hasResourcefulnessTool
-                and ("Outil Resourcefulness possede mais sous le seuil de %d d'ilvl"):format(
-                    trackerUI.GetProfessionGearMinimumItemLevel())
-                or "Aucun outil Resourcefulness possede",
-            "warning")
-    end
+
     if trackProfessionGear then
         local gear = toolStatus.gear or EMPTY_TABLE
-        -- Un scan incomplet ne doit pas declarer un equipement non conforme :
-        -- meme regle que les autres rappels d'outils.
-        if not gear.pending and (gear.nonCompliantCount or 0) > 0 then
-            local details = {}
+        local details = {}
+        local missingCount = 0
+
+        -- Les outils viennent de `toolNeeds`, seule source du manque, et
+        -- portent deja la nuance « possede mais sous le seuil ».
+        if not toolStatus.toolScanPending then
+            for _, need in ipairs(toolStatus.toolNeeds or EMPTY_TABLE) do
+                missingCount = missingCount + 1
+                details[#details + 1] = need.ownedUnderRank
+                    and ("%s : possede mais sous le seuil de %d d'ilvl"):format(
+                        need.reason or need.shortLabel or "outil",
+                        trackerUI.GetProfessionGearMinimumItemLevel())
+                    or ("%s : aucun exemplaire possede"):format(
+                        need.reason or need.shortLabel or "outil")
+            end
+        end
+
+        -- Les accessoires viennent des emplacements. L'emplacement d'outil est
+        -- ecarte : il est deja compte par `toolNeeds`, et le compter deux fois
+        -- ferait dire au jeton plus que ce que le bouton propose. Un scan
+        -- incomplet ne declare rien.
+        if not gear.pending then
             for _, slotState in ipairs(gear.slots or EMPTY_TABLE) do
-                if slotState.compliant == false then
+                if slotState.compliant == false and not slotState.isToolSlot then
+                    missingCount = missingCount + 1
                     details[#details + 1] = trackerUI.DescribeProfessionGearSlot(slotState)
                 end
             end
+        end
+
+        if missingCount > 0 then
             Push(oneTimeTokens,
-                ("stuff%sx%d"):format(NB, gear.nonCompliantCount),
-                ("Emplacements de metier a completer (rare+ et ilvl >= %d) :\n%s"):format(
+                ("stuff%sx%d"):format(NB, missingCount),
+                ("Equipement de metier a completer (rare+ et ilvl >= %d) :\n%s"):format(
                     trackerUI.GetProfessionGearMinimumItemLevel(),
                     table.concat(details, "\n")),
                 "warning")
         end
-        -- Meme regle que le rappel Resourcefulness : l'exemplaire possede doit
-        -- aussi tenir le seuil de rang, sans quoi YayaQueue equiperait un outil
-        -- Multicrafting qui ne vaut rien. Le rappel ne regarde pas ou dort
-        -- l'outil : un exemplaire Multicrafting porte est deja en place pour les
-        -- crafts qui multicraftent, et repart en sac au prochain echange.
-        if toolStatus.requiresMulticraftTool
-            and (gear.compliantToolStats or EMPTY_TABLE).multicrafting ~= true
-            and (gear.pendingToolStats or EMPTY_TABLE).multicrafting ~= true
-            and not toolStatus.toolScanPending then
-            Push(oneTimeTokens, ("MC%sKO"):format(NB),
-                toolStatus.hasMulticraftTool
-                    and ("Outil Multicrafting possede mais sous le seuil de %d d'ilvl"):format(
-                        trackerUI.GetProfessionGearMinimumItemLevel())
-                    or "Aucun outil Multicrafting possede : YayaQueue ne pourra pas l'equiper avant les crafts qui multicraftent",
+
+        -- pairs sur une table hachee : l'ordre change d'un rafraichissement a
+        -- l'autre. On trie donc avant de composer, sinon l'infobulle danse.
+        local enchantDetails = {}
+        local enchantCount = 0
+        for _, tool in pairs(toolStatus.missingEnchantTools or EMPTY_TABLE) do
+            enchantCount = enchantCount + (tool.quantity or 0)
+            enchantDetails[#enchantDetails + 1] = ("%s x%d : aucun enchantement"):format(
+                tool.label or "?", tool.quantity or 0)
+        end
+        for _, tool in pairs(toolStatus.missingTools or EMPTY_TABLE) do
+            enchantCount = enchantCount + (tool.quantity or 0)
+            enchantDetails[#enchantDetails + 1] = ("%s x%d : mauvais enchantement"):format(
+                tool.label or "?", tool.quantity or 0)
+        end
+        if enchantCount > 0 then
+            table.sort(enchantDetails)
+            Push(oneTimeTokens,
+                ("ench%sx%d"):format(NB, enchantCount),
+                ("Enchantements d'outil a poser :\n%s"):format(
+                    table.concat(enchantDetails, "\n")),
                 "warning")
         end
     end
-    if trackProfessionToolEnchants then
-        -- pairs sur une table hachee : l'ordre change d'un rafraichissement a
-        -- l'autre. On trie donc avant de composer, sinon l'infobulle danse.
-        local missing, missingEnchant = {}, {}
-        for _, tool in pairs(toolStatus.missingTools or EMPTY_TABLE) do
-            missing[#missing + 1] = ("%s x%d"):format(tool.label or "?", tool.quantity or 0)
-        end
-        for _, tool in pairs(toolStatus.missingEnchantTools or EMPTY_TABLE) do
-            missingEnchant[#missingEnchant + 1] = ("%s x%d"):format(
-                tool.label or "?", tool.quantity or 0)
-        end
-        if #missing > 0 then
-            table.sort(missing)
-            Push(oneTimeTokens,
-                ("outil%sx%d"):format(NB, #missing),
-                ("Outils a recuperer : %s"):format(table.concat(missing, ", ")),
-                "warning")
-        end
-        if #missingEnchant > 0 then
-            table.sort(missingEnchant)
-            Push(oneTimeTokens,
-                ("ench%sx%d"):format(NB, #missingEnchant),
-                ("Outils sans enchantement : %s"):format(table.concat(missingEnchant, ", ")),
-                "warning")
-        end
+
+    -- Les jetons sont traces : sans cela ils ne sont verifiables qu'a l'oeil,
+    -- en jeu, alors qu'ils derivent maintenant des memes sources que le plan
+    -- d'approvisionnement. Un jeton sans ligne de plan devient un ecart
+    -- visible plutot qu'un doute.
+    local tokenParts = {}
+    for _, token in ipairs(oneTimeTokens) do
+        tokenParts[#tokenParts + 1] = (tostring(token.short or "?"):gsub(NB, " "))
+    end
+    local tokenSignature = #tokenParts > 0 and table.concat(tokenParts, ",") or "none"
+    local tokenKey = "professionTokens" .. tostring(row.skillLineID)
+    if tokenSignature ~= debugSignatures[tokenKey] then
+        debugSignatures[tokenKey] = tokenSignature
+        DebugLog("Profession tokens[%s] = %s", tostring(row.skillLineID), tokenSignature)
     end
 
     return tokens, oneTimeTokens
@@ -8817,14 +8846,12 @@ UpdateTracker = function()
         -- le plan qui en decoule : sinon la premiere passe apres l'ouverture de
         -- la banque bati son plan sur l'instantane precedent.
         DebugSafeCall("WarbankRefresh", trackerUI.warbank.Refresh)
-        local trackProfessionTools = accountDB.trackProfessionTools ~= false
-        local trackProfessionToolEnchants = accountDB.trackProfessionToolEnchants ~= false
         local trackProfessionGear = accountDB.trackProfessionGear ~= false
         local toolEnchantState
-        if trackProfessionTools or trackProfessionToolEnchants or trackProfessionGear then
+        if trackProfessionGear then
             toolEnchantState = DebugSafeCall("FindToolEnchantState", trackerUI.FindToolEnchantState, trackedRows)
         end
-        if trackProfessionToolEnchants and toolEnchantState then
+        if toolEnchantState then
             DebugSafeCall(
                 "ConfirmToolEnchantApplications",
                 trackerUI.ConfirmToolEnchantApplications,
@@ -8834,7 +8861,7 @@ UpdateTracker = function()
         local toolEnchantApplyButtonCount = DebugSafeCall(
             "UpdateToolEnchantApplyButtons",
             trackerUI.UpdateToolEnchantApplyButtons,
-            trackProfessionToolEnchants and toolEnchantState or nil
+            toolEnchantState
         ) or 0
         local hasSupplyButton = DebugSafeCall(
             "UpdateProfessionSupplyButton",

@@ -394,7 +394,29 @@ CloseWarbankFixture()
 FireEvent("BANKFRAME_CLOSED")
 RunTimers(3)
 
--- 9. Un outil rare NON LIE compte comme possede. C'est l'etat d'un achat tout
+-- 9. Les jetons de ligne : deux, et derives des memes sources que le plan.
+-- Les quatre anciens -- outil KO, outil RF, MC KO, outil xN -- decoupaient la
+-- meme regle en morceaux sous deux options differentes.
+local tokenTrace = LastTrace("Profession tokens[2906]")
+if not tokenTrace then
+    Fail("aucune trace de jetons de metier : ils ne sont plus verifiables hors du jeu")
+else
+    for _, gone in ipairs({ "outil KO", "outil RF", "MC KO" }) do
+        if tokenTrace:find(gone, 1, true) then
+            Fail("un jeton remplace est encore emis : " .. gone .. " :: " .. tokenTrace)
+        end
+    end
+    -- Deux accessoires fautifs, aucun besoin d'outil apres l'echange, et les
+    -- deux outils possedes sont nus.
+    if not tokenTrace:find("stuff x2", 1, true) then
+        Fail("le jeton de materiel ne compte pas les deux accessoires :: " .. tokenTrace)
+    end
+    if not tokenTrace:find("ench x2", 1, true) then
+        Fail("le jeton d'enchantement ne compte pas les deux outils nus :: " .. tokenTrace)
+    end
+end
+
+-- 10. Un outil rare NON LIE compte comme possede. C'est l'etat d'un achat tout
 -- juste livre par le courrier : l'ignorer faisait commander un doublon dans la
 -- foulee de la livraison. YayaQueue, lui, garde son filtre soulbound pour
 -- l'echange d'outil avant craft.
