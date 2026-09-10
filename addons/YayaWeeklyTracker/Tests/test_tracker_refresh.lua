@@ -394,6 +394,44 @@ CloseWarbankFixture()
 FireEvent("BANKFRAME_CLOSED")
 RunTimers(3)
 
+-- 9. Un outil rare NON LIE compte comme possede. C'est l'etat d'un achat tout
+-- juste livre par le courrier : l'ignorer faisait commander un doublon dans la
+-- foulee de la livraison. YayaQueue, lui, garde son filtre soulbound pour
+-- l'echange d'outil avant craft.
+local toolsBefore
+for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
+    local count = entry:match("id=2906 .- tools=(%d+)")
+    if count then
+        toolsBefore = tonumber(count)
+    end
+end
+
+AddUnboundToolFixture()
+ISBOUND_CALLS = 0
+FireEvent("BAG_UPDATE_DELAYED")
+RunTimers(5)
+
+-- La preuve que le filtre a bien disparu : le tracker ne demande plus l'etat
+-- de liaison d'aucun objet. Le compter vaut mieux qu'esperer, car un outil
+-- lie serait compte de toute facon.
+if ISBOUND_CALLS ~= 0 then
+    Fail(("le tracker consulte encore l'etat de liaison (%d appels)"):format(ISBOUND_CALLS))
+end
+
+local toolsAfter
+for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
+    local count = entry:match("id=2906 .- tools=(%d+)")
+    if count then
+        toolsAfter = tonumber(count)
+    end
+end
+if not toolsBefore or not toolsAfter then
+    Fail("la trace de scan d'outils ne rend plus son compte")
+elseif toolsAfter ~= toolsBefore + 1 then
+    Fail(("un outil rare non lie n'est pas compte comme possede : %s -> %s")
+        :format(tostring(toolsBefore), tostring(toolsAfter)))
+end
+
 if failures > 0 then
     print(("%d echec(s)"):format(failures))
     os.exit(1)

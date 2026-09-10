@@ -389,7 +389,12 @@ end
 -- Un outil rare qui vient d'etre achete n'est pas encore lie : c'est
 -- exactement l'exemplaire qu'il ne faut pas racheter. L'emplacement porte
 -- desormais ses coordonnees, donc la doublure peut repondre par slot.
+-- Les appels sont comptes : le tracker ne doit plus consulter cette API du
+-- tout. Un compteur non nul signalerait le retour du filtre soulbound, et donc
+-- du doublon commande juste apres une livraison.
+ISBOUND_CALLS = 0
 C_Item.IsBound = function(location)
+    ISBOUND_CALLS = ISBOUND_CALLS + 1
     if type(location) == "table" and location.bag and location.slot then
         local entry = BAG_CONTENT[location.bag] and BAG_CONTENT[location.bag][location.slot]
         if entry and entry.unbound then
@@ -399,8 +404,13 @@ C_Item.IsBound = function(location)
     return true
 end
 
--- Depose un outil conforme, mais NON LIE, dans les sacs : l'etat d'un achat
--- tout juste livre par le courrier.
-function AddUnboundToolFixture(itemID, itemLevel, stat)
-    BAG_CONTENT[0][4] = { itemID = itemID, itemLevel = itemLevel, stat = stat, unbound = true }
+-- Depose un outil rare conforme, mais NON LIE, dans les sacs : l'etat d'un
+-- achat tout juste livre par le courrier. Son itemID lui est propre, car un
+-- lien de sac de cette doublure ne porte que l'itemID : deux exemplaires du
+-- meme objet dans deux emplacements y partageraient leur identite.
+ITEMS[245779] = { name = "Sin'dorei Alchemist's Spare Rod", quality = 3,
+                  equipLoc = "INVTYPE_PROFESSION_TOOL", skillLine = ALCH_SKILL_LINE,
+                  stat = "Perception" }
+function AddUnboundToolFixture()
+    BAG_CONTENT[0][4] = { itemID = 245779, itemLevel = 232, stat = "Perception", unbound = true }
 end

@@ -4500,27 +4500,6 @@ trackerUI.GetToolEnchantID = function(itemLink)
     return tonumber(enchantID) or 0
 end
 
-trackerUI.GetToolItemLocation = function(source, bagID, slotIndex)
-    if not ItemLocation or type(C_Item) ~= "table" or type(C_Item.IsBound) ~= "function" then
-        return nil, nil
-    end
-
-    local location
-    if source == "bag" and type(ItemLocation.CreateFromBagAndSlot) == "function" then
-        local ok, value = pcall(ItemLocation.CreateFromBagAndSlot, ItemLocation, bagID, slotIndex)
-        location = ok and value or nil
-    elseif source == "equipment" and type(ItemLocation.CreateFromEquipmentSlot) == "function" then
-        local ok, value = pcall(ItemLocation.CreateFromEquipmentSlot, ItemLocation, slotIndex)
-        location = ok and value or nil
-    end
-    if not location then
-        return nil, nil
-    end
-
-    local bound = SafeCall(C_Item.IsBound, location)
-    return location, bound
-end
-
 trackerUI.RequestToolItemData = function(itemID)
     if not itemID or not C_Item or type(C_Item.RequestLoadItemDataByID) ~= "function" then
         return false
@@ -4798,13 +4777,17 @@ trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotInd
         return nil, false, false
     end
 
-    local _, bound = trackerUI.GetToolItemLocation(source, bagID, slotIndex)
-    if bound == nil then
-        return nil, true, true
-    end
-    if bound ~= true then
-        return nil, false, false
-    end
+    -- Le lien de l'objet n'est PAS exige ici. Un outil qui vient d'etre achete
+    -- n'est pas encore lie, et c'est exactement l'exemplaire qu'il ne faut pas
+    -- racheter : l'ignorer faisait commander un doublon dans la foulee de la
+    -- livraison. YayaQueue, lui, garde son filtre soulbound pour l'echange
+    -- d'outil avant craft -- il n'equipe que ce qui appartient deja au
+    -- personnage. Ce que le tracker compte, c'est la possession.
+    --
+    -- Restent la rarete, l'emplacement d'equipement et la ligne de metier pour
+    -- borner ce qui est retenu : un objet du bon itemID garde pour la revente
+    -- compterait, mais il lui faudrait aussi la bonne statistique et le bon
+    -- rang pour satisfaire une variante.
 
     -- Never replace a missing unique link with GetItemInfo(itemID): the tool's
     -- profession stat is randomized on the owned item, not on the base item.
