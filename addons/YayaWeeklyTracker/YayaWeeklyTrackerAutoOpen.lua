@@ -17,7 +17,6 @@ local LEGACY_REFUSED_CONTAINERS_KEY = "autoOpenRefusedContainers"
 local SUCCESSFUL_CONTAINERS_KEY = "autoOpenSuccessfulContainers"
 local CACHE_VERSION_KEY = "autoOpenCacheVersion"
 local CACHE_VERSION = 2
-local FAILED_TTL_SECONDS = 86400
 local DEFAULT_OPEN_DELAY_SECONDS = 0.05
 local SCAN_DELAY_SECONDS = 0.05
 local INITIAL_SCAN_DELAY_SECONDS = 0.30
@@ -27,7 +26,26 @@ local PENDING_CHECK_DELAY_SECONDS = 0.03
 local PENDING_TIMEOUT_SECONDS = 1.20
 local LOOT_SETTLE_SECONDS = 0.45
 local CONTAINER_VALUES_MAX_WAIT_SECONDS = 1.35
-local KNOWN_SUCCESS_RETRY_SECONDS = 90.00
+-- Il n'y a que deux categories de conteneurs, et une seule est terminale :
+--
+--  - refuse par le client (ADDON_ACTION_BLOCKED / ADDON_ACTION_FORBIDDEN) :
+--    blackliste des la premiere erreur, plus jamais tente automatiquement ;
+--  - tout le reste : ouvrable, ou pas encore ouvert. Un echec n'y decrit que
+--    l'indisponibilite du personnage (loot en retard, sacs pleins), jamais
+--    l'objet. Apres MAX_FAILURES on laisse passer cette grace, puis on
+--    reessaie, indefiniment, jusqu'a l'ouverture.
+--
+-- Aucun verdict a longue duree de vie donc : parquer pour 24 h un conteneur
+-- ouvrable parce que les sacs etaient pleins le condamnait au silence.
+local RETRY_GRACE_SECONDS = 90.00
+-- Pendant la grace le personnage peut redevenir indisponible (combat, cast,
+-- banque, courrier). On repousse alors la relance sans consommer la grace.
+local GRACE_BLOCKED_RETRY_SECONDS = 1.00
+-- expiresAt est pose avec time(), en secondes entieres, alors que le timer de
+-- relance compte en GetTime() flottant. Sans marge, la relance peut tomber dans
+-- la meme seconde que l'expiration et retrouver l'item encore refuse, donc
+-- reparti sur le bouton manuel pour un cycle de plus.
+local GRACE_EXPIRY_MARGIN_SECONDS = 1.00
 local MAX_FAILURES = 3
 local MANUAL_RESCAN_DELAY_SECONDS = 0.10
 local BLOCKED_RETRY_SECONDS = 0.10
@@ -39,7 +57,6 @@ local state = {
     queueKeys = {},
     pending = nil,
     failureCounts = {},
-    halted = false,
     manualFallback = nil,
     wasEnabled = false,
     lastEnabled = nil,
@@ -48,19 +65,22 @@ local state = {
     openTimer = nil,
     pendingTimer = nil,
     resumeTimer = nil,
+    graceTimer = nil,
     reportNextScan = false,
     mailSettleUntil = 0,
     mailHooksInitialized = false,
     actionButton = nil,
     armedCandidate = nil,
     -- Refus au niveau d'un item, pour la session : remplace l'ancien drapeau
-    -- global halted, qui figeait tout le module des le premier conteneur
-    -- problematique rencontre dans l'ordre des sacs.
+    -- global d'arret, qui figeait tout le module des le premier conteneur
+    -- problematique rencontre dans l'ordre des sacs. Un conteneur deja ouvert
+    -- avec succes n'y entre jamais : il passe par la grace.
     skippedItems = {},
 }
 local OpenNextContainer
 local ScheduleScan
 local CheckPendingContainer
+local IsContainerUseBlock
 
 local eventFrame = CreateFrame("Frame", addonName .. "AutoOpenFrame")
 
@@ -98,6 +118,21 @@ local function EnsureOptions()
     for itemID, entry in pairs(failures) do
         if type(entry) ~= "table" or (tonumber(entry.expiresAt) or 0) <= now then
             failures[itemID] = nil
+        end
+    end
+
+    -- Audit des blacklists : une action bloquee sur un widget de l'addon n'a
+    -- jamais rien dit du conteneur (voir IsContainerUseBlock), mais elle etait
+    -- attribuee au conteneur en cours et le condamnait a vie. Ce verdict etant
+    -- terminal par conception, aucun /reload ne rattrapait ces entrees : on les
+    -- retire au chargement, ce qui rend la reparation automatique et evite un
+    -- `/ywt autoopen reset all` qui effacerait aussi les vrais refus.
+    local forbidden = YayaWeeklyTrackerAccountDB[FORBIDDEN_CONTAINERS_KEY]
+    if IsContainerUseBlock then
+        for itemID, entry in pairs(forbidden) do
+            if type(entry) ~= "table" or not IsContainerUseBlock(entry.lastFunction) then
+                forbidden[itemID] = nil
+            end
         end
     end
 
@@ -189,7 +224,7 @@ local function RecordContainerRefusal(itemID, refusalKind, detail)
     entry.lastSeen = timestamp
     entry.lastKind = kind
     entry.lastDetail = detail and tostring(detail) or nil
-    entry.expiresAt = (time and time() or 0) + FAILED_TTL_SECONDS
+    entry.expiresAt = (time and time() or 0) + RETRY_GRACE_SECONDS
     return true
 end
 
@@ -231,6 +266,7 @@ local function StopTimers()
     StopTimer("openTimer")
     StopTimer("pendingTimer")
     StopTimer("resumeTimer")
+    StopTimer("graceTimer")
 end
 
 local function ClearQueue()
@@ -544,7 +580,6 @@ local function UpdateActionButton(candidate)
             if currentItemID ~= queued.itemID or currentSlotCount <= 0 then
                 if queued.manualFallback then
                     state.manualFallback = nil
-                    state.halted = false
                 end
                 state.armedCandidate = nil
                 UpdateActionButton(nil)
@@ -631,10 +666,10 @@ end
 
 -- Arme le bouton securise pour un conteneur donne, sans arreter le module.
 --
--- L'ancienne version posait state.halted, ce qui coupait ScheduleScan : le
--- premier conteneur problematique dans l'ordre des sacs bloquait definitivement
--- tous les suivants. Desormais le refus est porte par l'item, et le scan
--- continue pour les autres candidats.
+-- L'ancienne version posait un drapeau global d'arret, ce qui coupait
+-- ScheduleScan : le premier conteneur problematique dans l'ordre des sacs
+-- bloquait definitivement tous les suivants. Desormais le refus est porte par
+-- l'item, et le scan continue pour les autres candidats.
 local function ArmManualCandidate(candidate, reason, skipItem)
     if not candidate then
         return
@@ -663,9 +698,48 @@ local function ArmManualCandidate(candidate, reason, skipItem)
     -- Reprogrammer un scan relancait immediatement le meme cycle.
 end
 
+-- Un ADDON_ACTION_BLOCKED ne designe pas forcement l'usage du conteneur.
+-- OpenNextContainer pose state.pending, appelle UpdateActionButton(nil) - qui
+-- fait SetEnabled et SetAttribute sur le bouton securise - et seulement
+-- ensuite UseContainerItem. Un blocage de notre propre widget tombe donc pile
+-- dans la fenetre du pending et etait attribue au conteneur.
+--
+-- Constate le 2026-09-09 : les Weathered Mysterious Satchel 235911 et 236944
+-- blacklistes avec lastFunction "YayaWeeklyTrackerAutoOpenButton:SetEnabled()"
+-- alors que 235911 totalisait 28 ouvertures reussies. Le verdict etant
+-- terminal, ils ne repartaient jamais en automatique, meme apres /reload.
+--
+-- Liste blanche et non liste noire : seul un blocage qui peut etre l'usage de
+-- l'objet condamne un conteneur. Un blocage non reconnu ne produit aucun
+-- verdict, l'echec reste transitoire et l'objet repart par la grace.
+IsContainerUseBlock = function(blockedFunctionName)
+    if blockedFunctionName == nil then
+        return true
+    end
+    local name = tostring(blockedFunctionName)
+    if name == "" then
+        return true
+    end
+    -- Nos propres frames et boutons portent le nom de l'addon.
+    if name:find(addonName, 1, true) then
+        return false
+    end
+    return name:find("UseContainerItem", 1, true) ~= nil
+        or name:find("UNKNOWN", 1, true) ~= nil
+end
+
 local function MarkProtectedActionBlocked(blockedEvent, blockedFunctionName)
     local pending = state.pending
     if not pending or pending.protectedActionBlocked then
+        return
+    end
+
+    if not IsContainerUseBlock(blockedFunctionName) then
+        Log(("action bloquee ignoree: %s (%s) ne concerne pas l'usage de l'objet, itemID=%d reste retentable"):format(
+            tostring(blockedFunctionName or "fonction inconnue"),
+            tostring(blockedEvent or "evenement inconnu"),
+            tonumber(pending.itemID) or 0
+        ))
         return
     end
 
@@ -684,9 +758,38 @@ local function MarkProtectedActionBlocked(blockedEvent, blockedFunctionName)
     Schedule("pendingTimer", 0, CheckPendingContainer)
 end
 
--- Echec sans action bloquee : personnage indisponible, loot en retard, sacs
--- pleins. Verdict transitoire uniquement. Apres MAX_FAILURES dans la session,
--- l'item bascule sur le bouton securise, mais le scan des autres continue.
+-- Sortie de grace. ArmManualCandidate est volontairement terminal jusqu'au
+-- prochain BAG_UPDATE_DELAYED : sans ce timer, un conteneur en grace ne serait
+-- jamais retente si les sacs ne bougent plus. La relance ne consomme la grace
+-- que si le personnage est disponible, et se repousse sinon, sans plafond : la
+-- boucle est infinie tant que le conteneur reste en sac.
+local function ScheduleGraceRetry(delaySeconds)
+    local delay = delaySeconds or (RETRY_GRACE_SECONDS + GRACE_EXPIRY_MARGIN_SECONDS)
+    Schedule("graceTimer", delay, function()
+        if not IsEnabled() then
+            return
+        end
+        if IsBlocked() or state.pending then
+            ScheduleGraceRetry(GRACE_BLOCKED_RETRY_SECONDS)
+            return
+        end
+        ScheduleScan(0)
+    end)
+end
+
+-- Echec sans action bloquee : le client n'a rien refuse, c'est le personnage
+-- qui etait indisponible (loot en retard, sacs pleins). Ce constat ne dit rien
+-- de l'objet, il n'est donc jamais terminal : apres MAX_FAILURES on laisse
+-- passer une grace, puis on reessaie, indefiniment, jusqu'a l'ouverture.
+--
+-- Le compteur repart a zero pour que chaque cycle dispose de ses MAX_FAILURES
+-- tentatives, et l'item n'entre pas dans skippedItems : QueueCandidate le
+-- garderait sinon manualOnly pour toute la session et la grace n'aurait aucun
+-- effet. Le bouton manuel est propose entre-temps et le scan des autres
+-- candidats continue.
+--
+-- La seule sortie definitive est ailleurs : MarkProtectedActionBlocked, sur un
+-- refus du client, des la premiere erreur.
 local function HandleAutomaticFailure(candidate, refusalKind, reason, detail)
     local itemID = candidate.itemID
     local failures = (state.failureCounts[itemID] or 0) + 1
@@ -694,12 +797,15 @@ local function HandleAutomaticFailure(candidate, refusalKind, reason, detail)
 
     if failures >= MAX_FAILURES then
         RecordContainerRefusal(itemID, refusalKind, detail)
-        ArmManualCandidate(candidate, ("%s itemID=%d (%d/%d), bouton manuel affiche"):format(
+        state.failureCounts[itemID] = nil
+        ArmManualCandidate(candidate, ("%s itemID=%d (%d/%d), nouvelle tentative dans %ds"):format(
             reason,
             itemID,
             failures,
-            MAX_FAILURES
-        ))
+            MAX_FAILURES,
+            RETRY_GRACE_SECONDS
+        ), false)
+        ScheduleGraceRetry()
         return
     end
 
@@ -721,7 +827,6 @@ local function ScanBags()
         state.pending = nil
         UpdateActionButton(nil)
         state.phase = "idle"
-        state.halted = false
         state.wasEnabled = false
         return
     end
@@ -797,7 +902,7 @@ ScheduleScan = function(delaySeconds)
     Schedule("scanTimer", delay, ScanBags)
 end
 
-local function StopAutoOpen(reason, halt)
+local function StopAutoOpen(reason)
     StopTimers()
     ClearQueue()
     state.pending = nil
@@ -805,7 +910,6 @@ local function StopAutoOpen(reason, halt)
     state.failureCounts = {}
     state.skippedItems = {}
     state.manualFallback = nil
-    state.halted = halt == true
     state.mailSettleUntil = 0
     UpdateActionButton(nil)
     if reason then
@@ -1004,6 +1108,13 @@ OpenNextContainer = function()
             ("ouverture manuelle requise itemID=%d, bouton securise affiche"):format(manualCandidate.itemID),
             false
         )
+        -- Tout conteneur non blackliste reste retentable indefiniment. S'il
+        -- occupe le bouton, on rearme la sortie de grace : un scan declenche
+        -- entre-temps pour une autre raison aurait sinon consomme le timer et
+        -- fige l'objet sur le bouton manuel jusqu'au prochain mouvement de sac.
+        if not IsContainerForbidden(manualCandidate.itemID) then
+            ScheduleGraceRetry()
+        end
         return
     end
 
@@ -1071,7 +1182,6 @@ local function Refresh()
         state.failureCounts = {}
         state.skippedItems = {}
         state.manualFallback = nil
-        state.halted = false
     end
 
     if state.pending and not enabled then
@@ -1080,7 +1190,6 @@ local function Refresh()
 
     if not enabled then
         state.wasEnabled = false
-        state.halted = false
         StopAutoOpen()
         return
     end
@@ -1088,7 +1197,6 @@ local function Refresh()
         state.failureCounts = {}
         state.skippedItems = {}
         state.manualFallback = nil
-        state.halted = false
     end
     state.wasEnabled = true
     state.reportNextScan = true
@@ -1123,7 +1231,6 @@ _G.YayaWeeklyTrackerAutoOpen.ResetContainerCaches = function(includeForbidden)
     state.failureCounts = {}
     state.skippedItems = {}
     state.manualFallback = nil
-    state.halted = false
     ScheduleScan(SCAN_DELAY_SECONDS)
     return true
 end

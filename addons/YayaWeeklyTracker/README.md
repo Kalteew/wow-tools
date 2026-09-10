@@ -45,9 +45,32 @@ Resume `Midnight` :
 - `+10KP xN` = livres de connaissance Midnight encore non consommes, leurs noms etant listes dans l'infobulle de la ligne ; les livres d'Abundance sont suivis a partir du niveau 90 pour Enchantement, Herboristerie, Minage et Depeçage ; si le livre est deja dans les sacs, le rappel est masque au profit du bouton `Utiliser KP`
 - `moxie x/y` et `abondance x/y` = recapitulatif du cout des livres manquants ; la valeur passe en rouge si la monnaie manque
 - si `Outils metiers` est active, les outils de metier rares ou superieurs, soulbound, equipes ou presents dans les sacs, sont verifies pour chaque metier Midnight appris ; un metier sans outil bleu/violet equipe affiche `outil non equipe`
-- la meme option ajoute un rappel independant `outil RF absent` par metier Midnight suivi tant qu'aucun outil de statistique `Resourcefulness` n'est possede, equipe ou en sac ; il s'ajoute a `outil non equipe` au lieu de le remplacer, et reste masque tant que le scan des outils est incomplet
+- la meme option ajoute un rappel independant `outil RF` par metier Midnight suivi tant qu'aucun outil de statistique `Resourcefulness` **conforme** n'est possede, equipe ou en sac ; il s'ajoute a `outil non equipe` au lieu de le remplacer, et reste masque tant que le scan des outils est incomplet
+- le rang compte autant que la statistique : un exemplaire Resourcefulness sous le seuil ne satisfait pas l'exigence, et l'infobulle dit alors lequel des deux manque (`Aucun outil Resourcefulness possede` ou `Outil Resourcefulness possede mais sous le seuil de 232 d'ilvl`). Sans cette distinction le rappel disparaissait devant un outil rang 1, et rien ne proposait de le remplacer
+- ce rappel ne concerne que les metiers de **craft** : `Resourcefulness` economise les reactifs d'un craft et n'a aucun usage en recolte, dont les outils jouent sur `Perception`, `Deftness` ou `Finesse`. Herboristerie, Minage et Depecage portent `gathering = true` dans `MIDNIGHT_PROFESSION_CONFIGS` et n'affichent donc aucun rappel RF ; leurs emplacements de metier restent verifies normalement
+- ce rappel porte sur la **possession**, equipe ou en sac, et non sur le port : dans un flux multi-outil l'exemplaire porte change au fil des recettes, donc un outil garde en sac compte autant qu'un outil equipe
 - si `Enchantements des outils` est active, YWT lit la stat aleatoire du tooltip du lien unique de chaque outil possede (jamais la stat generique de l'item de base) : un outil Multicrafting demande l'enchantement Multicrafting, les outils sans enchantement sont comptes dans `ench xN` et ceux a recuperer dans `outil xN`, le detail par outil etant donne par l'infobulle ; les boutons Warbank/YayaQueue utilisent ce meme enchantement cible ; les deux options sont actives par defaut
 - les six stats d'outil Midnight sont gerees : Perception (`243965`), Resourcefulness (`243967`), Finesse (`243993`), Multicrafting (`243995`), Ingenuity (`244025`) et Deftness (`244023`) ; l'enchantement est valide par son `enchantID`, donc un rang 1 ou une mauvaise stat reste a corriger
+- la stat est reconnue par les libelles rendus par le client, donc deja localises : les globals utilises sont `ITEM_MOD_<STAT>_SHORT` et `PROFESSIONS_OUTPUT_<STAT>_TITLE`, les variantes `ITEM_MOD_<STAT>_RATING*` n'existant pas. Les libelles sont des faux amis entre langues : en francais Resourcefulness s'affiche `Ingéniosité` et Ingenuity `Inventivité`, ce qui faisait classer tout outil RF comme outil Ingenuity et affichait `outil RF absent` a tort. Sur une meme ligne d'infobulle, le libelle le plus long l'emporte, jamais la premiere stat testee
+- si `Equipement de metier` est active, les trois emplacements de metier de chaque metier Midnight suivi sont verifies, et le token `stuff xN` compte ceux a completer, son infobulle donnant le motif de chacun (`vide`, `rarete sous rare`, `ilvl 206 < 232`)
+- les deux emplacements d'**accessoire** se jugent sur ce qu'ils portent : au moins rare, et ilvl au seuil. Les accessoires ne tournent pas, donc l'objet equipe est le bon critere
+- l'emplacement d'**outil** se juge sur la **possession** d'au moins un outil conforme, equipe ou en sac, jamais sur l'outil porte. YayaQueue echange l'outil Multicraft et l'outil Resourcefulness selon la recette, donc ce qui est porte a un instant donne ne dit rien : un verdict sur le port ferait clignoter le rappel au rythme des echanges. Le motif affiche est alors `aucun outil conforme possede`
+- la conformite d'un outil est arretee apres le scan des sacs : la rarete est deja filtree a l'entree du scan, reste l'ilvl lu sur le lien unique de chaque exemplaire. Un outil dont l'ilvl n'est pas lisible laisse l'emplacement d'outil sans verdict plutot que de le declarer fautif
+- c'est la **nature** de l'emplacement qui decide, jamais l'objet qui s'y trouve : la position rendue par `GetProfessionSlots` distingue l'outil de ses accessoires
+- le seuil vaut `232` par defaut et se lit `>=` : les equipements de metier **rares** plafonnent a l'ilvl 232 au rang de craft maximal, donc exiger strictement plus de 232 imposerait de l'epique et rendrait le rappel impossible a satisfaire en bleu. `/ywt stuff ilvl <n>` change le seuil, `/ywt stuff ilvl` l'affiche, `/ywt stuff ilvl reset` le remet a `232`
+- un emplacement dont la rarete ou l'ilvl ne sont pas encore charges n'est jamais compte comme fautif : les donnees de l'objet sont demandees et le rappel reste masque, comme pour les autres rappels d'outils
+- un emplacement qui cumule rarete et ilvl insuffisants ne compte qu'une fois : le token compte les emplacements, pas les motifs
+- pour l'alchimie, la meme option ajoute `MC sac` tant qu'aucun outil Multicrafting **conforme** n'est present dans les sacs : YayaQueue equipe l'outil Multicrafting juste avant les crafts qui multicraftent, ce qui suppose un exemplaire en sac en plus de l'outil Resourcefulness porte. Meme regle que le rappel RF : un exemplaire sous le seuil de rang ne compte pas, et l'infobulle le dit
+- `Acheter stuff YQ xN +Me` (M enchantements) ajoute a la queue YayaQueue le rang rare de ce qui manque, **chaque demande portant la variante exigee** : un outil `Resourcefulness` ilvl >= seuil pour les metiers de craft, un outil `Multicrafting` ilvl >= seuil pour l'exemplaire en sac de l'alchimie, un outil du rang seul pour les metiers de recolte (Resourcefulness n'y sert a rien), et autant d'accessoires distincts, sur le rang seul, qu'il y a d'emplacements d'accessoire fautifs
+- les besoins d'outil suivent une seule source, `trackerUI.GetProfessionToolNeeds` : les rappels, le plan d'achat et la demande d'enchantement en decoulent. Un outil conforme mais de mauvaise statistique laisse donc le besoin ouvert, alors que l'emplacement, lui, est satisfait
+- l'enchantement part avec l'outil : un outil `Resourcefulness` achete fait entrer son enchantement `243967` dans le meme plan, un outil `Multicrafting` son `243995`. Le besoin rejoint `requiredByItemID`, donc la Warbank est fouillee avant l'hotel des ventes et la quantite deja en file est deduite, exactement comme pour les autres enchantements. Un outil de recolte, achete sans statistique exigee, n'en demande aucun : la stat de l'exemplaire achete n'est pas connue d'avance
+- rien n'est re-ajoute si la **meme variante** du meme objet est deja demandee dans la file : l'outil Resourcefulness et l'outil Multicrafting d'un metier partagent leur itemID, et un compte global faisait passer le second pour deja demande
+- les itemIDs de ces rangs rares sont des **candidats** valides en jeu avant toute proposition : emplacement d'equipement (`INVTYPE_PROFESSION_TOOL` ou `INVTYPE_PROFESSION_GEAR`) et ligne de metier via `C_TradeSkillUI.GetSkillLineForGear`. Un candidat refuse n'est jamais mis en file, un candidat non encore charge laisse le plan en attente
+- le rang de craft d'un objet ne change pas son itemID, seulement ses bonusId, et la statistique d'un outil est tiree au hasard sur l'exemplaire : c'est pourquoi la demande porte une variante et non un simple itemID. La statistique voyage par sa **cle interne**, et YayaQueue la relit **au tooltip** de chaque annonce, dans la langue du client, exactement comme le tracker lit les outils possedes
+- le bonusId de statistique (`8952` Resourcefulness, `8953` Multicraft) ne peut pas servir de critere : il n'existe que sur un exemplaire craft **avec une Missive**. Un outil craft sans Missive n'en porte aucun, et c'est le cas de la plupart des annonces
+- YayaQueue ecarte les annonces non conformes au lieu de prendre la moins chere : sans annonce conforme, la ligne HV reste a zero disponible plutot que d'acheter un rang 1 a statistique quelconque. Le stock possede est compte par variante, donc posseder un outil rang 1 n'annule plus la demande d'un outil rang maximal
+- l'achat d'un equipement passe par la confirmation de prix eleve de YayaQueue des que l'annonce depasse `1,5x` le `dbrecent` TSM de l'itemID : ce prix melange les rangs, donc un rang maximal la declenche souvent. C'est un garde-fou, pas un bug
+- `/ywt stuff` bascule le suivi, `/ywt stuff on` et `/ywt stuff off` le forcent ; la trace `gear[<skillLineID>]` de `/ywt log` donne le compte d'emplacements, les motifs, la possession d'un outil conforme (`tool=`), celle d'un outil Resourcefulness (`rfOwned=`, et `rfOk=` pour la version conforme), celle d'un outil Multicrafting en sac (`mcBag=`, `mcBagOk=`) et les besoins retenus (`needs=`). La trace `Profession gear plan` donne le plan d'achat complet : quantite d'equipements, d'enchantements, variante visee par chaque ligne, candidats refuses et statistiques non ciblables
 - `Pull enchants Warbank` retire seulement la quantite necessaire des stacks connus de la Warbank ; son affichage est recalcule a l'ouverture de l'onglet Warbank et le bouton reste desactive si son contenu n'est pas connu
 - `Acheter enchants YQ` ajoute uniquement les deficits non deja demandes dans YayaQueue, en tenant compte des sacs et de la Warbank ; le calcul est relance apres ajout
 - son infobulle detaille le calcul par enchantement (`requis - sacs - banque - en file = a acheter`) et signale un stock Warbank inconnu ; la meme ligne est tracee dans `/ywt log` sous `Tool enchant plan`
@@ -73,6 +96,7 @@ Resume `Midnight` :
 - un bouton `Ouvrir payout` apparait si un `Artisan's Consortium Payout` est detecte dans les sacs; chaque clic cible un payout encore present et un clic excedentaire reste sans effet
 - le meme bouton ouvre aussi tous les conteneurs Midnight ouvrables recenses dans la whitelist : caches, coffres, sacs, pochettes, satchels, offres, boites Prey et conteneurs de la Coiled Isle / Vaults of Atal'Utek, en alternant les slots disponibles
 - les prismes de gemmes Midnight ouvrables sont inclus dans l'auto-ouverture : Amani Lapis, Tenebrous Amethyst, Sanguine Garnet et Harandar Peridot, dans leurs deux variantes d'item
+- les `Weathered Mysterious Satchel` sont inclus dans l'auto-ouverture, dans leurs trois variantes de qualite : `235052` (vert), `235911` (bleu) et `236944` (epique) ; le `Pristine Mysterious Satchel` (`235054`, epique) l'est aussi
 - des boutons independants `Ouvrir surplus` apparaissent pour les conteneurs de composants en surplus des 11 metiers Midnight reconnus, afin de pouvoir alterner les clics pendant leur ouverture
 - des boutons `Fusionner` apparaissent pour les Resourceful Rebar (`247725`), Multicraft Matrix (`247719`) et Ingenious Identifier (`260630`) dès que 5 rang 1 sont dans les sacs ; un clic utilise 5 rang 1 pour créer leur version rang 2 (`247726`, `247724`, `247788`)
 - les boutons d'action d'item (KP, recette, payout, surplus, fusion et traité) invalident leur cache et rafraichissent leur valeur dès le clic, puis se verrouillent pour bloquer le multiclic jusqu'à `BAG_UPDATE_DELAYED`
@@ -81,8 +105,10 @@ Resume `Midnight` :
 - les boutons payout et surplus n'utilisent pas de watchdog : ils itèrent sur les containers disponibles au fil des refreshs de sacs
 - l'option `Proposer l'ouverture securisee des conteneurs YWT` est desactivee par defaut ; si elle est activee, les conteneurs suivis sont detectes hors combat, hors instance et hors interfaces sensibles, puis ouverts automatiquement via `C_Container.UseContainerItem`
 - deux verdicts distincts sont persistes, et ils ne doivent jamais etre confondus :
-  - `autoOpenForbidden` : le conteneur a declenche `ADDON_ACTION_BLOCKED` ou `ADDON_ACTION_FORBIDDEN`. Signal dur de Blizzard, propre a l'objet : il n'est plus jamais tente automatiquement et passe uniquement par le bouton securise
-  - `autoOpenFailed` : refus transitoire (personnage indisponible, loot en retard, sacs pleins). Verdict a duree de vie limitee, jamais definitif, efface par la premiere ouverture reussie
+  - `autoOpenForbidden` : le conteneur a declenche `ADDON_ACTION_BLOCKED` ou `ADDON_ACTION_FORBIDDEN`. Signal dur de Blizzard, propre a l'objet, pose **des la premiere erreur** : il n'est plus jamais tente automatiquement et passe uniquement par le bouton securise
+- seul un blocage qui peut concerner l'usage de l'objet vaut refus du client. Le module mute son propre bouton securise juste avant la tentative, alors que le conteneur est deja en attente : un `ADDON_ACTION_BLOCKED` sur ce widget (`...AutoOpenButton:SetEnabled()`) etait attribue au conteneur et le condamnait a vie, sans qu'aucun `/reload` ne le rattrape. Ces blocages sont ignores pour le verdict, et les entrees deja ecrites ainsi sont retirees au chargement, sans toucher aux vrais refus
+  - `autoOpenFailed` : refus transitoire (personnage indisponible, loot en retard, sacs pleins). Ce n'est pas un verdict mais une simple fenetre de grace de 90 s : elle expire seule et la premiere ouverture reussie l'efface
+- ces deux categories sont les seules, et une seule est terminale. Tout conteneur qui n'est pas blackliste est retente indefiniment : apres 3 echecs il attend la grace de 90 s, le bouton securise reste propose entre-temps, puis l'ouverture automatique repart, en boucle, jusqu'a ce qu'il s'ouvre. Si le personnage est indisponible a l'expiration de la grace, la relance est repoussee sans etre abandonnee. Aucun conteneur ouvrable n'est donc range durablement parce que les sacs etaient pleins ou le loot en retard
 - un conteneur reserve au bouton securise ne bloque plus les suivants : le refus porte sur l'objet, la file continue d'avancer et l'ouverture automatique des autres conteneurs se poursuit
 - avant mise en file, chaque candidat est valide en jeu : un conteneur ouvrable expose un effet d'utilisation (`C_Item.GetItemSpell`) et n'est pas verrouille. La whitelist declarative contient des objets qui ne s'ouvrent pas par clic ; ils sont ecartes sans audit manuel. Un objet dont la donnee n'est pas encore chargee est laisse passer, et sa donnee demandee
 - une ouverture n'est comptee comme reussie que si le total detenu baisse **et** qu'un evenement de sac ou de loot a ete observe : la condition precedente concluait des que l'objet quittait son emplacement, si bien qu'un tri de sac ou un regroupement de pile marquait le conteneur ouvrable pour toujours
@@ -119,7 +145,7 @@ La frame est ancree par son coin haut gauche et s'etend vers le bas droite. Sa p
 Dans `Echap > Options > AddOns > Yaya Weekly Tracker`, les options account-wide permettent de :
 
 - cacher integralement la frame en combat (desactive par defaut)
-- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des world bosses Val/Naigtal, du world boss selon gold ou ilvl, des `Sparks of Tides`, des traites, des weeklies metiers trainer, du DMF metiers, des loots metiers, du dez Enchantement, des outils metiers, des enchantements des outils, de chaque recette Midnight, de `Lost Legends` et de `Research Console: Exploring the Void` (tous actives par defaut)
+- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des world bosses Val/Naigtal, du world boss selon gold ou ilvl, des `Sparks of Tides`, des traites, des weeklies metiers trainer, du DMF metiers, des loots metiers, du dez Enchantement, des outils metiers, des enchantements des outils, de l'equipement de metier, de chaque recette Midnight, de `Lost Legends` et de `Research Console: Exploring the Void` (tous actives par defaut)
 - activer l'achat automatique des sacs de materiaux d'enchantement du marchand d'Abondance (desactive par defaut)
 - activer l'achat automatique des `Fused Vitality` du marchand d'Abondance (desactive par defaut)
 
@@ -210,6 +236,33 @@ Assauts N'Zoth :
 
 - majeurs : `57157`, `56064`
 - mineurs : `55350`, `56308`, `57008`, `57728`
+
+Erreur de rafraichissement :
+
+- `UpdateTracker` tourne dans un `pcall` : quand il echoue, la section affiche
+  une seule ligne rouge a la place de son contenu. Cette ligne est coupee par la
+  largeur de la frame, donc elle ne dit plus que `YWT: erreur, voir le chat ou
+  /ywt log` et le texte entier part ailleurs
+- le texte complet est imprime une fois dans le chat et ecrit dans le journal
+  persistant sous `YWT FATAL`, **sans dependre du mode debug** : c'est justement
+  quand le debug est eteint que l'erreur surprend. Il se relit apres coup avec
+  `/ywt log`, meme apres un `/reload`
+- un rafraichissement echoue se repete plusieurs fois par seconde : seul le
+  premier message d'une serie identique est imprime et journalise, pour ne pas
+  ecraser l'historique
+
+Tests hors jeu :
+
+- `addons/YayaWeeklyTracker/Tests/test_tracker_refresh.lua` charge la suite Yaya
+  complete avec un client simule (`Tests/wow_env.lua`) et un personnage
+  alchimiste equipe (`Tests/game_state.lua`), rejoue le cycle d'evenements, puis
+  echoue si le moindre message d'erreur apparait ou si le scan d'equipement de
+  metier ne rend plus le verdict attendu
+- il se lance avec le reste de la suite par
+  `pwsh -NoProfile -File .\scripts\Test-Addons.ps1`
+- ce que ces tests ne couvrent pas : les mesures reelles de frame, les boutons
+  securises et tout ce qui depend du client. Une validation en jeu reste
+  necessaire pour l'affichage et les clics
 
 Commande :
 
