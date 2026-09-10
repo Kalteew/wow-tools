@@ -88,9 +88,11 @@ Deux cases indépendantes dans le panneau `Paramètres` de l'onglet Reset : `Ann
 - les appels d’achat restreints (`StartCommoditiesPurchase` et `PlaceBid`) partent immédiatement du clic courant, jamais d’un timer ou d’un événement throttle, comme dans YayaQueue ; YRS n’invente plus de timeout local de cotation à 5 secondes ;
 - les enchères unitaires conservent l’`auctionID` exact et n’appellent `PlaceBid` que si le stack complet tient encore dans le besoin TSM ;
 - un succès ajoute la quantité au stock en transit, retire uniquement la cotation achetée et laisse immédiatement le bouton servir la suivante ;
+- le stock en transit ne couvre que la fenêtre entre l'achat et le moment où TSM voit la marchandise : il compte comme du stock, mais trois bornes le referment — la hausse du stock brut (le courrier est arrivé), la fermeture de la boîte aux lettres (`MAIL_CLOSED`, écouté même hors hôtel des ventes) et une péremption de deux heures. Sans ces bornes, une quantité restée en transit passait pour du stock indéfiniment et l'item n'était plus jamais proposé, même à zéro exemplaire ;
+- les entrées de transit sans horodatage, écrites par les versions précédentes, sont purgées au chargement de l'addon ; `/yrs transit` liste ce qui compte encore comme du stock et `/yrs transit clear` l'oublie ;
 - après un succès, le bouton suivant redevient cliquable sans attendre le signal throttle ; si Blizzard n’est pas encore prêt, cette attente reste interne à la nouvelle transaction ;
 - une erreur invalide uniquement l’item concerné ; les autres cotations restent utilisables ;
 - une hausse réellement refusée par le plafond TSM met à jour la ligne et la laisse visible mais bloquée, sans rescan automatique ni boucle de sélection ;
 - les protections par génération, drainage et quarantaine empêchent un événement tardif de valider la transaction suivante ;
 - `YayaReagentSniperAPI.IsAuctionContextActive()` et `OnAuctionActionClick()` exposent le relais du bouton unique ;
-- commandes de diagnostic : `/yrs debug on`, `/yrs diag dump 40`, `/yrs diag clear` et `/yrs status`.
+- commandes de diagnostic : `/yrs debug on`, `/yrs diag dump 40`, `/yrs diag clear`, `/yrs transit [clear]` et `/yrs status` ; `TRANSIT_DROP` et `TRANSIT_CLOSE` tracent chaque fermeture de fenêtre.
