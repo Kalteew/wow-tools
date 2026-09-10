@@ -3036,6 +3036,58 @@ trackerUI.warbank.GetLiveCount = function(itemID)
     return trackerUI.GetToolEnchantWarbankQuantity(itemID)
 end
 
+-- Ce qui vient d'etre sorti mais que le client n'a pas encore repercute.
+--
+-- Un transfert n'est pas instantane, et surtout les onglets de la banque de
+-- compte se rafraichissent sur `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED`, qui
+-- arrive APRES le `BAG_UPDATE_DELAYED` qui deverrouille le bouton. Entre les
+-- deux, un scan revoit l'objet encore en banque et le repropose : le bouton
+-- se rearme et sort un deuxieme, puis un troisieme exemplaire.
+--
+-- On ne peut donc pas s'en remettre au moment ou les conteneurs se mettent a
+-- jour. Ce que l'on sait de source sure, c'est ce que l'on vient de retirer :
+-- tant que le compte vivant n'a pas baisse d'autant, l'objet reste en transit
+-- et le plan n'a le droit de rien decider a son sujet.
+runtimeState.warbankPullsInFlight = {}
+runtimeState.warbankPullGraceSeconds = 10
+
+trackerUI.warbank.NotePull = function(itemID, quantity, liveBefore)
+    itemID = tonumber(itemID)
+    if not itemID or not liveBefore then
+        return
+    end
+    local pending = runtimeState.warbankPullsInFlight[itemID]
+    local now = type(GetTime) == "function" and GetTime() or 0
+    runtimeState.warbankPullsInFlight[itemID] = {
+        quantity = (pending and pending.quantity or 0) + math.max(quantity or 1, 1),
+        -- Le point de reference reste celui du PREMIER retrait encore en
+        -- transit : deux retraits consecutifs se cumulent, et le client doit
+        -- avoir baisse de leur somme pour qu'on les considere digeres.
+        liveBefore = pending and pending.liveBefore or liveBefore,
+        expiresAt = now + runtimeState.warbankPullGraceSeconds,
+    }
+end
+
+-- Rend ce qui reste en transit, et oublie l'entree des que le client a
+-- rattrape -- ou apres une grace, si le transfert n'a finalement pas eu lieu.
+trackerUI.warbank.ConsumeInFlight = function(itemID, live)
+    local pending = runtimeState.warbankPullsInFlight[itemID]
+    if not pending then
+        return 0
+    end
+
+    local now = type(GetTime) == "function" and GetTime() or 0
+    if now >= (pending.expiresAt or 0) then
+        runtimeState.warbankPullsInFlight[itemID] = nil
+        return 0
+    end
+    if live and live <= (pending.liveBefore or 0) - pending.quantity then
+        runtimeState.warbankPullsInFlight[itemID] = nil
+        return 0
+    end
+    return pending.quantity
+end
+
 -- Verdict d'un exemplaire de la Warbank face a une variante. Rend true, false
 -- ou nil, exactement comme `state.DoesLinkMatchVariant` de YayaQueue : nil veut
 -- dire « pas encore jugeable », jamais « non conforme ».
@@ -3100,6 +3152,16 @@ trackerUI.warbank.Resolve = function(itemID, variant)
         return result
     end
     result.count = live
+
+    -- Un retrait deja parti interdit toute decision sur cet objet : ni un
+    -- deuxieme retrait, ni un achat pour le remplacer. `known` reste faux, ce
+    -- qui range l'entree dans les bloques du plan, avec sa raison.
+    local inFlight = trackerUI.warbank.ConsumeInFlight(itemID, live)
+    if inFlight > 0 then
+        result.inFlight = inFlight
+        return result
+    end
+
     if live <= 0 then
         result.known = true
         return result
@@ -5491,10 +5553,15 @@ trackerUI.PullFromWarbank = function(request, button)
         return false
     end
 
-    DebugLog("Warbank pull item=%d x%d from=%s:%s to=%s:%s",
+    -- Releve avant le mouvement : c'est la reference qui dira plus tard si le
+    -- client a repercute le retrait.
+    local liveBefore = trackerUI.warbank.GetLiveCount(request.itemID)
+
+    DebugLog("Warbank pull item=%d x%d from=%s:%s to=%s:%s live=%s",
         request.itemID, amount,
         tostring(request.bagID), tostring(request.slotIndex),
-        tostring(destinationBag), tostring(destinationSlot))
+        tostring(destinationBag), tostring(destinationSlot),
+        tostring(liveBefore))
 
     local placed = pcall(C_Container.PickupContainerItem, destinationBag, destinationSlot)
     -- `pcall` ne dit rien du verdict du jeu : un depot refuse n'est pas une
@@ -5517,6 +5584,13 @@ trackerUI.PullFromWarbank = function(request, button)
         ScheduleTrackerRefresh(0, false)
         return false
     end
+
+    -- Le retrait est note comme en transit AVANT tout rafraichissement : le
+    -- verrou du bouton ne tient que jusqu'a BAG_UPDATE_DELAYED, alors que les
+    -- onglets de la banque de compte, eux, se mettent a jour plus tard. Sans
+    -- cette note, le premier scan intercalaire revoit l'objet en banque et le
+    -- repropose aussitot.
+    trackerUI.warbank.NotePull(request.itemID, amount, liveBefore)
 
     -- Verrou anti-multiclic : deux clics avant BAG_UPDATE_DELAYED relisaient le
     -- meme plan et sortaient deux fois l'objet.
@@ -5661,8 +5735,10 @@ trackerUI.BuildProfessionSupplyPlan = function(trackedRows)
             plan.blocked[#plan.blocked + 1] = {
                 itemID = itemID,
                 itemName = ItemName(itemID),
-                reason = warbank.undecided > 0
-                    and "variante indeterminee en Warbank"
+                reason = (warbank.inFlight or 0) > 0
+                        and "transfert Warbank en cours"
+                    or warbank.undecided > 0
+                        and "variante indeterminee en Warbank"
                     or "stock Warbank inconnu",
             }
         end

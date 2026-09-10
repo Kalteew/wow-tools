@@ -274,6 +274,14 @@ function OpenWarbankFixture()
     BankFrame.__activeBankType = Enum.BankType.Account
 end
 
+-- Le client finit par repercuter un retrait : l emplacement se vide. Tant
+-- qu il ne l a pas fait, le plan doit considerer l objet comme en transit.
+function RemoveFromWarbankFixture(bagID, slotIndex)
+    if WARBANK_CONTENT[bagID] then
+        WARBANK_CONTENT[bagID][slotIndex] = nil
+    end
+end
+
 function CloseWarbankFixture()
     WARBANK_OPEN = false
     BankFrame.__shown = false

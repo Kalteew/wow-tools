@@ -422,6 +422,55 @@ else
         Fail("un second clic immediat sort un deuxieme objet")
     end
 
+    -- Le verrou tombe a BAG_UPDATE_DELAYED, alors que les onglets de la banque
+    -- de compte se rafraichissent plus tard. Ici la Warbank montre encore
+    -- l exemplaire deja sorti -- exactement l etat du client entre les deux
+    -- evenements -- et le plan doit pourtant cesser de le proposer.
+    FireEvent("BAG_UPDATE_DELAYED")
+    RunTimers(5)
+
+    local inFlightPlan = LastTrace("Profession supply plan")
+    if not inFlightPlan then
+        Fail("aucun plan apres le premier retrait")
+    else
+        if inFlightPlan:find("244626/rank:232+wb", 1, true) then
+            Fail("l exemplaire deja sorti est encore propose a la recuperation :: "
+                .. inFlightPlan)
+        end
+        -- Bloque, donc ni ressorti ni rachete : c est le seul verdict tenable
+        -- tant que le client n a pas tranche.
+        if not inFlightPlan:find("blocked=1", 1, true) then
+            Fail("un transfert en cours devrait bloquer son objet :: " .. inFlightPlan)
+        end
+    end
+
+    -- Le clic suivant enchaine sur un AUTRE objet : c est le contrat du bouton,
+    -- « reclique jusqu a extinction ». Ce qu il ne doit pas faire, c est
+    -- ressortir le meme.
+    TRANSFER_CALLS = {}
+    supplyButton.__scripts.OnClick(supplyButton, "LeftButton", false)
+    for _, call in ipairs(TRANSFER_CALLS) do
+        if call:find("14:3", 1, true) then
+            Fail("le meme exemplaire ressort une seconde fois :: " .. call)
+        end
+    end
+    if #TRANSFER_CALLS == 0 then
+        Fail("le bouton n enchaine pas sur l objet suivant")
+    end
+
+    -- Une fois le client a jour, le transit se resorbe et l objet reprend son
+    -- cours normal -- ici un achat, puisqu il a quitte la Warbank.
+    RemoveFromWarbankFixture(14, 3)
+    FireEvent("PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
+    FireEvent("BAG_UPDATE_DELAYED")
+    RunTimers(5)
+    local settledPlan = LastTrace("Profession supply plan")
+    if not settledPlan then
+        Fail("aucun plan apres rattrapage du client")
+    elseif not settledPlan:find("1x244626/rank:232,", 1, true) then
+        Fail("le transit ne se resorbe pas apres rattrapage du client :: " .. settledPlan)
+    end
+
     -- Curseur charge : le transfert doit renoncer, sinon il echange
     -- silencieusement ce que le curseur porte contre l'objet vise.
     supplyButton.itemActionLocked = false
