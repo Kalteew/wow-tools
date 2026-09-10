@@ -4894,6 +4894,102 @@ trackerUI.GetToolEnchantWarbankQuantity = function(itemID)
     end
 end
 
+-- Les enchantements reclames par les outils possedes, arretes APRES les
+-- besoins d'outil parce qu'ils en dependent.
+--
+-- Une statistique encore ouverte dans `toolNeeds` signifie qu'aucun exemplaire
+-- conforme n'est possede : ceux qu'on a sont sous le seuil et partent des que
+-- le remplacant arrive. Les enchanter reviendrait a jeter un parchemin, et
+-- leur besoin est de toute facon deja porte par le futur outil, que le plan
+-- commande avec son enchantement. Compter les deux faisait acheter deux
+-- parchemins pour un seul outil final, et proposer de poser le premier sur
+-- l'outil qu'on remplace.
+trackerUI.CollectProfessionEnchantNeeds = function(profession, skillLineID, result)
+    local replacedStats = {}
+    for _, need in ipairs(profession.toolNeeds or EMPTY_TABLE) do
+        if need.statKey then
+            replacedStats[need.statKey] = true
+        end
+    end
+
+    local skipped = 0
+    for _, details in ipairs(profession.tools) do
+        local statInfo = details.statInfo
+        local wrongEnchant = not statInfo or details.enchantID ~= statInfo.enchantID
+        if wrongEnchant and replacedStats[details.statKey] then
+            skipped = skipped + 1
+        elseif wrongEnchant then
+            local requiredItemID = statInfo and statInfo.itemID or nil
+
+            if details.missingEnchant then
+                local key = requiredItemID or details.itemID
+                local entry = profession.missingEnchantTools[key]
+                if not entry then
+                    entry = {
+                        itemID = details.itemID,
+                        requiredItemID = requiredItemID,
+                        label = statInfo and statInfo.shortLabel or nil,
+                        statLabel = statInfo and statInfo.label or nil,
+                        quantity = 0,
+                    }
+                    profession.missingEnchantTools[key] = entry
+                end
+                entry.quantity = entry.quantity + 1
+            elseif requiredItemID then
+                profession.missingByItemID[requiredItemID] =
+                    (profession.missingByItemID[requiredItemID] or 0) + 1
+                local entry = profession.missingTools[requiredItemID]
+                if not entry then
+                    entry = {
+                        itemID = requiredItemID,
+                        label = statInfo.shortLabel,
+                        statLabel = statInfo.label,
+                        quantity = 0,
+                    }
+                    profession.missingTools[requiredItemID] = entry
+                end
+                entry.quantity = entry.quantity + 1
+            end
+
+            if requiredItemID then
+                result.requiredByItemID[requiredItemID] =
+                    (result.requiredByItemID[requiredItemID] or 0) + 1
+            end
+
+            -- Un outil de rechange garde en sac s'enchante comme l'outil
+            -- equipe : le bouton securise cible alors la paire
+            -- target-bag/target-slot au lieu du seul slot d'inventaire. La
+            -- cible doit rester adressable.
+            local targetAddressable =
+                (details.source == "equipment" and details.slotIndex ~= nil)
+                or (details.source == "bag" and details.bagID ~= nil and details.slotIndex ~= nil)
+            if targetAddressable and statInfo then
+                local action = {
+                    skillLineID = skillLineID,
+                    enchantItemID = statInfo.itemID,
+                    expectedEnchantID = statInfo.enchantID,
+                    enchantLink = statInfo.itemLink,
+                    toolItemID = details.itemID,
+                    toolLink = details.itemLink,
+                    toolName = type(GetItemInfo) == "function"
+                        and SafeCall(GetItemInfo, details.itemLink or details.itemID)
+                        or nil,
+                    source = details.source,
+                    toolBag = details.source == "bag" and details.bagID or nil,
+                    toolSlot = details.slotIndex,
+                    statKey = details.statKey,
+                    statLabel = statInfo.label,
+                    professionLabel = profession.label,
+                }
+                profession.applyEnchants[#profession.applyEnchants + 1] = action
+                result.applyEnchants[#result.applyEnchants + 1] = action
+            end
+        end
+    end
+
+    return skipped
+end
+
 trackerUI.FindToolEnchantState = function(trackedRows)
     if not midnightCaches.toolEnchantsDirty and midnightCaches.toolEnchants then
         return midnightCaches.toolEnchants
@@ -4989,71 +5085,11 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         end
 
         local profession = result.bySkillLineID[skillLineID]
+        -- Le scan se contente de recenser. Les enchantements sont comptes plus
+        -- tard, par trackerUI.CollectProfessionEnchantNeeds, quand les besoins
+        -- d'outil sont connus : eux seuls disent quels exemplaires sont
+        -- sortants, et un outil sortant ne s'enchante pas.
         profession.tools[#profession.tools + 1] = details
-        -- Un outil de rechange garde en sac s'enchante comme l'outil equipe :
-        -- le bouton securise cible alors la paire target-bag/target-slot au
-        -- lieu du seul slot d'inventaire. La cible doit rester adressable.
-        local targetAddressable = (source == "equipment" and slotIndex ~= nil)
-            or (source == "bag" and bagID ~= nil and slotIndex ~= nil)
-        if targetAddressable
-            and details.statInfo
-            and details.enchantID ~= details.statInfo.enchantID then
-            local toolName = type(GetItemInfo) == "function"
-                and SafeCall(GetItemInfo, itemLink or itemID)
-                or nil
-            local action = {
-                skillLineID = skillLineID,
-                enchantItemID = details.statInfo.itemID,
-                expectedEnchantID = details.statInfo.enchantID,
-                enchantLink = details.statInfo.itemLink,
-                toolItemID = details.itemID,
-                toolLink = details.itemLink,
-                toolName = toolName,
-                source = source,
-                toolBag = source == "bag" and bagID or nil,
-                toolSlot = slotIndex,
-                statKey = details.statKey,
-                statLabel = details.statInfo.label,
-                professionLabel = profession.label,
-            }
-            profession.applyEnchants[#profession.applyEnchants + 1] = action
-            result.applyEnchants[#result.applyEnchants + 1] = action
-        end
-        local function AddRequiredEnchant(includeWrongEnchantWarning)
-            if not details.statInfo then
-                return
-            end
-            local requiredItemID = details.statInfo.itemID
-            if includeWrongEnchantWarning then
-                profession.missingByItemID[requiredItemID] = (profession.missingByItemID[requiredItemID] or 0) + 1
-                profession.missingTools[requiredItemID] = profession.missingTools[requiredItemID] or {
-                    itemID = requiredItemID,
-                    label = details.statInfo.shortLabel,
-                    statLabel = details.statInfo.label,
-                    quantity = 0,
-                }
-                profession.missingTools[requiredItemID].quantity = profession.missingTools[requiredItemID].quantity + 1
-            end
-            result.requiredByItemID[requiredItemID] = (result.requiredByItemID[requiredItemID] or 0) + 1
-        end
-        if details.missingEnchant then
-            local missingEnchantKey = details.statInfo and details.statInfo.itemID or details.itemID
-            profession.missingEnchantTools[missingEnchantKey] = profession.missingEnchantTools[missingEnchantKey] or {
-                itemID = details.itemID,
-                requiredItemID = details.statInfo and details.statInfo.itemID or nil,
-                label = details.statInfo and details.statInfo.shortLabel or nil,
-                statLabel = details.statInfo and details.statInfo.label or nil,
-                quantity = 0,
-            }
-            profession.missingEnchantTools[missingEnchantKey].quantity = profession.missingEnchantTools[missingEnchantKey].quantity + 1
-            AddRequiredEnchant(false)
-            return details, pending, eligible
-        end
-        if details.enchantID == details.statInfo.enchantID then
-            return details, pending, eligible
-        end
-
-        AddRequiredEnchant(true)
         return details, pending, eligible
     end
 
@@ -5123,14 +5159,6 @@ trackerUI.FindToolEnchantState = function(trackedRows)
     local debugParts = {}
     for _, row in ipairs(trackedRows) do
         local profession = result.bySkillLineID[row.skillLineID]
-        local unenchantedCount = 0
-        local wrongEnchantCount = 0
-        for _, tool in pairs(profession.missingEnchantTools) do
-            unenchantedCount = unenchantedCount + (tool.quantity or 0)
-        end
-        for _, tool in pairs(profession.missingTools) do
-            wrongEnchantCount = wrongEnchantCount + (tool.quantity or 0)
-        end
         -- Presence d'un outil Resourcefulness, equipe ou en sac : la stat est
         -- celle lue au tooltip de chaque exemplaire, jamais un enchantement.
         -- Possession, jamais port : dans un flux multi-outil l'exemplaire porte
@@ -5148,6 +5176,18 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             or profession.equippedToolPending == true
         trackerUI.SummarizeProfessionGear(profession)
         profession.toolNeeds = trackerUI.GetProfessionToolNeeds(profession, row.config)
+        -- Les enchantements viennent apres, et pas avant : ils dependent de ce
+        -- que les besoins d'outil declarent sortant.
+        local skippedEnchants =
+            trackerUI.CollectProfessionEnchantNeeds(profession, row.skillLineID, result)
+        local unenchantedCount = 0
+        local wrongEnchantCount = 0
+        for _, tool in pairs(profession.missingEnchantTools) do
+            unenchantedCount = unenchantedCount + (tool.quantity or 0)
+        end
+        for _, tool in pairs(profession.missingTools) do
+            wrongEnchantCount = wrongEnchantCount + (tool.quantity or 0)
+        end
         -- L'enchantement part avec l'outil : un outil achete nu resterait a
         -- enchanter, et son rappel n'apparaitrait qu'au scan suivant, une fois
         -- l'achat fait. Le plan d'approvisionnement emet donc l'enchantement
@@ -5172,13 +5212,14 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             tostring(profession.hasMulticraftTool),
             tostring(gear.compliantToolStats.multicrafting == true),
             #needParts > 0 and table.concat(needParts, "+") or "none")
-        debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d apply=%d equipped=%s rf=%s pending=%s"):format(
+        debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d skipped=%d apply=%d equipped=%s rf=%s pending=%s"):format(
             row.skillLineID,
             tostring(profession.professionID),
             tostring(profession.toolSlot),
             #profession.tools,
             unenchantedCount,
             wrongEnchantCount,
+            skippedEnchants,
             #profession.applyEnchants,
             tostring(profession.hasEquippedTool),
             tostring(profession.hasResourcefulnessTool),

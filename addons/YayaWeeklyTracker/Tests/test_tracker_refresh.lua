@@ -114,6 +114,13 @@ else
     if not gearTrace:find("mcOk=false") then
         Fail("un outil Multicrafting ilvl 206 passe pour conforme :: " .. gearTrace)
     end
+    -- Cet exemplaire sortant est ecarte de la comptabilite des enchantements,
+    -- et aucune action ne propose de l enchanter : sur deux outils possedes,
+    -- un seul est compte nu et une seule action est offerte, celle de l outil
+    -- conforme.
+    if not gearTrace:find("tools=2 unench=1 wrong=0 skipped=1 apply=1", 1, true) then
+        Fail("l outil sortant n est pas ecarte des enchantements :: " .. gearTrace)
+    end
 end
 
 -- 3. Le plan d'achat vise bien une variante, et emmene l'enchantement avec.
@@ -125,12 +132,15 @@ end
 -- l'enchantement Multicraft (243995) avec lui. Les deux emplacements
 -- d'accessoire fautifs completent le plan, sur le rang seul.
 --
--- Les trois enchantements sont desormais dans LE MEME plan : celui de l'outil
--- a acheter (243995), et ceux des deux outils deja possedes mais nus -- le
--- Resourcefulness equipe (243967) et le Multicrafting en sac (243995 lui
--- aussi). Tant qu'il y avait deux boutons, ce plan-ci n'annoncait que le
--- premier et les deux autres vivaient sur l'autre bouton, si bien qu'aucun des
--- deux compteurs ne disait ce qui manquait vraiment.
+-- Les enchantements sont desormais dans LE MEME plan que l equipement. Tant
+-- qu il y avait deux boutons, ce plan-ci n annoncait que l enchantement de l
+-- outil qu il commandait et les autres vivaient sur l autre bouton, si bien
+-- qu aucun des deux compteurs ne disait ce qui manquait vraiment.
+--
+-- Il en reste deux, pas trois : le Resourcefulness equipe est nu et conforme,
+-- donc il reclame le sien (243967) ; le futur outil Multicrafting emmene le
+-- sien (243995) ; mais le Multicrafting ilvl 206 garde en sac ne compte pas,
+-- puisque c est precisement lui qu on remplace.
 local planTrace
 for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
     if entry:find("Profession supply plan", 1, true) then
@@ -143,8 +153,16 @@ else
     if not planTrace:find("multicrafting:232", 1, true) then
         Fail("l'outil Multicrafting n'est pas demande sur sa variante :: " .. planTrace)
     end
-    if not planTrace:find("2x243995/enchant", 1, true) then
-        Fail("les deux enchantements Multicraft ne sont pas demandes :: " .. planTrace)
+    -- UN seul enchantement Multicraft, celui du futur outil. L exemplaire
+    -- ilvl 206 garde en sac porte la meme statistique mais part des que le
+    -- 232 arrive : l enchanter serait jeter un parchemin, et son besoin est
+    -- deja porte par son remplacant. En compter deux faisait acheter deux
+    -- parchemins pour un seul outil final.
+    if not planTrace:find("1x243995/enchant", 1, true) then
+        Fail("l enchantement du futur outil Multicraft manque :: " .. planTrace)
+    end
+    if planTrace:find("2x243995/enchant", 1, true) then
+        Fail("l outil Multicraft sortant reclame encore son enchantement :: " .. planTrace)
     end
     if not planTrace:find("1x243967/enchant", 1, true) then
         Fail("l'enchantement de l'outil Resourcefulness nu manque :: " .. planTrace)
@@ -156,7 +174,7 @@ else
     if not planTrace:find("rank:232", 1, true) then
         Fail("les accessoires ne sont pas demandes sur le rang :: " .. planTrace)
     end
-    if not planTrace:find("gear=3 ench=3", 1, true) then
+    if not planTrace:find("gear=3 ench=2", 1, true) then
         Fail("le decompte du plan est inattendu :: " .. planTrace)
     end
     if planTrace:find("unknownStats=[1-9]") then
