@@ -1482,6 +1482,9 @@ trackerUI.UnlockItemActionButtons = function()
     Unlock(frame.recipeButton)
     Unlock(frame.knowledgeButton)
     Unlock(frame.payoutButton)
+    -- Le bouton de recuperation Warbank se verrouille le temps d'un transfert,
+    -- il doit donc figurer ici : sans cela il resterait grise a vie.
+    Unlock(frame.toolEnchantPullButton)
     for _, button in ipairs(frame.surplusReagentButtons or EMPTY_TABLE) do
         Unlock(button)
     end
@@ -3775,66 +3778,18 @@ trackerUI.FindMissingMidnightTreatisesInWarbank = function(trackedRows)
     return result
 end
 
+-- Un seul traite par clic : le reste du stack demeure en Warbank, ou les
+-- autres personnages du compte le trouveront.
 trackerUI.PullWarbankTreatise = function(button)
-    if not button or not button.bagID or not button.slotIndex or not button.itemID then
-        return
+    if not button then
+        return false
     end
-    if InCombatLockdown and InCombatLockdown() then
-        return
-    end
-    if not C_Container
-        or type(C_Container.GetContainerItemInfo) ~= "function"
-        or type(C_Container.PickupContainerItem) ~= "function" then
-        print("YWT: transfert Warbank indisponible")
-        return
-    end
-
-    if type(GetCursorInfo) == "function" and select(1, GetCursorInfo()) then
-        print("YWT: libère d'abord le curseur")
-        return
-    end
-
-    local sourceInfo = SafeCall(C_Container.GetContainerItemInfo, button.bagID, button.slotIndex)
-    local stackCount = tonumber(sourceInfo and sourceInfo.stackCount) or 0
-    if not sourceInfo or tonumber(sourceInfo.itemID) ~= button.itemID or stackCount <= 0 then
-        trackerUI.InvalidateWarbankTreatiseCache()
-        ScheduleTrackerRefresh(0, false)
-        return
-    end
-    if sourceInfo.isLocked then
-        return
-    end
-
-    local destinationBag, destinationSlot = trackerUI.FindToolEnchantDestination(button.itemID, 1)
-    if not destinationBag or not destinationSlot then
-        print("YWT: aucun emplacement disponible dans les sacs")
-        return
-    end
-
-    local ok
-    if stackCount > 1 then
-        if type(C_Container.SplitContainerItem) ~= "function" then
-            print("YWT: le split de stack n'est pas disponible")
-            return
-        end
-        ok = pcall(C_Container.SplitContainerItem, button.bagID, button.slotIndex, 1)
-    else
-        ok = pcall(C_Container.PickupContainerItem, button.bagID, button.slotIndex)
-    end
-    if not ok then
-        print("YWT: transfert Warbank indisponible")
-        return
-    end
-
-    local placed = pcall(C_Container.PickupContainerItem, destinationBag, destinationSlot)
-    if not placed then
-        print("YWT: impossible de déposer le traité dans les sacs")
-        return
-    end
-
-    trackerUI.LockItemActionButton(button)
-    trackerUI.InvalidateWarbankTreatiseCache()
-    trackerUI.RequestItemActionRefresh()
+    return trackerUI.PullFromWarbank({
+        itemID = button.itemID,
+        bagID = button.bagID,
+        slotIndex = button.slotIndex,
+        quantity = 1,
+    }, button)
 end
 
 trackerUI.FindSurplusReagentContainersInBags = function()
@@ -5566,7 +5521,10 @@ trackerUI.GetProfessionToolEnchantStatus = function(row)
     return state.bySkillLineID[row and row.skillLineID] or { missingTools = {} }
 end
 
-trackerUI.FindToolEnchantDestination = function(itemID, quantity)
+-- Emplacement de sac capable d'accueillir `quantity` exemplaires : une pile
+-- entamee du meme objet d'abord, un emplacement vide sinon. Rien de specifique
+-- aux enchantements malgre son ancien nom.
+trackerUI.FindBagDestination = function(itemID, quantity)
     if not C_Container or type(C_Container.GetContainerItemInfo) ~= "function" then
         return nil, nil
     end
@@ -5591,67 +5549,125 @@ trackerUI.FindToolEnchantDestination = function(itemID, quantity)
     return emptyBag, emptySlot
 end
 
-trackerUI.PullToolEnchantItems = function()
+-- Le geste unique : sortir de la Warbank exactement `request.quantity`
+-- exemplaires de l'emplacement designe, et les deposer dans les sacs.
+--
+-- Un transfert par appel, jamais plus. Le compteur du bouton annonce le reste
+-- a faire, pas ce que le clic va faire, et son infobulle doit le dire.
+--
+-- Les deux implementations qu'elle remplace divergeaient sur cinq points ; on
+-- garde a chaque fois la version la plus sure.
+trackerUI.PullFromWarbank = function(request, button)
+    if type(request) ~= "table"
+        or not request.itemID
+        or not request.bagID
+        or not request.slotIndex then
+        return false
+    end
     if InCombatLockdown and InCombatLockdown() then
-        return
+        return false
+    end
+    -- Le verrou est verifie ici, pas seulement porte par l'etat du widget :
+    -- un clic peut arriver autrement que par la souris, et le plan lu deux
+    -- fois avant BAG_UPDATE_DELAYED sortirait deux fois le meme objet.
+    if button and button.itemActionLocked then
+        return false
+    end
+    if not C_Container
+        or type(C_Container.GetContainerItemInfo) ~= "function"
+        or type(C_Container.PickupContainerItem) ~= "function" then
+        print("YWT: transfert Warbank indisponible")
+        return false
     end
 
-    local state = trackerUI.FindToolEnchantState(GetTrackedMidnightProfessions())
-    if not state.bankOpen or not state.bankKnown or #state.pullPlan == 0 then
-        print("YWT: ouvre la Warbank pour récupérer les enchantements disponibles")
-        return
+    -- Un curseur deja charge transforme le transfert en echange silencieux :
+    -- le premier Pickup deposerait ce qu'il porte a la place de l'objet vise.
+    if type(GetCursorInfo) == "function" and select(1, GetCursorInfo()) then
+        print("YWT: libère d'abord le curseur")
+        return false
     end
 
-    local selectedPlan
-    local selectedSlot
-    for _, plan in ipairs(state.pullPlan) do
-        for _, slot in ipairs(plan.slots or EMPTY_TABLE) do
-            if (slot.stackCount or 0) > 0 then
-                selectedPlan = plan
-                selectedSlot = slot
-                break
-            end
-        end
-        if selectedPlan then
-            break
-        end
+    -- La source est revalidee : entre le scan et le clic, l'emplacement a pu
+    -- changer d'objet, se vider ou se verrouiller.
+    local sourceInfo = SafeCall(C_Container.GetContainerItemInfo, request.bagID, request.slotIndex)
+    local stackCount = tonumber(sourceInfo and sourceInfo.stackCount) or 0
+    if not sourceInfo or tonumber(sourceInfo.itemID) ~= request.itemID or stackCount <= 0 then
+        trackerUI.InvalidateWarbankTreatiseCache()
+        trackerUI.InvalidateToolEnchantCache()
+        ScheduleTrackerRefresh(0, false)
+        return false
     end
-    if not selectedPlan or not selectedSlot then
-        print("YWT: aucun stack d'enchantement disponible dans la Warbank")
-        return
+    if sourceInfo.isLocked then
+        return false
     end
 
-    local amount = math.min(selectedPlan.quantity, selectedSlot.stackCount or 1)
-    local destinationBag, destinationSlot = trackerUI.FindToolEnchantDestination(selectedPlan.itemID, amount)
+    -- La destination est relue juste avant le split, pas au moment du plan :
+    -- un sac a pu se remplir depuis, et l'objet resterait sur le curseur.
+    local amount = math.max(math.min(tonumber(request.quantity) or 1, stackCount), 1)
+    local destinationBag, destinationSlot = trackerUI.FindBagDestination(request.itemID, amount)
     if not destinationBag or not destinationSlot then
         print("YWT: aucun emplacement disponible dans les sacs")
-        return
+        return false
     end
 
-    local info = C_Container and type(C_Container.GetContainerItemInfo) == "function"
-        and SafeCall(C_Container.GetContainerItemInfo, selectedSlot.bagID, selectedSlot.slotIndex)
-        or nil
-    if info and info.isLocked then
-        return
-    end
-
-    local ok = false
-    if amount < (selectedSlot.stackCount or 1)
-        and C_Container
-        and type(C_Container.SplitContainerItem) == "function" then
-        ok = pcall(C_Container.SplitContainerItem, selectedSlot.bagID, selectedSlot.slotIndex, amount)
-    elseif C_Container and type(C_Container.PickupContainerItem) == "function" then
-        ok = pcall(C_Container.PickupContainerItem, selectedSlot.bagID, selectedSlot.slotIndex)
+    local ok
+    if amount < stackCount then
+        if type(C_Container.SplitContainerItem) ~= "function" then
+            print("YWT: le split de stack n'est pas disponible")
+            return false
+        end
+        ok = pcall(C_Container.SplitContainerItem, request.bagID, request.slotIndex, amount)
+    else
+        ok = pcall(C_Container.PickupContainerItem, request.bagID, request.slotIndex)
     end
     if not ok then
         print("YWT: transfert Warbank indisponible")
-        return
+        return false
     end
-    if C_Container and type(C_Container.PickupContainerItem) == "function" then
-        pcall(C_Container.PickupContainerItem, destinationBag, destinationSlot)
+
+    local placed = pcall(C_Container.PickupContainerItem, destinationBag, destinationSlot)
+    if not placed then
+        -- Split puis Pickup ne forment pas un geste atomique : entre les deux,
+        -- l'objet est sur le curseur. L'y laisser bloquerait tous les clics
+        -- suivants, y compris ceux du joueur.
+        if type(ClearCursor) == "function" then
+            pcall(ClearCursor)
+        end
+        print("YWT: impossible de déposer l'objet dans les sacs")
+        return false
     end
+
+    -- Verrou anti-multiclic : deux clics avant BAG_UPDATE_DELAYED relisaient le
+    -- meme plan et sortaient deux fois l'objet.
+    trackerUI.LockItemActionButton(button)
+    trackerUI.InvalidateWarbankTreatiseCache()
     trackerUI.InvalidateToolEnchantCache()
-    ScheduleTrackerRefresh(0.15, false)
+    trackerUI.RequestItemActionRefresh()
+    return true
+end
+
+trackerUI.PullToolEnchantItems = function(button)
+    local state = trackerUI.FindToolEnchantState(GetTrackedMidnightProfessions())
+    if not state.bankOpen or not state.bankKnown or #state.pullPlan == 0 then
+        print("YWT: ouvre la Warbank pour récupérer les enchantements disponibles")
+        return false
+    end
+
+    for _, plan in ipairs(state.pullPlan) do
+        for _, slot in ipairs(plan.slots or EMPTY_TABLE) do
+            if (slot.stackCount or 0) > 0 then
+                return trackerUI.PullFromWarbank({
+                    itemID = plan.itemID,
+                    bagID = slot.bagID,
+                    slotIndex = slot.slotIndex,
+                    quantity = math.min(plan.quantity, slot.stackCount or 1),
+                }, button)
+            end
+        end
+    end
+
+    print("YWT: aucun stack d'enchantement disponible dans la Warbank")
+    return false
 end
 
 -- Un candidat n'est propose que si le client confirme son emplacement
@@ -5948,7 +5964,11 @@ trackerUI.UpdateToolEnchantButtons = function(state)
     if hasPull then
         local canPull = state.bankOpen and state.bankKnown and #state.pullPlan > 0
         pullButton:SetText(("Pull enchants Warbank x%d"):format(state.pullQuantity))
-        pullButton:SetEnabled(canPull)
+        -- Le verrou pose par un transfert en cours prime : le rendre a l'etat
+        -- du plan rearmerait le bouton avant BAG_UPDATE_DELAYED.
+        if not pullButton.itemActionLocked then
+            pullButton:SetEnabled(canPull)
+        end
         pullButton.pullState = state
         pullButton:Show()
     else
@@ -9559,11 +9579,11 @@ trackerUI.CreateTrackerFrame = function()
     trackerFrame.toolEnchantPullButton:RegisterForClicks("AnyUp", "AnyDown")
     trackerFrame.toolEnchantPullButton:SetText("Pull enchants Warbank")
     trackerFrame.toolEnchantPullButton:Hide()
-    trackerFrame.toolEnchantPullButton:SetScript("OnClick", function(_, _, down)
+    trackerFrame.toolEnchantPullButton:SetScript("OnClick", function(self, _, down)
         if down then
             return
         end
-        trackerUI.PullToolEnchantItems()
+        trackerUI.PullToolEnchantItems(self)
     end)
     trackerFrame.toolEnchantPullButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -9572,6 +9592,8 @@ trackerUI.CreateTrackerFrame = function()
         if state and state.pullQuantity then
             GameTooltip:AddLine(("À récupérer : %d"):format(state.pullQuantity), 1, 1, 1, true)
         end
+        -- Le compteur annonce le reste a faire ; un clic ne sort qu'un objet.
+        GameTooltip:AddLine("Un clic sort un seul objet : reclique jusqu'à extinction.", 0.7, 0.7, 0.7, true)
         if not self:IsEnabled() then
             GameTooltip:AddLine("Ouvre la Warbank et attends le chargement de son contenu.", 1, 0.6, 0.2, true)
         end

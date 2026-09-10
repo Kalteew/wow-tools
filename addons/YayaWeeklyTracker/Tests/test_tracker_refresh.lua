@@ -318,6 +318,54 @@ else
     WARBANK_DESYNC[245778] = nil
 end
 
+-- 7. Le geste de transfert : un clic sort UN objet, depuis le bon emplacement,
+-- et un second clic immediat ne fait rien. Les deux implementations qu'il
+-- remplace laissaient passer le double-clic et le curseur charge.
+OpenWarbankFixture()
+FireEvent("BANKFRAME_OPENED")
+RunTimers(5)
+
+local treatiseButton = _G.YayaWeeklyTrackerWarbankTreatiseButton1
+if not treatiseButton or not treatiseButton:IsShown() then
+    Fail("le bouton de traite Warbank n'apparait pas alors qu'un stack y dort")
+else
+    TRANSFER_CALLS = {}
+    treatiseButton.__scripts.OnClick(treatiseButton, "LeftButton", false)
+    -- Stack de trois : un split d'une unite, puis le depot dans les sacs.
+    if TRANSFER_CALLS[1] ~= "Split 16:1 x1" then
+        Fail("le transfert ne sort pas une seule unite du bon emplacement :: "
+            .. tostring(TRANSFER_CALLS[1]))
+    end
+    if not (TRANSFER_CALLS[2] or ""):find("^Pickup ") then
+        Fail("l'objet sorti n'est pas depose dans les sacs :: " .. tostring(TRANSFER_CALLS[2]))
+    end
+    if #TRANSFER_CALLS ~= 2 then
+        Fail(("un clic a produit %d appels de transfert au lieu de 2"):format(#TRANSFER_CALLS))
+    end
+
+    -- Verrou anti-multiclic : rien avant le rafraichissement suivant.
+    local afterFirst = #TRANSFER_CALLS
+    treatiseButton.__scripts.OnClick(treatiseButton, "LeftButton", false)
+    if #TRANSFER_CALLS ~= afterFirst then
+        Fail("un second clic immediat sort un deuxieme objet")
+    end
+
+    -- Curseur charge : le transfert doit renoncer, sinon il echange
+    -- silencieusement ce que le curseur porte contre l'objet vise.
+    treatiseButton.itemActionLocked = false
+    local previousCursor = GetCursorInfo
+    GetCursorInfo = function() return "item", 12345 end
+    TRANSFER_CALLS = {}
+    treatiseButton.__scripts.OnClick(treatiseButton, "LeftButton", false)
+    GetCursorInfo = previousCursor
+    if #TRANSFER_CALLS ~= 0 then
+        Fail("un curseur charge n'empeche pas le transfert")
+    end
+end
+CloseWarbankFixture()
+FireEvent("BANKFRAME_CLOSED")
+RunTimers(3)
+
 if failures > 0 then
     print(("%d echec(s)"):format(failures))
     os.exit(1)
