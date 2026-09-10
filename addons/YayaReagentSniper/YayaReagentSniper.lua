@@ -16,6 +16,10 @@ local PURCHASE_QUARANTINE_SECONDS = 300
 local MAX_PURCHASE_PAGES = 40
 local ACTION_COOLDOWN = 0.5
 local DIAGNOSTIC_LOG_LIMIT = 1200
+-- Le stock en transit ne couvre qu'une fenetre : entre l'achat et le moment
+-- ou TSM voit la marchandise. Sans peremption, une quantite restee dans la
+-- base masque le besoin pour toujours, et l'item n'est plus jamais propose.
+local TRANSIT_TTL_SECONDS = 2 * 60 * 60
 local PRICE_SORT = {
 	{
 		sortOrder = Enum.AuctionHouseSortOrder.Price,
@@ -177,6 +181,61 @@ local function DiagnosticLog(category, message, ...)
 end
 
 _G.YayaReagentSniperTrace = DiagnosticLog
+
+-- Une entree de transit ne compte comme du stock que dans sa fenetre de vie.
+-- L'absence d'horodatage trahit une entree ecrite par une version qui ne les
+-- perimait pas : ces lignes-la ont bloque le restock des semaines durant.
+local function IsTransitEntryUsable(entry, now)
+	if type(entry) ~= "table" then
+		return false
+	end
+	if (tonumber(entry.quantity) or 0) <= 0 then
+		return false
+	end
+	local createdAt = tonumber(entry.createdAt)
+	if not createdAt or createdAt > now or now - createdAt >= TRANSIT_TTL_SECONDS then
+		return false
+	end
+	return true
+end
+
+-- Rend la quantite encore en vol pour cette entree, apres l'avoir confrontee au
+-- stock brut : une hausse du stock prouve que le courrier est arrive. Retourne 0
+-- quand la fenetre est fermee, donc quand l'appelant doit oublier l'entree.
+local function ReconcileTransitEntry(entry, rawQuantity, now)
+	if not IsTransitEntryUsable(entry, now) then
+		return 0
+	end
+	local pending = math.max(0, math.floor(tonumber(entry.quantity) or 0))
+	local observed = tonumber(entry.observedInventory) or rawQuantity
+	if rawQuantity > observed then
+		pending = math.max(0, pending - (rawQuantity - observed))
+	end
+	entry.observedInventory = rawQuantity
+	entry.quantity = pending
+	return pending
+end
+
+-- Retire les entrees de transit perimees, ou toutes avec dropAll. Rend le nombre
+-- de lignes et la quantite retirees pour que l'appelant puisse en rendre compte.
+local function DropTransitEntries(reason, dropAll)
+	local db = state.db or GetDB()
+	local now = time()
+	local removed, quantity = 0, 0
+	for key, entry in pairs(db.inTransit) do
+		if dropAll or not IsTransitEntryUsable(entry, now) then
+			removed = removed + 1
+			if type(entry) == "table" then
+				quantity = quantity + math.max(0, math.floor(tonumber(entry.quantity) or 0))
+			end
+			db.inTransit[key] = nil
+		end
+	end
+	if removed > 0 then
+		DiagnosticLog("TRANSIT_DROP", "reason=%s lignes=%d quantité=%d", tostring(reason or "?"), removed, quantity)
+	end
+	return removed, quantity
+end
 
 local function SetStatus(text)
 	if state.frame and state.frame.status then
@@ -819,25 +878,17 @@ end
 local function GetShoppingInventory(itemString, sources)
 	local rawQuantity = GetShoppingInventoryRaw(itemString, sources)
 	local itemID = GetItemID(itemString)
-	local entry = itemID and state.db.inTransit[tostring(itemID)]
-	if type(entry) ~= "table" or (tonumber(entry.quantity) or 0) <= 0 then
-		if itemID then
-			state.db.inTransit[tostring(itemID)] = nil
+	local key = itemID and tostring(itemID) or nil
+	local entry = key and state.db.inTransit[key] or nil
+	local pendingQuantity = ReconcileTransitEntry(entry, rawQuantity, time())
+	if pendingQuantity <= 0 then
+		if key and entry ~= nil then
+			DiagnosticLog("TRANSIT_CLOSE", "item=%s fenêtre close stock=%d", key, rawQuantity)
+			state.db.inTransit[key] = nil
 		end
 		return rawQuantity, rawQuantity
 	end
-
-	local pendingQuantity = math.max(0, math.floor(tonumber(entry.quantity) or 0))
-	local observedQuantity = tonumber(entry.observedInventory) or rawQuantity
-	if rawQuantity > observedQuantity then
-		pendingQuantity = math.max(0, pendingQuantity - (rawQuantity - observedQuantity))
-	end
-	entry.observedInventory = rawQuantity
-	entry.quantity = pendingQuantity
 	entry.itemString = itemString
-	if pendingQuantity == 0 then
-		state.db.inTransit[tostring(itemID)] = nil
-	end
 	return rawQuantity + pendingQuantity, rawQuantity
 end
 
@@ -1018,6 +1069,7 @@ local function PruneResults()
 end
 
 local function ReconcileTransitPurchases()
+	DropTransitEntries("reconcile", false)
 	local itemStrings = {}
 	for _, entry in pairs(state.db.inTransit) do
 		if type(entry) == "table" and type(entry.itemString) == "string" then
@@ -1878,7 +1930,10 @@ local function UpdateResultAfterSuccessfulPurchase(purchase)
 		end
 		entry.quantity = math.max(0, math.floor(tonumber(entry.quantity) or 0)) + quantity
 		entry.itemString = item and item.itemString or entry.itemString
-		BuyDebug("TRANSIT : item=%s +%d, total=%d", tostring(itemID), quantity, entry.quantity)
+		-- Chaque achat rouvre la fenetre : c'est lui qui la datera, et sa
+		-- peremption garantit qu'un besoin reel ressortira meme sans courrier relu.
+		entry.createdAt = time()
+		BuyDebug("TRANSIT : item=%s +%d, total=%d, péremption dans %d min", tostring(itemID), quantity, entry.quantity, math.floor(TRANSIT_TTL_SECONDS / 60))
 	end
 	RemoveResult(result, true)
 	state.searchedItems[result.rowKey] = nil
@@ -3315,10 +3370,38 @@ local function HandleSlashCommand(message)
 			return
 		end
 		print(format("Yaya Reagent Sniper : diagnostics persistants %s • %d/%d lignes", state.db.diagnostics and "ACTIFS" or "désactivés", #state.db.diagnosticLog, DIAGNOSTIC_LOG_LIMIT))
+	elseif command == "transit" then
+		if argument == "clear" then
+			local removed, quantity = DropTransitEntries("slash-clear", true)
+			print(format("Yaya Reagent Sniper : %d achat(s) en transit oublié(s), soit %d unité(s).", removed, quantity))
+			return
+		end
+		DropTransitEntries("slash-list", false)
+		local now = time()
+		local lines = {}
+		for key, entry in pairs(state.db.inTransit) do
+			local itemID = tonumber(key)
+			lines[#lines + 1] = format(
+				"  %s x%d — stock vu %d — acheté il y a %d min",
+				(itemID and GetItemName(itemID)) or ("item " .. tostring(key)),
+				math.max(0, math.floor(tonumber(entry.quantity) or 0)),
+				math.max(0, math.floor(tonumber(entry.observedInventory) or 0)),
+				math.floor(math.max(0, now - (tonumber(entry.createdAt) or now)) / 60)
+			)
+		end
+		if #lines == 0 then
+			print("Yaya Reagent Sniper : aucun achat en transit, le stock TSM fait foi.")
+			return
+		end
+		print(format("Yaya Reagent Sniper : %d achat(s) en transit comptés comme du stock (péremption %d min) • /yrs transit clear pour les oublier", #lines, math.floor(TRANSIT_TTL_SECONDS / 60)))
+		table.sort(lines)
+		for _, line in ipairs(lines) do
+			print(line)
+		end
 	elseif command == "status" then
 		PrintDebug()
 	else
-		print("Yaya Reagent Sniper : /yrs debug [on|off] • /yrs diag [on|off|clear|dump 40] • /yrs status")
+		print("Yaya Reagent Sniper : /yrs debug [on|off] • /yrs diag [on|off|clear|dump 40] • /yrs transit [clear] • /yrs status")
 	end
 end
 
@@ -3389,6 +3472,9 @@ eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("AUCTION_HOUSE_SHOW")
 eventFrame:RegisterEvent("AUCTION_HOUSE_CLOSED")
+-- Enregistre hors HV : le courrier est justement releve loin de l'hotel des
+-- ventes, et c'est ce moment-la qui clot la fenetre de transit.
+eventFrame:RegisterEvent("MAIL_CLOSED")
 eventFrame:SetScript("OnEvent", function(self, event, ...)
 	-- Les SavedVariables ne sont restaurees qu'apres l'execution des fichiers de
 	-- l'addon. Le GetDB() de portee fichier travaillait donc sur une table neuve,
@@ -3399,6 +3485,10 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
 		local loadedAddon = ...
 		if loadedAddon == addonName then
 			state.db = GetDB()
+			-- Les entrees de transit perimees, et celles sans horodatage laissees
+			-- par les versions precedentes, meurent ici : sinon elles continuent de
+			-- passer pour du stock et le restock ne propose plus rien.
+			DropTransitEntries("addon-loaded", false)
 		end
 		return
 	end
@@ -3410,6 +3500,15 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
 		-- est de toute facon disponible ici, bien avant la creation de l'UI qui
 		-- n'intervient qu'a l'ouverture de l'hotel des ventes.
 		state.db = GetDB()
+		DropTransitEntries("player-login", false)
+		return
+	elseif event == "MAIL_CLOSED" then
+		-- La marchandise achetee est desormais dans les sacs, ou au moins dans la
+		-- boite que TSM vient de scanner : la compter une seconde fois en transit
+		-- masquerait un besoin reel.
+		if DropTransitEntries("mail-closed", true) > 0 then
+			QueueInventoryRefresh()
+		end
 		return
 	elseif event == "AUCTION_HOUSE_SHOW" then
 		C_Timer.After(0.2, EnsureUI)
