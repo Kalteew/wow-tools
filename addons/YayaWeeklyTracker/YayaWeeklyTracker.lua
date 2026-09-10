@@ -1352,6 +1352,9 @@ local midnightCaches = {
     finishingReagentMergesDirty = true,
     warbankTreatises = nil,
     warbankTreatisesDirty = true,
+    -- L'instantane lui-meme vit dans le SavedVariable ; ce drapeau ne dit que
+    -- s'il faut le reecrire au prochain passage banque ouverte.
+    warbankInventoryDirty = true,
     toolEnchants = nil,
     toolEnchantsDirty = true,
 }
@@ -1369,6 +1372,7 @@ local debugSignatures = {
     tracker = nil,
     treasure = nil,
     warbankTreatises = nil,
+    warbankInventory = nil,
     toolEnchants = nil,
     toolEnchantPlan = nil,
     professionGearPlan = nil,
@@ -2921,6 +2925,422 @@ local function GetContainerItemCountCompat(bagID, slotIndex)
     return 1
 end
 
+-- ---------------------------------------------------------------- Warbank
+--
+-- Inventaire de la banque de compte : seule source du verdict « present en
+-- Warbank » pour tout ce que le tracker sait reclamer. Deux oracles, qui ne
+-- repondent pas a la meme question.
+--
+-- Le CLIENT sait compter. `C_Item.GetItemCount` inclut la banque de compte par
+-- son cinquieme argument, banque fermee comprise, donc il donne le *combien*
+-- sans rien persister ni dependre d'un addon tiers. Mais il ne rend qu'un total
+-- par itemID : la statistique et le rang d'un outil ne s'y lisent pas.
+--
+-- L'INSTANTANE persistant donne ce *quoi*. Il est ecrit a chaque scan banque
+-- ouverte et survit au `/reload`, donc il repond encore a l'hotel des ventes,
+-- loin de la banque -- c'est tout l'interet.
+--
+-- L'egalite des deux tranche la fraicheur : un instantane qui ne compte pas
+-- autant d'exemplaires que le client est perime, et ne vaut alors rien. Ce test
+-- vaut mieux qu'un horodatage, car il detecte immediatement qu'un autre
+-- personnage a vide la banque.
+trackerUI.warbank = {}
+
+-- Les itemIDs suivis viennent des tables que l'addon tient deja : enchantements
+-- d'outil, candidats rares d'equipement de metier, traites. Aucune liste
+-- nouvelle a maintenir, donc aucune a oublier de mettre a jour.
+trackerUI.warbank.GetTrackedItemIDs = function()
+    if runtimeState.warbankTrackedItemIDs then
+        return runtimeState.warbankTrackedItemIDs
+    end
+
+    local tracked = {}
+    for _, statInfo in pairs(runtimeState.professionToolEnchantments.byStat) do
+        if statInfo.itemID then
+            tracked[statInfo.itemID] = true
+        end
+    end
+    for _, candidates in pairs(runtimeState.professionGear.rareCandidatesBySkillLineID) do
+        if candidates.tool then
+            tracked[candidates.tool] = true
+        end
+        for _, itemID in ipairs(candidates.gear or EMPTY_TABLE) do
+            tracked[itemID] = true
+        end
+    end
+    for _, treatise in pairs(MIDNIGHT_TREATISES_BY_SKILL_LINE_ID) do
+        if treatise.itemID then
+            tracked[treatise.itemID] = true
+        end
+    end
+
+    runtimeState.warbankTrackedItemIDs = tracked
+    return tracked
+end
+
+trackerUI.warbank.GetSnapshot = function()
+    local accountDB = GetAccountDB()
+    local snapshot = accountDB.warbankSnapshot
+    if type(snapshot) ~= "table" or snapshot.version ~= 1 then
+        snapshot = { version = 1, scannedAt = 0, tabs = {}, itemsByID = {} }
+        accountDB.warbankSnapshot = snapshot
+    end
+    if type(snapshot.tabs) ~= "table" then
+        snapshot.tabs = {}
+    end
+    if type(snapshot.itemsByID) ~= "table" then
+        snapshot.itemsByID = {}
+    end
+    return snapshot
+end
+
+-- Difference brute entre « sacs + banque de compte » et « sacs seuls ». Rend
+-- nil si le client ne sait pas repondre : inconnu n'est pas zero.
+trackerUI.warbank.GetClientCount = function(itemID)
+    if not C_Item or type(C_Item.GetItemCount) ~= "function" then
+        return nil
+    end
+    local withAccount = tonumber(SafeCall(C_Item.GetItemCount, itemID, false, false, false, true))
+    local withoutAccount = tonumber(SafeCall(C_Item.GetItemCount, itemID, false, false, false, false))
+    if not withAccount or not withoutAccount then
+        return nil
+    end
+    return math.max(withAccount - withoutAccount, 0)
+end
+
+-- Le compte vivant, banque fermee comprise. L'oracle du client est prefere,
+-- mais il n'est retenu que s'il a fait ses preuves une fois banque ouverte :
+-- un client qui ignorerait le cinquieme argument rendrait un zero indiscernable
+-- d'une banque reellement vide, et ferait racheter tout ce qui y dort.
+trackerUI.warbank.GetLiveCount = function(itemID)
+    itemID = tonumber(itemID)
+    if not itemID then
+        return nil
+    end
+
+    if GetAccountDB().warbankClientCountUsable ~= false then
+        local clientCount = trackerUI.warbank.GetClientCount(itemID)
+        if clientCount then
+            return clientCount
+        end
+    end
+    return trackerUI.GetToolEnchantWarbankQuantity(itemID)
+end
+
+-- Verdict d'un exemplaire de la Warbank face a une variante. Rend true, false
+-- ou nil, exactement comme `state.DoesLinkMatchVariant` de YayaQueue : nil veut
+-- dire « pas encore jugeable », jamais « non conforme ».
+trackerUI.warbank.MatchVariant = function(instance, variant)
+    if type(instance) ~= "table" or type(variant) ~= "table" then
+        return nil
+    end
+    if instance.unresolved == true or type(instance.link) ~= "string" then
+        return nil
+    end
+
+    if variant.statKey then
+        if instance.statKey == nil then
+            -- Tooltip lu sans y trouver de statistique : l'exemplaire n'en
+            -- porte pas, il ne peut donc pas satisfaire la variante. Tooltip
+            -- pas encore lu : on ne tranche pas.
+            if instance.statResolved ~= true then
+                return nil
+            end
+            return false
+        end
+        if instance.statKey ~= variant.statKey then
+            return false
+        end
+    end
+
+    if variant.minItemLevel then
+        local itemLevel = tonumber(instance.itemLevel)
+        if not itemLevel then
+            return nil
+        end
+        if itemLevel < variant.minItemLevel then
+            return false
+        end
+    end
+
+    return true
+end
+
+-- Ce que la Warbank offre pour un besoin donne.
+--
+--   1. compte indisponible          -> known = false
+--   2. compte nul                   -> known = true, absent CERTAIN, sans
+--                                      instantane et meme sur une installation
+--                                      neuve
+--   3. besoin sans variante         -> la quantite suffit a decider
+--   4. rien dans l'instantane       -> il y a quelque chose, on ignore quoi
+--   5. instantane et compte discordent -> instantane perime
+--   6. sinon, verdict par exemplaire
+--
+-- L'indecis ne vaut ni « absent » ni « present » : il ne propose aucune
+-- recuperation et il interdit l'achat.
+trackerUI.warbank.Resolve = function(itemID, variant)
+    local result = { count = 0, matched = 0, undecided = 0, known = false, slots = {} }
+    itemID = tonumber(itemID)
+    if not itemID then
+        return result
+    end
+
+    local live = trackerUI.warbank.GetLiveCount(itemID)
+    if live == nil then
+        return result
+    end
+    result.count = live
+    if live <= 0 then
+        result.known = true
+        return result
+    end
+
+    local entry = trackerUI.warbank.GetSnapshot().itemsByID[itemID]
+    local instances = entry and entry.instances or nil
+    local snapshotTotal = 0
+    for _, instance in ipairs(instances or EMPTY_TABLE) do
+        snapshotTotal = snapshotTotal + math.max(tonumber(instance.stackCount) or 1, 1)
+    end
+
+    if type(variant) ~= "table" then
+        -- Une marchandise n'a pas d'identite a verifier : son compte tranche.
+        -- Les emplacements connus servent au transfert, et celui-ci revalide
+        -- toujours sa source, donc un instantane en retard ne fait pas de mal.
+        result.known = true
+        result.matched = live
+        result.slots = instances or {}
+        return result
+    end
+
+    if not instances or #instances == 0 then
+        return result
+    end
+    if snapshotTotal ~= live then
+        return result
+    end
+
+    for _, instance in ipairs(instances) do
+        local verdict = trackerUI.warbank.MatchVariant(instance, variant)
+        if verdict == true then
+            result.matched = result.matched + 1
+            result.slots[#result.slots + 1] = instance
+        elseif verdict == nil then
+            result.undecided = result.undecided + 1
+        end
+    end
+    result.known = true
+    return result
+end
+
+-- Lecture d'un emplacement de la Warbank. Un equipement de metier porte son
+-- identite complete, lue exactement comme un outil possede : la statistique au
+-- tooltip du lien unique (jamais `C_Item.GetItemStats`, qui decrit l'item de
+-- base) et le rang par le PREMIER des trois retours de
+-- `GetDetailedItemLevelInfo`. Une marchandise n'a besoin que de sa pile.
+trackerUI.warbank.ReadSlot = function(bagID, slotIndex, itemID)
+    local instance = {
+        bagID = bagID,
+        slotIndex = slotIndex,
+        stackCount = math.max(GetContainerItemCountCompat(bagID, slotIndex), 1),
+    }
+
+    local equipLoc
+    if C_Item and type(C_Item.GetItemInfoInstant) == "function" then
+        equipLoc = select(4, SafeCall(C_Item.GetItemInfoInstant, itemID))
+    end
+    local isGear = equipLoc == "INVTYPE_PROFESSION_TOOL" or equipLoc == "INVTYPE_PROFESSION_GEAR"
+
+    local link = GetContainerItemLinkCompat(bagID, slotIndex)
+    if type(link) == "string" and link:find("item:", 1, true) then
+        instance.link = link
+    end
+    if not isGear then
+        return instance
+    end
+
+    if not instance.link then
+        instance.unresolved = true
+        trackerUI.RequestToolItemData(itemID)
+        return instance
+    end
+
+    local statKey, statsPending = trackerUI.GetToolEnchantStat(instance.link)
+    if statKey then
+        instance.statKey = statKey
+        instance.statResolved = true
+    elseif statsPending then
+        instance.unresolved = true
+    else
+        instance.statResolved = true
+    end
+
+    local detailedItemLevel
+    if type(GetDetailedItemLevelInfo) == "function" then
+        detailedItemLevel = SafeCall(GetDetailedItemLevelInfo, instance.link)
+    end
+    instance.itemLevel = tonumber(detailedItemLevel)
+    if not instance.itemLevel then
+        instance.unresolved = true
+    end
+
+    return instance
+end
+
+-- Ecriture de l'instantane, banque ouverte seulement, et FUSIONNELLE par
+-- onglet : un onglet dont le client ne rend aucun emplacement n'est pas lu, et
+-- son contenu precedent est conserve. Sans cela, un scan pendant le chargement
+-- de la banque effacerait un onglet reellement plein.
+trackerUI.warbank.Scan = function()
+    if not trackerUI.IsAccountBankOpen() then
+        return false
+    end
+
+    local tracked = trackerUI.warbank.GetTrackedItemIDs()
+    local snapshot = trackerUI.warbank.GetSnapshot()
+    local scannedTabs = {}
+    local scanned = {}
+    local scannedSum = 0
+
+    for _, bagID in ipairs(trackerUI.GetAccountBankBagIDs()) do
+        local slotCount = GetContainerNumSlotsCompat(bagID)
+        if slotCount > 0 then
+            scannedTabs[bagID] = slotCount
+            for slotIndex = 1, slotCount do
+                local itemID = GetContainerItemIDCompat(bagID, slotIndex)
+                if itemID and tracked[itemID] then
+                    local instance = trackerUI.warbank.ReadSlot(bagID, slotIndex, itemID)
+                    scanned[itemID] = scanned[itemID] or {}
+                    scanned[itemID][#scanned[itemID] + 1] = instance
+                    scannedSum = scannedSum + instance.stackCount
+                end
+            end
+        end
+    end
+
+    if next(scannedTabs) == nil then
+        return false
+    end
+
+    local merged = {}
+    for itemID, entry in pairs(snapshot.itemsByID) do
+        for _, instance in ipairs(entry.instances or EMPTY_TABLE) do
+            if not scannedTabs[instance.bagID] then
+                merged[itemID] = merged[itemID] or {}
+                merged[itemID][#merged[itemID] + 1] = instance
+            end
+        end
+    end
+    for itemID, instances in pairs(scanned) do
+        merged[itemID] = merged[itemID] or {}
+        for _, instance in ipairs(instances) do
+            merged[itemID][#merged[itemID] + 1] = instance
+        end
+    end
+
+    local itemsByID = {}
+    for itemID, instances in pairs(merged) do
+        local total = 0
+        for _, instance in ipairs(instances) do
+            total = total + math.max(tonumber(instance.stackCount) or 1, 1)
+        end
+        if total > 0 then
+            itemsByID[itemID] = { total = total, instances = instances }
+        end
+    end
+    snapshot.itemsByID = itemsByID
+    for bagID, slotCount in pairs(scannedTabs) do
+        snapshot.tabs[bagID] = { slots = slotCount }
+    end
+    snapshot.scannedAt = type(GetServerTime) == "function" and (SafeCall(GetServerTime) or 0) or 0
+
+    trackerUI.warbank.CalibrateClientOracle(scanned, scannedSum)
+    trackerUI.warbank.LogSnapshot(snapshot)
+    return true
+end
+
+-- La banque ouverte est le seul moment ou l'on connait la verite : c'est donc
+-- la qu'on verifie l'oracle du client. S'il rend zero alors que le scan voit
+-- des objets, c'est que le cinquieme argument de `GetItemCount` ne repond pas
+-- sur ce client, et le repli TSM prend la main -- definitivement, jusqu'a ce
+-- qu'un scan le contredise.
+trackerUI.warbank.CalibrateClientOracle = function(scanned, scannedSum)
+    if (scannedSum or 0) <= 0 then
+        return
+    end
+
+    local clientSum = 0
+    local answered = false
+    for itemID in pairs(scanned) do
+        local clientCount = trackerUI.warbank.GetClientCount(itemID)
+        if clientCount then
+            answered = true
+            clientSum = clientSum + clientCount
+        end
+    end
+    if not answered then
+        return
+    end
+
+    local accountDB = GetAccountDB()
+    local usable = clientSum > 0
+    if accountDB.warbankClientCountUsable ~= usable then
+        accountDB.warbankClientCountUsable = usable
+        DebugLog("Warbank client oracle = %s (scan=%d client=%d)",
+            tostring(usable), scannedSum, clientSum)
+    end
+end
+
+trackerUI.warbank.LogSnapshot = function(snapshot)
+    local parts = {}
+    local unresolved = 0
+    local tabCount = 0
+    for itemID, entry in pairs(snapshot.itemsByID) do
+        parts[#parts + 1] = ("%dx%d"):format(itemID, entry.total or 0)
+        for _, instance in ipairs(entry.instances or EMPTY_TABLE) do
+            if instance.unresolved == true then
+                unresolved = unresolved + 1
+            end
+        end
+    end
+    for _ in pairs(snapshot.tabs) do
+        tabCount = tabCount + 1
+    end
+    table.sort(parts)
+
+    local signature = ("oracle=%s tabs=%d unresolved=%d :: %s"):format(
+        GetAccountDB().warbankClientCountUsable == false and "tsm" or "client",
+        tabCount,
+        unresolved,
+        #parts > 0 and table.concat(parts, ",") or "none")
+    if signature ~= debugSignatures.warbankInventory then
+        debugSignatures.warbankInventory = signature
+        DebugLog("Warbank inventory = %s", signature)
+    end
+end
+
+-- Point d'entree du cycle de rafraichissement : ne rescanne que si un
+-- evenement a peri l'instantane et que la banque est ouverte.
+trackerUI.warbank.Refresh = function()
+    if not midnightCaches.warbankInventoryDirty then
+        return false
+    end
+    if not trackerUI.IsAccountBankOpen() then
+        return false
+    end
+    midnightCaches.warbankInventoryDirty = false
+    return trackerUI.warbank.Scan()
+end
+
+-- API publique de l'inventaire Warbank. YayaQueue s'en sert pour ne pas
+-- racheter un exemplaire conforme qui dort en banque : lui ne compte que les
+-- sacs et les emplacements equipes, et n'a aucun moyen de lire la banque de
+-- compte fermee.
+_G.YayaWeeklyTrackerAPI = _G.YayaWeeklyTrackerAPI or {}
+_G.YayaWeeklyTrackerAPI.ResolveWarbankItem = function(itemID, variant)
+    return trackerUI.warbank.Resolve(itemID, variant)
+end
+
 local function FindMidnightKnowledgeConsumableInBags(trackedRows)
     if not midnightCaches.knowledgeDirty and midnightCaches.knowledge then
         return midnightCaches.knowledge
@@ -3129,8 +3549,12 @@ local function FindArtisanConsortiumPayoutInBags()
     return result
 end
 
+-- Les deux caches decrivent le meme contenu et se periment donc ensemble. Les
+-- invalider d'un seul geste evite la panne discrete du site oublie : le plan
+-- vivrait alors un rafraichissement de retard sur l'instantane.
 trackerUI.InvalidateWarbankTreatiseCache = function()
     midnightCaches.warbankTreatisesDirty = true
+    midnightCaches.warbankInventoryDirty = true
 end
 
 trackerUI.InstallWarbankRefreshHooks = function()
@@ -3154,8 +3578,11 @@ trackerUI.InstallWarbankRefreshHooks = function()
             end)
             hooks.bankType = true
         else
+            -- `BankPanel` peut ne pas etre une frame selon l'UI installee :
+            -- l'indexer sans verifier son type leve une erreur au lieu de
+            -- simplement renoncer au hook.
             local bankPanel = (_G.BankFrame and _G.BankFrame.BankPanel) or _G.BankPanel
-            if bankPanel and type(bankPanel.SetBankType) == "function" then
+            if type(bankPanel) == "table" and type(bankPanel.SetBankType) == "function" then
                 hooksecurefunc(bankPanel, "SetBankType", function()
                     RefreshWarbankButtons("BankPanel.SetBankType")
                 end)
@@ -3217,7 +3644,9 @@ trackerUI.IsAccountBankOpen = function()
         activeBankType = SafeCall(bankFrame.GetActiveBankType, bankFrame)
     end
     local bankPanel = _G.BankPanel or bankFrame.BankPanel
-    if activeBankType == nil and bankPanel and type(bankPanel.GetActiveBankType) == "function" then
+    if activeBankType == nil
+        and type(bankPanel) == "table"
+        and type(bankPanel.GetActiveBankType) == "function" then
         activeBankType = SafeCall(bankPanel.GetActiveBankType, bankPanel)
     end
     if activeBankType == nil and type(Addon_GetBankType) == "function" then
@@ -8559,6 +8988,10 @@ UpdateTracker = function()
         DebugSafeCall("EnsureEnchantingWeeklyQueueItem", trackerUI.EnsureEnchantingWeeklyQueueItem, trackedRows)
         local hasTreasureButton = DebugSafeCall("UpdateMidnightTreasureButton", trackerUI.UpdateMidnightTreasureButton, trackedRows) or false
         local accountDB = GetAccountDB()
+        -- L'instantane de la Warbank se rafraichit AVANT le scan d'outils et
+        -- le plan qui en decoule : sinon la premiere passe apres l'ouverture de
+        -- la banque bati son plan sur l'instantane precedent.
+        DebugSafeCall("WarbankRefresh", trackerUI.warbank.Refresh)
         local trackProfessionTools = accountDB.trackProfessionTools ~= false
         local trackProfessionToolEnchants = accountDB.trackProfessionToolEnchants ~= false
         local trackProfessionGear = accountDB.trackProfessionGear ~= false

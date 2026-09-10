@@ -66,7 +66,12 @@ local function NewWidget(name, kind)
     function methods.GetText(self) return self.__text end
     function methods.SetText(self, text) self.__text = text end
     function methods.SetFormattedText(self, fmt, ...) self.__text = string.format(fmt, ...) end
-    function methods.IsEnabled(self) return true end
+    -- L'etat actif est suivi : c'est lui qui dit si un bouton d'action est
+    -- reellement proposable, et le raccourci partage comme les tests s'y fient.
+    function methods.SetEnabled(self, enabled) self.__enabled = enabled ~= false end
+    function methods.Enable(self) self.__enabled = true end
+    function methods.Disable(self) self.__enabled = false end
+    function methods.IsEnabled(self) return self.__enabled ~= false end
     function methods.NumLines(self) return 0 end
     function methods.GetFont(self) return "Fonts\\FRIZQT__.TTF", 12, "" end
     function methods.CreateFontString(self, name, layer, template)
@@ -229,14 +234,32 @@ C_Timer = {
     NewTicker = function() return { Cancel = function() end } end,
 }
 
+-- Les transferts sont enregistres plutot qu'executes : c'est la seule facon de
+-- verifier hors du jeu qu'un clic sort bien UN objet, depuis le bon
+-- emplacement, et qu'un second clic immediat ne fait rien.
+TRANSFER_CALLS = {}
 C_Container = {
     GetContainerNumSlots = function() return 0 end,
     GetContainerItemInfo = function() return nil end,
     GetContainerItemID = function() return nil end,
     GetContainerItemLink = function() return nil end,
     UseContainerItem = function() end,
-    PickupContainerItem = function() end,
+    PickupContainerItem = function(bag, slot)
+        TRANSFER_CALLS[#TRANSFER_CALLS + 1] = ("Pickup %s:%s"):format(tostring(bag), tostring(slot))
+        return true
+    end,
+    SplitContainerItem = function(bag, slot, amount)
+        TRANSFER_CALLS[#TRANSFER_CALLS + 1] = ("Split %s:%s x%s"):format(
+            tostring(bag), tostring(slot), tostring(amount))
+        return true
+    end,
 }
+
+function GetCursorInfo() return nil end
+function ClearCursor()
+    TRANSFER_CALLS[#TRANSFER_CALLS + 1] = "ClearCursor"
+end
+function GetServerTime() return 1770000000 end
 
 C_Item = {
     GetItemInfoInstant = function() return nil end,
@@ -291,7 +314,16 @@ C_AddOns = {
     GetAddOnMetadata = function() return nil end,
 }
 C_EquipmentSet = {}
-C_Bank = {}
+-- La banque de compte : sans ces onglets ni `Enum.BankType`, l'addon conclut
+-- que la Warbank n'est jamais ouverte et rien du flux ne s'exerce.
+C_Bank = {
+    FetchPurchasedBankTabIDs = function() return {} end,
+}
+BankFrame = NewWidget("BankFrame", "Frame")
+BankFrame.__activeBankType = nil
+function BankFrame.GetActiveBankType(self)
+    return (self or BankFrame).__activeBankType
+end
 C_PlayerInteractionManager = {}
 C_DateAndTime = { GetCurrentCalendarTime = function() return { hour = 12, minute = 0 } end }
 
@@ -300,7 +332,12 @@ Enum = {
     TooltipDataUsageRequirementType = { NotAlreadyKnown = 1 },
     CraftingReagentType = { Basic = 1, Finishing = 2, Modifying = 3 },
     PlayerInteractionType = { AccountBanker = 1, MerchantFrame = 2 },
-    BagIndex = { Bank = -1, Bankbag = 6, AccountBankTab = 13, Reagentbank = -3 },
+    BankType = { Character = 0, Account = 2 },
+    BagIndex = {
+        Bank = -1, Bankbag = 6, AccountBankTab = 13, Reagentbank = -3,
+        AccountBankTab_1 = 13, AccountBankTab_2 = 14, AccountBankTab_3 = 15,
+        AccountBankTab_4 = 16, AccountBankTab_5 = 17,
+    },
     ItemQuality = { Poor = 0, Common = 1, Uncommon = 2, Rare = 3, Epic = 4 },
 }
 
@@ -319,9 +356,11 @@ Settings = {
 }
 SettingsPanel = NewWidget("SettingsPanel", "Frame")
 
+-- L'emplacement porte ses coordonnees : sans elles, une doublure de
+-- `C_Item.IsBound` ne peut pas distinguer un exemplaire lie d'un autre.
 ItemLocation = {
-    CreateFromBagAndSlot = function() return {} end,
-    CreateFromEquipmentSlot = function() return {} end,
+    CreateFromBagAndSlot = function(bag, slot) return { bag = bag, slot = slot } end,
+    CreateFromEquipmentSlot = function(slot) return { equipmentSlot = slot } end,
 }
 
 BackdropTemplateMixin = {}

@@ -201,9 +201,126 @@ else
     end
 end
 
+-- 5. L'instantane de la Warbank : ecrit banque ouverte, il survit a sa
+-- fermeture. C'est le seul moyen de repondre « present en Warbank » a l'hotel
+-- des ventes, loin de la banque.
+local function LastTrace(needle)
+    local found
+    for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
+        if entry:find(needle, 1, true) then
+            found = entry
+        end
+    end
+    return found
+end
+
+FillWarbankFixture()
+OpenWarbankFixture()
+FireEvent("BANKFRAME_OPENED")
+FireEvent("PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
+RunTimers(5)
+
+local inventoryTrace = LastTrace("Warbank inventory")
+if not inventoryTrace then
+    Fail("aucune trace d'inventaire Warbank : le scan n'a pas tourne")
+else
+    for _, expected in ipairs({ "243995x2", "245778x3", "244626x1", "245755x3" }) do
+        if not inventoryTrace:find(expected, 1, true) then
+            Fail("l'inventaire Warbank ne voit pas " .. expected .. " :: " .. inventoryTrace)
+        end
+    end
+    -- L'exemplaire sans lien est enregistre, mais marque indecis.
+    if not inventoryTrace:find("unresolved=1", 1, true) then
+        Fail("l'exemplaire sans lien n'est pas marque indecis :: " .. inventoryTrace)
+    end
+    if not inventoryTrace:find("oracle=client", 1, true) then
+        Fail("l'oracle du client aurait du etre valide par le scan :: " .. inventoryTrace)
+    end
+end
+
+local snapshot = (YayaWeeklyTrackerAccountDB or {}).warbankSnapshot
+if type(snapshot) ~= "table" or type(snapshot.itemsByID) ~= "table" then
+    Fail("l'instantane Warbank n'est pas persiste")
+else
+    local tool = snapshot.itemsByID[245778]
+    if not tool or #tool.instances ~= 3 then
+        Fail("les trois exemplaires d'outil ne sont pas enregistres")
+    else
+        local resourceful, wrongStat, unresolved = 0, 0, 0
+        for _, instance in ipairs(tool.instances) do
+            if instance.unresolved then
+                unresolved = unresolved + 1
+            elseif instance.statKey == "resourcefulness" and instance.itemLevel == 232 then
+                resourceful = resourceful + 1
+            elseif instance.statKey == "multicrafting" then
+                wrongStat = wrongStat + 1
+            end
+        end
+        if resourceful ~= 1 or wrongStat ~= 1 or unresolved ~= 1 then
+            Fail(("identites d'outil mal lues en Warbank : rf=%d mc=%d indecis=%d")
+                :format(resourceful, wrongStat, unresolved))
+        end
+    end
+end
+
+-- 6. Banque refermee, l'instantane repond encore, et chaque verdict garde ses
+-- trois etats : conforme, non conforme, indecis.
+CloseWarbankFixture()
+FireEvent("BANKFRAME_CLOSED")
+RunTimers(5)
+
+local warbank = _G.YayaWeeklyTrackerAPI
+    and { Resolve = _G.YayaWeeklyTrackerAPI.ResolveWarbankItem }
+    or nil
+if not warbank or not warbank.Resolve then
+    Fail("l'inventaire Warbank n'est pas expose par YayaWeeklyTrackerAPI")
+else
+    local rfVariant = { minItemLevel = 232, statKey = "resourcefulness" }
+    local mcVariant = { minItemLevel = 232, statKey = "multicrafting" }
+
+    local scroll = warbank.Resolve(243995, nil)
+    if not scroll.known or scroll.matched ~= 2 then
+        Fail(("une marchandise en Warbank n'est pas vue banque fermee : known=%s matched=%s")
+            :format(tostring(scroll.known), tostring(scroll.matched)))
+    end
+
+    local rf = warbank.Resolve(245778, rfVariant)
+    if not rf.known then
+        Fail("l'outil Resourcefulness en Warbank n'est pas jugeable banque fermee")
+    elseif rf.matched ~= 1 then
+        Fail("l'exemplaire Resourcefulness conforme n'est pas reconnu : matched=" .. tostring(rf.matched))
+    elseif rf.undecided ~= 1 then
+        Fail("l'exemplaire sans lien devrait rester indecis : undecided=" .. tostring(rf.undecided))
+    end
+
+    -- Le seul exemplaire Multicrafting est ilvl 206 : possede, mais non
+    -- conforme. Il ne doit ni compter, ni bloquer.
+    local mc = warbank.Resolve(245778, mcVariant)
+    if not mc.known or mc.matched ~= 0 then
+        Fail("un outil Multicrafting sous le seuil est pris pour conforme : matched="
+            .. tostring(mc.matched))
+    end
+
+    -- Rien en Warbank : absent CERTAIN, sans instantane. C'est ce qui permet
+    -- de proposer un achat sur une installation neuve.
+    local absent = warbank.Resolve(243967, { minItemLevel = 232 })
+    if not absent.known or absent.count ~= 0 then
+        Fail("un objet absent de la Warbank devrait etre un verdict certain")
+    end
+
+    -- Instantane perime : le compte vivant grimpe sans qu'un scan l'ait vu.
+    -- Indecis, donc ni recuperation ni achat.
+    DesyncWarbankFixture(245778, 1)
+    local stale = warbank.Resolve(245778, rfVariant)
+    if stale.known then
+        Fail("un instantane perime devrait rendre un verdict inconnu")
+    end
+    WARBANK_DESYNC[245778] = nil
+end
+
 if failures > 0 then
     print(("%d echec(s)"):format(failures))
     os.exit(1)
 end
 
-print("test_tracker_refresh : rafraichissement sans erreur, scan d'equipement conforme, plan d'achat par variante, outil Multicrafting equipe reconnu")
+print("test_tracker_refresh : rafraichissement sans erreur, scan d'equipement conforme, plan d'achat par variante, outil Multicrafting equipe reconnu, Warbank suivie et jugee par variante")
