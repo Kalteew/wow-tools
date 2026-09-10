@@ -329,6 +329,40 @@ else
     WARBANK_DESYNC[245778] = nil
 end
 
+-- Le scenario qui motive tout : a l'hotel des ventes, banque fermee, ce qui
+-- dort en Warbank n'est PAS rachete, et le bouton propose l'achat du reste.
+FireEvent("BAG_UPDATE_DELAYED")
+RunTimers(5)
+
+local closedPlanTrace = LastTrace("Profession supply plan")
+if not closedPlanTrace then
+    Fail("aucun plan banque fermee")
+else
+    -- L'accessoire 244626 et le parchemin 243995 dorment en banque : ils
+    -- passent en recuperation, jamais en achat. Restent 239635 et 243967.
+    if not closedPlanTrace:find("+wb", 1, true) then
+        Fail("banque fermee, le plan ne voit plus la Warbank :: " .. closedPlanTrace)
+    end
+    if closedPlanTrace:find("1x244626/rank:232,", 1, true)
+        or closedPlanTrace:find("1x244626/rank:232$") then
+        Fail("un accessoire present en Warbank est propose a l'achat :: " .. closedPlanTrace)
+    end
+    if not closedPlanTrace:find("gear=1 ench=1", 1, true) then
+        Fail("le plan banque fermee ne deduit pas la Warbank :: " .. closedPlanTrace)
+    end
+end
+
+local closedButton = _G.YayaWeeklyTrackerProfessionSupplyButton
+if not closedButton or not closedButton:IsShown() then
+    Fail("le bouton d'approvisionnement disparait banque fermee")
+elseif not (closedButton.__text or ""):find("Acheter") then
+    -- Banque fermee, les emplacements ne sont pas adressables : le clic doit
+    -- basculer sur l'achat plutot que de proposer un transfert impossible.
+    Fail("banque fermee, le bouton n'annonce pas l'achat :: " .. tostring(closedButton.__text))
+elseif not closedButton:IsEnabled() then
+    Fail("banque fermee, le bouton d'achat est grise alors que YayaQueue repond")
+end
+
 -- 7. Le geste de transfert : un clic sort UN objet, depuis le bon emplacement,
 -- et un second clic immediat ne fait rien. Les deux implementations qu'il
 -- remplace laissaient passer le double-clic et le curseur charge.
