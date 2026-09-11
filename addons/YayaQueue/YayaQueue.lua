@@ -186,6 +186,10 @@ local state = {
         qualityPreviewSolve = nil,
         qualityPreviewQueue = {},
         qualityPreviewGeneration = 0,
+        statCensusQueued = false,
+        statCensusMailQueued = false,
+        statCensusAuctionPending = false,
+        statCensusAuctionWritten = false,
         qualityPreferences = {
             quality = nil,
             useConcentration = false,
@@ -296,6 +300,7 @@ local state = {
 
 state.addonTable = select(2, ...)
 state.auctionPrices = state.addonTable and state.addonTable.AuctionPrices
+state.statCensus = state.addonTable and state.addonTable.StatCensus
 
 local YQQuality = {}
 
@@ -1602,6 +1607,21 @@ state.professionStats = {
     },
 }
 
+--- Libelle d'une statistique dans la langue du client.
+--
+-- `byKey[...].label` est le nom canonique anglais, utile en journal mais pas a
+-- l'ecran : le joueur lit `Ingeniosite`, pas `Resourcefulness`. On prend donc
+-- le premier global renseigne par le client, et l'anglais seulement a defaut.
+state.professionStats.GetLabel = function(statKey)
+    local info = statKey and state.professionStats.byKey[statKey]
+    if not info then return statKey end
+    for _, key in ipairs(info.globals or {}) do
+        local label = _G[key]
+        if type(label) == "string" and label ~= "" then return label end
+    end
+    return info.label or statKey
+end
+
 state.professionStats.NormalizeText = function(text)
     if type(text) ~= "string" then
         return ""
@@ -2234,6 +2254,15 @@ state.EnsureDB = function()
         YayaQueueDB.qualityUseGoldStar = false
     else
         YayaQueueDB.qualityUseGoldStar = YayaQueueDB.qualityUseGoldStar == true
+    end
+    -- L'optimisateur est masque par defaut : ouvert, il resout la recette
+    -- visible a chaque changement, et ce calcul ne doit pas etre paye tant que
+    -- personne ne l'a demande. Le drapeau vit dans la base et non sur la frame,
+    -- sinon un changement de recette ou un /reload le remettait a zero.
+    if YayaQueueDB.qualityPanelEnabled == nil then
+        YayaQueueDB.qualityPanelEnabled = false
+    else
+        YayaQueueDB.qualityPanelEnabled = YayaQueueDB.qualityPanelEnabled == true
     end
     local phialRank = tonumber(YayaQueueDB.concentrationPhialRank)
     YayaQueueDB.concentrationPhialRank = phialRank == 2 and 2 or 1
@@ -12495,6 +12524,15 @@ function YQQuality.GetStockCache()
             -- d'un alt quand l'objet lui est inconnu. UpdateSelector la
             -- rappelait a chaque clic : on memorise brievement le resultat.
             tsmTotals = {},
+            -- Statistique de metier lue au tooltip, memoisee par chaine de
+            -- lien : la statistique d'un lien donne ne change jamais, et sans
+            -- cette memo un C_TooltipInfo.GetHyperlink serait paye par
+            -- emplacement de sac a chaque scan.
+            statByLink = {},
+            -- L'objet peut-il porter une statistique de metier ? Filtre bon
+            -- marche par itemID, pour n'interroger aucun tooltip sur les
+            -- milliers d'objets ordinaires d'un inventaire.
+            professionGear = {},
         }
         state.craft.qualityStockCache = cache
     end
@@ -12506,7 +12544,13 @@ function YQQuality.MarkStockDirty(bags, character, warband)
     if bags then cache.dirty.bags = true end
     if character then cache.dirty.character = true end
     if warband then cache.dirty.warband = true end
-    if bags or character or warband then wipe(cache.tsmTotals) end
+    if bags or character or warband then
+        wipe(cache.tsmTotals)
+        -- Le recensement suit le meme signal d'obsolescence, mais a son propre
+        -- drapeau : les scans de l'optimisateur retombent les dirty de scope
+        -- sans avoir ecrit quoi que ce soit dans les SavedVariables.
+        cache.censusDirty = true
+    end
 end
 
 function YQQuality.GetStockBagIDs(scope)
@@ -12549,6 +12593,80 @@ function YQQuality.GetStockBagIDs(scope)
     return ids, false
 end
 
+-- Emplacements d'equipement qui portent une statistique de metier tiree au
+-- craft. Identifies par la chaine d'emplacement du client, pas par un nom
+-- d'objet : ces chaines ne sont pas localisees.
+YQQuality.PROFESSION_GEAR_EQUIP_LOCS = {
+    INVTYPE_PROFESSION_TOOL = true,
+    INVTYPE_PROFESSION_GEAR = true,
+}
+
+--- L'itemID peut-il porter une statistique de metier aleatoire ?
+--
+-- select() doit voir la liste complete de GetItemInfo : SafeCall n'en transmet
+-- qu'une valeur, et l'appeler ici rendrait toujours nil -- exactement le piege
+-- qui avait rendu IsCommodityItem faux pour tous les objets. D'ou le pcall
+-- autour d'une fermeture qui fait elle-meme le select.
+function YQQuality.IsProfessionGearItem(itemID)
+    itemID = tonumber(itemID)
+    if not itemID or itemID <= 0 then return false end
+    local cache = YQQuality.GetStockCache()
+    local known = cache.professionGear[itemID]
+    if known ~= nil then return known end
+    if type(GetItemInfo) ~= "function" then return false end
+    local ok, equipLoc = pcall(function()
+        return (select(9, GetItemInfo(itemID)))
+    end)
+    if not ok or type(equipLoc) ~= "string" or equipLoc == "" then
+        -- Donnees pas encore chargees : ne rien memoriser, redemander l'objet.
+        WarmItemData(itemID)
+        return false
+    end
+    local isGear = YQQuality.PROFESSION_GEAR_EQUIP_LOCS[equipLoc] == true
+    cache.professionGear[itemID] = isGear
+    return isGear
+end
+
+--- Statistique de metier d'un exemplaire, lue au tooltip et memoisee.
+--
+-- Renvoie `statKey, pending`. Le tooltip est l'autorite : c'est la seule source
+-- qui nomme la statistique d'un outil craft sans Missive. `pending` vaut vrai
+-- quand le tooltip n'est pas encore lisible -- inconnu n'est pas absent, et un
+-- verdict pris sur du vide ecarterait des exemplaires bien reels.
+function YQQuality.GetItemStatKey(itemID, itemLink)
+    if type(itemLink) ~= "string" or itemLink == "" then return nil, true end
+    if not YQQuality.IsProfessionGearItem(itemID) then return nil, false end
+    local cache = YQQuality.GetStockCache()
+    local memo = cache.statByLink[itemLink]
+    if memo ~= nil then
+        return memo ~= false and memo or nil, false
+    end
+    local statKey, pending = state.professionStats.ReadLinkStatKey(itemLink)
+    if pending then
+        WarmItemData(tonumber(itemID))
+        return nil, true
+    end
+    cache.statByLink[itemLink] = statKey or false
+    return statKey, false
+end
+
+--- Verdict d'un exemplaire deja scanne face a la statistique exigee.
+--
+-- Tri-etat comme state.MatchesVariantStat : `nil` veut dire « pas encore
+-- decidable ». Le repli par bonusId ne sert que dans ce cas, via la fonction
+-- partagee, parce que `8952`/`8953` n'existent que sur une copie craftee avec
+-- une Missive et ne peuvent donc pas trancher seuls.
+function YQQuality.MatchesScannedStat(item, statKey)
+    if not statKey then return true end
+    if item.statPending then
+        return state.MatchesVariantStat(item.link, statKey)
+    end
+    if item.stat then return item.stat == statKey end
+    -- Tooltip lu, aucune statistique nommee : ce n'est pas un exemplaire a
+    -- statistique aleatoire, il ne peut pas satisfaire la contrainte.
+    return false
+end
+
 function YQQuality.ScanStockScope(scope)
     local cache = YQQuality.GetStockCache()
     local bagIDs, authoritative = YQQuality.GetStockBagIDs(scope)
@@ -12578,11 +12696,18 @@ function YQQuality.ScanStockScope(scope)
                     -- une copie Warbound until equipped est deja liee au sens de
                     -- C_Item.IsBound. TSM derive d'ailleurs son propre drapeau
                     -- ainsi (isWarBound = isBound and CanDepositIntoWarbank).
+                    local statKey, statPending =
+                        YQQuality.GetItemStatKey(info.itemID, info.hyperlink)
                     snapshot[#snapshot + 1] = {
                         itemID = tonumber(info.itemID),
                         quantity = math.max(1, tonumber(info.stackCount) or 1),
                         quality = YQQuality.GetCraftedItemQuality(info.hyperlink),
                         bound = isBound == true,
+                        -- Le lien est conserve : la statistique d'un exemplaire
+                        -- ne vit que la, et le repli par bonusId en a besoin.
+                        link = info.hyperlink,
+                        stat = statKey,
+                        statPending = statPending or nil,
                     }
                 end
             end
@@ -12655,6 +12780,241 @@ function YQQuality.GetTSMOutputTotals(itemReference)
     }
     cache.tsmTotals[itemString] = { totals = totals, expiresAt = now + 5 }
     return totals
+end
+
+-- ---------------------------------------------------------------------------
+-- Recensement des exemplaires a statistique de metier
+--
+-- Ces fonctions alimentent ns.StatCensus. Elles n'ajoutent aucune boucle de
+-- lecture : les conteneurs reutilisent le scan qui existe deja, le courrier et
+-- les encheres se lisent quand le client les expose, c'est-a-dire quand leur
+-- fenetre est ouverte.
+-- ---------------------------------------------------------------------------
+
+function YQQuality.GetCensusCharacterKey()
+    local name = type(UnitName) == "function" and SafeCall(UnitName, "player") or nil
+    if type(name) ~= "string" or name == "" then return nil end
+    local realm = type(GetNormalizedRealmName) == "function"
+        and SafeCall(GetNormalizedRealmName) or nil
+    if type(realm) ~= "string" or realm == "" then
+        realm = type(GetRealmName) == "function" and SafeCall(GetRealmName) or nil
+    end
+    if type(realm) ~= "string" or realm == "" then return nil end
+    return name .. "-" .. realm, realm
+end
+
+function YQQuality.GetCensusTimestamp()
+    if type(GetServerTime) == "function" then
+        local now = tonumber(SafeCall(GetServerTime))
+        if now and now > 0 then return now end
+    end
+    if type(time) == "function" then
+        local now = tonumber(SafeCall(time))
+        if now and now > 0 then return now end
+    end
+    return 0
+end
+
+function YQQuality.EnsureStatCensusBinding()
+    local census = state.statCensus
+    if not census or census.bound then return census end
+    census.Bind({
+        readStat = YQQuality.GetItemStatKey,
+        warm = WarmItemData,
+        isGear = YQQuality.IsProfessionGearItem,
+    })
+    census.bound = true
+    return census
+end
+
+--- Recense les conteneurs lisibles du personnage courant.
+--
+-- Un perimetre illisible n'est jamais ecrit : ecraser le recensement precedent
+-- par un vide changerait « pas encore lu » en zero, et c'est precisement le
+-- faux zero que tout le reste de ce fichier s'attache a eviter.
+function YQQuality.WriteContainerCensus()
+    local census = YQQuality.EnsureStatCensusBinding()
+    if not census then return end
+    state.EnsureDB()
+    local characterKey, realm = YQQuality.GetCensusCharacterKey()
+    if not characterKey then return end
+    local cache = YQQuality.GetStockCache()
+    -- Rien n'a bouge depuis la derniere ecriture : inutile de rescanner. Sans
+    -- cette garde, chaque rafale d'evenements de sac relancait un balayage
+    -- complet des sacs et des deux banques alors que l'optimisateur est ferme.
+    if cache.censusDirty == false then return end
+    cache.censusDirty = false
+    local now = YQQuality.GetCensusTimestamp()
+    for _, scope in ipairs({ "bags", "character", "warband" }) do
+        if cache.dirty[scope] then YQQuality.ScanStockScope(scope) end
+        local bagIDs = cache.scopeBagIDs[scope] or {}
+        if #bagIDs > 0 then
+            local counts, readable = {}, true
+            for _, bagID in ipairs(bagIDs) do
+                if not cache.knownBags[bagID] then
+                    readable = false
+                    break
+                end
+                for _, item in ipairs(cache.containers[bagID] or {}) do
+                    -- Une copie liee ne pourra jamais etre postee : la recenser
+                    -- ferait croire a un stock vendable qui n'existe pas.
+                    if item.bound ~= true then
+                        census.AddSample(counts, item.itemID, item.link, item.quantity)
+                    end
+                end
+            end
+            if readable then
+                if scope == "warband" then
+                    -- La banque d'aventuriers est commune au compte : un seul
+                    -- enregistrement, hors des personnages, sinon elle serait
+                    -- comptee autant de fois qu'il y a de personnages recenses.
+                    census.SetWarband(db, { counts = counts, updatedAt = now })
+                else
+                    census.SetScope(db, characterKey, scope == "bags" and "bags" or "bank", {
+                        counts = counts,
+                        updatedAt = now,
+                        realm = realm,
+                    })
+                end
+            end
+        end
+    end
+end
+
+--- Recense les pieces jointes de la boite aux lettres ouverte.
+function YQQuality.WriteMailboxCensus()
+    local census = YQQuality.EnsureStatCensusBinding()
+    if not census then return end
+    if type(GetInboxNumItems) ~= "function" or type(GetInboxItemLink) ~= "function" then
+        return
+    end
+    state.EnsureDB()
+    local characterKey, realm = YQQuality.GetCensusCharacterKey()
+    if not characterKey then return end
+
+    local ok, readable, total = pcall(GetInboxNumItems)
+    if not ok then return end
+    readable = math.max(0, tonumber(readable) or 0)
+    total = math.max(readable, tonumber(total) or readable)
+
+    local counts = {}
+    local maxAttachments = tonumber(_G.ATTACHMENTS_MAX_RECEIVE) or 16
+    for mailIndex = 1, readable do
+        for attachment = 1, maxAttachments do
+            local itemLink = SafeCall(GetInboxItemLink, mailIndex, attachment)
+            if type(itemLink) == "string" and itemLink ~= "" then
+                -- GetInboxItem rend name, itemID, texture, count, ... : le
+                -- select doit voir la liste entiere, d'ou la fermeture plutot
+                -- que SafeCall, qui n'en transmettrait qu'une valeur.
+                local okItem, itemID, quantity = pcall(function()
+                    local _, id, _, count = GetInboxItem(mailIndex, attachment)
+                    return id, count
+                end)
+                if okItem and itemID then
+                    census.AddSample(counts, itemID, itemLink, math.max(1, tonumber(quantity) or 1))
+                end
+            end
+        end
+    end
+
+    census.SetScope(db, characterKey, "mail", {
+        counts = counts,
+        updatedAt = YQQuality.GetCensusTimestamp(),
+        -- Le client ne detient qu'une page de courrier : au-dela, le
+        -- recensement est incomplet et doit le dire.
+        partial = total > readable or nil,
+        realm = realm,
+    })
+end
+
+--- Recense les encheres actives du personnage courant.
+--
+-- `itemLink` n'existe que pour une enchere d'objet ; une marchandise n'a pas de
+-- statistique de metier, donc rien a perdre. Un lien absent envoie l'enchere au
+-- seau « statistique inconnue » plutot que dans une statistique devinee.
+function YQQuality.WriteOwnedAuctionsCensus()
+    local census = YQQuality.EnsureStatCensusBinding()
+    if not census then return end
+    if type(C_AuctionHouse) ~= "table"
+        or type(C_AuctionHouse.GetNumOwnedAuctions) ~= "function"
+        or type(C_AuctionHouse.GetOwnedAuctionInfo) ~= "function" then
+        return
+    end
+    -- Une liste partielle vaut zero a la lecture, et l'ecrire effacerait un
+    -- recensement correct. On n'ecrit que sur un resultat complet.
+    if type(C_AuctionHouse.HasFullOwnedAuctionResults) == "function"
+        and SafeCall(C_AuctionHouse.HasFullOwnedAuctionResults) ~= true then
+        return
+    end
+    state.EnsureDB()
+    local characterKey, realm = YQQuality.GetCensusCharacterKey()
+    if not characterKey then return end
+
+    local count = tonumber(SafeCall(C_AuctionHouse.GetNumOwnedAuctions)) or 0
+    local activeStatus = Enum and Enum.AuctionStatus and Enum.AuctionStatus.Active or 0
+    local counts = {}
+    for index = 1, count do
+        local info = SafeCall(C_AuctionHouse.GetOwnedAuctionInfo, index)
+        local itemID = info and info.itemKey and tonumber(info.itemKey.itemID)
+        local quantity = info and tonumber(info.quantity)
+        if itemID and quantity and quantity > 0
+            and (info.status == nil or info.status == activeStatus) then
+            census.AddSample(counts, itemID, info.itemLink, quantity)
+        end
+    end
+
+    census.SetScope(db, characterKey, "auctions", {
+        counts = counts,
+        updatedAt = YQQuality.GetCensusTimestamp(),
+        realm = realm,
+    })
+    state.craft.statCensusAuctionWritten = true
+    state.craft.statCensusAuctionPending = false
+end
+
+--- Demande un recensement des conteneurs, au plus un par intervalle.
+--
+-- Groupe comme ScheduleRefresh : les evenements de sac arrivent en rafale, et
+-- un recensement par evenement rescannerait les memes emplacements.
+function YQQuality.ScheduleStatCensus(delay)
+    if state.craft.statCensusQueued then return end
+    state.craft.statCensusQueued = true
+    C_Timer.After(tonumber(delay) or 1, function()
+        state.craft.statCensusQueued = false
+        local ok, err = pcall(YQQuality.WriteContainerCensus)
+        if not ok then DebugPrint("stat-census error=" .. tostring(err)) end
+    end)
+end
+
+--- Les encheres n'existent qu'apres une requete : on ecoute d'abord.
+--
+-- TSM interroge les encheres du joueur a chaque ouverture de l'hotel des
+-- ventes, donc OWNED_AUCTIONS_UPDATED suffit presque toujours. La requete de
+-- repli n'est emise qu'a defaut, une seule fois par ouverture, derriere le
+-- verrou de debit de Blizzard, et jamais pendant une recherche de YayaQueue :
+-- le flux d'achat est prioritaire sur un recensement.
+function YQQuality.ScheduleOwnedAuctionsCensus()
+    state.craft.statCensusAuctionWritten = false
+    state.craft.statCensusAuctionPending = true
+    C_Timer.After(5, function()
+        if not state.craft.statCensusAuctionPending then return end
+        if state.craft.statCensusAuctionWritten then return end
+        if not AuctionHouseFrame or not AuctionHouseFrame:IsShown() then return end
+        if state.ah.activeSearch or state.ah.waitingSearch
+            or state.ah.pendingCommodity or state.ah.pendingItem then
+            return
+        end
+        if type(C_AuctionHouse) ~= "table"
+            or type(C_AuctionHouse.QueryOwnedAuctions) ~= "function" then
+            return
+        end
+        if type(C_AuctionHouse.IsThrottledMessageSystemReady) == "function"
+            and not C_AuctionHouse.IsThrottledMessageSystemReady() then
+            return
+        end
+        state.craft.statCensusAuctionPending = false
+        pcall(C_AuctionHouse.QueryOwnedAuctions, {})
+    end)
 end
 
 -- Ordre d'affichage des sources de stock. Une table indexee, jamais pairs() :
@@ -12763,7 +13123,12 @@ end
 -- includeBound = true compte toutes les copies, y compris celles qui sont liees.
 -- Le total vendable veut le contraire ; le comptage complet ne sert qu'a
 -- reconstituer le courrier par difference avec les chiffres TSM.
-function YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQuality, includeBound)
+--
+-- statKey restreint le comptage aux exemplaires portant cette statistique de
+-- metier. Renvoie `quantity, pending` : `pending` compte les exemplaires dont la
+-- statistique n'est pas encore lisible. Ils ne sont ni comptes ni oublies --
+-- le panneau doit pouvoir dire « partiel » au lieu d'annoncer un chiffre faux.
+function YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQuality, includeBound, statKey)
     local cache = YQQuality.GetStockCache()
     if cache.dirty[scope] then YQQuality.ScanStockScope(scope) end
     local bagIDs = cache.scopeBagIDs[scope] or {}
@@ -12771,7 +13136,7 @@ function YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQ
     -- fermee renvoyait 0 des que FetchPurchasedBankTabIDs repondait une table
     -- vide, soit un faux zero indiscernable d'un stock reellement absent.
     if #bagIDs == 0 then return nil end
-    local quantity = 0
+    local quantity, pending = 0, 0
     for _, bagID in ipairs(bagIDs) do
         if not cache.knownBags[bagID] then return nil end
         for _, item in ipairs(cache.containers[bagID] or {}) do
@@ -12780,11 +13145,178 @@ function YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQ
                 or tonumber(item.quality) == tonumber(targetQuality)
             if item.itemID == itemID and qualityMatches
                 and (includeBound == true or item.bound ~= true) then
-                quantity = quantity + item.quantity
+                local statMatches = YQQuality.MatchesScannedStat(item, statKey)
+                if statMatches == true then
+                    quantity = quantity + item.quantity
+                elseif statMatches == nil then
+                    pending = pending + item.quantity
+                end
             end
         end
     end
-    return quantity
+    return quantity, pending
+end
+
+--- Statistique imposee a la sortie par le reactif modifiant selectionne.
+--
+-- Renvoie `statKey, source`. Le tooltip est l'autorite, interroge dans cet
+-- ordre :
+--
+--   1. le lien de sortie predit -- GetRecipeOutputItemData recoit
+--      `candidate.reagents`, missive comprise, donc son lien nomme la
+--      statistique des que le client la porte ;
+--   2. la missive selectionnee elle-meme, dont le tooltip la nomme.
+--
+-- Sans missive, rien n'est nomme et il n'y a pas de contrainte : la statistique
+-- est tiree au moment du craft. C'est exactement le comportement voulu, le
+-- stock affiche reste alors le total toutes statistiques confondues.
+--
+-- Les bonusIds ne servent pas ici : `8952`/`8953` n'existent que sur un
+-- exemplaire deja craft avec une Missive, jamais sur une prevision.
+function YQQuality.GetOutputStatConstraint(recipeState, candidate)
+    if not recipeState or not candidate then return nil end
+
+    local reference = YQQuality.GetOutputInventoryReference(recipeState, candidate)
+    if type(reference) == "string" and reference ~= "" then
+        local statKey, pending = state.professionStats.ReadLinkStatKey(reference)
+        if statKey then return statKey, "output" end
+        if pending then return nil, "pending" end
+    end
+
+    local selections = candidate.optionalSelections or recipeState.optionalSelections
+    for _, slotData in ipairs(recipeState.optionalSlots or {}) do
+        local slotIndex = tonumber(slotData.slot and slotData.slot.dataSlotIndex)
+        local selectionID = slotIndex and tonumber(selections and selections[slotIndex]) or nil
+        local option = selectionID
+            and YQQuality.GetSelectionOption(recipeState.optionalSlots, slotIndex, selectionID)
+            or nil
+        -- Tous les rangs d'une meme famille de missive donnent la meme
+        -- statistique : lire le representant selectionne suffit.
+        if option and tonumber(option.itemID)
+            and (slotData.category == "missives" or option.isMissive) then
+            local statKey, pending = state.professionStats.ReadLinkStatKey(
+                "item:" .. tostring(tonumber(option.itemID))
+            )
+            if statKey then return statKey, "missive" end
+            if pending then
+                WarmItemData(tonumber(option.itemID))
+                return nil, "pending"
+            end
+        end
+    end
+    return nil
+end
+
+-- Composition du stock vendable restreint a une statistique de metier.
+--
+-- Fonction pure, soeur de ComposeSellableStock, et volontairement distincte
+-- d'elle : sans missive selectionnee le chiffre affiche reste le total, donc le
+-- chemin d'origine doit continuer a se comporter exactement comme avant.
+--
+-- Les chiffres TSM n'apparaissent pas ici. Ils ignorent la statistique par
+-- construction -- l'equipement fabrique y est indexe par niveau d'objet -- et
+-- les melanger a un comptage filtre donnerait un total ni filtre ni complet.
+-- Ce sont donc le scan natif et le recensement qui repondent, et le total TSM
+-- toutes statistiques reste en derniere ligne d'infobulle, pour recoupement.
+function YQQuality.ComposeStatFilteredStock(raw)
+    local stock = {
+        total = 0,
+        certain = 0,
+        unverified = 0,
+        pending = 0,
+        hasUnknown = false,
+        sources = {},
+        reference = raw.reference,
+        itemString = raw.itemString,
+        statKey = raw.statKey,
+        statLabel = raw.statLabel,
+        statSource = raw.statSource,
+        allStatsTotal = raw.allStatsTotal,
+        allStatsApproximate = raw.allStatsApproximate,
+        characters = raw.characters,
+        otherCharacters = raw.otherCharacters,
+        unknownStat = 0,
+    }
+
+    local byKey = {}
+    local function Put(key, count, confidence, extra)
+        local entry = extra or {}
+        entry.count = count
+        entry.confidence = count == nil and "unknown" or confidence
+        byKey[key] = entry
+    end
+
+    -- Le scan natif tranche par emplacement : un exemplaire lu est certain.
+    -- A defaut, le recensement du meme perimetre repond, date. Jamais zero.
+    local function PutScanned(key, scanned, censused)
+        if scanned ~= nil then
+            Put(key, scanned, "certain")
+        elseif censused and censused.count ~= nil then
+            Put(key, censused.count, "unverified", { updatedAt = censused.updatedAt })
+        else
+            Put(key, nil, "unknown")
+        end
+    end
+
+    PutScanned("bags", raw.bagsCount, nil)
+    PutScanned("bank", raw.bankCount, raw.censusOwnBank)
+    PutScanned("warband", raw.warbandCount, raw.censusWarband)
+
+    for _, descriptor in ipairs({
+        { key = "mail", source = raw.censusOwnMail },
+        { key = "alts", source = raw.censusOthers },
+        { key = "auctions", source = raw.censusAuctions },
+    }) do
+        local source = descriptor.source
+        if source and source.count ~= nil then
+            Put(descriptor.key, source.count, "unverified", {
+                updatedAt = source.updatedAt,
+                partial = source.partial,
+            })
+            stock.unknownStat = stock.unknownStat + (tonumber(source.unknownStat) or 0)
+        else
+            Put(descriptor.key, nil, "unknown")
+        end
+    end
+
+    for _, source in ipairs(YQQuality.STOCK_SOURCES) do
+        local entry = byKey[source.key]
+        if entry then
+            stock.sources[#stock.sources + 1] = {
+                key = source.key,
+                label = source.label,
+                count = entry.count,
+                confidence = entry.confidence,
+                updatedAt = entry.updatedAt,
+                partial = entry.partial,
+            }
+            if entry.confidence == "unknown" then
+                stock.hasUnknown = true
+            elseif entry.confidence == "unverified" then
+                stock.unverified = stock.unverified + entry.count
+                stock.total = stock.total + entry.count
+            else
+                stock.certain = stock.certain + entry.count
+                stock.total = stock.total + entry.count
+            end
+        end
+    end
+
+    -- Un exemplaire dont le tooltip n'est pas encore lisible n'est ni compte ni
+    -- oublie : il rend le total incomplet le temps que les donnees arrivent.
+    stock.pending = math.max(0, tonumber(raw.pending) or 0)
+    if stock.pending > 0 then stock.hasUnknown = true end
+    stock.approximate = stock.unverified > 0 or stock.hasUnknown
+    return stock
+end
+
+-- Niveau d'objet porte par la reference de prix, ou 0 quand elle n'en a pas.
+--
+-- Zero vaut « tous niveaux » pour le recensement : c'est ce qui evite de rendre
+-- un faux zero sur un objet dont le niveau exact n'est pas encore connu.
+function YQQuality.GetReferenceItemLevel(reference)
+    if type(reference) ~= "string" then return 0 end
+    return tonumber(reference:match("::i(%d+)$")) or 0
 end
 
 -- Stock que le joueur peut reellement mettre en vente pour la qualite choisie.
@@ -12793,6 +13325,7 @@ end
 -- echangeable du tout ou que sa reference reste introuvable : la ligne est
 -- alors masquee plutot qu'affichee a zero.
 function YQQuality.GetSellableOutputStock(recipeState, candidate)
+    state.EnsureDB()
     local itemReference, itemID = YQQuality.GetOutputInventoryReference(recipeState, candidate)
     if not itemReference or not itemID then return nil, false end
 
@@ -12812,7 +13345,7 @@ function YQQuality.GetSellableOutputStock(recipeState, candidate)
     -- Blizzard brut dont il ne normalise pas toujours les bonus.
     local tsmReference = YQQuality.GetOutputPriceReference(recipeState, candidate) or itemReference
 
-    return YQQuality.ComposeSellableStock({
+    local unfiltered = YQQuality.ComposeSellableStock({
         reference = tsmReference,
         bagsUnbound = YQQuality.CountStockScope("bags", itemID, targetQuality, requireCraftedQuality),
         bagsAll = YQQuality.CountStockScope("bags", itemID, targetQuality, requireCraftedQuality, true),
@@ -12820,6 +13353,51 @@ function YQQuality.GetSellableOutputStock(recipeState, candidate)
         bankAll = YQQuality.CountStockScope("character", itemID, targetQuality, requireCraftedQuality, true),
         warbandUnbound = YQQuality.CountStockScope("warband", itemID, targetQuality, requireCraftedQuality),
         tsm = YQQuality.GetTSMOutputTotals(tsmReference),
+    })
+
+    -- Sans reactif modifiant qui impose une statistique, la sortie est tiree au
+    -- craft : aucune contrainte, et le chiffre reste le total d'avant.
+    local statKey, statSource = YQQuality.GetOutputStatConstraint(recipeState, candidate)
+    if not statKey then
+        unfiltered.statSource = statSource
+        return unfiltered, true
+    end
+
+    local bagsCount, bagsPending =
+        YQQuality.CountStockScope("bags", itemID, targetQuality, requireCraftedQuality, false, statKey)
+    local bankCount, bankPending =
+        YQQuality.CountStockScope("character", itemID, targetQuality, requireCraftedQuality, false, statKey)
+    local warbandCount, warbandPending =
+        YQQuality.CountStockScope("warband", itemID, targetQuality, requireCraftedQuality, false, statKey)
+
+    local census = state.statCensus
+    local query = census and census.Query(db and db.statCensus, {
+        itemID = itemID,
+        itemLevel = YQQuality.GetReferenceItemLevel(tsmReference),
+        statKey = statKey,
+        characterKey = YQQuality.GetCensusCharacterKey(),
+    }) or nil
+
+    local statInfo = state.professionStats.byKey[statKey]
+    return YQQuality.ComposeStatFilteredStock({
+        reference = tsmReference,
+        itemString = unfiltered.itemString,
+        statKey = statKey,
+        statLabel = statInfo and statInfo.label or statKey,
+        statSource = statSource,
+        bagsCount = bagsCount,
+        bankCount = bankCount,
+        warbandCount = warbandCount,
+        pending = (bagsPending or 0) + (bankPending or 0) + (warbandPending or 0),
+        censusOwnBank = query and query.own and query.own.bank or nil,
+        censusOwnMail = query and query.own and query.own.mail or nil,
+        censusOthers = query and query.others or nil,
+        censusAuctions = query and query.auctions or nil,
+        censusWarband = query and query.warband or nil,
+        characters = query and query.characters or nil,
+        otherCharacters = query and query.otherCharacters or nil,
+        allStatsTotal = unfiltered.total,
+        allStatsApproximate = unfiltered.approximate,
     }), true
 end
 
@@ -12832,6 +13410,10 @@ end
 function YQQuality.PrintStockDiagnostics()
     local recipeState = state.craft.qualityState
     local target = state.craft.qualityTarget
+    if not YQQuality.IsSelectorEnabled() then
+        Print("Optimisation des reactifs masquee : /yq opti on, puis ouvre une recette.")
+        return
+    end
     if not recipeState or not target then
         Print("Aucune recette ouverte dans la fenetre d'optimisation.")
         return
@@ -12855,15 +13437,48 @@ function YQQuality.PrintStockDiagnostics()
     ))
     Print("  reference  = " .. tostring(reference))
     Print("  itemString = " .. tostring(totals and totals.itemString))
+    -- Le couple statistique / provenance est le premier a regarder : il dit si
+    -- le lien de sortie predit porte le bonus de la missive, ou s'il a fallu
+    -- retomber sur le tooltip de la missive elle-meme.
+    local statKey, statSource = YQQuality.GetOutputStatConstraint(recipeState, candidate)
+    Print(("  stat       = %s (source %s, ilvl %s)"):format(
+        tostring(statKey), tostring(statSource),
+        tostring(YQQuality.GetReferenceItemLevel(reference))
+    ))
     local cache = YQQuality.GetStockCache()
     for _, scope in ipairs({ "bags", "character", "warband" }) do
-        Print(("  natif %-9s libre=%s tout=%s conteneurs=%d autoritaire=%s"):format(
+        local filtered, pending = YQQuality.CountStockScope(
+            scope, itemID, targetQuality, requireCraftedQuality, false, statKey
+        )
+        Print(("  natif %-9s libre=%s tout=%s filtre=%s attente=%s conteneurs=%d autoritaire=%s"):format(
             scope,
             tostring(YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQuality)),
             tostring(YQQuality.CountStockScope(scope, itemID, targetQuality, requireCraftedQuality, true)),
+            tostring(filtered),
+            tostring(pending),
             #(cache.scopeBagIDs[scope] or {}),
             tostring(cache.scopeAuthoritative[scope])
         ))
+    end
+    local census = state.statCensus
+    if census and statKey then
+        local query = census.Query(db and db.statCensus, {
+            itemID = itemID,
+            itemLevel = YQQuality.GetReferenceItemLevel(reference),
+            statKey = statKey,
+            characterKey = YQQuality.GetCensusCharacterKey(),
+        })
+        Print(("  recens perso=%s/%s courrier=%s autres=%s encheres=%s warband=%s statInconnue=%s"):format(
+            tostring(YQQuality.GetCensusCharacterKey()),
+            tostring(query.characters),
+            tostring(query.own.mail and query.own.mail.count),
+            tostring(query.others.count),
+            tostring(query.auctions.count),
+            tostring(query.warband.count),
+            tostring(query.auctions.unknownStat)
+        ))
+    elseif statKey then
+        Print("  recens indisponible (module StatCensus absent)")
     end
     if totals then
         Print(("  tsm    player=%d alts=%d encheres=%d encheresAlts=%d warbank=%d"):format(
@@ -12906,7 +13521,13 @@ end
 
 function YQQuality.FillStockTooltip(stock, tooltip)
     if not stock or not tooltip then return end
-    tooltip:AddLine("Stock vendable", 1, 1, 1)
+    local census = state.statCensus
+    tooltip:AddLine(
+        stock.statKey
+            and ("Stock vendable — " .. state.professionStats.GetLabel(stock.statKey))
+            or "Stock vendable",
+        1, 1, 1
+    )
     for _, source in ipairs(stock.sources) do
         local value, red, green, blue
         if source.confidence == "unknown" then
@@ -12916,9 +13537,50 @@ function YQQuality.FillStockTooltip(stock, tooltip)
         else
             value, red, green, blue = tostring(source.count), 0.90, 0.90, 0.88
         end
-        tooltip:AddDoubleLine(source.label, value, 0.62, 0.62, 0.60, red, green, blue)
+        local label = source.label
+        -- La date du recensement est ce qui distingue « zero » de « zero il y a
+        -- trois semaines » : sans elle le chiffre n'est pas interpretable.
+        local stamp = census and source.updatedAt and census.FormatDate(source.updatedAt) or nil
+        if stamp then label = label .. " (" .. stamp .. ")" end
+        if source.partial then label = label .. " (partiel)" end
+        tooltip:AddDoubleLine(label, value, 0.62, 0.62, 0.60, red, green, blue)
     end
-    if stock.unverified > 0 then
+    if stock.statKey then
+        if stock.allStatsTotal then
+            tooltip:AddDoubleLine(
+                "Toutes statistiques",
+                (stock.allStatsApproximate and "~" or "") .. tostring(stock.allStatsTotal),
+                0.62, 0.62, 0.60, 0.62, 0.62, 0.60
+            )
+        end
+        if (stock.unknownStat or 0) > 0 then
+            tooltip:AddLine(
+                ("%d exemplaire(s) de statistique illisible, comptes nulle part.")
+                    :format(stock.unknownStat),
+                0.62, 0.62, 0.60, true
+            )
+        end
+        if (stock.pending or 0) > 0 then
+            tooltip:AddLine(
+                ("%d exemplaire(s) dont l'infobulle n'est pas encore lue.")
+                    :format(stock.pending),
+                0.62, 0.62, 0.60, true
+            )
+        end
+        if stock.unverified > 0 then
+            tooltip:AddLine(
+                "~ recense lors d'un passage precedent : sacs, banque, courrier"
+                    .. " et encheres sont lus quand leur fenetre est ouverte.",
+                1, 0.80, 0.40, true
+            )
+        end
+        if stock.otherCharacters then
+            tooltip:AddLine(
+                ("%d autre(s) personnage(s) recense(s)."):format(stock.otherCharacters),
+                0.62, 0.62, 0.60, true
+            )
+        end
+    elseif stock.unverified > 0 then
         tooltip:AddLine(
             "~ copies connues de TSM seul, qui ignore l'etat de liaison.",
             1, 0.80, 0.40, true
@@ -13471,6 +14133,17 @@ function YQQuality.SetInfoValue(frame, key, text, tone)
     row.SetTone(tone or "text")
 end
 
+-- Renomme un libelle du bandeau, ou le remet a son intitule par defaut.
+--
+-- La statistique va dans le libelle et non dans la valeur : la colonne de
+-- valeur est bornee a LAYOUT.infoValueW, un nom comme « Fabrication multiple »
+-- y deborderait.
+function YQQuality.SetInfoLabel(frame, key, text)
+    local row = frame.infoRows and frame.infoRows[key]
+    if not row then return end
+    row.label:SetText(text or YQQuality.INFO_LABELS[key] or key)
+end
+
 function YQQuality.SetInfoShown(frame, shown)
     if frame.infoLeft then frame.infoLeft:SetShown(shown) end
     if frame.infoRight then frame.infoRight:SetShown(shown) end
@@ -13569,6 +14242,7 @@ function YQQuality.EnsureSelector(schematicForm)
     end
 
     frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    frame.userClosed = not (db and db.qualityPanelEnabled == true)
     frame:SetSize(YQQuality.LAYOUT.panelW, 296)
     frame:SetPoint("CENTER", UIParent, "CENTER", 180, 0)
     frame:SetFrameStrata("MEDIUM")
@@ -13588,8 +14262,10 @@ function YQQuality.EnsureSelector(schematicForm)
     })
     -- Le bouton de fermeture est cree en premier pour rester le plus a droite :
     -- header.AddButton empile de droite a gauche.
+    -- Fermer le panneau eteint la preference : sans cela la fermeture ne durait
+    -- que jusqu'au prochain changement de recette.
     frame.closeButton = YayaCore.UI.CreateCloseButton(frame.header, frame, {
-        onClick = function() frame.userClosed = true end,
+        onClick = function() YQQuality.SetSelectorEnabled(false) end,
     })
     frame.lockButton = YayaCore.UI.CreateGlyphButton(frame.header, "lock", {
         locked = db and db.qualityPanelLocked == true,
@@ -13845,6 +14521,30 @@ function YQQuality.EnsureSelector(schematicForm)
     return frame
 end
 
+-- L'optimisateur est-il demande par le joueur ?
+--
+-- Lu dans la base et non sur la frame : c'est le seul etat qui survive a un
+-- changement de recette, a une reouverture de metier et a un /reload.
+function YQQuality.IsSelectorEnabled()
+    state.EnsureDB()
+    return db and db.qualityPanelEnabled == true
+end
+
+--- Bascule l'optimisateur et remet la frame en coherence.
+function YQQuality.SetSelectorEnabled(enabled)
+    state.EnsureDB()
+    enabled = enabled == true
+    db.qualityPanelEnabled = enabled
+    local frame = state.craft.qualityFrame
+    if frame then
+        frame.userClosed = not enabled
+        if not enabled then frame:Hide() end
+    end
+    if not enabled then YQQuality.CancelRecipeSolve() end
+    ScheduleRefresh()
+    return enabled
+end
+
 function YQQuality.UpdateSelector()
     local craftingPage = ProfessionsFrame and ProfessionsFrame.CraftingPage
     if not ProfessionsFrame or not ProfessionsFrame:IsShown() or not craftingPage or not craftingPage:IsShown() then
@@ -13854,6 +14554,16 @@ function YQQuality.UpdateSelector()
     local schematicForm = craftingPage and craftingPage.SchematicForm
     if not schematicForm then
         if state.craft.qualityFrame then state.craft.qualityFrame:Hide() end
+        return
+    end
+    -- Court-circuit avant EnsureSelector : masque, l'optimisateur ne construit
+    -- meme pas ses widgets et n'engage aucun solveur. CancelRecipeSolve
+    -- incremente les generations, donc une coroutine en vol s'arrete d'elle-meme.
+    if not YQQuality.IsSelectorEnabled() then
+        if state.craft.qualityFrame then state.craft.qualityFrame:Hide() end
+        if state.craft.qualitySolve or state.craft.qualityPreviewSolve then
+            YQQuality.CancelRecipeSolve()
+        end
         return
     end
     local frame = YQQuality.EnsureSelector(schematicForm)
@@ -13889,7 +14599,8 @@ function YQQuality.UpdateSelector()
             optionalSelections = {},
         }
         state.craft.qualityTarget = target
-        frame.userClosed = false
+        -- Aucune remise a zero de userClosed ici : un changement de recette ne
+        -- doit pas rouvrir un panneau que le joueur a ferme.
     end
     target.optionalSelections = YQQuality.CopyOptionalSelections(target.optionalSelections)
     local level = type(schematicForm.GetCurrentRecipeLevel) == "function"
@@ -13997,6 +14708,15 @@ function YQQuality.UpdateSelector()
     )
     local stock, showStock = YQQuality.GetSellableOutputStock(recipeState, selectedCandidate)
     frame.stockData = showStock and stock or nil
+    -- Quand une missive impose une statistique, le libelle la nomme : un
+    -- chiffre filtre presente sous l'intitule generique se lirait comme un
+    -- total, et c'est precisement la confusion a eviter.
+    YQQuality.SetInfoLabel(
+        frame, "stock",
+        showStock and stock.statKey
+            and ("Stock " .. state.professionStats.GetLabel(stock.statKey))
+            or nil
+    )
     YQQuality.SetInfoValue(
         frame, "stock",
         showStock and YQQuality.FormatStockSummary(stock) or "—",
@@ -14537,6 +15257,33 @@ local function EnsureCraftingQueueButton(schematicForm)
     firstCraftButton:SetScript("OnLeave", GameTooltip_Hide)
     button.firstCraftButton = firstCraftButton
 
+    -- Bascule de l'optimisateur de reactifs. Elle reste dans cette rangee plutot
+    -- que dans le bandeau du panneau : quand le panneau est masque, son bandeau
+    -- n'existe pas, il faut donc un point d'entree qui vive dans le metier.
+    local optimizerButton = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    optimizerButton:SetSize(95, 22)
+    optimizerButton:SetPoint("RIGHT", minusButton, "LEFT", -10, 0)
+    optimizerButton:SetFrameLevel((parent:GetFrameLevel() or 1) + 5)
+    optimizerButton:SetText("optimiseur")
+    optimizerButton:SetScript("OnClick", function()
+        local enabled = YQQuality.SetSelectorEnabled(not YQQuality.IsSelectorEnabled())
+        Print("Optimisation des reactifs " .. (enabled and "affichee" or "masquee") .. ".")
+    end)
+    optimizerButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Optimisation des reactifs")
+        if YQQuality.IsSelectorEnabled() then
+            GameTooltip:AddLine("Masque le panneau et arrete le calcul des reactifs.", 1, 1, 1, true)
+        else
+            GameTooltip:AddLine("Affiche le panneau et lance le calcul des reactifs.", 1, 1, 1, true)
+            GameTooltip:AddLine("Masque, il ne calcule rien.", 0.62, 0.62, 0.60, true)
+        end
+        GameTooltip:AddLine("Aussi : /yq opti", 0.62, 0.62, 0.60, true)
+        GameTooltip:Show()
+    end)
+    optimizerButton:SetScript("OnLeave", GameTooltip_Hide)
+    button.optimizerButton = optimizerButton
+
     schematicForm.yayaQueueRecipeButton = button
     return button
 end
@@ -14576,17 +15323,33 @@ local function UpdateCraftingQueueButton()
         )
     end
     if button.firstCraftButton then
-        button.firstCraftButton:ClearAllPoints()
-        if showDumpConcentration and button.dumpConcentrationButton then
-            button.firstCraftButton:SetPoint("RIGHT", button.dumpConcentrationButton, "LEFT", -10, 0)
-        else
-            button.firstCraftButton:SetPoint("RIGHT", button.firstCraftAnchor, "LEFT", -10, 0)
-        end
         local hasAddableFirstCraft = isVisible and HasAddableFirstCraft()
         button.firstCraftButton:SetShown(hasAddableFirstCraft)
         button.firstCraftButton:SetEnabled(
             hasAddableFirstCraft and not state.firstCraftScanRunning
         )
+    end
+    if button.optimizerButton then
+        button.optimizerButton:SetShown(isVisible)
+        button.optimizerButton:SetText(YQQuality.IsSelectorEnabled()
+            and (YayaCore.UI.HEX.accent .. "optimiseur" .. YayaCore.UI.HEX.stop)
+            or "optimiseur")
+    end
+    -- Chaine de droite a gauche, recalculee a chaque passe : chaque bouton
+    -- visible s'accroche a gauche du precedent visible. Ancrer les boutons les
+    -- uns sur les autres a la creation laissait un trou des que l'un d'eux
+    -- disparaissait.
+    local chainAnchor = button.firstCraftAnchor
+    for _, chained in ipairs({
+        button.dumpConcentrationButton,
+        button.firstCraftButton,
+        button.optimizerButton,
+    }) do
+        if chained and chained:IsShown() and chainAnchor then
+            chained:ClearAllPoints()
+            chained:SetPoint("RIGHT", chainAnchor, "LEFT", -10, 0)
+            chainAnchor = chained
+        end
     end
     YQQuality.UpdateSelector()
 end
@@ -15646,6 +16409,9 @@ handle.AddonLoaded = function(event, arg1, arg2, arg3)
         addon:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
         pcall(addon.RegisterEvent, addon, "PLAYERREAGENTBANKSLOTS_CHANGED")
         pcall(addon.RegisterEvent, addon, "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
+        pcall(addon.RegisterEvent, addon, "MAIL_SHOW")
+        pcall(addon.RegisterEvent, addon, "MAIL_INBOX_UPDATE")
+        pcall(addon.RegisterEvent, addon, "OWNED_AUCTIONS_UPDATED")
         addon:RegisterEvent("MERCHANT_SHOW")
         addon:RegisterEvent("MERCHANT_UPDATE")
         addon:RegisterEvent("AUCTION_HOUSE_SHOW")
@@ -15687,6 +16453,9 @@ handle.PlayerEnteringWorld = function(event, arg1, arg2, arg3)
         YQQuality.RefreshIngenuityBuffState("player-entering-world")
         UpdateTSMMacroBridge()
         state.craftGear.ScheduleScan()
+        -- Premier recensement de la session : c'est ce qui fait entrer ce
+        -- personnage dans les chiffres vus depuis les autres.
+        YQQuality.ScheduleStatCensus(5)
         ScheduleRefresh()
         return true
     end
@@ -15697,7 +16466,8 @@ end
 handle.TradeSkillShow = function(event, arg1, arg2, arg3)
     if event == "TRADE_SKILL_SHOW" then
         YQQuality.InstallProfessionSpecMassPurchaseHook()
-        if state.craft.qualityFrame then state.craft.qualityFrame.userClosed = false end
+        -- L'ouverture d'un metier ne rouvre pas l'optimisateur : seule la
+        -- preference persistee decide, et c'est UpdateSelector qui la lit.
         state.craftGear.ScheduleScan()
         C_Timer.After(0, function()
             local professionID = state.GetCurrentProfessionID()
@@ -15937,6 +16707,7 @@ end
 -- Extrait du dispatcher, ligne 13327 de la version precedente.
 handle.AuctionHouseShow = function(event, arg1, arg2, arg3)
     if event == "AUCTION_HOUSE_SHOW" then
+        YQQuality.ScheduleOwnedAuctionsCensus()
         C_Timer.After(0, function()
             if not AuctionHouseFrame or not AuctionHouseFrame:IsShown() then
                 return
@@ -16241,6 +17012,41 @@ handle.InventoryStockChanged = function(event, arg1, arg2, arg3)
         state.InvalidateMaterialPricing()
         C_Timer.After(0, function() YQQuality.ScanStockScope("warband") end)
     end
+    -- Le recensement se greffe sur les memes evenements que le cache de stock :
+    -- ce sont exactement ceux qui rendent une lecture precedente perimee. Le
+    -- delai est genereux volontairement -- ce chiffre est lu par les autres
+    -- personnages, des jours plus tard, il n'a pas besoin d'etre a la seconde,
+    -- et l'optimisateur peut etre ferme donc ce scan serait sinon gratuit pour
+    -- personne.
+    YQQuality.ScheduleStatCensus(8)
+    return false
+end
+
+--- Recensement par statistique : courrier ouvert et encheres du joueur.
+--
+-- Ces deux sources sont les seules qui puissent dire quelle statistique portent
+-- les exemplaires hors des conteneurs. TSM ne le sait pas : il indexe
+-- l'equipement fabrique par niveau d'objet, jamais par statistique.
+handle.StatCensusWindows = function(event, arg1, arg2, arg3)
+    if event == "MAIL_SHOW" or event == "MAIL_INBOX_UPDATE" then
+        -- MAIL_INBOX_UPDATE arrive en rafale a l'ouverture : sans ce groupage,
+        -- la boite entiere serait relue a chaque occurrence. Le delai sert
+        -- aussi de garde contre le faux zero : a MAIL_SHOW la boite n'est pas
+        -- encore peuplee, et ecrire zero effacerait un recensement correct.
+        if state.craft.statCensusMailQueued then return true end
+        state.craft.statCensusMailQueued = true
+        C_Timer.After(1, function()
+            state.craft.statCensusMailQueued = false
+            local ok, err = pcall(YQQuality.WriteMailboxCensus)
+            if not ok then DebugPrint("stat-census mail error=" .. tostring(err)) end
+        end)
+        return true
+    end
+    if event == "OWNED_AUCTIONS_UPDATED" then
+        local ok, err = pcall(YQQuality.WriteOwnedAuctionsCensus)
+        if not ok then DebugPrint("stat-census auctions error=" .. tostring(err)) end
+        return true
+    end
     return false
 end
 
@@ -16475,6 +17281,9 @@ eventHandlers["CRAFTINGORDERS_CRAFT_ORDER_RESPONSE"] = { handle.CraftingordersOr
 eventHandlers["CRAFTINGORDERS_FULFILL_ORDER_RESPONSE"] = { handle.CraftingordersOrderResponse }
 eventHandlers["CURRENCY_DISPLAY_UPDATE"] = { handle.CurrencyDisplayUpdate }
 eventHandlers["ITEM_SEARCH_RESULTS_UPDATED"] = { handle.ItemSearchResultsUpdated }
+eventHandlers["MAIL_INBOX_UPDATE"] = { handle.StatCensusWindows }
+eventHandlers["MAIL_SHOW"] = { handle.StatCensusWindows }
+eventHandlers["OWNED_AUCTIONS_UPDATED"] = { handle.StatCensusWindows }
 eventHandlers["MERCHANT_SHOW"] = { handle.MerchantWindow }
 eventHandlers["MERCHANT_UPDATE"] = { handle.MerchantWindow }
 eventHandlers["PLAYERBANKSLOTS_CHANGED"] = { handle.InventoryStockChanged }
@@ -16950,6 +17759,20 @@ SlashCmdList.YAYAQUEUE = function(message)
         local ok, message = false, "module absent"
         if optimizer then ok, message = optimizer.RunSelfTests() end
         Print(ok and ("Optimiseur OK : " .. tostring(message)) or ("Optimiseur KO : " .. tostring(message)))
+        return
+    end
+    if command == "opti" or command == "opti on" or command == "opti off" then
+        local wanted
+        if command == "opti on" then
+            wanted = true
+        elseif command == "opti off" then
+            wanted = false
+        else
+            wanted = not YQQuality.IsSelectorEnabled()
+        end
+        YQQuality.SetSelectorEnabled(wanted)
+        Print("Optimisation des reactifs " .. (wanted and "affichee" or "masquee")
+            .. ", conserve apres /reload")
         return
     end
     if command == "vendor on" or command == "vendor off" then

@@ -42,9 +42,12 @@ local sources = source:match("(YQQuality%.STOCK_SOURCES = %b{})")
 assert(sources, "YQQuality.STOCK_SOURCES introuvable")
 local compose = source:match("(function YQQuality%.ComposeSellableStock%(raw%).-\nend)\n")
 assert(compose, "YQQuality.ComposeSellableStock introuvable")
+local composeFiltered =
+    source:match("(function YQQuality%.ComposeStatFilteredStock%(raw%).-\nend)\n")
+assert(composeFiltered, "YQQuality.ComposeStatFilteredStock introuvable")
 
 YQQuality = {}
-assert(loadstring(sources .. "\n" .. compose, "compose"))()
+assert(loadstring(sources .. "\n" .. compose .. "\n" .. composeFiltered, "compose"))()
 
 local function sourceEntry(stock, key)
     for _, entry in ipairs(stock.sources) do
@@ -182,6 +185,118 @@ equals("le corps du panneau n'active pas la souris",
     source:find("frame:EnableMouse(true)", 1, true) == nil, true)
 equals("les lignes informatives laissent passer le clic",
     source:find("row:SetMouseClickEnabled(false)", 1, true) ~= nil, true)
+
+-- ---------------------------------------------------------------------------
+-- Stock restreint a une statistique de metier
+--
+-- Ce chemin ne s'ouvre que quand un reactif modifiant impose une statistique.
+-- Les chiffres TSM en sont absents : ils ignorent la statistique, les melanger
+-- a un comptage filtre donnerait un total ni filtre ni complet.
+-- ---------------------------------------------------------------------------
+
+section("Missive posee : le scan est certain, le recensement date")
+
+stock = YQQuality.ComposeStatFilteredStock({
+    statKey = "resourcefulness",
+    bagsCount = 1,
+    bankCount = 0,
+    warbandCount = 2,
+    censusOwnMail = { count = 2, updatedAt = 4000 },
+    censusOthers = { count = 4, updatedAt = 2000 },
+    censusAuctions = { count = 16, updatedAt = 3000, unknownStat = 3 },
+    allStatsTotal = 41,
+    allStatsApproximate = true,
+    otherCharacters = 1,
+})
+equals("total filtre", stock.total, 25)
+equals("le scan natif est certain", stock.certain, 3)
+equals("le recensement est non verifie", stock.unverified, 22)
+equals("total marque approximatif", stock.approximate, true)
+equals("aucune source illisible", stock.hasUnknown, false)
+equals("les sacs sont certains", select(2, sourceEntry(stock, "bags")), "certain")
+equals("le courrier vient du recensement",
+    select(2, sourceEntry(stock, "mail")), "unverified")
+equals("statistique illisible remontee", stock.unknownStat, 3)
+equals("total toutes stats conserve pour recoupement", stock.allStatsTotal, 41)
+
+section("Aucun recensement : inconnu, jamais zero")
+
+stock = YQQuality.ComposeStatFilteredStock({
+    statKey = "resourcefulness",
+    bagsCount = 1,
+    bankCount = 0,
+    warbandCount = 0,
+})
+equals("total limite au scan", stock.total, 1)
+equals("courrier inconnu", select(2, sourceEntry(stock, "mail")), "unknown")
+equals("autres personnages inconnus", select(2, sourceEntry(stock, "alts")), "unknown")
+equals("encheres inconnues", select(2, sourceEntry(stock, "auctions")), "unknown")
+equals("une source inconnue n'a pas de compte", (sourceEntry(stock, "mail")), nil)
+equals("total marque incomplet", stock.hasUnknown, true)
+
+section("Banque non lue cette session : repli sur son propre recensement")
+
+stock = YQQuality.ComposeStatFilteredStock({
+    statKey = "resourcefulness",
+    bagsCount = 1,
+    bankCount = nil,
+    warbandCount = nil,
+    censusOwnBank = { count = 3, updatedAt = 9000 },
+    censusWarband = { count = 5, updatedAt = 8000 },
+})
+equals("banque repliee sur le recensement", (sourceEntry(stock, "bank")), 3)
+equals("ce repli est non verifie", select(2, sourceEntry(stock, "bank")), "unverified")
+equals("banque d'aventuriers repliee", (sourceEntry(stock, "warband")), 5)
+equals("total", stock.total, 9)
+
+section("Exemplaire dont l'infobulle n'est pas lue : total incomplet, jamais faux")
+
+stock = YQQuality.ComposeStatFilteredStock({
+    statKey = "resourcefulness",
+    bagsCount = 2,
+    bankCount = 0,
+    warbandCount = 0,
+    censusOwnMail = { count = 0, updatedAt = 1 },
+    censusOthers = { count = 0, updatedAt = 1 },
+    censusAuctions = { count = 0, updatedAt = 1 },
+    pending = 4,
+})
+equals("les exemplaires en attente n'entrent pas au total", stock.total, 2)
+equals("mais ils rendent le total incomplet", stock.hasUnknown, true)
+equals("et ils sont comptes pour l'infobulle", stock.pending, 4)
+
+section("Ordre d'affichage stable, filtre compris")
+
+stock = YQQuality.ComposeStatFilteredStock({
+    statKey = "resourcefulness",
+    bagsCount = 1, bankCount = 1, warbandCount = 1,
+    censusOwnMail = { count = 1, updatedAt = 1 },
+    censusOthers = { count = 1, updatedAt = 1 },
+    censusAuctions = { count = 1, updatedAt = 1 },
+})
+order = {}
+for _, entry in ipairs(stock.sources) do
+    order[#order + 1] = entry.key
+end
+equals("ordre des sources filtrees", table.concat(order, ","),
+    "bags,bank,warband,mail,alts,auctions")
+
+section("Garde-fous du chemin filtre")
+
+equals("sans statistique imposee, le total d'origine est rendu tel quel",
+    source:find("if not statKey then", 1, true) ~= nil, true)
+equals("un perimetre illisible n'ecrase pas le recensement precedent",
+    source:find("if readable then", 1, true) ~= nil, true)
+equals("la banque d'aventuriers est ecrite hors des personnages",
+    source:find("census.SetWarband(db, { counts = counts, updatedAt = now })", 1, true) ~= nil,
+    true)
+equals("seules les copies libres sont recensees",
+    source:find("if item.bound ~= true then", 1, true) ~= nil, true)
+equals("le comptage filtre exclut les copies liees",
+    source:find('YQQuality.CountStockScope("bags", itemID, targetQuality, requireCraftedQuality, false, statKey)', 1, true) ~= nil,
+    true)
+equals("la requete de repli des encheres cede la place au flux d'achat",
+    source:find("if state.ah.activeSearch or state.ah.waitingSearch", 1, true) ~= nil, true)
 
 print("")
 print(("%d reussis, %d echoues"):format(passed, failed))
