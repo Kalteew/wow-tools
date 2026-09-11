@@ -33,7 +33,7 @@ Resume `Midnight` :
 - la ligne ne porte que des compteurs : les noms entiers de recettes, de livres et d'outils sont dans l'infobulle, qui donne le detail complet au survol
 - si rien ne reste a faire pour un metier suivi, la ligne affiche `ok` tant qu'une autre action garde la frame ouverte
 - si tous les metiers suivis sont `ok` et qu'aucune autre ligne ou bouton ne reste, la frame est masquee
-- si la moxie depasse `600`, la ligne affiche sa valeur en orange, par exemple `moxie 612`
+- si la moxie depasse le seuil `Moxie : seuil d'alerte` des options (`600` par defaut, reglable de 0 a 2000), la ligne affiche sa valeur en orange, par exemple `moxie 612`
 - `T` = tresors restants
 - `loot` = connaissances restantes via coffres/loots cette semaine
 - `dez` = connaissances restantes via desenchantement pour l'Enchantement
@@ -41,12 +41,12 @@ Resume `Midnight` :
 - `hebdo` = rappel quete hebdo trainer
 - `traite` = rappel traite hebdo si le metier est a `25+` et que l'option `Tracker les traites (inscription)` est active
 - `DMF` = Darkmoon Faire active et quete metier pas encore faite ce mois-ci
-- `KP x` en rouge = plus de `5` points de connaissance non depenses dans ce metier
+- `KP x` en rouge = plus de points de connaissance non depenses dans ce metier que le seuil `Points de connaissance non depenses` des options (`5` par defaut, reglable de 0 a 50)
 - `+10KP xN` = livres de connaissance Midnight encore non consommes, leurs noms etant listes dans l'infobulle de la ligne ; les livres d'Abundance sont suivis a partir du niveau 90 pour Enchantement, Herboristerie, Minage et Depeçage ; si le livre est deja dans les sacs, le rappel est masque au profit du bouton `Utiliser KP`
 - `moxie x/y` et `abondance x/y` = recapitulatif du cout des livres manquants ; la valeur passe en rouge si la monnaie manque
 - si `Outils metiers` est active, les outils de metier rares ou superieurs, soulbound, equipes ou presents dans les sacs, sont verifies pour chaque metier Midnight appris ; un metier sans outil bleu/violet equipe affiche `outil non equipe`
 - la meme option ajoute un rappel independant `outil RF` par metier Midnight suivi tant qu'aucun outil de statistique `Resourcefulness` **conforme** n'est possede, equipe ou en sac ; il s'ajoute a `outil non equipe` au lieu de le remplacer, et reste masque tant que le scan des outils est incomplet
-- le rang compte autant que la statistique : un exemplaire Resourcefulness sous le seuil ne satisfait pas l'exigence, et l'infobulle dit alors lequel des deux manque (`Aucun outil Resourcefulness possede` ou `Outil Resourcefulness possede mais sous le seuil de 232 d'ilvl`). Sans cette distinction le rappel disparaissait devant un outil rang 1, et rien ne proposait de le remplacer
+- le rang compte autant que la statistique : un exemplaire Resourcefulness sous le seuil d'ilvl des options (`232` par defaut) ne satisfait pas l'exigence, et l'infobulle dit alors lequel des deux manque (`Aucun outil Resourcefulness possede` ou `Outil Resourcefulness possede mais sous le seuil de 232 d'ilvl`). Sans cette distinction le rappel disparaissait devant un outil rang 1, et rien ne proposait de le remplacer
 - ce rappel ne concerne que les metiers de **craft** : `Resourcefulness` economise les reactifs d'un craft et n'a aucun usage en recolte, dont les outils jouent sur `Perception`, `Deftness` ou `Finesse`. Herboristerie, Minage et Depecage portent `gathering = true` dans `MIDNIGHT_PROFESSION_CONFIGS` et n'affichent donc aucun rappel RF ; leurs emplacements de metier restent verifies normalement
 - ce rappel porte sur la **possession**, equipe ou en sac, et non sur le port : dans un flux multi-outil l'exemplaire porte change au fil des recettes, donc un outil garde en sac compte autant qu'un outil equipe
 - si `Enchantements des outils` est active, YWT lit la stat aleatoire du tooltip du lien unique de chaque outil possede (jamais la stat generique de l'item de base) : un outil Multicrafting demande l'enchantement Multicrafting, les outils sans enchantement sont comptes dans `ench xN` et ceux a recuperer dans `outil xN`, le detail par outil etant donne par l'infobulle ; les boutons Warbank/YayaQueue utilisent ce meme enchantement cible ; les deux options sont actives par defaut
@@ -57,7 +57,7 @@ Resume `Midnight` :
 - l'emplacement d'**outil** se juge sur la **possession** d'au moins un outil conforme, equipe ou en sac, jamais sur l'outil porte. YayaQueue echange l'outil Multicraft et l'outil Resourcefulness selon la recette, donc ce qui est porte a un instant donne ne dit rien : un verdict sur le port ferait clignoter le rappel au rythme des echanges. Le motif affiche est alors `aucun outil conforme possede`
 - la conformite d'un outil est arretee apres le scan des sacs : la rarete est deja filtree a l'entree du scan, reste l'ilvl lu sur le lien unique de chaque exemplaire. Un outil dont l'ilvl n'est pas lisible laisse l'emplacement d'outil sans verdict plutot que de le declarer fautif
 - c'est la **nature** de l'emplacement qui decide, jamais l'objet qui s'y trouve : la position rendue par `GetProfessionSlots` distingue l'outil de ses accessoires
-- le seuil vaut `232` par defaut et se lit `>=` : les equipements de metier **rares** plafonnent a l'ilvl 232 au rang de craft maximal, donc exiger strictement plus de 232 imposerait de l'epique et rendrait le rappel impossible a satisfaire en bleu. `/ywt stuff ilvl <n>` change le seuil, `/ywt stuff ilvl` l'affiche, `/ywt stuff ilvl reset` le remet a `232`
+- le seuil vaut `232` par defaut et se lit `>=` : les equipements de metier **rares** plafonnent a l'ilvl 232 au rang de craft maximal, donc exiger strictement plus de 232 imposerait de l'epique et rendrait le rappel impossible a satisfaire en bleu. Le seuil d'ilvl (`Equipement de metier : ilvl minimal`, 1 a 400) et la rarete minimale (`Equipement de metier : rarete minimale`, rare ou epique) se reglent dans les options ; `/ywt stuff ilvl <n>` change aussi le seuil d'ilvl, `/ywt stuff ilvl` l'affiche, `/ywt stuff ilvl reset` le remet a `232`
 - un emplacement dont la rarete ou l'ilvl ne sont pas encore charges n'est jamais compte comme fautif : les donnees de l'objet sont demandees et le rappel reste masque, comme pour les autres rappels d'outils
 - un emplacement qui cumule rarete et ilvl insuffisants ne compte qu'une fois : le token compte les emplacements, pas les motifs
 - pour l'alchimie, la meme option ajoute `MC` tant qu'aucun outil Multicrafting **conforme** n'est possede : YayaQueue equipe l'outil Multicrafting juste avant les crafts qui multicraftent, ce qui suppose d'en posseder un exemplaire en plus de l'outil Resourcefulness. Comme l'emplacement d'outil, ce rappel porte sur la **possession**, equipe ou en sac, jamais sur le port : l'echange renvoie en sac l'outil qui sort, donc un outil Multicrafting porte est deja en place et n'en reclame pas un second. Meme regle que le rappel RF : un exemplaire sous le seuil de rang ne compte pas, et l'infobulle le dit
@@ -87,10 +87,11 @@ Resume `Midnight` :
 - les rappels recurrents sont affiches sous le titre `Hebdo` uniquement s'il reste quelque chose a faire ; les tresors, livres KP et recettes sont dans `One time`, sans lignes `ok`
 - la consommation d'une recette suivie force aussi un refresh apres le sort de consommation, sans devoir ouvrir le metier
 - le bloc couvre surtout la partie actionable des guides `Midnight` : tresors, repeatable loot, trainer, traite, Darkmoon
-- si `TomTom` est installe, l'addon ajoute automatiquement au login les waypoints des tresors `Midnight` encore non recuperes pour les metiers du personnage courant
+- si `TomTom` est installe et que `Waypoints des tresors Midnight` est active (defaut), l'addon ajoute automatiquement au login les waypoints des tresors `Midnight` encore non recuperes pour les metiers du personnage courant ; desactivee, l'option retire les waypoints poses et masque le bouton `TomTom tresors`
 - les waypoints sont refresh quand un tresor passe en `fait`
-- si TomTom est installe, un waypoint temporaire est aussi pose vers chaque vendeur de livre KP manquant (`Voidstorm`, `Silvermoon`, `Harandar`, `Zul'Aman`, `Coiled Isle` ou `Abundance`)
-- si TomTom est installe, un waypoint temporaire est aussi pose vers le vendeur des recettes suivies manquantes, uniquement quand la Moxie du metier suffit a les acheter : le budget est consomme recette par recette dans l'ordre de la liste, donc une Moxie insuffisante ne pose aucun point inutile et le point reapparait des que la Moxie remonte
+- si TomTom est installe et que `Waypoints des vendeurs de livres KP` est active (defaut), un waypoint temporaire est aussi pose vers chaque vendeur de livre KP manquant (`Voidstorm`, `Silvermoon`, `Harandar`, `Zul'Aman`, `Coiled Isle` ou `Abundance`)
+- si TomTom est installe et que `Waypoints des vendeurs de recettes` est active (defaut), un waypoint temporaire est aussi pose vers le vendeur des recettes suivies manquantes, uniquement quand la Moxie du metier suffit a les acheter : le budget est consomme recette par recette dans l'ordre de la liste, donc une Moxie insuffisante ne pose aucun point inutile et le point reapparait des que la Moxie remonte
+- les trois options TomTom sont dans la categorie `TomTom` du panneau ; sans TomTom charge, elles n'ont aucun effet
 - une recette sans vendeur (achat hotel des ventes) ne recoit jamais de waypoint et ne consomme pas ce budget Moxie
 - l'addon n'impose pas la `CrazyArrow` de TomTom; il pose seulement les markers carte/minimap
 - un bouton `Ouvrir payout` apparait si un `Artisan's Consortium Payout` est detecte dans les sacs; chaque clic cible un payout encore present et un clic excedentaire reste sans effet
@@ -142,12 +143,18 @@ Exception :
 
 La frame est ancree par son coin haut gauche et s'etend vers le bas droite. Sa position est conservee entre les personnages.
 
-Dans `Echap > Options > AddOns > Yaya Weekly Tracker`, les options account-wide permettent de :
+Dans `Echap > Options > AddOns > Yaya Weekly Tracker` (ou `/ywt options`), le panneau est construit par le socle partage `YayaCore.Settings` a partir des descripteurs de l'addon : un rail de douze categories a gauche (`Affichage`, `Chat et journal`, `Quetes generales`, `Quetes Midnight`, `Ressources Midnight`, `Autres rappels`, `Metiers Midnight`, `Metiers affiches et ordre`, `TomTom`, `Marchand Abondance`, `Conteneurs`, `Recettes Midnight`), une page scrollable par categorie a droite, et sur chaque page des cases a cocher, des sliders pour les seuils numeriques, des listes deroulantes pour les choix fermes et, pour les metiers, une liste ordonnee avec une case de visibilite et des fleches `^` / `v` par ligne. Les widgets relisent la base a chaque ouverture du panneau et chaque changement declenche un rafraichissement du tracker. Les options account-wide permettent de :
 
 - cacher integralement la frame en combat (desactive par defaut)
-- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des world bosses Val/Naigtal, du world boss selon gold ou ilvl, des `Sparks of Tides`, des traites, des weeklies metiers trainer, du DMF metiers, des loots metiers, du dez Enchantement, des outils metiers, des enchantements des outils, de l'equipement de metier, de chaque recette Midnight, de `Lost Legends` et de `Research Console: Exploring the Void` (tous actives par defaut)
+- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des world bosses Val/Naigtal, du world boss selon gold ou ilvl, de la weekly de Halduron, des `Sparks of Tides`, du `Shard of Dundun` au plafond, de `Jard`, de `Containing the Helsworn`, du `Great Vault`, de l'`Archeo Legion 5000g`, des traites, des weeklies metiers trainer, du DMF metiers, des loots metiers, du dez Enchantement, des outils metiers, des enchantements des outils, de l'equipement de metier, de chaque recette Midnight, de `Lost Legends` et de `Research Console: Exploring the Void` (tous actives par defaut)
 - activer l'achat automatique des sacs de materiaux d'enchantement du marchand d'Abondance (desactive par defaut)
 - activer l'achat automatique des `Fused Vitality` du marchand d'Abondance (desactive par defaut)
+- regler les seuils numeriques, tous account-wide : ilvl equipe en dessous duquel le world boss reste utile (`250`), seuil d'alerte des points de connaissance non depenses (`5`), seuil d'alerte de Moxie (`600`), ilvl minimal (`232`) et rarete minimale (`rare`) de l'equipement de metier
+- choisir la verbosite du chat (`chatVerbosity`) : `Silencieux` n'affiche que les reponses aux commandes `/ywt`, `Normal` (defaut) ajoute les erreurs (Warbank, YayaQueue absent), `Detaille` ajoute les actions automatiques (ajouts et retraits YayaQueue, rappel `/ywt help` au login). Les erreurs fatales du rafraichissement sont toujours affichees, quel que soit le niveau
+- masquer des metiers Midnight (`hiddenProfessions`, case decochee dans la liste `Metiers affiches et leur ordre`) et choisir leur ordre (`professionOrder`, fleches `^` / `v`) : les lignes de metier et les boutons `Ouvrir surplus` suivent cet ordre ; un metier absent de la liste enregistree est ajoute en queue dans l'ordre par defaut, un ID inconnu est ignore
+- activer le journal de debug (`debugEnabled`, desactive par defaut, equivalent de `/ywt debug on`)
+
+Ces reglages sont decrits par `runtimeState.trackingOptions` (categorie, cle, type, defaut, bornes, effet), des tables de donnees sans logique : `trackerUI.RegisterOptions` les passe a `YayaCore.Settings.BuildPanel` avec la base du compte et `trackerUI.ApplySettingChange` comme `onChange`, qui applique l'effet du descripteur (`combat`, `gear`, `waypoints`, `professions`, `autoopen`) puis planifie un rafraichissement. Les seuils sont lus par `trackerUI.GetNumberSetting`, qui retombe sur le defaut du descripteur si la valeur enregistree est absente ou corrompue. Sans `YayaCore.Settings` charge, le panneau n'est pas construit et une erreur fatale est journalisee, le reste de l'addon fonctionne.
 
 L'addon enregistre aussi en account-wide les personnages qui connaissent `Jard` dans `YayaWeeklyTrackerAccountDB.jardOwners`.
 
@@ -258,7 +265,17 @@ Tests hors jeu :
   alchimiste equipe (`Tests/game_state.lua`), rejoue le cycle d'evenements, puis
   echoue si le moindre message d'erreur apparait ou si le scan d'equipement de
   metier ne rend plus le verdict attendu
-- il se lance avec le reste de la suite par
+- `addons/YayaWeeklyTracker/Tests/test_settings.lua` charge la meme suite avec
+  `YayaCore/Settings.lua`, puis verifie les reglages de bout en bout : chaque
+  descripteur a un defaut, un type connu et des bornes coherentes ; le panneau
+  porte ses douze categories et ses widgets ; cocher, glisser un slider ou
+  choisir dans une liste ecrit la base et planifie un rafraichissement ;
+  `OnShow` relit la base sans la reecrire ; le seuil KP change fait apparaitre
+  le jeton `KP 3` ; `hiddenProfessions` et `professionOrder` (en base comme par
+  les fleches et cases du widget) pilotent les lignes de metier ; en verbosite
+  `Silencieux` les reponses `/ywt` et les erreurs fatales passent, les erreurs
+  et actions ordinaires sont tues, et reviennent en `Normal` / `Detaille`
+- ils se lancent avec le reste de la suite par
   `pwsh -NoProfile -File .\scripts\Test-Addons.ps1`
 - ce que ces tests ne couvrent pas : les mesures reelles de frame, les boutons
   securises et tout ce qui depend du client. Une validation en jeu reste
@@ -266,6 +283,13 @@ Tests hors jeu :
 
 Commande :
 
+- `/ywt` ou `/ywt help` pour lister les commandes
+- `/ywt options` pour ouvrir le panneau d'options de l'addon
 - `/ywt reset` pour remettre la frame a sa position par defaut
+- `/ywt debug [on|off|now]` pour basculer le journal de debug ou forcer un rafraichissement
+- `/ywt log [n|clear]` pour lire ou vider le journal persistant
+- `/ywt stuff [on|off|ilvl n|ilvl reset]` pour l'equipement de metier et son seuil d'ilvl
 - `/ywt traites` pour activer/desactiver `Tracker les traites (inscription)`
 - `/ywt traites on|off` pour forcer l'etat de `Tracker les traites (inscription)`
+- `/ywt autoopen [reset [all]]` pour le bilan ou la purge des verdicts d'auto-ouverture
+- les reponses aux commandes s'affichent toujours, quelle que soit la verbosite du chat

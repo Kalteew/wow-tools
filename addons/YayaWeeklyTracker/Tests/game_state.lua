@@ -202,6 +202,48 @@ function EquipMulticraftToolFixture()
     BAG_CONTENT[0][1] = { itemID = 245778, itemLevel = 232, stat = "Ingéniosité" }
 end
 
+-- Second metier rejouable par les tests : le personnage apprend l'Inscription
+-- Midnight (skillLine 2913, base 773) en plus de l'Alchimie, pour exercer
+-- l'ordre et le masquage des lignes de metier.
+local INSC_SKILL_LINE, INSC_PROFESSION_ID = 2913, 4
+function LearnInscriptionFixture()
+    function GetProfessions() return 1, 2, nil, nil, nil end
+    function GetProfessionInfo(index)
+        if index == 1 then
+            return "Midnight Alchemy", nil, 100, 100, nil, nil, 171
+        elseif index == 2 then
+            return "Midnight Inscription", nil, 50, 100, nil, nil, 773
+        end
+    end
+    local previousInfo = C_TradeSkillUI.GetProfessionInfoBySkillLineID
+    C_TradeSkillUI.GetProfessionInfoBySkillLineID = function(skillLineID)
+        if skillLineID == INSC_SKILL_LINE then
+            return {
+                professionID = INSC_SKILL_LINE,
+                profession = INSC_PROFESSION_ID,
+                parentProfessionID = 773,
+                professionName = "Midnight Inscription",
+                parentProfessionName = "Inscription",
+                skillLevel = 50,
+                maxSkillLevel = 100,
+            }
+        end
+        return previousInfo(skillLineID)
+    end
+    local previousSkillLine = C_TradeSkillUI.GetProfessionSkillLineID
+    C_TradeSkillUI.GetProfessionSkillLineID = function(base)
+        if base == 773 then return INSC_SKILL_LINE end
+        return previousSkillLine(base)
+    end
+end
+
+-- Points de connaissance non depenses : 3, sous le seuil d'alerte par defaut
+-- (5), donc aucun jeton KP tant qu'un test ne baisse pas le seuil.
+C_ProfSpecs = C_ProfSpecs or {}
+C_ProfSpecs.GetCurrencyInfoForSkillLine = function()
+    return { numAvailable = 3 }
+end
+
 QUEUE_CALLS = {}
 YayaQueueAPI = {
     -- La signature suit celle de l'addon : la variante est le quatrieme

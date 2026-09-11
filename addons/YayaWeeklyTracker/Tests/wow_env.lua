@@ -11,6 +11,9 @@ WIDGET_FIELD_NAMES = {
     Right = true, Middle = true, NormalTexture = true, ScrollBar = true,
     ScrollChild = true, EditBox = true, Title = true, TitleText = true,
     CloseButton = true, Bg = true, Center = true, Overlay = true,
+    -- Bornes d'OptionsSliderTemplate : sans elles, le repli du stub rendrait
+    -- une fonction et le slider echouerait sur `low:SetText`.
+    Low = true, High = true,
 }
 
 local function NewWidget(name, kind)
@@ -65,6 +68,35 @@ local function NewWidget(name, kind)
     function methods.GetStringWidth(self) return 50 end
     function methods.GetText(self) return self.__text end
     function methods.SetText(self, text) self.__text = text end
+    -- Controles a etat des panneaux d'options : slider, champ numerique,
+    -- case a cocher et menu deroulant. Le socle relit ces valeurs apres les
+    -- avoir posees, un stub sans memoire y verrait toujours nil.
+    function methods.SetValue(self, value)
+        self.__value = value
+        local handler = self.__scripts["OnValueChanged"]
+        if handler then handler(self, value, true) end
+    end
+    function methods.GetValue(self) return self.__value end
+    function methods.SetMinMaxValues(self, minValue, maxValue)
+        self.__minValue, self.__maxValue = minValue, maxValue
+    end
+    function methods.GetMinMaxValues(self) return self.__minValue, self.__maxValue end
+    function methods.SetValueStep(self, step) self.__valueStep = step end
+    function methods.GetValueStep(self) return self.__valueStep end
+    function methods.SetObeyStepOnDrag(self, obey) self.__obeyStep = obey end
+    function methods.SetNumber(self, value) self.__text = tostring(value) end
+    function methods.GetNumber(self) return tonumber(self.__text) or 0 end
+    function methods.SetChecked(self, checked) self.__checked = checked and true or false end
+    function methods.GetChecked(self) return self.__checked == true end
+    -- SetupMenu(generator) memorise le generateur ; OpenMenu le rejoue sur une
+    -- racine qui enregistre les entrees, pour verifier la liste des choix.
+    function methods.SetupMenu(self, generator) self.__menuGenerator = generator end
+    function methods.OpenMenu(self)
+        local root = MenuRootStub()
+        if self.__menuGenerator then self.__menuGenerator(self, root) end
+        return root
+    end
+    function methods.CloseMenu(self) end
     function methods.SetFormattedText(self, fmt, ...) self.__text = string.format(fmt, ...) end
     function methods.IsEnabled(self) return true end
     function methods.NumLines(self) return 0 end
@@ -115,6 +147,45 @@ local function NewWidget(name, kind)
     end
     return widget
 end
+
+-- Racine de menu Blizzard (MenuUtil) : chaque Create* enregistre son entree
+-- dans `entries`, et `Select(index)` rejoue le callback de l'entree choisie.
+function MenuRootStub()
+    local root = { entries = {} }
+    local function Register(kind, label, isSelected, setSelected, data)
+        local entry = {
+            kind = kind,
+            label = label,
+            isSelected = isSelected,
+            setSelected = setSelected,
+            data = data,
+            entries = {},
+        }
+        root.entries[#root.entries + 1] = entry
+        return entry
+    end
+    function root.CreateTitle(_, label) return Register("title", label) end
+    function root.CreateDivider() return Register("divider") end
+    function root.CreateButton(_, label, callback, data) return Register("button", label, nil, callback, data) end
+    function root.CreateRadio(_, label, isSelected, setSelected, data)
+        return Register("radio", label, isSelected, setSelected, data)
+    end
+    function root.CreateCheckbox(_, label, isSelected, setSelected, data)
+        return Register("checkbox", label, isSelected, setSelected, data)
+    end
+    function root.Select(_, index)
+        local entry = root.entries[index]
+        if entry and entry.setSelected then entry.setSelected(entry.data) end
+    end
+    return root
+end
+MenuUtil = {
+    CreateContextMenu = function(owner, generator)
+        local root = MenuRootStub()
+        if generator then generator(owner, root) end
+        return root
+    end,
+}
 
 ALL_FRAMES = {}
 function CreateFrame(kind, name, parent, template)
@@ -304,9 +375,18 @@ Enum = {
     ItemQuality = { Poor = 0, Common = 1, Uncommon = 2, Rare = 3, Epic = 4 },
 }
 
+-- Categories enregistrees par les panneaux d'options : GetID est ce que le
+-- socle YayaCore.Settings passe a OpenToCategory.
+SETTINGS_REGISTERED_CATEGORIES = {}
 Settings = {
-    RegisterAddOnCategory = function() end,
-    RegisterCanvasLayoutCategory = function() return { ID = 1 } end,
+    RegisterAddOnCategory = function(category)
+        if type(category) == "table" then category.added = true end
+    end,
+    RegisterCanvasLayoutCategory = function(panel, name)
+        local category = { ID = 1, panel = panel, name = name, GetID = function() return 1 end }
+        SETTINGS_REGISTERED_CATEGORIES[#SETTINGS_REGISTERED_CATEGORIES + 1] = category
+        return category
+    end,
     RegisterVerticalLayoutCategory = function() return { ID = 1 } end,
     CreateCheckbox = function() end,
     CreateControlTextContainer = function()
@@ -315,9 +395,17 @@ Settings = {
     RegisterProxySetting = function()
         return { SetValueChangedCallback = function() end }
     end,
+    -- Memorise l'ouverture demandee : un test peut verifier que /ywt options
+    -- cible bien la categorie enregistree.
+    OpenToCategory = function(categoryID)
+        SETTINGS_OPENED_CATEGORY = categoryID
+    end,
     Default = {}, VarType = { Boolean = "boolean", Number = "number" },
 }
 SettingsPanel = NewWidget("SettingsPanel", "Frame")
+function InterfaceOptionsFrame_OpenToCategory(panel)
+    SETTINGS_OPENED_PANEL = panel
+end
 
 ItemLocation = {
     CreateFromBagAndSlot = function() return {} end,

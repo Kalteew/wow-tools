@@ -14,6 +14,7 @@ dofile("Tests/wow_env.lua")
 local ADDON_FILES = {
     "../YayaCore/YayaCore.lua",
     "../YayaCore/UI.lua",
+    "../YayaCore/Settings.lua",
     "../YayaCore/ActionBinding.lua",
     "../YayaFrame/YayaFrame.lua",
     "YayaWeeklyTracker.lua",
