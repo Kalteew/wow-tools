@@ -18,7 +18,7 @@ En mode confirmation, si les emplacements de popup sont tous occupes au login, l
 
 Les deux colonnes defilent, ce qui leve la limite d'une quinzaine de profils au-dela de laquelle les boutons debordaient de la fenetre. Le profil choisi se lit a sa surbrillance, plus au fait que son bouton soit grise. La fenetre se deplace par son bandeau, retient sa position d'une session a l'autre, et le bouton `R` la ramene au centre si elle finit hors de l'ecran.
 
-Les en-tetes **Nom**, **Niv.** et **Profil** trient la liste ; un second clic sur la colonne active inverse le sens, marque par un suffixe `^` ou `v`. Le choix est conserve au niveau du compte. Un niveau inconnu et un personnage sans profil sont toujours relegues en fin de liste, quel que soit le sens : c'est une absence de donnee, pas une valeur basse.
+Les en-tetes **Nom**, **Niv.** et **Profil** trient la liste ; un second clic sur la colonne active inverse le sens, marque par un suffixe `^` ou `v`. Par defaut, la liste part du niveau le plus haut ; le choix est conserve au niveau du compte, et un choix deja enregistre n'est jamais remplace par ce defaut. Le personnage connecte est toujours en tete, quel que soit le tri. Un niveau inconnu et un personnage sans profil sont toujours relegues en fin de liste, quel que soit le sens : c'est une absence de donnee, pas une valeur basse.
 
 Le **niveau** est releve a la connexion du personnage et a chaque montee de niveau. Simple Addon Manager ne stocke pas cette information et il n'existe aucune API pour lire les autres personnages du compte : un personnage affiche `-` tant qu'il ne s'est pas connecte au moins une fois depuis l'installation de cette version. L'infobulle d'une ligne donne le profil, le niveau et la date de derniere connexion.
 
@@ -36,4 +36,4 @@ Les attributions sont stockees dans `YayaAddonProfilesDB.assignments`, les perso
 
 Le meme personnage pouvait figurer sous deux identifiants, selon que le royaume gardait ses espaces ou non : `GetRealmName` les conserve, alors que les cles de royaume de Simple Addon Manager varient. Les entrees partageant un GUID sont desormais fusionnees a chaque connexion sur la forme avec espaces, celle que le jeu regenere ; le niveau le plus haut, la derniere connexion la plus recente et l'assignation existante sont conserves. Le schema est marque `version = 4`.
 
-Les preferences de compte sont `promptReload`, `sortKey`, `sortDesc`, `framePoint` et `debug`.
+Les preferences de compte sont `promptReload`, `sortKey`, `sortDesc`, `framePoint` et `debug`. Sans `sortKey` enregistre, le tri retombe sur le niveau decroissant (`level` / `true`) ; une `sortKey` existante est conservee telle quelle, et seul un `sortDesc` manquant retombe sur le croissant.

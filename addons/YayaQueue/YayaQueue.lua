@@ -15,7 +15,12 @@ local CONFIG = {
     CRAFT_ROWS_DEFAULT = 8,
     CRAFT_ROWS_MIN = 2,
     CRAFT_ROWS_MAX = 24,
-    FIRST_CRAFT_COST_LIMIT = 1000 * 10000,
+    -- Seuils reglables par l'utilisateur : ces valeurs ne sont que les defauts,
+    -- la base (`firstCraftCostLimitGold`, `wondrousSynergistMinBuyoutGold`,
+    -- `auctionCutPercent`, `auctionHighPriceMultiplier`) fait foi, lue par
+    -- `state.GetSettingNumber`.
+    FIRST_CRAFT_COST_LIMIT_GOLD = 1000,
+    FIRST_CRAFT_COST_LIMIT_GOLD_MAX = 100000,
     FIRST_CRAFT_EXCLUDED_ITEM_IDS = {
         [190456] = true, -- Artisan's Mettle
         [210814] = true, -- Artisan's Acuity
@@ -36,7 +41,8 @@ local CONFIG = {
     MIDNIGHT_MILLING_REAGENTS_PER_CRAFT = 10,
     ALCHEMY_BOUQUET_RECIPE_ID = 1230892,
     ALCHEMY_WONDROUS_SYNERGIST_RECIPE_ID = 1230856,
-    ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT = 90 * 10000,
+    ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT_GOLD = 90,
+    ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT_GOLD_MAX = 10000,
     ALCHEMY_BOUQUET_SHARED_COOLDOWN_KEY = "midnight-alchemy-material-transmutations",
     ALCHEMY_BOUQUET_SHARED_COOLDOWN_RECIPE_IDS = {
         [1230891] = true, -- Box of Rocks
@@ -100,6 +106,13 @@ local CONFIG = {
     CONCENTRATION_PHIAL_BUFF_SPELL_ID = 1239755,
     CONCENTRATION_PHIAL_DEFAULT_PURCHASE = 10,
     AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER = 1.5,
+    AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER_MIN = 1,
+    AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER_MAX = 3,
+    AUCTION_PRICE_WARNING_TOLERANCE_PERCENT = 0,
+    AUCTION_PRICE_WARNING_TOLERANCE_PERCENT_MAX = 50,
+    -- Taxe de l'hotel des ventes retenue dans le profit d'une recette.
+    AUCTION_CUT_PERCENT = 5,
+    AUCTION_CUT_PERCENT_MAX = 15,
     AUCTION_HIGH_PRICE_CONFIRM_DIALOG = "YQ_HIGH_PRICE_CONFIRM",
     SHATTER_ESSENCE_SPELL_ID = 1235731,
     SHATTER_ESSENCE_BUFF_SPELL_ID = 1235733,
@@ -218,6 +231,10 @@ local state = {
         pendingItem = nil,
         highPriceConfirmation = nil,
         soundCheckbox = nil,
+        skipButton = nil,
+        -- Taches HV ecartees par le bouton Passer, cle itemID ou itemID#variante.
+        -- Etat de session : un /reload les retablit, la fermeture de l'HV non.
+        skippedTasks = {},
         statusMessage = "",
     },
     searchCache = {},
@@ -294,6 +311,9 @@ local state = {
         attempts = 0,
         timerQueued = false,
     },
+    -- Handle rendu par YayaCore.Settings.BuildPanel ; panel et category en
+    -- sont des raccourcis.
+    options = nil,
     optionsPanel = nil,
     optionsCategory = nil,
 }
@@ -301,6 +321,8 @@ local state = {
 state.addonTable = select(2, ...)
 state.auctionPrices = state.addonTable and state.addonTable.AuctionPrices
 state.statCensus = state.addonTable and state.addonTable.StatCensus
+-- Cascade de tri de la file, partagee par le bouton Next et la liste affichee.
+state.queueOrder = state.addonTable and state.addonTable.QueueOrder
 
 local YQQuality = {}
 
@@ -1374,7 +1396,11 @@ DebugPrint = function(message)
         return
     end
     AppendPersistentDebugLog("YQ DEBUG ", message)
-    Print("DEBUG " .. tostring(message))
+    -- `debugLogOnly` garde la trace dans le journal (`/yq log`) sans la
+    -- repeter dans le chat.
+    if not (db and db.debugLogOnly) then
+        Print("DEBUG " .. tostring(message))
+    end
 end
 
 local function ClampQuantity(value)
@@ -1936,6 +1962,21 @@ state.CountOwnedVariant = function(itemID, variant)
         end
     end
 
+    -- La banque de compte entre dans `total` mais reste illisible d'ici : ses
+    -- onglets ne sont adressables que banque ouverte, et un lien manquant ne
+    -- dit ni la statistique ni le rang. YayaWeeklyTracker en tient un
+    -- instantane, ecrit a chaque passage devant la Warbank : l'interroger evite
+    -- de racheter un exemplaire conforme qui y dort. Dependance optionnelle,
+    -- son absence ne change rien -- on retombe alors sur le comportement
+    -- d'avant, qui rachetait.
+    local trackerAPI = _G.YayaWeeklyTrackerAPI
+    if trackerAPI and type(trackerAPI.ResolveWarbankItem) == "function" then
+        local resolved = SafeCall(trackerAPI.ResolveWarbankItem, itemID, variant)
+        if type(resolved) == "table" and resolved.known == true then
+            owned = owned + (tonumber(resolved.matched) or 0)
+        end
+    end
+
     return owned
 end
 
@@ -2057,6 +2098,129 @@ state.CountTableKeys = function(value)
         count = count + 1
     end
     return count
+end
+
+-- Cle d'une tache HV : l'itemID nu, ou itemID#variante quand la demande porte
+-- une variante. C'est la meme identite que `neededByItemID` dans le resume.
+state.GetAuctionTaskKey = function(task)
+    if type(task) ~= "table" or not task.itemID then
+        return nil
+    end
+    return state.GetItemVariantTaskKey(task.itemID, task.variantKey) or task.itemID
+end
+
+state.IsAuctionTaskSkipped = function(task)
+    local key = state.GetAuctionTaskKey(task)
+    return key ~= nil and state.ah.skippedTasks[key] == true
+end
+
+state.SetAuctionTaskSkipped = function(task, skipped)
+    local key = state.GetAuctionTaskKey(task)
+    if key == nil then
+        return false
+    end
+    state.ah.skippedTasks[key] = skipped and true or nil
+    return true
+end
+
+state.ClearSkippedAuctionTasks = function()
+    local count = 0
+    for key in pairs(state.ah.skippedTasks) do
+        state.ah.skippedTasks[key] = nil
+        count = count + 1
+    end
+    return count
+end
+
+-- Cout du prochain achat d'une tache, tel que `Acheter suivant` le passerait :
+-- pour une marchandise la somme des annonces les moins cheres jusqu'a la
+-- quantite manquante, pour un objet le buyout de la meilleure annonce conforme.
+-- Rend le cout et la quantite couverte, ou nil quand rien n'est achetable.
+state.GetAuctionTaskCost = function(task, view, cache)
+    if type(task) ~= "table" or type(view) ~= "table" or type(cache) ~= "table" then
+        return nil
+    end
+    local quantity = math.min(tonumber(task.missing) or 0, tonumber(view.available) or 0)
+    if quantity <= 0 then
+        return nil
+    end
+    if cache.kind == "commodity" then
+        local listings = cache.listings
+        if type(listings) == "table" and #listings > 0 then
+            local remaining, total = quantity, 0
+            for _, listing in ipairs(listings) do
+                if remaining <= 0 then
+                    break
+                end
+                local taken = math.min(remaining, tonumber(listing.quantity) or 0)
+                total = total + taken * (tonumber(listing.unitPrice) or 0)
+                remaining = remaining - taken
+            end
+            return total, quantity - remaining
+        end
+        if tonumber(view.unitPrice) and view.unitPrice > 0 then
+            return view.unitPrice * quantity, quantity
+        end
+        return nil
+    end
+    local auction = view.bestAuction
+    local buyout = auction and tonumber(auction.buyoutAmount) or nil
+    if not buyout or buyout <= 0 then
+        return nil
+    end
+    return buyout, math.max(1, math.min(quantity, tonumber(auction.quantity) or 1))
+end
+
+state.GetPlayerMoney = function()
+    if type(GetMoney) ~= "function" then
+        return nil
+    end
+    local ok, money = pcall(GetMoney)
+    return ok and tonumber(money) or nil
+end
+
+-- true si la bourse couvre le cout, false sinon, nil quand l'un des deux est
+-- inconnu : un doute ne doit ni bloquer ni colorer en rouge.
+state.CanAffordAuctionCost = function(cost)
+    cost = tonumber(cost)
+    if not cost then
+        return nil
+    end
+    local money = state.GetPlayerMoney()
+    if not money then
+        return nil
+    end
+    return money >= cost
+end
+
+state.DescribeInsufficientFunds = function(name, cost)
+    local money = state.GetPlayerMoney() or 0
+    local format = type(GetMoneyString) == "function"
+        and function(value) return GetMoneyString(math.floor(value), true) end
+        or function(value) return tostring(math.floor(value)) end
+    cost = tonumber(cost)
+    if not cost then
+        -- Cout inconnu (refus du serveur avant tout devis) : ne pas inventer
+        -- un « 0 requis » qui contredirait l'erreur.
+        return ("Or insuffisant pour %s : %s en bourse"):format(
+            tostring(name or "?"),
+            format(money)
+        )
+    end
+    return ("Or insuffisant pour %s : %s requis, %s en bourse (manque %s)"):format(
+        tostring(name or "?"),
+        format(cost),
+        format(money),
+        format(math.max(0, cost - money))
+    )
+end
+
+-- Une annonce du personnage ou d'un reroll du compte ne s'achete pas : le
+-- serveur repond ERR_AUCTION_BID_OWN. Elle ne doit donc jamais compter comme
+-- disponible, sinon la file bute dessus a chaque clic.
+state.IsOwnAuctionListing = function(info)
+    return type(info) == "table"
+        and (info.containsOwnerItem == true or info.containsAccountItem == true)
 end
 
 state.GetTaskAuctionCache = function(task)
@@ -2200,6 +2364,31 @@ local function NormalizeQueueEntries()
     db.queue = normalized
 end
 
+--- Nombre borne : une valeur absente ou illisible vaut le defaut.
+state.ClampSettingNumber = function(value, default, min, max)
+    value = tonumber(value)
+    if value == nil or value ~= value then
+        value = default
+    end
+    if min ~= nil and value < min then
+        value = min
+    end
+    if max ~= nil and value > max then
+        value = max
+    end
+    return value
+end
+
+--- Reglage numerique lu dans la base, borne a la lecture.
+--
+-- EnsureDB normalise deja tout, mais un site peut lire avant le chargement de
+-- la base ou juste apres une ecriture brute (`/yq rows`, panneau) : la borne
+-- est appliquee ici aussi, pour qu'aucun lecteur ne voie une valeur hors
+-- limites.
+state.GetSettingNumber = function(key, default, min, max)
+    return state.ClampSettingNumber(db and db[key], default, min, max)
+end
+
 state.EnsureDB = function()
     if type(YayaQueueDB) ~= "table" then
         YayaQueueDB = {}
@@ -2270,6 +2459,75 @@ state.EnsureDB = function()
     YayaQueueDB.concentrationPhialPurchaseQuantity = phialPurchaseQuantity == 1
         and 1
         or CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE
+    -- Reglages du panneau et des automatismes. Tout est normalise ici, une
+    -- fois, pour que les lecteurs n'aient jamais a se defendre d'une valeur
+    -- absente ou hors bornes : un reglage mal ecrit vaut son defaut.
+    YayaQueueDB.panelLocked = YayaQueueDB.panelLocked == true
+    YayaQueueDB.qualityPanelLocked = YayaQueueDB.qualityPanelLocked == true
+    YayaQueueDB.craftVisibleRows = math.floor(state.ClampSettingNumber(
+        YayaQueueDB.craftVisibleRows,
+        CONFIG.CRAFT_ROWS_DEFAULT,
+        CONFIG.CRAFT_ROWS_MIN,
+        CONFIG.CRAFT_ROWS_MAX
+    ))
+    if state.queueOrder then
+        YayaQueueDB.queueSortMode = state.queueOrder.NormalizeMode(YayaQueueDB.queueSortMode)
+    end
+    if YayaQueueDB.autoQueueFavoriteConcentration == nil then
+        YayaQueueDB.autoQueueFavoriteConcentration = true
+    else
+        YayaQueueDB.autoQueueFavoriteConcentration = YayaQueueDB.autoQueueFavoriteConcentration == true
+    end
+    if YayaQueueDB.autoQueueAlchemy == nil then
+        YayaQueueDB.autoQueueAlchemy = true
+    else
+        YayaQueueDB.autoQueueAlchemy = YayaQueueDB.autoQueueAlchemy == true
+    end
+    YayaQueueDB.auctionPriceWarningTolerancePercent = state.ClampSettingNumber(
+        YayaQueueDB.auctionPriceWarningTolerancePercent,
+        CONFIG.AUCTION_PRICE_WARNING_TOLERANCE_PERCENT,
+        0,
+        CONFIG.AUCTION_PRICE_WARNING_TOLERANCE_PERCENT_MAX
+    )
+    YayaQueueDB.auctionHighPriceMultiplier = state.ClampSettingNumber(
+        YayaQueueDB.auctionHighPriceMultiplier,
+        CONFIG.AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER,
+        CONFIG.AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER_MIN,
+        CONFIG.AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER_MAX
+    )
+    YayaQueueDB.auctionCutPercent = state.ClampSettingNumber(
+        YayaQueueDB.auctionCutPercent,
+        CONFIG.AUCTION_CUT_PERCENT,
+        0,
+        CONFIG.AUCTION_CUT_PERCENT_MAX
+    )
+    YayaQueueDB.firstCraftCostLimitGold = state.ClampSettingNumber(
+        YayaQueueDB.firstCraftCostLimitGold,
+        CONFIG.FIRST_CRAFT_COST_LIMIT_GOLD,
+        0,
+        CONFIG.FIRST_CRAFT_COST_LIMIT_GOLD_MAX
+    )
+    YayaQueueDB.wondrousSynergistMinBuyoutGold = state.ClampSettingNumber(
+        YayaQueueDB.wondrousSynergistMinBuyoutGold,
+        CONFIG.ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT_GOLD,
+        0,
+        CONFIG.ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT_GOLD_MAX
+    )
+    if YayaQueueDB.shatterGatingEnabled == nil then
+        YayaQueueDB.shatterGatingEnabled = true
+    else
+        YayaQueueDB.shatterGatingEnabled = YayaQueueDB.shatterGatingEnabled == true
+    end
+    -- 0 = mote la moins chere (automatique) ; sinon l'un des quatre motes.
+    local preferredMote = tonumber(YayaQueueDB.shatterPreferredMoteItemID) or 0
+    local preferredMoteValid = false
+    for _, itemID in ipairs(CONFIG.SHATTER_MOTE_ITEM_IDS) do
+        if itemID == preferredMote then
+            preferredMoteValid = true
+        end
+    end
+    YayaQueueDB.shatterPreferredMoteItemID = preferredMoteValid and preferredMote or 0
+    YayaQueueDB.debugLogOnly = YayaQueueDB.debugLogOnly == true
     db = YayaQueueDB
     state.craft.qualityPreferences.useGoldStar = db.qualityUseGoldStar
     for itemID in pairs(CONFIG.KNOWN_VENDOR_ITEMS) do
@@ -2973,139 +3231,338 @@ YQQuality.GetAvailableIngenuityPhial = function(preferredItemID)
     return demandItemID, itemID, bagID, slotIndex
 end
 
+--- Resynchronise le panneau d'options depuis la base, s'il est construit.
+--
+-- Chaque ecriture faite hors du panneau -- slash, poignee de redimensionnement,
+-- cadenas, case de la fenetre HV, bouton optimiseur -- passe ici pour que le
+-- widget correspondant suive sans attendre la prochaine ouverture.
+state.RefreshOptionsPanel = function()
+    if state.options and type(state.options.Refresh) == "function" then
+        state.options.Refresh()
+    end
+end
+
+--- Construit le panneau d'options via YayaCore.Settings.
+--
+-- Les descripteurs sont construits ici, dans la fonction, et non au niveau du
+-- chunk : une closure ecrite plus haut ne verrait pas `ScheduleRefresh` ni les
+-- champs de `state` declares apres elle, et le fichier est au bord des 200
+-- locals de chunk. Les widgets lisent et ecrivent `db` directement ; les
+-- effets de bord (cadenas, cache de prix, tracker) vivent dans `onChange`.
 YQQuality.EnsureOptions = function()
     if state.optionsPanel then
         return
     end
+    local YSettings = YayaCore and YayaCore.Settings
+    if type(YSettings) ~= "table" or type(YSettings.BuildPanel) ~= "function" then
+        -- Sans le socle, l'addon reste utilisable : seul /yq options est muet.
+        DebugPrint("options: YayaCore.Settings absent, panneau non construit")
+        return
+    end
+    state.EnsureDB()
 
-    local UI = YayaCore.UI
-
-    -- Canevas Settings : le client peint son propre fond, donc pas de backdrop
-    -- ici. Le titre reprend en revanche la police dont le client titre ses
-    -- propres panneaux, sinon celui-ci jurerait avec la fenetre qui l'accueille.
-    local panel = CreateFrame("Frame")
-    panel.name = "YayaQueue"
-
-    local stack = UI.StackLayout(panel, { left = UI.PAD.xl, top = UI.PAD.xl })
-
-    local title = panel:CreateFontString(nil, "ARTWORK", UI.FONT.heading)
-    title:SetText("YayaQueue")
-    stack.Add(title, 0, { height = UI.SIZE.headerH, stretch = false })
-
-    -- Une description doit pouvoir s'enrouler : pas de BoundLabel ici.
-    local description = panel:CreateFontString(nil, "ARTWORK", UI.FONT.body)
-    description:SetText("Options pour les crafts avec concentration.")
-    stack.Add(description, UI.PAD.sm, { height = UI.SIZE.rowHCompact, stretch = false })
-
-    -- Chaque case etait precedee de six lignes identiques : retrouver le
-    -- FontString du template sous deux noms possibles, en fabriquer un s'il
-    -- manque, le positionner. La fabrique partagee s'en charge.
-    local usePhialCheckbox = UI.CreateCheckbox(panel,
-        "Utiliser automatiquement une phial avant les crafts concentration", {
-            name = addonName .. "ConcentrationPhialEnabled",
-            onClick = function(checked)
-                state.EnsureDB()
-                db.concentrationPhialEnabled = checked
-                ScheduleRefresh()
-            end,
-        })
-    stack.Add(usePhialCheckbox, UI.PAD.lg, { height = UI.SIZE.headerH, stretch = false })
-
-    local checkbox = UI.CreateCheckbox(panel,
-        "Préférer acheter la phial d’ingéniosité rang 2", {
-            name = addonName .. "ConcentrationPhialRank2",
-            onClick = function(checked)
-                state.EnsureDB()
-                db.concentrationPhialRank = checked and 2 or 1
-                state.ah.statusMessage = checked and "Phial R2 preferee" or "Phial R1 preferee"
-                ScheduleRefresh()
-            end,
-        })
-    stack.Add(checkbox, UI.PAD.sm, { height = UI.SIZE.headerH, stretch = false })
-
-    local purchaseHeader = panel:CreateFontString(nil, "ARTWORK", UI.FONT.header)
-    purchaseHeader:SetText("Quantité achetée chez le marchand")
-    purchaseHeader:SetTextColor(UI.Unpack(UI.COLOR.category))
-    UI.BoundLabel(purchaseHeader, "LEFT")
-    stack.Add(purchaseHeader, UI.PAD.lg, { height = UI.SIZE.rowHCompact, stretch = false })
-
-    -- Les deux radios ne forment pas un groupe gere par la fabrique :
-    -- SetPhialPurchaseQuantity coche et decoche deja les deux, et inventer un
-    -- gestionnaire de groupe pour deux boutons serait du zele.
-    local purchaseByTen, purchaseByOne
-    local function SetPhialPurchaseQuantity(quantity)
-        state.EnsureDB()
-        db.concentrationPhialPurchaseQuantity = quantity == 1 and 1 or CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE
-        purchaseByTen:SetChecked(db.concentrationPhialPurchaseQuantity == CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE)
-        purchaseByOne:SetChecked(db.concentrationPhialPurchaseQuantity == 1)
-        ScheduleRefresh()
+    -- Modes de tri, dans l'ordre de QueueOrder.MODES.
+    local sortChoices = {}
+    local QueueOrder = state.queueOrder
+    if QueueOrder then
+        for _, mode in ipairs(QueueOrder.MODES) do
+            sortChoices[#sortChoices + 1] = {
+                value = mode,
+                label = (QueueOrder.MODE_LABELS and QueueOrder.MODE_LABELS[mode]) or mode,
+            }
+        end
+    else
+        sortChoices[1] = { value = "standard", label = "Standard" }
     end
 
-    purchaseByTen = UI.CreateCheckbox(panel, "Par 10 (buffer)", {
-        name = addonName .. "ConcentrationPhialPurchaseTen",
-        radio = true,
-        onClick = function()
-            SetPhialPurchaseQuantity(CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE)
-        end,
-    })
-    stack.Add(purchaseByTen, UI.PAD.xs, { height = UI.SIZE.headerH, stretch = false })
+    -- Motes du Shatter : 0 = la moins chere, sinon l'une des quatre motes.
+    local moteChoices = { { value = 0, label = "Automatique (le moins cher)" } }
+    for _, itemID in ipairs(CONFIG.SHATTER_MOTE_ITEM_IDS) do
+        local name = GetItemName(itemID)
+        if type(name) ~= "string" or name == "" or name:find("^Item ") then
+            name = "Mote " .. tostring(itemID)
+        end
+        moteChoices[#moteChoices + 1] = { value = itemID, label = name }
+    end
 
-    purchaseByOne = UI.CreateCheckbox(panel, "Par 1 (au plus juste)", {
-        name = addonName .. "ConcentrationPhialPurchaseOne",
-        radio = true,
-        onClick = function()
-            SetPhialPurchaseQuantity(1)
-        end,
-    })
-    stack.Add(purchaseByOne, UI.PAD.xs, { height = UI.SIZE.headerH, stretch = false })
+    -- Changer la strategie de mote retire la demande deja en file : sinon
+    -- GetShatterMoteState garde l'ancienne mote tant qu'elle est presente.
+    local function ResetShatterMoteDemand()
+        YQQuality.RemoveShatterMoteDemand()
+    end
 
-    local refundCheckbox = UI.CreateCheckbox(panel,
-        "Réinjecter un craft après un remboursement d’ingéniosité", {
-            name = addonName .. "AutoQueueIngenuityRefund",
-            onClick = function(checked)
-                state.EnsureDB()
-                db.autoQueueIngenuityRefund = checked
-                if not db.autoQueueIngenuityRefund and state.autoFavoriteConcentration.tracker then
-                    state.autoFavoriteConcentration.tracker.awaitingCraft = false
-                    state.autoFavoriteConcentration.tracker.craftConfirmed = false
+    local options = {
+        -- 1. Panneau de file --------------------------------------------------
+        {
+            key = "panelLocked",
+            category = "Panneau de file",
+            label = "Verrouiller la position du panneau de file",
+            tooltip = "Empeche le deplacement du panneau. Meme reglage que le cadenas de l'en-tete et /yq lock.",
+            default = false,
+            onChange = function(_, value)
+                if state.craft.lockButton then
+                    state.craft.lockButton.SetLocked(value)
                 end
-                ScheduleRefresh()
             end,
-        })
-    stack.Add(refundCheckbox, UI.PAD.lg, { height = UI.SIZE.headerH, stretch = false })
-
-    local resetQuantityCheckbox = UI.CreateCheckbox(panel,
-        "Réinitialiser la quantité lors d’un changement de recette", {
-            name = addonName .. "ResetQuantityOnRecipeChange",
-            onClick = function(checked)
-                state.EnsureDB()
-                db.resetQuantityOnRecipeChange = checked
+        },
+        {
+            key = "craftVisibleRows",
+            type = "slider",
+            label = "Lignes visibles de la file",
+            tooltip = "Nombre de taches affichees avant de scroller. Meme reglage que le bord haut du panneau et /yq rows.",
+            min = CONFIG.CRAFT_ROWS_MIN,
+            max = CONFIG.CRAFT_ROWS_MAX,
+            step = 1,
+            format = "%d",
+            default = CONFIG.CRAFT_ROWS_DEFAULT,
+        },
+        {
+            key = "queueSortMode",
+            type = "dropdown",
+            label = "Tri de la file",
+            tooltip = "Ordre du bouton Next et de la liste. La commande de patron claim, le salvage et les fusions restent toujours en tete. Meme reglage que /yq sort.",
+            choices = sortChoices,
+            default = "standard",
+        },
+        {
+            key = "qualityPanelEnabled",
+            label = "Afficher l'optimisateur de reactifs",
+            tooltip = "Masque, l'optimisateur ne construit pas ses widgets et ne calcule rien. Meme reglage que le bouton optimiseur du metier et /yq opti.",
+            default = false,
+            -- SetSelectorEnabled ecrit la base, masque la fenetre et annule le
+            -- solveur : l'ecriture passe par lui plutot que par db directement.
+            set = function(_, value)
+                YQQuality.SetSelectorEnabled(value)
             end,
-        })
-    stack.Add(resetQuantityCheckbox, UI.PAD.sm, { height = UI.SIZE.headerH, stretch = false })
-    stack.Finish(UI.PAD.xl)
-    panel:SetScript("OnShow", function()
-        state.EnsureDB()
-        usePhialCheckbox:SetChecked(db.concentrationPhialEnabled ~= false)
-        checkbox:SetChecked(db.concentrationPhialRank == 2)
-        purchaseByTen:SetChecked(db.concentrationPhialPurchaseQuantity == CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE)
-        purchaseByOne:SetChecked(db.concentrationPhialPurchaseQuantity == 1)
-        refundCheckbox:SetChecked(db.autoQueueIngenuityRefund ~= false)
-        resetQuantityCheckbox:SetChecked(db.resetQuantityOnRecipeChange == true)
-    end)
+        },
+        {
+            key = "qualityPanelLocked",
+            label = "Verrouiller la position de l'optimisateur",
+            tooltip = "Empeche le deplacement de la fenetre d'optimisation des reactifs.",
+            default = false,
+            onChange = function(_, value)
+                local frame = state.craft.qualityFrame
+                if frame and frame.lockButton then
+                    frame.lockButton.SetLocked(value)
+                end
+            end,
+        },
 
-    if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
-        state.optionsCategory = Settings.RegisterCanvasLayoutCategory(panel, panel.name, panel.name)
-        Settings.RegisterAddOnCategory(state.optionsCategory)
-    elseif InterfaceOptions_AddCategory then
-        InterfaceOptions_AddCategory(panel)
-    end
-    state.optionsPanel = panel
+        -- 2. Concentration ----------------------------------------------------
+        {
+            key = "concentrationPhialEnabled",
+            category = "Concentration",
+            label = "Utiliser automatiquement une phial avant les crafts concentration",
+            tooltip = "Chaque entree avec concentration ajoute une demande de Flasque d'inventivite haranir, consommee par Next: Phial si le buff est absent. Coupe, les demandes automatiques deja presentes sont masquees.",
+            default = true,
+        },
+        {
+            key = "concentrationPhialRank",
+            label = "Preferer acheter la phial d'ingeniosite rang 2",
+            tooltip = "Coche : la demande automatique vise la phial R2 ; sinon la R1.",
+            -- Le defaut est celui de la case (decochee = rang 1), pas du rang.
+            default = false,
+            get = function(current)
+                return current.concentrationPhialRank == 2
+            end,
+            set = function(current, value)
+                current.concentrationPhialRank = value and 2 or 1
+            end,
+            onChange = function(_, value)
+                state.ah.statusMessage = value and "Phial R2 preferee" or "Phial R1 preferee"
+            end,
+        },
+        { type = "section", label = "Quantite achetee chez le marchand" },
+        {
+            key = "concentrationPhialPurchaseQuantity",
+            type = "radio",
+            choices = {
+                { value = CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE, label = "Par 10 (buffer)" },
+                { value = 1, label = "Par 1 (au plus juste)" },
+            },
+            default = CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE,
+        },
+        {
+            key = "autoQueueIngenuityRefund",
+            label = "Reinjecter un craft apres un remboursement d'ingeniosite",
+            tooltip = "Apres un lot confirme, remboursements compris, reinjecte les crafts favoris redevenus financables.",
+            default = true,
+            onChange = function(_, value)
+                local tracker = state.autoFavoriteConcentration.tracker
+                if not value and tracker then
+                    tracker.awaitingCraft = false
+                    tracker.craftConfirmed = false
+                end
+            end,
+        },
+
+        -- 3. Automatismes -----------------------------------------------------
+        {
+            key = "autoBuyVendor",
+            category = "Automatismes",
+            label = "Acheter automatiquement chez le marchand",
+            tooltip = "A l'ouverture d'un marchand compatible, achete les composants marchand manquants de la file. Meme reglage que /yq vendor.",
+            default = true,
+        },
+        {
+            key = "autoQueueFavoriteConcentration",
+            label = "Mettre en file le favori en concentration a l'ouverture du metier",
+            tooltip = "A la premiere ouverture de chaque metier, ajoute le lot maximal de la recette favorite en concentration.",
+            default = true,
+        },
+        {
+            key = "autoQueueAlchemy",
+            label = "Mettre en file les transmutations d'alchimie a l'ouverture du metier",
+            tooltip = "Scan headless des transmutations rentables a l'ouverture de l'alchimie.",
+            default = true,
+            onChange = function(_, value)
+                if not value then
+                    state.alchemyAutoQueue.pendingProfessionID = nil
+                end
+            end,
+        },
+        {
+            key = "resetQuantityOnRecipeChange",
+            label = "Reinitialiser la quantite lors d'un changement de recette",
+            tooltip = "Sinon la quantite saisie a cote d'Ajouter YQ est conservee entre les recettes.",
+            default = false,
+        },
+
+        -- 4. Hotel des ventes et seuils --------------------------------------
+        {
+            key = "auctionPriceWarningSoundEnabled",
+            category = "Hotel des ventes et seuils",
+            label = "Jouer un son si le prix est trop haut",
+            tooltip = "Meme reglage que la case de l'onglet YayaQueue de l'hotel des ventes.",
+            default = true,
+            onChange = function(_, value)
+                if state.ah.soundCheckbox then
+                    state.ah.soundCheckbox:SetChecked(value)
+                end
+            end,
+        },
+        {
+            key = "auctionPriceWarningTolerancePercent",
+            type = "slider",
+            label = "Tolerance avant l'alerte de prix HV",
+            tooltip = "Hausse toleree, en pourcentage du prix attendu, avant que l'achat ne soit signale trop cher.",
+            min = 0,
+            max = CONFIG.AUCTION_PRICE_WARNING_TOLERANCE_PERCENT_MAX,
+            step = 1,
+            format = "%d%%",
+            default = CONFIG.AUCTION_PRICE_WARNING_TOLERANCE_PERCENT,
+        },
+        {
+            key = "auctionHighPriceMultiplier",
+            type = "slider",
+            label = "Confirmation au-dela de ce multiple du prix attendu",
+            tooltip = "Un achat HV dont le prix atteint ce multiple du dbrecent TSM demande une confirmation.",
+            min = CONFIG.AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER_MIN,
+            max = CONFIG.AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER_MAX,
+            step = 0.1,
+            format = "%.1fx",
+            default = CONFIG.AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER,
+        },
+        {
+            key = "auctionCutPercent",
+            type = "slider",
+            label = "Taxe HV retenue dans le profit",
+            tooltip = "Commission de l'hotel des ventes deduite de la valeur de vente d'une recette.",
+            min = 0,
+            max = CONFIG.AUCTION_CUT_PERCENT_MAX,
+            step = 0.5,
+            format = "%.1f%%",
+            default = CONFIG.AUCTION_CUT_PERCENT,
+            onChange = function()
+                if type(state.InvalidateQualityPricing) == "function" then
+                    state.InvalidateQualityPricing()
+                end
+            end,
+        },
+        {
+            key = "firstCraftCostLimitGold",
+            type = "number",
+            label = "Plafond de cout d'un first craft",
+            tooltip = "Un first craft dont les reactifs coutent au moins ce montant n'est pas mis en file automatiquement.",
+            min = 0,
+            max = CONFIG.FIRST_CRAFT_COST_LIMIT_GOLD_MAX,
+            suffix = "po",
+            default = CONFIG.FIRST_CRAFT_COST_LIMIT_GOLD,
+        },
+        {
+            key = "wondrousSynergistMinBuyoutGold",
+            type = "number",
+            label = "Plancher dbminbuyout de Wondrous Synergist",
+            tooltip = "En dessous de ce prix HV, la transmutation Wondrous Synergist n'est pas mise en file a l'ouverture de l'alchimie.",
+            min = 0,
+            max = CONFIG.ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT_GOLD_MAX,
+            suffix = "po",
+            default = CONFIG.ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT_GOLD,
+        },
+
+        -- 5. Shatter (enchantement) ------------------------------------------
+        {
+            key = "shatterGatingEnabled",
+            category = "Shatter (enchantement)",
+            label = "Verifier le Shatter avant les crafts d'enchantement",
+            tooltip = "Coupe, le Shatter est traite comme un sort inconnu : ni bouton Next: Shatter, ni demande de mote.",
+            default = true,
+            onChange = ResetShatterMoteDemand,
+        },
+        {
+            key = "shatterPreferredMoteItemID",
+            type = "dropdown",
+            label = "Mote utilisee pour le Shatter",
+            tooltip = "Automatique achete la mote Midnight la moins chere. Une mote choisie est utilisee si elle est possedee, achetee sinon.",
+            choices = moteChoices,
+            default = 0,
+            onChange = ResetShatterMoteDemand,
+        },
+
+        -- 6. Diagnostic -------------------------------------------------------
+        {
+            key = "debugEnabled",
+            category = "Diagnostic",
+            label = "Mode debug",
+            tooltip = "Traces detaillees dans le chat et le journal /yq log. Account-wide, conserve apres /reload. Meme reglage que /yq debug.",
+            default = false,
+            onChange = function(_, value)
+                CONFIG.debugNextCraft = value
+            end,
+        },
+        {
+            key = "debugLogOnly",
+            label = "Traces debug dans le journal seulement",
+            tooltip = "Les traces vont au journal /yq log sans repasser par le chat.",
+            default = false,
+            dependsOn = "debugEnabled",
+        },
+    }
+
+    state.options = YSettings.BuildPanel({
+        name = "YayaQueue",
+        description = "Reglages de la file de craft, de la concentration et de l'hotel des ventes.",
+        framePrefix = addonName,
+        db = function()
+            state.EnsureDB()
+            return db
+        end,
+        options = options,
+        onChange = function()
+            ScheduleRefresh()
+        end,
+    })
+    state.optionsPanel = state.options and state.options.panel
+    state.optionsCategory = state.options and state.options.category
 end
 
 YQQuality.OpenOptions = function()
     YQQuality.EnsureOptions()
-    if state.optionsCategory and type(Settings.OpenToCategory) == "function" then
+    if state.options and type(state.options.Open) == "function" then
+        state.options.Open()
+        return
+    end
+    if state.optionsCategory and type(Settings) == "table" and type(Settings.OpenToCategory) == "function" then
         local categoryID = type(state.optionsCategory.GetID) == "function" and state.optionsCategory:GetID()
         if categoryID then
             Settings.OpenToCategory(categoryID)
@@ -3329,7 +3786,28 @@ YQQuality.GetShatterMotePrice = function(itemID)
     return nil
 end
 
+--- Le Shatter n'est propose (bouton `Next: Shatter`, demande de mote) que si
+--- l'utilisateur ne l'a pas coupe : eteint, le sort est traite comme inconnu.
+YQQuality.IsShatterGatingEnabled = function()
+    state.EnsureDB()
+    return db.shatterGatingEnabled ~= false
+end
+
+--- Mote imposee par l'utilisateur, nil pour laisser choisir la moins chere.
+YQQuality.GetPreferredShatterMoteItemID = function()
+    state.EnsureDB()
+    local itemID = tonumber(db.shatterPreferredMoteItemID) or 0
+    if itemID > 0 then
+        return itemID
+    end
+    return nil
+end
+
 YQQuality.GetCheapestShatterMote = function()
+    local preferredItemID = YQQuality.GetPreferredShatterMoteItemID()
+    if preferredItemID then
+        return preferredItemID
+    end
     local cheapestItemID
     local cheapestPrice
     for _, itemID in ipairs(CONFIG.SHATTER_MOTE_ITEM_IDS) do
@@ -3345,6 +3823,12 @@ YQQuality.GetCheapestShatterMote = function()
 end
 
 YQQuality.GetAvailableShatterMote = function()
+    -- La mote preferee est rendue des qu'elle est possedee ; a defaut, le
+    -- repli habituel sur la mote possedee la moins chere.
+    local preferredItemID = YQQuality.GetPreferredShatterMoteItemID()
+    if preferredItemID and GetTotalOwnedCount(preferredItemID) > 0 then
+        return preferredItemID
+    end
     local availableItemID
     local availablePrice
     for _, itemID in ipairs(CONFIG.SHATTER_MOTE_ITEM_IDS) do
@@ -3362,7 +3846,9 @@ YQQuality.GetAvailableShatterMote = function()
 end
 
 YQQuality.GetShatterMoteState = function()
-    if not YQQuality.IsShatterSpellKnown() then
+    -- Gating coupe par l'utilisateur : meme etat qu'un sort inconnu, donc ni
+    -- bouton Shatter ni demande de mote.
+    if not YQQuality.IsShatterGatingEnabled() or not YQQuality.IsShatterSpellKnown() then
         return { active = true, known = false }
     end
 
@@ -3450,7 +3936,9 @@ YQQuality.EnsureShatterMoteDemandForEntry = function(entry, recipeInfo)
         return
     end
 
-    local shatterKnown = YQQuality.IsShatterSpellKnown()
+    -- Gating coupe par l'utilisateur : traite comme un sort inconnu, ce chemin
+    -- retire deja la demande de mote en place.
+    local shatterKnown = YQQuality.IsShatterGatingEnabled() and YQQuality.IsShatterSpellKnown()
     local shatterActive = YQQuality.IsShatterBuffActive()
     DebugPrint(
         "shatter-state recipe=" .. tostring(entry.recipeID)
@@ -4926,13 +5414,19 @@ alchemyAuto.QueueBouquetAndRecycling = function()
                         local minBuyout = context.outputItemID
                             and YQQuality.GetTSMPrice("dbminbuyout", context.outputItemID)
                             or nil
+                        local minBuyoutThreshold = state.GetSettingNumber(
+                            "wondrousSynergistMinBuyoutGold",
+                            CONFIG.ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT_GOLD,
+                            0,
+                            CONFIG.ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT_GOLD_MAX
+                        ) * 10000
                         local shouldQueue = minBuyout
-                            and minBuyout > CONFIG.ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT
+                            and minBuyout > minBuyoutThreshold
                         DebugPrint(
                             "alchemy-auto wondrous recipe=" .. tostring(recipeID)
                                 .. " output=" .. tostring(context.outputItemID)
                                 .. " minbuyout=" .. tostring(minBuyout)
-                                .. " threshold=" .. tostring(CONFIG.ALCHEMY_WONDROUS_SYNERGIST_MINBUYOUT)
+                                .. " threshold=" .. tostring(minBuyoutThreshold)
                                 .. " accepted=" .. tostring(shouldQueue == true)
                         )
                         if not shouldQueue then
@@ -5089,143 +5583,63 @@ state.GetClaimedPatronOrderID = function()
     return tonumber(claimedOrder and claimedOrder.orderID) or 0
 end
 
-local function GetNextQueueEntry()
+--- Contexte de tri de la file (QueueOrder.lua), construit une fois par appel.
+--
+-- Rend le contexte injecte dans `QueueOrder.Describe` et le mode de tri lu
+-- dans la base. La commande claim est portee ici : sans elle le tri pouvait
+-- designer une autre entree patron, et le bouton restait bloque sur
+-- "Next: autre commande" alors que la commande claim etait dans la file.
+state.GetQueueOrderContext = function()
     state.EnsureDB()
-    local currentProfessionID = state.GetCurrentProfessionID and state.GetCurrentProfessionID() or nil
-    -- La commande claim passe avant tout. Sans cette regle le tri pouvait
-    -- designer une autre entree patron, et le bouton restait bloque sur
-    -- "Next: autre commande" alors que la commande claim etait dans la file.
-    local claimedOrderID = state.GetClaimedPatronOrderID()
-    local bestEntry
-    local bestCraftsRemaining
-    local bestIndex
+    local QueueOrder = state.queueOrder
+    local context = {
+        claimedOrderID = state.GetClaimedPatronOrderID(),
+        currentProfessionID = state.GetCurrentProfessionID and state.GetCurrentProfessionID() or nil,
+        gearRank = function(entry)
+            return state.craftGear.GetEntrySortRank(entry)
+        end,
+    }
+    return context, QueueOrder.NormalizeMode(db.queueSortMode)
+end
 
+local function GetNextQueueEntry()
+    local QueueOrder = state.queueOrder
+    local context, mode = state.GetQueueOrderContext()
+    local best
+    local bestCraftsRemaining
+
+    -- Minimum lineaire sur la meme cascade que la liste affichee : le bouton
+    -- Next et la premiere ligne designent toujours la meme entree.
     for index, entry in ipairs(db.queue) do
         local craftsRemaining = GetEntryCraftsRemaining(entry)
         if craftsRemaining > 0 then
-            local entryProfessionID = tonumber(entry.professionID) or nil
-            local bestProfessionID = bestEntry and tonumber(bestEntry.professionID) or nil
-            local entryMatchesOpenProfession = currentProfessionID ~= nil and entryProfessionID == currentProfessionID
-            local bestMatchesOpenProfession = currentProfessionID ~= nil and bestProfessionID == currentProfessionID
-            -- Le milling est une recette salvage sans queueKind "recycle" : il
-            -- doit beneficier de la meme priorite, sinon il reste derriere les
-            -- crafts normaux.
-            local entryIsSalvage = entry.queueKind == "recycle" or entry.isSalvageRecipe == true
-            local bestIsSalvage = bestEntry ~= nil
-                and (bestEntry.queueKind == "recycle" or bestEntry.isSalvageRecipe == true)
-            local entryIsClaimedOrder = claimedOrderID > 0
-                and entry.queueKind == "patron"
-                and (tonumber(entry.orderID) or 0) == claimedOrderID
-            local bestIsClaimedOrder = bestEntry ~= nil
-                and claimedOrderID > 0
-                and bestEntry.queueKind == "patron"
-                and (tonumber(bestEntry.orderID) or 0) == claimedOrderID
-            local entryIsMerge = entry.queueKind == "merge"
-            local bestIsMerge = bestEntry and bestEntry.queueKind == "merge"
-            local entryGearRank = state.craftGear.GetEntrySortRank(entry)
-            local bestGearRank = bestEntry and state.craftGear.GetEntrySortRank(bestEntry) or nil
-            local entryProfitKnown = entry.profitKnown == true and type(entry.profitValue) == "number"
-            local bestProfitKnown = bestEntry and bestEntry.profitKnown == true and type(bestEntry.profitValue) == "number"
-
-            local shouldReplace = false
-            if not bestEntry then
-                shouldReplace = true
-            elseif entryIsClaimedOrder ~= bestIsClaimedOrder then
-                shouldReplace = entryIsClaimedOrder
-            elseif entryIsSalvage ~= bestIsSalvage then
-                shouldReplace = entryIsSalvage
-            elseif entryMatchesOpenProfession ~= bestMatchesOpenProfession then
-                shouldReplace = entryMatchesOpenProfession
-            elseif entryIsMerge ~= bestIsMerge then
-                shouldReplace = entryIsMerge
-            elseif entryIsMerge
-                and (tonumber(entry.mergeDepth) or math.huge) ~= (tonumber(bestEntry.mergeDepth) or math.huge)
-            then
-                shouldReplace = (tonumber(entry.mergeDepth) or math.huge)
-                    < (tonumber(bestEntry.mergeDepth) or math.huge)
-            elseif entryGearRank ~= bestGearRank then
-                shouldReplace = entryGearRank < bestGearRank
-            elseif entryProfitKnown and bestProfitKnown and entry.profitValue ~= bestEntry.profitValue then
-                shouldReplace = entry.profitValue > bestEntry.profitValue
-            elseif entryProfitKnown ~= bestProfitKnown then
-                shouldReplace = entryProfitKnown
-            else
-                shouldReplace = index < bestIndex
-            end
-
-            if shouldReplace then
-                bestEntry = entry
+            local candidate = QueueOrder.Describe(entry, index, context)
+            if not best or QueueOrder.Compare(candidate, best, mode) then
+                best = candidate
                 bestCraftsRemaining = craftsRemaining
-                bestIndex = index
             end
         end
     end
 
-    return bestEntry, bestCraftsRemaining or 0
+    return best and best.entry or nil, bestCraftsRemaining or 0
 end
 
 local function GetSortedActiveQueueEntries()
-    state.EnsureDB()
-
-    local currentProfessionID = state.GetCurrentProfessionID and state.GetCurrentProfessionID() or nil
-    -- Meme cascade que GetNextQueueEntry, pour que la liste affichee et le bouton
-    -- Next designent toujours la meme entree.
-    local claimedOrderID = state.GetClaimedPatronOrderID()
+    local QueueOrder = state.queueOrder
+    local context, mode = state.GetQueueOrderContext()
     local candidates = {}
 
     for index, entry in ipairs(db.queue) do
         local craftsRemaining, remainingCount = GetEntryCraftsRemaining(entry)
         if craftsRemaining > 0 then
-            candidates[#candidates + 1] = {
-                entry = entry,
-                craftsRemaining = craftsRemaining,
-                remainingCount = remainingCount,
-                index = index,
-                matchesOpenProfession = currentProfessionID ~= nil and (tonumber(entry.professionID) or nil) == currentProfessionID,
-                isSalvage = entry.queueKind == "recycle" or entry.isSalvageRecipe == true,
-                isClaimedOrder = claimedOrderID > 0
-                    and entry.queueKind == "patron"
-                    and (tonumber(entry.orderID) or 0) == claimedOrderID,
-                gearRank = state.craftGear.GetEntrySortRank(entry),
-                hasKnownProfit = entry.profitKnown == true and type(entry.profitValue) == "number",
-            }
+            local candidate = QueueOrder.Describe(entry, index, context)
+            candidate.craftsRemaining = craftsRemaining
+            candidate.remainingCount = remainingCount
+            candidates[#candidates + 1] = candidate
         end
     end
 
-    table.sort(candidates, function(left, right)
-        if left.isClaimedOrder ~= right.isClaimedOrder then
-            return left.isClaimedOrder
-        end
-        if left.isSalvage ~= right.isSalvage then
-            return left.isSalvage
-        end
-        if left.matchesOpenProfession ~= right.matchesOpenProfession then
-            return left.matchesOpenProfession
-        end
-        local leftIsMerge = left.entry.queueKind == "merge"
-        local rightIsMerge = right.entry.queueKind == "merge"
-        if leftIsMerge ~= rightIsMerge then
-            return leftIsMerge
-        end
-        if leftIsMerge
-            and (tonumber(left.entry.mergeDepth) or math.huge) ~= (tonumber(right.entry.mergeDepth) or math.huge)
-        then
-            return (tonumber(left.entry.mergeDepth) or math.huge)
-                < (tonumber(right.entry.mergeDepth) or math.huge)
-        end
-        if left.gearRank ~= right.gearRank then
-            return left.gearRank < right.gearRank
-        end
-        if left.hasKnownProfit and right.hasKnownProfit and left.entry.profitValue ~= right.entry.profitValue then
-            return left.entry.profitValue > right.entry.profitValue
-        end
-        if left.hasKnownProfit ~= right.hasKnownProfit then
-            return left.hasKnownProfit
-        end
-        return left.index < right.index
-    end)
-
-    return candidates
+    return QueueOrder.Sort(candidates, mode)
 end
 
 local function GetEntryResourceState(entry)
@@ -5629,6 +6043,7 @@ function craftUI.CommitResize(panel)
         math.min(CONFIG.CRAFT_ROWS_MAX, rows)
     )
     SavePanelPoint(panel)
+    state.RefreshOptionsPanel()
 end
 
 function YQQuality.DebugCraftState(stage, recipeID, details)
@@ -6942,14 +7357,40 @@ local function FindAuctionTask(summary, itemID)
     return fallback
 end
 
+-- Premiere tache achetable et payable. Une tache passee par le bouton Passer
+-- est ignoree ; une tache achetable mais trop chere pour la bourse est
+-- rendue en troisieme valeur, pour que le clic explique pourquoi rien ne part
+-- au lieu de laisser le serveur repondre ERR_NOT_ENOUGH_MONEY.
 local function GetNextPurchasableTask(summary)
+    local blocked
     for _, task in ipairs(summary.auctionTasks) do
-        local view = state.GetTaskAuctionCache(task)
-        if view and view.available and view.available > 0 then
-            return task, view
+        local view, cache = state.GetTaskAuctionCache(task)
+        if view and view.available and view.available > 0
+            and not state.IsAuctionTaskSkipped(task) then
+            local cost = state.GetAuctionTaskCost(task, view, cache)
+            if state.CanAffordAuctionCost(cost) ~= false then
+                return task, view
+            end
+            blocked = blocked or { task = task, cost = cost }
         end
     end
-    return nil, nil
+    return nil, nil, blocked
+end
+
+-- Tache que le bouton Passer ecarterait : celle que `Acheter suivant`
+-- tenterait, trop chere ou non, sinon la premiere ligne encore active.
+state.GetAuctionSkipTarget = function(summary)
+    local fallback
+    for _, task in ipairs(summary.auctionTasks) do
+        if not state.IsAuctionTaskSkipped(task) then
+            fallback = fallback or task
+            local view = state.GetTaskAuctionCache(task)
+            if view and view.available and view.available > 0 then
+                return task
+            end
+        end
+    end
+    return fallback
 end
 
 
@@ -9160,7 +9601,7 @@ local function BuildFirstCraftContext(
         end
     end
 
-    if craftingCost >= CONFIG.FIRST_CRAFT_COST_LIMIT then
+    if craftingCost >= YQQuality.GetFirstCraftCostLimitGold() * 10000 then
         return nil, "expensive"
     end
 
@@ -9865,14 +10306,40 @@ local function CaptureSearchCache(itemID, searchItemKey)
             demand.unresolved = true
         end
         WarmItemData(itemID)
+        -- Le serveur sert les marchandises de la moins chere a la plus chere,
+        -- sans laisser choisir : une annonce du compte bloque tout ce qui la
+        -- suit, donc seules les unites qui la precedent sont achetables.
+        local listings = {}
+        cache.ownQuantity = 0
         local resultCount = C_AuctionHouse and C_AuctionHouse.GetNumCommoditySearchResults and C_AuctionHouse.GetNumCommoditySearchResults(itemID) or 0
         for index = 1, resultCount do
             local info = C_AuctionHouse.GetCommoditySearchResultInfo(itemID, index)
             if info and (info.quantity or 0) > 0 then
                 cache.hasResults = true
-                cache.available = cache.available + info.quantity
-                if not cache.unitPrice or info.unitPrice < cache.unitPrice then
-                    cache.unitPrice = info.unitPrice
+                listings[#listings + 1] = {
+                    index = index,
+                    quantity = info.quantity,
+                    unitPrice = tonumber(info.unitPrice) or 0,
+                    own = state.IsOwnAuctionListing(info),
+                }
+            end
+        end
+        table.sort(listings, function(a, b)
+            if a.unitPrice ~= b.unitPrice then
+                return a.unitPrice < b.unitPrice
+            end
+            return a.index < b.index
+        end)
+        cache.listings = {}
+        for _, listing in ipairs(listings) do
+            if listing.own then
+                cache.ownQuantity = cache.ownQuantity + listing.quantity
+                cache.ownBlocked = true
+            elseif not cache.ownBlocked then
+                cache.available = cache.available + listing.quantity
+                cache.listings[#cache.listings + 1] = listing
+                if not cache.unitPrice or listing.unitPrice < cache.unitPrice then
+                    cache.unitPrice = listing.unitPrice
                 end
             end
         end
@@ -9882,12 +10349,19 @@ local function CaptureSearchCache(itemID, searchItemKey)
         -- ce tri la file retenait la meilleure annonce toutes variantes
         -- confondues, soit le rang 1 a statistique quelconque.
         local itemKey = searchItemKey or state.MakeSearchItemKey(itemID)
+        cache.ownQuantity = 0
         local resultCount = itemKey and C_AuctionHouse and C_AuctionHouse.GetNumItemSearchResults and C_AuctionHouse.GetNumItemSearchResults(itemKey) or 0
         for index = 1, resultCount do
             local info = itemKey and C_AuctionHouse.GetItemSearchResultInfo(itemKey, index) or nil
             local buyoutAmount = info and info.buyoutAmount or 0
             local quantity = info and info.quantity or 0
-            if buyoutAmount > 0 and quantity > 0 then
+            if buyoutAmount > 0 and quantity > 0 and state.IsOwnAuctionListing(info) then
+                -- Annonce du personnage ou d'un reroll : le serveur refuse
+                -- l'achat, elle ne compte donc ni comme disponible ni comme
+                -- meilleure annonce.
+                cache.hasResults = true
+                cache.ownQuantity = cache.ownQuantity + quantity
+            elseif buyoutAmount > 0 and quantity > 0 then
                 local unitPrice = math.floor(buyoutAmount / quantity)
                 local auction = {
                     auctionID = info.auctionID,
@@ -9926,6 +10400,7 @@ local function CaptureSearchCache(itemID, searchItemKey)
         end
         for _, demand in pairs(cache.variants) do
             demand.hasResults = cache.hasResults
+            demand.ownQuantity = cache.ownQuantity
             demand.expectedPrice = cache.expectedPrice
             demand.expectedSource = cache.expectedSource
             demand.expectedCapturedAt = cache.expectedCapturedAt
@@ -9958,6 +10433,7 @@ local function CaptureSearchCache(itemID, searchItemKey)
             .. " kind=" .. tostring(cache.kind)
             .. " listings=" .. tostring(cache.available)
             .. " hasResults=" .. tostring(cache.hasResults)
+            .. " own=" .. tostring(cache.ownQuantity)
             .. " unitPrice=" .. tostring(cache.unitPrice)
             .. " variants=" .. tostring(state.CountTableKeys(cache.variants))
     )
@@ -10001,6 +10477,7 @@ function craftUI.BuildAuctionTasks(summary)
         else
             hasUnknownEstimate = true
         end
+        local cost = state.GetAuctionTaskCost(task, view, cache)
 
         tasks[#tasks + 1] = {
             index = #tasks + 1,
@@ -10011,6 +10488,11 @@ function craftUI.BuildAuctionTasks(summary)
             available = view and tostring(view.available or 0) or "?",
             estimate = estimateText,
             known = estimateText ~= "?",
+            -- Le prochain achat depasse la bourse : la ligne passe en rouge et
+            -- le clic la saute, au lieu de laisser le serveur refuser.
+            affordable = state.CanAffordAuctionCost(cost),
+            skipped = state.IsAuctionTaskSkipped(task),
+            ownQuantity = view and view.ownQuantity or nil,
             -- Une tache a variante montre ce qu'elle exige et ce que l'hotel
             -- des ventes lui a refuse : sans ca, un « 0 dispo » devant des
             -- dizaines d'annonces passe pour une panne de recherche.
@@ -10049,13 +10531,18 @@ function craftUI.InitAuctionRow(row, task)
     -- statistique reellement vises. Le pourquoi d'un zero doit donc tenir dans
     -- le libelle, sinon il n'a nulle part ou s'afficher.
     local function AvailabilityBadge()
+        -- Les annonces du compte sont comptees a part : elles expliquent un
+        -- zero disponible devant des annonces bien visibles a l'HV.
+        local ownSuffix = (tonumber(task.ownQuantity) or 0) > 0
+            and (", " .. tostring(task.ownQuantity) .. " du compte")
+            or ""
         if not task.variantLabel then
-            return "[" .. tostring(task.available) .. "]"
+            return "[" .. tostring(task.available) .. ownSuffix .. "]"
         end
         if not task.searched then
             return "[?]"
         end
-        if (tonumber(task.listings) or 0) <= 0 then
+        if (tonumber(task.listings) or 0) <= 0 and ownSuffix == "" then
             return "[aucune annonce]"
         end
         local badge = tostring(task.available) .. " conf."
@@ -10065,23 +10552,39 @@ function craftUI.InitAuctionRow(row, task)
         if (task.variantPending or 0) > 0 then
             badge = badge .. ", " .. tostring(task.variantPending) .. " a charger"
         end
-        return "[" .. badge .. "]"
+        return "[" .. badge .. ownSuffix .. "]"
     end
 
     local function Label()
-        return ("%dx %s%s%s  %s"):format(
+        local status = ""
+        if task.skipped then
+            status = "  " .. UI.Colorize("muted", "[passe]")
+        elseif task.affordable == false then
+            status = "  " .. UI.Colorize("danger", "[or insuffisant]")
+        end
+        return ("%dx %s%s%s  %s%s"):format(
             task.missing or 0,
             task.name or "?",
             task.quality or "",
             task.variantLabel and (" " .. UI.Colorize("accent", "<" .. task.variantLabel .. ">")) or "",
-            UI.Colorize("muted", AvailabilityBadge())
+            UI.Colorize("muted", AvailabilityBadge()),
+            status
         )
     end
 
     row.Reset()
     row.SetStripe(task.index or 1)
     row.value:SetText(task.estimate)
-    row.SetTone(task.known and "text" or "textMuted")
+    if task.skipped then
+        row.SetTone("textMuted")
+        row.SetLabelTone("textMuted")
+    elseif task.affordable == false then
+        row.SetTone("danger")
+        row.SetLabelTone("text")
+    else
+        row.SetTone(task.known and "text" or "textMuted")
+        row.SetLabelTone("text")
+    end
     row.label:SetText(Label())
     row.SetItemTarget(task.itemID, task.itemLink, function(name)
         task.name = name
@@ -10090,15 +10593,21 @@ function craftUI.InitAuctionRow(row, task)
 end
 
 local function UpdateAuctionLines(summary)
+    local UI = YayaCore.UI
     local tasks, totalEstimate, hasUnknownEstimate = craftUI.BuildAuctionTasks(summary)
 
     if state.ah.totalText then
+        -- Le total passe en rouge quand la bourse ne le couvre pas.
+        local totalText = FormatMoneyEstimate(totalEstimate)
+        if state.CanAffordAuctionCost(totalEstimate) == false then
+            totalText = UI.Colorize("danger", totalText)
+        end
         if #summary.auctionTasks == 0 then
             state.ah.totalText:SetText("Total estime: 0")
         elseif totalEstimate > 0 and hasUnknownEstimate then
-            state.ah.totalText:SetText("Total estime: " .. FormatMoneyEstimate(totalEstimate) .. " + ?")
+            state.ah.totalText:SetText("Total estime: " .. totalText .. " + ?")
         elseif totalEstimate > 0 then
-            state.ah.totalText:SetText("Total estime: " .. FormatMoneyEstimate(totalEstimate))
+            state.ah.totalText:SetText("Total estime: " .. totalText)
         else
             state.ah.totalText:SetText("Total estime: ?")
         end
@@ -10120,6 +10629,16 @@ local function UpdateAuctionButton(summary)
     local hasTasks = #summary.auctionTasks > 0
     local isBusy = state.ah.pendingCommodity or state.ah.pendingItem or state.ah.activeSearch or state.ah.waitingSearch or (state.ah.searchQueue and #state.ah.searchQueue > 0)
     local needsSearch = hasTasks and NeedsAuctionSearch(summary)
+
+    if state.ah.skipButton then
+        local skipTarget = hasTasks and not isBusy and state.GetAuctionSkipTarget(summary) or nil
+        state.ah.skipButton.target = skipTarget
+        if skipTarget or state.CountTableKeys(state.ah.skippedTasks) > 0 then
+            state.ah.skipButton:Enable()
+        else
+            state.ah.skipButton:Disable()
+        end
+    end
 
     if not hasTasks then
         state.ah.actionButton:SetText("Rien a acheter")
@@ -10150,11 +10669,32 @@ local function UpdateAuctionFrame(summary)
     state.ah.statusText:SetText(state.ah.statusMessage ~= "" and state.ah.statusMessage or "Pret")
 end
 
+--- Plafond de cout d'un first craft, en or (reglage `firstCraftCostLimitGold`).
+function YQQuality.GetFirstCraftCostLimitGold()
+    return state.GetSettingNumber(
+        "firstCraftCostLimitGold",
+        CONFIG.FIRST_CRAFT_COST_LIMIT_GOLD,
+        0,
+        CONFIG.FIRST_CRAFT_COST_LIMIT_GOLD_MAX
+    )
+end
+
 function YQQuality.WarnIfAuctionPriceAboveExpected(name, actualPrice, expectedPrice)
     actualPrice = tonumber(actualPrice)
     expectedPrice = tonumber(expectedPrice)
-    if not actualPrice or actualPrice <= 0 or not expectedPrice or expectedPrice <= 0
-        or actualPrice <= expectedPrice then
+    if not actualPrice or actualPrice <= 0 or not expectedPrice or expectedPrice <= 0 then
+        return nil
+    end
+    -- Une hausse dans la tolerance de l'utilisateur ne vaut pas alerte : a 0 %
+    -- (defaut) toute hausse est signalee, comme avant.
+    state.EnsureDB()
+    local tolerancePercent = state.GetSettingNumber(
+        "auctionPriceWarningTolerancePercent",
+        CONFIG.AUCTION_PRICE_WARNING_TOLERANCE_PERCENT,
+        0,
+        CONFIG.AUCTION_PRICE_WARNING_TOLERANCE_PERCENT_MAX
+    )
+    if actualPrice <= expectedPrice * (1 + tolerancePercent / 100) then
         return nil
     end
 
@@ -10184,7 +10724,12 @@ function YQQuality.GetHighPriceConfirmation(itemID, actualPrice)
     end
 
     local dbrecent = YQQuality.GetTSMPrice("dbrecent", itemID)
-    local multiplier = tonumber(CONFIG.AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER) or 1.5
+    local multiplier = state.GetSettingNumber(
+        "auctionHighPriceMultiplier",
+        CONFIG.AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER,
+        CONFIG.AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER_MIN,
+        CONFIG.AUCTION_HIGH_PRICE_CONFIRM_MULTIPLIER_MAX
+    )
     local threshold = dbrecent and dbrecent > 0
         and dbrecent * multiplier
         or nil
@@ -13760,11 +14305,18 @@ function YQQuality.GetCandidatePricing(recipeState, candidate)
         local quantityMax = math.max(quantityMin, tonumber(schematic.quantityMax) or quantityMin)
         local baseYield = (quantityMin + quantityMax) / 2
         local central = _G.YayaCraftedPriceAPI
+        -- Taxe HV reglable (`auctionCutPercent`, 5 % par defaut).
+        local cutRate = state.GetSettingNumber(
+            "auctionCutPercent",
+            CONFIG.AUCTION_CUT_PERCENT,
+            0,
+            CONFIG.AUCTION_CUT_PERCENT_MAX
+        ) / 100
         local function NetValue(unitValue)
             if central and type(central.CalculateNetValue) == "function" then
-                return central.CalculateNetValue(unitValue, baseYield, pricing.materialCost, 0.05)
+                return central.CalculateNetValue(unitValue, baseYield, pricing.materialCost, cutRate)
             end
-            return (unitValue * baseYield * 0.95) - pricing.materialCost
+            return (unitValue * baseYield * (1 - cutRate)) - pricing.materialCost
         end
         if pricing.minBuyout then
             pricing.profit = NetValue(pricing.minBuyout)
@@ -14276,6 +14828,7 @@ function YQQuality.EnsureSelector(schematicForm)
             state.EnsureDB()
             db.qualityPanelLocked = not (db.qualityPanelLocked == true)
             frame.lockButton.SetLocked(db.qualityPanelLocked)
+            state.RefreshOptionsPanel()
         end)
         frame.lockButton.SetTooltip(
             "Verrouiller la position",
@@ -14541,6 +15094,9 @@ function YQQuality.SetSelectorEnabled(enabled)
         if not enabled then frame:Hide() end
     end
     if not enabled then YQQuality.CancelRecipeSolve() end
+    -- Point de passage unique du bouton optimiseur, de la croix, de /yq opti
+    -- et du panneau d'options : la case du panneau suit d'ici.
+    state.RefreshOptionsPanel()
     ScheduleRefresh()
     return enabled
 end
@@ -15247,7 +15803,9 @@ local function EnsureCraftingQueueButton(schematicForm)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:SetText("Ajouter les first crafts")
         if type(_G.CraftSimAPI) == "table" then
-            GameTooltip:AddLine("Ajoute une fois chaque recette connue non realisee dont le cout CraftSim est strictement inferieur a 1000 po. Les prix inconnus sont ignores.", 1, 1, 1, true)
+            GameTooltip:AddLine(("Ajoute une fois chaque recette connue non realisee dont le cout CraftSim est strictement inferieur a %d po. Les prix inconnus sont ignores."):format(
+                math.floor(YQQuality.GetFirstCraftCostLimitGold())
+            ), 1, 1, 1, true)
             GameTooltip:AddLine("Les cooldowns disponibles sont reserves par charge, y compris entre recettes partageant le meme cooldown.", 1, 1, 1, true)
         else
             GameTooltip:AddLine("CraftSim doit etre active pour calculer les couts.", 1, 0.25, 0.25, true)
@@ -15588,6 +16146,7 @@ local function CreateCraftPanel()
             state.EnsureDB()
             db.panelLocked = not (db.panelLocked == true)
             lockButton.SetLocked(db.panelLocked)
+            state.RefreshOptionsPanel()
         end)
         lockButton.SetTooltip("Verrouiller la position", "Empeche le deplacement du panneau.")
     end
@@ -15854,6 +16413,7 @@ local function CreateAuctionFrame()
             onClick = function(checked)
                 state.EnsureDB()
                 db.auctionPriceWarningSoundEnabled = checked
+                state.RefreshOptionsPanel()
             end,
         })
     soundCheckbox:SetPoint("TOPLEFT", helpText, "BOTTOMLEFT", -4, -YayaCore.UI.PAD.sm)
@@ -15889,7 +16449,7 @@ local function CreateAuctionFrame()
 
     local statusText = frame:CreateFontString(nil, "OVERLAY", YayaCore.UI.FONT.muted)
     statusText:SetPoint("BOTTOMLEFT", 14, 16)
-    statusText:SetPoint("RIGHT", frame, "RIGHT", -160, 0)
+    statusText:SetPoint("RIGHT", frame, "RIGHT", -250, 0)
     statusText:SetJustifyH("LEFT")
     statusText:SetText("")
 
@@ -15897,6 +16457,40 @@ local function CreateAuctionFrame()
     actionButton:SetPoint("BOTTOMRIGHT", -14, 12)
     actionButton:SetScript("OnClick", function()
         state.OnAuctionActionClick()
+    end)
+
+    -- Passer : ecarte l'item que `Acheter suivant` prendrait, sans l'acheter,
+    -- pour un prix juge trop haut par exemple. Maj+clic retablit tout.
+    local skipButton = YayaCore.UI.CreateButton(frame, "Passer", {
+        width = 80,
+        motionWhileDisabled = true,
+    })
+    skipButton:SetPoint("RIGHT", actionButton, "LEFT", -YayaCore.UI.PAD.sm, 0)
+    skipButton:SetScript("OnClick", function()
+        state.OnAuctionSkipClick(IsShiftKeyDown and IsShiftKeyDown() or false)
+    end)
+    skipButton.SetTooltipProvider(function(tooltip, button)
+        tooltip:AddLine("Passer l'item suivant")
+        local target = button.target
+        if target then
+            local variantLabel = state.DescribeItemVariant(target.variant)
+            tooltip:AddLine(
+                "Ecarte " .. tostring(target.name or "?")
+                    .. (variantLabel and (" <" .. variantLabel .. ">") or "")
+                    .. " sans l'acheter, jusqu'au prochain /reload.",
+                0.9, 0.9, 0.88, true
+            )
+        else
+            tooltip:AddLine("Rien a passer pour l'instant.", 0.62, 0.62, 0.60, true)
+        end
+        local skippedCount = state.CountTableKeys(state.ah.skippedTasks)
+        if skippedCount > 0 then
+            tooltip:AddLine(
+                "Maj+clic : retablir les " .. skippedCount .. " item(s) passe(s).",
+                0.62, 0.62, 0.60, true
+            )
+        end
+        return true
     end)
 
     listHost:SetPoint("BOTTOM", actionButton, "TOP", 0, YayaCore.UI.PAD.lg)
@@ -15908,6 +16502,7 @@ local function CreateAuctionFrame()
     state.ah.statusText = statusText
     state.ah.totalText = totalText
     state.ah.actionButton = actionButton
+    state.ah.skipButton = skipButton
     state.ah.soundCheckbox = soundCheckbox
 end
 
@@ -16111,6 +16706,15 @@ local function StartPurchaseFromCache(summary, itemID, task)
         return
     end
 
+    local purchaseCost = state.GetAuctionTaskCost(task, view, cache)
+    if state.CanAffordAuctionCost(purchaseCost) == false then
+        local message = state.DescribeInsufficientFunds(task.name, purchaseCost)
+        state.ah.statusMessage = message
+        Print(message)
+        ScheduleRefresh()
+        return
+    end
+
     if cache.kind == "commodity" then
         local quantity = math.min(task.missing, view.available)
         if quantity <= 0 then
@@ -16179,15 +16783,27 @@ local function StartPurchaseFromCache(summary, itemID, task)
 end
 
 local function BuyNext(summary)
-    local task, view = GetNextPurchasableTask(summary)
+    local task, view, blocked = GetNextPurchasableTask(summary)
     DebugPrint(
         "buy-next picked=" .. tostring(task and task.itemID)
             .. " variant=" .. tostring(task and state.DescribeItemVariant(task.variant))
             .. " available=" .. tostring(view and view.available)
+            .. " blocked=" .. tostring(blocked and blocked.task.itemID)
+            .. " skipped=" .. tostring(state.CountTableKeys(state.ah.skippedTasks))
             .. " tasks=" .. tostring(#summary.auctionTasks)
     )
     if task and view then
         StartPurchaseFromCache(summary, task.itemID, task)
+        return
+    end
+
+    if blocked then
+        -- Tout ce qui reste achetable depasse la bourse : le dire, plutot que
+        -- de relancer une recherche qui ne changera rien au prix.
+        local message = state.DescribeInsufficientFunds(blocked.task.name, blocked.cost)
+        state.ah.statusMessage = message .. " | Passer pour l'ecarter"
+        Print(message)
+        ScheduleRefresh()
         return
     end
 
@@ -16201,9 +16817,13 @@ local function BuyNext(summary)
         local emptyView = state.GetTaskAuctionCache(auctionTask)
         -- Une variante sans annonce conforme mais avec des annonces ecartees a
         -- bien ete cherchee : relancer la recherche ne changerait rien, et la
-        -- boucle repartirait sans fin. Seul un cache vraiment vide se rejoue.
+        -- boucle repartirait sans fin. Seul un cache vraiment vide se rejoue,
+        -- et jamais celui d'une tache passee, ni d'un objet dont les seules
+        -- annonces sont celles du compte.
         if emptyView and (tonumber(emptyView.available) or 0) <= 0
-            and (tonumber(emptyView.rejected) or 0) <= 0 then
+            and (tonumber(emptyView.rejected) or 0) <= 0
+            and (tonumber(emptyView.ownQuantity) or 0) <= 0
+            and not state.IsAuctionTaskSkipped(auctionTask) then
             state.searchCache[auctionTask.itemID] = nil
             retryEmptySearch = true
         end
@@ -16214,7 +16834,46 @@ local function BuyNext(summary)
         return
     end
 
-    state.ah.statusMessage = "Rien de dispo a acheter"
+    local skippedCount = state.CountTableKeys(state.ah.skippedTasks)
+    state.ah.statusMessage = skippedCount > 0
+        and ("Rien de dispo a acheter (" .. skippedCount .. " passe(s), Maj+Passer pour retablir)")
+        or "Rien de dispo a acheter"
+    ScheduleRefresh()
+end
+
+-- Bouton Passer : ecarte la tache que `Acheter suivant` tenterait, pour la
+-- session. Maj+clic retablit toutes les taches passees.
+state.OnAuctionSkipClick = function(shiftDown)
+    if shiftDown then
+        local restored = state.ClearSkippedAuctionTasks()
+        state.ah.statusMessage = restored > 0
+            and (restored .. " item(s) retabli(s)")
+            or "Aucun item passe"
+        ScheduleRefresh()
+        return
+    end
+
+    local busy = state.ah.pendingCommodity or state.ah.pendingItem
+    if busy then
+        return
+    end
+
+    local summary = BuildQueueSummary()
+    local task = state.GetAuctionSkipTarget(summary)
+    if not task then
+        state.ah.statusMessage = "Rien a passer"
+        ScheduleRefresh()
+        return
+    end
+    state.SetAuctionTaskSkipped(task, true)
+    local variantLabel = state.DescribeItemVariant(task.variant)
+    state.ah.statusMessage = "Passe " .. tostring(task.name or "?")
+        .. (variantLabel and (" <" .. variantLabel .. ">") or "")
+    DebugPrint(
+        "ah-skip item=" .. tostring(task.itemID)
+            .. " variant=" .. tostring(variantLabel)
+            .. " skipped=" .. tostring(state.CountTableKeys(state.ah.skippedTasks))
+    )
     ScheduleRefresh()
 end
 
@@ -16476,7 +17135,11 @@ handle.TradeSkillShow = function(event, arg1, arg2, arg3)
                 "event=TRADE_SKILL_SHOW profession=" .. tostring(professionID)
                     .. " yco=" .. tostring(ycoAvailable)
             )
+            -- Les deux automatismes d'ouverture sont debrayables separement
+            -- (`autoQueueFavoriteConcentration`, `autoQueueAlchemy`).
+            state.EnsureDB()
             if not ycoAvailable
+                and db.autoQueueFavoriteConcentration ~= false
                 and type(YayaQueueAPI) == "table"
                 and type(YayaQueueAPI.QueueFavoriteConcentration) == "function" then
                 local favoriteOK, favoriteMessage = YayaQueueAPI.QueueFavoriteConcentration(professionID)
@@ -16486,8 +17149,13 @@ handle.TradeSkillShow = function(event, arg1, arg2, arg3)
                         .. " message=" .. tostring(favoriteMessage)
                 )
             end
-            StartAlchemyAutoQueue()
-            DebugPrint("event=TRADE_SKILL_SHOW alchemy-scheduled profession=" .. tostring(professionID))
+            if db.autoQueueAlchemy ~= false then
+                StartAlchemyAutoQueue()
+                DebugPrint("event=TRADE_SKILL_SHOW alchemy-scheduled profession=" .. tostring(professionID))
+            else
+                state.alchemyAutoQueue.pendingProfessionID = nil
+                DebugPrint("event=TRADE_SKILL_SHOW alchemy-skipped reason=disabled")
+            end
         end)
         C_Timer.After(0, ScheduleRefresh)
         return true
@@ -17112,6 +17780,17 @@ handle.CommodityPriceUpdated = function(event, arg1, arg2, arg3)
             if pending.confirmationShown then
                 return true
             end
+            -- Le devis du serveur est le seul prix exact : s'il depasse la
+            -- bourse, confirmer n'aboutirait qu'a ERR_NOT_ENOUGH_MONEY.
+            local totalPrice = tonumber(arg2)
+                or (unitPrice and unitPrice * (tonumber(pending.quantity) or 0))
+            if state.CanAffordAuctionCost(totalPrice) == false then
+                local message = state.DescribeInsufficientFunds(pending.name, totalPrice)
+                Print(message)
+                ClearAuctionTransientState(message)
+                ScheduleRefresh()
+                return true
+            end
             local warning = YQQuality.WarnIfAuctionPriceAboveExpected(
                 pending.name,
                 unitPrice,
@@ -17242,14 +17921,33 @@ handle.UiErrorMessage = function(event, arg1, arg2, arg3)
             )
             return true
         end
-        if (state.ah.pendingItem or state.ah.pendingCommodity) and (
+        local pending = state.ah.pendingItem or state.ah.pendingCommodity
+        if pending and (
             message == ERR_AUCTION_DATABASE_ERROR
             or message == ERR_AUCTION_HIGHER_BID
             or message == ERR_ITEM_NOT_FOUND
             or message == ERR_AUCTION_BID_OWN
             or message == ERR_NOT_ENOUGH_MONEY
         ) then
-            ClearAuctionTransientState(type(message) == "string" and message or "Achat echoue")
+            local statusMessage = type(message) == "string" and message or "Achat echoue"
+            if message == ERR_NOT_ENOUGH_MONEY then
+                local cost = pending.buyoutAmount
+                    or ((tonumber(pending.unitPrice) or 0) * (tonumber(pending.quantity) or 0))
+                statusMessage = state.DescribeInsufficientFunds(pending.name, cost)
+                Print(statusMessage)
+            elseif message == ERR_AUCTION_BID_OWN then
+                -- Annonce du personnage ou d'un reroll : le filtre de capture
+                -- l'a manquee, la tache est passee pour ne pas y rebuter.
+                state.SetAuctionTaskSkipped(
+                    { itemID = pending.itemID, variantKey = pending.variantKey },
+                    true
+                )
+                state.searchCache[pending.itemID] = nil
+                statusMessage = "Annonce de votre compte (reroll) pour "
+                    .. tostring(pending.name or "?") .. " : item passe"
+                Print(statusMessage)
+            end
+            ClearAuctionTransientState(statusMessage)
             ScheduleRefresh()
             return true
         end
@@ -17699,12 +18397,78 @@ function YayaQueueAPI.HasPatronOrder(orderID)
     return false
 end
 
+--- Aide des commandes : une ligne par commande, syntaxe puis effet.
+YQQuality.PrintHelp = function()
+    Print("Commandes /yq :")
+    Print("  /yq                        resume de la file (craft, HV, marchand)")
+    Print("  /yq reset                  vide la file")
+    Print("  /yq debug [on|off]         bascule le mode debug, conserve apres /reload")
+    Print("  /yq options                ouvre le panneau d'options")
+    Print("  /yq stock                  composition brute du stock vendable")
+    Print("  /yq lock                   verrouille ou deverrouille la position du panneau")
+    Print("  /yq rows [n]               nombre de lignes visibles de la file")
+    Print("  /yq opttest                tests internes du solveur de reactifs")
+    Print("  /yq opti [on|off]          affiche ou masque l'optimisateur de reactifs")
+    Print("  /yq vendor [on|off|status] achat automatique chez le marchand")
+    Print("  /yq sort [mode]            mode de tri de la file (sans argument : etat et modes)")
+    Print("  /yq log [n|clear]          journal debug persistant")
+    Print("  /yq help                   cette aide")
+end
+
+--- Imprime le mode de tri courant et la liste des modes.
+YQQuality.PrintQueueSortMode = function()
+    state.EnsureDB()
+    local QueueOrder = state.queueOrder
+    local current = QueueOrder.NormalizeMode(db.queueSortMode)
+    Print("Tri de la file : " .. current .. " (" .. tostring(QueueOrder.MODE_LABELS[current]) .. ")")
+    Print("Invariants : commande claim, puis salvage/broyage ; les fusions precedent les crafts de leur bloc, par profondeur. Modes :")
+    for _, mode in ipairs(QueueOrder.MODES) do
+        Print(("  %s%s : %s"):format(
+            mode == current and "> " or "  ",
+            mode,
+            tostring(QueueOrder.MODE_LABELS[mode])
+        ))
+    end
+end
+
+--- Ecrit le mode de tri (valide) et replanifie le rendu. Rend false si le mode
+--- est inconnu, sans rien changer.
+YQQuality.SetQueueSortMode = function(mode)
+    state.EnsureDB()
+    local QueueOrder = state.queueOrder
+    if not QueueOrder.IsValidMode(mode) then
+        return false
+    end
+    db.queueSortMode = mode
+    state.RefreshOptionsPanel()
+    ScheduleRefresh()
+    return true
+end
+
 SLASH_YAYAQUEUE1 = "/yayaqueue"
 SLASH_YAYAQUEUE2 = "/yq"
 SlashCmdList.YAYAQUEUE = function(message)
     local command = string.lower(strtrim(message or ""))
     if command == "reset" then
         ResetQueue()
+        return
+    end
+    if command == "help" or command == "?" then
+        YQQuality.PrintHelp()
+        return
+    end
+    local sortArgument = command:match("^sort%s+(%S+)$")
+    if command == "sort" or sortArgument then
+        if sortArgument then
+            if YQQuality.SetQueueSortMode(sortArgument) then
+                Print("Tri de la file : " .. sortArgument .. ", conserve apres /reload")
+            else
+                Print("Mode de tri inconnu : " .. sortArgument)
+                YQQuality.PrintQueueSortMode()
+            end
+        else
+            YQQuality.PrintQueueSortMode()
+        end
         return
     end
     local debugArgument = command:match("^debug%s+(o[nf]f?)$")
@@ -17720,6 +18484,7 @@ SlashCmdList.YAYAQUEUE = function(message)
         end
         db.debugEnabled = wanted
         CONFIG.debugNextCraft = wanted
+        state.RefreshOptionsPanel()
         Print("Debug " .. (wanted and "active" or "inactif") .. ", conserve apres /reload")
         return
     end
@@ -17737,6 +18502,7 @@ SlashCmdList.YAYAQUEUE = function(message)
         if state.craft.lockButton then
             state.craft.lockButton.SetLocked(db.panelLocked)
         end
+        state.RefreshOptionsPanel()
         Print("Position du panneau " .. (db.panelLocked and "verrouillee" or "deverrouillee") .. ".")
         return
     end
@@ -17745,6 +18511,7 @@ SlashCmdList.YAYAQUEUE = function(message)
         state.EnsureDB()
         if rowsArgument then
             db.craftVisibleRows = tonumber(rowsArgument)
+            state.RefreshOptionsPanel()
         end
         Print(("Lignes visibles : %d (de %d a %d)."):format(
             craftUI.GetVisibleRows(),
@@ -17778,6 +18545,7 @@ SlashCmdList.YAYAQUEUE = function(message)
     if command == "vendor on" or command == "vendor off" then
         state.EnsureDB()
         db.autoBuyVendor = command == "vendor on"
+        state.RefreshOptionsPanel()
         Print("Achat automatique marchand " .. (db.autoBuyVendor and "active" or "inactif") .. ".")
         return
     end

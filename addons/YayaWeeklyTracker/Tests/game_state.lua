@@ -128,6 +128,11 @@ local BAG_CONTENT = {
         [1] = { itemID = 245778, itemLevel = 206, stat = "Fabrication multiple" },
         [2] = { itemID = 245777, itemLevel = 232 },
         [3] = { itemID = 239635, itemLevel = 232 },
+        -- Un exemplaire de l'accessoire vise dort deja en sac. Sa taille de
+        -- pile n'est pas renseignee par cette doublure, exactement comme un
+        -- objet pas encore en cache cote client : la destination ne doit pas
+        -- pour autant le prendre pour une pile a completer.
+        [4] = { itemID = 244626, itemLevel = 232 },
     },
 }
 
@@ -136,7 +141,7 @@ local function BagLink(itemID) return "|cffa335ee|Hitem:" .. itemID .. "::::::::
 C_Container.GetContainerNumSlots = function(bag)
     local content = BAG_CONTENT[bag]
     if not content then return 0 end
-    return 4
+    return 7
 end
 C_Container.GetContainerItemID = function(bag, slot)
     local entry = BAG_CONTENT[bag] and BAG_CONTENT[bag][slot]
@@ -202,6 +207,48 @@ function EquipMulticraftToolFixture()
     BAG_CONTENT[0][1] = { itemID = 245778, itemLevel = 232, stat = "Ingéniosité" }
 end
 
+-- Second metier rejouable par les tests : le personnage apprend l'Inscription
+-- Midnight (skillLine 2913, base 773) en plus de l'Alchimie, pour exercer
+-- l'ordre et le masquage des lignes de metier.
+local INSC_SKILL_LINE, INSC_PROFESSION_ID = 2913, 4
+function LearnInscriptionFixture()
+    function GetProfessions() return 1, 2, nil, nil, nil end
+    function GetProfessionInfo(index)
+        if index == 1 then
+            return "Midnight Alchemy", nil, 100, 100, nil, nil, 171
+        elseif index == 2 then
+            return "Midnight Inscription", nil, 50, 100, nil, nil, 773
+        end
+    end
+    local previousInfo = C_TradeSkillUI.GetProfessionInfoBySkillLineID
+    C_TradeSkillUI.GetProfessionInfoBySkillLineID = function(skillLineID)
+        if skillLineID == INSC_SKILL_LINE then
+            return {
+                professionID = INSC_SKILL_LINE,
+                profession = INSC_PROFESSION_ID,
+                parentProfessionID = 773,
+                professionName = "Midnight Inscription",
+                parentProfessionName = "Inscription",
+                skillLevel = 50,
+                maxSkillLevel = 100,
+            }
+        end
+        return previousInfo(skillLineID)
+    end
+    local previousSkillLine = C_TradeSkillUI.GetProfessionSkillLineID
+    C_TradeSkillUI.GetProfessionSkillLineID = function(base)
+        if base == 773 then return INSC_SKILL_LINE end
+        return previousSkillLine(base)
+    end
+end
+
+-- Points de connaissance non depenses : 3, sous le seuil d'alerte par defaut
+-- (5), donc aucun jeton KP tant qu'un test ne baisse pas le seuil.
+C_ProfSpecs = C_ProfSpecs or {}
+C_ProfSpecs.GetCurrencyInfoForSkillLine = function()
+    return { numAvailable = 3 }
+end
+
 QUEUE_CALLS = {}
 YayaQueueAPI = {
     -- La signature suit celle de l'addon : la variante est le quatrieme
@@ -223,3 +270,202 @@ YayaQueueAPI = {
     Refresh = function() return true end,
     IsReady = function() return true end,
 }
+
+-- ---------------------------------------------------------------- Warbank
+-- La banque de compte demarre VIDE : les assertions de non-regression du plan
+-- d'achat doivent voir exactement l'etat d'avant, ou rien ne dort en banque.
+-- `FillWarbankFixture` la garnit ensuite, une fois ces assertions passees.
+local WARBANK_BAGS = { 13, 14, 15, 16, 17 }
+local WARBANK_CONTENT = {}
+local WARBANK_OPEN = false
+
+-- Un exemplaire de la Warbank porte son propre lien : c'est lui qui distingue
+-- deux outils du meme itemID par leur statistique et leur rang.
+local function WarbankLink(bagID, slotIndex, itemID)
+    return ("|cffa335ee|Hitem:%d::::::::90:1%d%d|h[wb]|h|r"):format(itemID, bagID, slotIndex)
+end
+
+local function WarbankEntry(bagID, slotIndex)
+    local tab = WARBANK_CONTENT[bagID]
+    return tab and tab[slotIndex] or nil
+end
+
+function FillWarbankFixture()
+    WARBANK_CONTENT = {
+        -- Marchandise : deux parchemins Multicraft, pas d'identite a verifier.
+        [13] = { [1] = { itemID = 243995, stackCount = 2 } },
+        [14] = {
+            -- Outil Resourcefulness au rang maximal : satisfait la variante.
+            [1] = { itemID = 245778, itemLevel = 232, stat = "Ingéniosité" },
+            -- Meme itemID, mauvaise stat ET rang insuffisant : ne satisfait rien.
+            [2] = { itemID = 245778, itemLevel = 206, stat = "Fabrication multiple" },
+            -- Accessoire au rang exige : la variante ne porte que le rang.
+            [3] = { itemID = 244626, itemLevel = 232 },
+        },
+        -- Exemplaire dont le client ne rend pas le lien : indecis, jamais
+        -- « absent » ni « present ».
+        [15] = { [1] = { itemID = 245778, noLink = true } },
+        -- Traite d'alchimie.
+        [16] = { [1] = { itemID = 245755, stackCount = 3 } },
+    }
+end
+
+function OpenWarbankFixture()
+    WARBANK_OPEN = true
+    BankFrame.__shown = true
+    BankFrame.__activeBankType = Enum.BankType.Account
+end
+
+-- Le client finit par repercuter un retrait : l emplacement se vide. Tant
+-- qu il ne l a pas fait, le plan doit considerer l objet comme en transit.
+function RemoveFromWarbankFixture(bagID, slotIndex)
+    if WARBANK_CONTENT[bagID] then
+        WARBANK_CONTENT[bagID][slotIndex] = nil
+    end
+end
+
+function CloseWarbankFixture()
+    WARBANK_OPEN = false
+    BankFrame.__shown = false
+    BankFrame.__activeBankType = nil
+end
+
+-- Fait mentir l'instantane : le compte vivant grimpe sans qu'un scan ait pu
+-- enregistrer le nouvel exemplaire. C'est le cas « un autre personnage a
+-- touche a la banque ».
+WARBANK_DESYNC = {}
+function DesyncWarbankFixture(itemID, extra)
+    WARBANK_DESYNC[itemID] = (WARBANK_DESYNC[itemID] or 0) + (extra or 1)
+end
+
+C_Bank.FetchPurchasedBankTabIDs = function(bankType)
+    if bankType ~= Enum.BankType.Account then
+        return {}
+    end
+    return WARBANK_BAGS
+end
+
+-- Le contenu d'un onglet de Warbank n'est lisible que banque ouverte : c'est
+-- ce qui rend testable le chemin « banque fermee, instantane seul ».
+local previousNumSlots = C_Container.GetContainerNumSlots
+C_Container.GetContainerNumSlots = function(bag)
+    if WARBANK_CONTENT[bag] then
+        return WARBANK_OPEN and 8 or 0
+    end
+    return previousNumSlots(bag)
+end
+local previousItemID = C_Container.GetContainerItemID
+C_Container.GetContainerItemID = function(bag, slot)
+    if WARBANK_CONTENT[bag] then
+        if not WARBANK_OPEN then return nil end
+        local entry = WarbankEntry(bag, slot)
+        return entry and entry.itemID or nil
+    end
+    return previousItemID(bag, slot)
+end
+local previousItemLink = C_Container.GetContainerItemLink
+C_Container.GetContainerItemLink = function(bag, slot)
+    if WARBANK_CONTENT[bag] then
+        local entry = WARBANK_OPEN and WarbankEntry(bag, slot) or nil
+        if not entry or entry.noLink then return nil end
+        return WarbankLink(bag, slot, entry.itemID)
+    end
+    return previousItemLink(bag, slot)
+end
+local previousItemInfo = C_Container.GetContainerItemInfo
+C_Container.GetContainerItemInfo = function(bag, slot)
+    if WARBANK_CONTENT[bag] then
+        local entry = WARBANK_OPEN and WarbankEntry(bag, slot) or nil
+        if not entry then return nil end
+        local info = { itemID = entry.itemID, stackCount = entry.stackCount or 1 }
+        if not entry.noLink then
+            info.hyperlink = WarbankLink(bag, slot, entry.itemID)
+        end
+        return info
+    end
+    return previousItemInfo(bag, slot)
+end
+
+-- Rang et statistique d'un exemplaire de Warbank, lus sur son lien unique.
+local previousDetailedWithBank = GetDetailedItemLevelInfo
+function GetDetailedItemLevelInfo(v)
+    for bag, slots in pairs(WARBANK_CONTENT) do
+        for slot, entry in pairs(slots) do
+            if not entry.noLink and WarbankLink(bag, slot, entry.itemID) == v then
+                return entry.itemLevel, false, entry.itemLevel
+            end
+        end
+    end
+    return previousDetailedWithBank(v)
+end
+
+local previousTooltipWithBank = C_TooltipInfo.GetHyperlink
+C_TooltipInfo.GetHyperlink = function(link)
+    for bag, slots in pairs(WARBANK_CONTENT) do
+        for slot, entry in pairs(slots) do
+            if not entry.noLink and WarbankLink(bag, slot, entry.itemID) == link then
+                local item = ITEMS[entry.itemID]
+                local lines = { { leftText = item and item.name or "?" } }
+                if entry.stat then
+                    lines[#lines + 1] = { leftText = "+303 " .. entry.stat }
+                end
+                return { lines = lines }
+            end
+        end
+    end
+    return previousTooltipWithBank(link)
+end
+
+-- L'oracle de cardinalite du client. Le cinquieme argument inclut la banque de
+-- compte, et c'est lui qui permet de repondre banque fermee.
+C_Item.GetItemCount = function(itemID, _, _, _, includeAccountBank)
+    itemID = tonumber(itemID) or 0
+    local total = 0
+    for _, slots in pairs(BAG_CONTENT) do
+        for _, entry in pairs(slots) do
+            if entry.itemID == itemID then
+                total = total + (entry.stackCount or 1)
+            end
+        end
+    end
+    if includeAccountBank then
+        for _, slots in pairs(WARBANK_CONTENT) do
+            for _, entry in pairs(slots) do
+                if entry.itemID == itemID then
+                    total = total + (entry.stackCount or 1)
+                end
+            end
+        end
+        total = total + (WARBANK_DESYNC[itemID] or 0)
+    end
+    return total
+end
+
+-- Un outil rare qui vient d'etre achete n'est pas encore lie : c'est
+-- exactement l'exemplaire qu'il ne faut pas racheter. L'emplacement porte
+-- desormais ses coordonnees, donc la doublure peut repondre par slot.
+-- Les appels sont comptes : le tracker ne doit plus consulter cette API du
+-- tout. Un compteur non nul signalerait le retour du filtre soulbound, et donc
+-- du doublon commande juste apres une livraison.
+ISBOUND_CALLS = 0
+C_Item.IsBound = function(location)
+    ISBOUND_CALLS = ISBOUND_CALLS + 1
+    if type(location) == "table" and location.bag and location.slot then
+        local entry = BAG_CONTENT[location.bag] and BAG_CONTENT[location.bag][location.slot]
+        if entry and entry.unbound then
+            return false
+        end
+    end
+    return true
+end
+
+-- Depose un outil rare conforme, mais NON LIE, dans les sacs : l'etat d'un
+-- achat tout juste livre par le courrier. Son itemID lui est propre, car un
+-- lien de sac de cette doublure ne porte que l'itemID : deux exemplaires du
+-- meme objet dans deux emplacements y partageraient leur identite.
+ITEMS[245779] = { name = "Sin'dorei Alchemist's Spare Rod", quality = 3,
+                  equipLoc = "INVTYPE_PROFESSION_TOOL", skillLine = ALCH_SKILL_LINE,
+                  stat = "Perception" }
+function AddUnboundToolFixture()
+    BAG_CONTENT[0][7] = { itemID = 245779, itemLevel = 232, stat = "Perception", unbound = true }
+end

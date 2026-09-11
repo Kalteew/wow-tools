@@ -168,8 +168,13 @@ local function EnsureDb()
 	if DB.promptReload == nil then
 		DB.promptReload = false
 	end
-	DB.sortKey = DB.sortKey or "name"
-	if DB.sortDesc == nil then
+	-- Defaut couple : sans preference enregistree, la liste part du niveau le
+	-- plus haut. Un compte qui a deja choisi sa colonne garde son choix ; seul
+	-- un sens manquant retombe sur le croissant.
+	if DB.sortKey == nil then
+		DB.sortKey = "level"
+		DB.sortDesc = true
+	elseif DB.sortDesc == nil then
 		DB.sortDesc = false
 	end
 	DB.debugLog = DB.debugLog or {}
@@ -652,11 +657,28 @@ local function AssignProfile(characterId, profileName)
 	return true
 end
 
+-- Le personnage connecte se reconnait par son GUID ou, a defaut, par son
+-- identifiant : les entrees seedees depuis SimpleAddonManager n'ont pas de GUID.
+-- Hors jeu, les deux locals sont nil et aucune entree n'est le connecte.
+local function IsCurrentCharacter(character)
+	if character.guid ~= nil and character.guid == currentCharacterGuid then
+		return true
+	end
+	return character.id == currentCharacterId
+end
+
 -- Comparateur de la liste de personnages. Le departage final par identifiant est
 -- indispensable : les identifiants etant uniques, il fait de la relation un
 -- ordre strict total, sans quoi table.sort leve "invalid order function for
 -- sorting" sur certaines permutations.
 local function CompareCharacters(left, right)
+	-- Le personnage connecte ouvre la liste quel que soit le tri : le predicat
+	-- partitionne les entrees, la cascade ne departage qu'au sein d'une partie.
+	local leftCurrent, rightCurrent = IsCurrentCharacter(left), IsCurrentCharacter(right)
+	if leftCurrent ~= rightCurrent then
+		return leftCurrent
+	end
+
 	local key = DB.sortKey or "name"
 	local desc = DB.sortDesc == true
 
@@ -1541,6 +1563,9 @@ YayaAddonProfiles_Internal = {
 	PreferredCharacterId = PreferredCharacterId,
 	MergeDuplicateCharacters = MergeDuplicateCharacters,
 	CompareCharacters = CompareCharacters,
+	SetCurrentCharacter = function(id, guid)
+		currentCharacterId, currentCharacterGuid = id, guid
+	end,
 	SortedCharacters = SortedCharacters,
 	SetSortKey = SetSortKey,
 	RebuildCharacterOrder = RebuildCharacterOrder,

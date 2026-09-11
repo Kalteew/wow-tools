@@ -123,6 +123,13 @@ UI.SIZE = {
     -- Bouton carre portant une icone et non un libelle : trop grand pour glyph,
     -- qui vise les commandes de bandeau, trop petit pour ACTION.height.
     iconButton  = 26,
+
+    -- Panneaux d'options (YayaCore.Settings) : colonne des categories, ligne
+    -- d'un slider avec son libelle au-dessus et ses bornes en dessous, largeur
+    -- d'une saisie numerique.
+    settingsRailW = 140,
+    sliderRowH    = 44,
+    inputW        = 80,
 }
 
 UI.FONT = {
@@ -861,6 +868,602 @@ function UI.CreateCheckbox(parent, text, opts)
     end
 
     return button
+end
+
+-- ---------------------------------------------------------------------------
+-- Fabriques : controles de reglage
+-- ---------------------------------------------------------------------------
+
+-- Nombre de decimales impliquees par un pas : 0.5 -> 1, 0.25 -> 2, 5 -> 0.
+local function StepDecimals(step)
+    local text = tostring(tonumber(step) or 1)
+    local fraction = text:match("%.(%d+)$")
+    return fraction and #fraction or 0
+end
+
+-- Formateur de valeur : chaine string.format, fonction, ou repli derive du pas.
+local function ResolveFormatter(format, step)
+    if type(format) == "function" then
+        return function(value)
+            return tostring(format(value))
+        end
+    end
+    if type(format) == "string" then
+        return function(value)
+            local ok, text = pcall(string.format, format, value)
+            return ok and text or tostring(value)
+        end
+    end
+    local pattern = "%." .. StepDecimals(step) .. "f"
+    return function(value)
+        return string.format(pattern, value)
+    end
+end
+
+-- Alpha d'un controle grise. Meme valeur que l'ancien SetSliderEnabled de
+-- YayaCraftingOrdersLocal, pour que les panneaux de la suite grisent pareil.
+local DISABLED_ALPHA = 0.45
+
+-- Un setter expose en style point (widget.SetEnabled(true)) doit aussi
+-- supporter l'appel en style methode (widget:SetEnabled(true)), sinon un
+-- appelant qui confond les deux passe la frame en guise de booleen.
+local function ResolveEnabledArg(widget, first, second)
+    if first == widget then
+        return second and true or false
+    end
+    return first and true or false
+end
+
+--- Grise ou reactive un controle, conteneur compris.
+--
+-- Les conteneurs de ce module (saisie numerique, dropdown, groupes de
+-- YayaCore.Settings) exposent un SetEnabled en style point, pose comme champ
+-- direct : c'est lui qui sait quels enfants desactiver. Un widget nu passe par
+-- Enable/Disable et EnableMouse. Dans les deux cas l'alpha porte l'etat visuel.
+--
+-- Le libelle n'est attenue separement que s'il n'est pas un enfant du widget :
+-- l'alpha d'une region se multiplie par celui de son parent, et un libelle
+-- enfant passerait sinon a 0.2.
+function UI.SetWidgetEnabled(widget, enabled)
+    if type(widget) ~= "table" then
+        return widget
+    end
+    enabled = enabled and true or false
+
+    local custom = rawget(widget, "SetEnabled")
+    if type(custom) == "function" then
+        custom(enabled)
+    else
+        if enabled then
+            if type(widget.Enable) == "function" then
+                widget:Enable()
+            end
+        elseif type(widget.Disable) == "function" then
+            widget:Disable()
+        end
+        if type(widget.EnableMouse) == "function" then
+            widget:EnableMouse(enabled)
+        end
+    end
+
+    local alpha = enabled and 1 or DISABLED_ALPHA
+    if type(widget.SetAlpha) == "function" then
+        widget:SetAlpha(alpha)
+    end
+
+    local label = widget.label
+    if type(label) == "table" and type(label.SetAlpha) == "function" then
+        local parent = type(label.GetParent) == "function" and label:GetParent() or nil
+        if parent ~= widget then
+            label:SetAlpha(alpha)
+        end
+    end
+    return widget
+end
+
+--- Curseur de reglage borne, arrondi au pas.
+--
+-- OptionsSliderTemplate livre trois FontString : le libelle au-dessus, les
+-- bornes en dessous. Les clients recents les exposent par parentKey
+-- (slider.Text, slider.Low, slider.High) ; les anciens ne les nommaient que par
+-- _G[nom .. "Text"], d'ou le repli quand un nom est fourni. S'il n'y a ni l'un
+-- ni l'autre, les FontString sont crees ici.
+--
+-- opts.min, opts.max, opts.step : bornes et pas (defaut 0, 100, 1)
+-- opts.value    : valeur initiale (defaut min)
+-- opts.width    : largeur (defaut 200)
+-- opts.format   : "%d", "%.1fx", ou fonction(value) -> texte ; defaut derive du pas
+-- opts.onChange : fonction(value, slider), appelee seulement si la valeur
+--                 arrondie change et hors de SetValueSilently
+-- opts.tooltip  : { title, body, anchor }
+--
+-- slider.label porte le FontString de titre. slider.SetValueSilently(v) pousse
+-- une valeur sans rappeler onChange, slider.GetValueRounded() rend la valeur
+-- arrondie courante, slider.SetEnabled(bool) grise le curseur.
+function UI.CreateSlider(parent, text, opts)
+    if type(parent) ~= "table" or type(CreateFrame) ~= "function" then
+        return nil
+    end
+    opts = opts or {}
+    local name = opts.name
+
+    local ok, slider = pcall(CreateFrame, "Slider", name, parent, "OptionsSliderTemplate")
+    if not ok or type(slider) ~= "table" then
+        return nil
+    end
+
+    local minValue = tonumber(opts.min) or 0
+    local maxValue = tonumber(opts.max) or 100
+    if maxValue < minValue then
+        maxValue = minValue
+    end
+    local step = tonumber(opts.step) or 1
+    if step <= 0 then
+        step = 1
+    end
+    local decimals = StepDecimals(step)
+    local Format = ResolveFormatter(opts.format, step)
+
+    slider:SetWidth(opts.width or 200)
+    slider:SetMinMaxValues(minValue, maxValue)
+    slider:SetValueStep(step)
+    if type(slider.SetObeyStepOnDrag) == "function" then
+        slider:SetObeyStepOnDrag(true)
+    end
+
+    -- L'arrondi au pas passe par une chaine pour effacer la poussiere binaire :
+    -- 1 + 5 * 0.1 ne vaut pas exactement 1.5 en flottant.
+    local function Round(value)
+        value = tonumber(value) or minValue
+        local rounded = minValue + math.floor((value - minValue) / step + 0.5) * step
+        rounded = tonumber(string.format("%." .. decimals .. "f", rounded)) or rounded
+        if rounded < minValue then
+            rounded = minValue
+        elseif rounded > maxValue then
+            rounded = maxValue
+        end
+        return rounded
+    end
+
+    local function Resolve(field, fallbackFont, point, relativePoint, x, y)
+        local region = slider[field]
+        if not region and name then
+            region = _G[name .. field]
+        end
+        if not region and type(slider.CreateFontString) == "function" then
+            region = slider:CreateFontString(nil, "OVERLAY", fallbackFont)
+            region:SetPoint(point, slider, relativePoint, x, y)
+        end
+        return region
+    end
+
+    local label = Resolve("Text", UI.FONT.body, "BOTTOM", "TOP", 0, UI.PAD.xs)
+    local low = Resolve("Low", UI.FONT.muted, "TOPLEFT", "BOTTOMLEFT", 0, -UI.PAD.xs)
+    local high = Resolve("High", UI.FONT.muted, "TOPRIGHT", "BOTTOMRIGHT", 0, -UI.PAD.xs)
+    slider.label = label
+    slider.low = low
+    slider.high = high
+
+    if low and type(low.SetText) == "function" then
+        low:SetText(Format(minValue))
+    end
+    if high and type(high.SetText) == "function" then
+        high:SetText(Format(maxValue))
+    end
+
+    slider.value = Round(opts.value)
+
+    local function UpdateText()
+        if label and type(label.SetText) == "function" then
+            label:SetText((text or "") .. " : " .. Format(slider.value))
+        end
+    end
+
+    slider:SetScript("OnValueChanged", function(self, raw)
+        local rounded = Round(raw)
+        if self.suppress then
+            self.value = rounded
+            UpdateText()
+            return
+        end
+        if rounded == self.value then
+            return
+        end
+        self.value = rounded
+        UpdateText()
+        if type(opts.onChange) == "function" then
+            opts.onChange(rounded, self)
+        end
+    end)
+
+    --- Pousse une valeur sans rappeler onChange : pour resynchroniser depuis la db.
+    function slider.SetValueSilently(value)
+        slider.suppress = true
+        slider.value = Round(value)
+        slider:SetValue(slider.value)
+        UpdateText()
+        slider.suppress = nil
+    end
+
+    --- Valeur courante, arrondie au pas.
+    function slider.GetValueRounded()
+        return slider.value
+    end
+
+    local nativeSetEnabled = slider.SetEnabled
+
+    --- Grise ou reactive le curseur.
+    function slider.SetEnabled(first, second)
+        local enabled = ResolveEnabledArg(slider, first, second)
+        if type(nativeSetEnabled) == "function" then
+            pcall(nativeSetEnabled, slider, enabled)
+        elseif enabled and type(slider.Enable) == "function" then
+            slider:Enable()
+        elseif not enabled and type(slider.Disable) == "function" then
+            slider:Disable()
+        end
+        if type(slider.EnableMouse) == "function" then
+            slider:EnableMouse(enabled)
+        end
+        slider:SetAlpha(enabled and 1 or DISABLED_ALPHA)
+    end
+
+    --- Cable une infobulle sans reimplementer OnEnter/OnLeave.
+    function slider.SetTooltip(title, body, anchor)
+        AttachTooltip(slider, title, body, anchor or "ANCHOR_RIGHT")
+    end
+
+    if opts.tooltip then
+        slider.SetTooltip(opts.tooltip.title, opts.tooltip.body, opts.tooltip.anchor)
+    end
+
+    slider.SetValueSilently(slider.value)
+    return slider
+end
+
+--- Saisie numerique : libelle, EditBox alignee a droite, suffixe optionnel.
+--
+-- La valeur n'est prise qu'a la validation (Entree ou perte de focus) : une
+-- saisie invalide ou vide restaure la derniere valeur validee, Echap l'annule.
+-- onCommit n'est rappele que si la valeur validee change, ce qui absorbe le
+-- OnEditFocusLost que ClearFocus declenche juste apres OnEnterPressed.
+--
+-- opts.min, opts.max : bornes de clamp (optionnelles)
+-- opts.decimals   : decimales acceptees ; nil ou 0 = entiers, SetNumeric(true)
+-- opts.value      : valeur initiale (defaut min, sinon 0)
+-- opts.width      : largeur de l'EditBox (defaut UI.SIZE.inputW)
+-- opts.labelWidth : largeur imposee du libelle
+-- opts.suffix     : unite affichee apres la saisie ("po", "%")
+-- opts.onCommit   : fonction(value, editBox)
+-- opts.tooltip    : { title, body, anchor }
+--
+-- container.editBox, container.label, container.suffix portent les regions ;
+-- container.SetValueSilently(v), container.GetValue(), container.SetEnabled(bool).
+function UI.CreateNumberInput(parent, text, opts)
+    if type(parent) ~= "table" or type(CreateFrame) ~= "function" then
+        return nil
+    end
+    opts = opts or {}
+
+    local container = CreateFrame("Frame", opts.name, parent)
+    container:SetHeight(UI.SIZE.headerH)
+
+    local ok, box = pcall(CreateFrame, "EditBox", opts.name and (opts.name .. "EditBox") or nil,
+        container, "InputBoxTemplate")
+    if not ok or type(box) ~= "table" then
+        container:Hide()
+        return nil
+    end
+
+    local label = container:CreateFontString(nil, "OVERLAY", UI.FONT.body)
+    label:SetPoint("LEFT", container, "LEFT", 0, 0)
+    if opts.labelWidth then
+        label:SetWidth(opts.labelWidth)
+    end
+    label:SetText(text or "")
+    UI.BoundLabel(label, "LEFT")
+    container.label = label
+
+    local decimals = math.max(0, math.floor(tonumber(opts.decimals) or 0))
+    local minValue, maxValue = tonumber(opts.min), tonumber(opts.max)
+
+    -- InputBoxTemplate deborde de 8 px a gauche de sa zone de saisie.
+    box:SetSize(opts.width or UI.SIZE.inputW, UI.SIZE.headerH)
+    box:SetPoint("LEFT", label, "RIGHT", UI.PAD.lg + 8, 0)
+    box:SetAutoFocus(false)
+    if decimals == 0 and type(box.SetNumeric) == "function" then
+        box:SetNumeric(true)
+    end
+    box:SetJustifyH("RIGHT")
+    if opts.maxLetters and type(box.SetMaxLetters) == "function" then
+        box:SetMaxLetters(opts.maxLetters)
+    end
+    container.editBox = box
+
+    if opts.suffix then
+        local suffix = container:CreateFontString(nil, "OVERLAY", UI.FONT.muted)
+        suffix:SetPoint("LEFT", box, "RIGHT", UI.PAD.sm, 0)
+        suffix:SetText(opts.suffix)
+        UI.BoundLabel(suffix, "LEFT")
+        container.suffix = suffix
+    end
+
+    local pattern = "%." .. decimals .. "f"
+
+    local function Normalize(raw)
+        local value = tonumber(raw)
+        if value == nil then
+            return nil
+        end
+        if minValue and value < minValue then
+            value = minValue
+        end
+        if maxValue and value > maxValue then
+            value = maxValue
+        end
+        return tonumber(string.format(pattern, value)) or value
+    end
+
+    local function Display(value)
+        return string.format(pattern, value)
+    end
+
+    container.value = Normalize(opts.value) or minValue or 0
+    box:SetText(Display(container.value))
+
+    local function Commit(self)
+        if container.suppress then
+            return
+        end
+        local value = Normalize(self:GetText())
+        if value == nil then
+            self:SetText(Display(container.value))
+            return
+        end
+        local changed = value ~= container.value
+        container.value = value
+        self:SetText(Display(value))
+        if changed and type(opts.onCommit) == "function" then
+            opts.onCommit(value, self)
+        end
+    end
+
+    box:SetScript("OnEnterPressed", function(self)
+        Commit(self)
+        self:ClearFocus()
+    end)
+    box:SetScript("OnEditFocusLost", function(self)
+        Commit(self)
+    end)
+    box:SetScript("OnEscapePressed", function(self)
+        self:SetText(Display(container.value))
+        self:ClearFocus()
+    end)
+
+    --- Pousse une valeur sans rappeler onCommit : pour resynchroniser depuis la db.
+    function container.SetValueSilently(value)
+        container.suppress = true
+        local normalized = Normalize(value)
+        if normalized ~= nil then
+            container.value = normalized
+        end
+        box:SetText(Display(container.value))
+        container.suppress = nil
+    end
+
+    --- Derniere valeur validee.
+    function container.GetValue()
+        return container.value
+    end
+
+    --- Grise ou reactive la saisie.
+    function container.SetEnabled(first, second)
+        local enabled = ResolveEnabledArg(container, first, second)
+        if type(box.SetEnabled) == "function" then
+            pcall(box.SetEnabled, box, enabled)
+        elseif enabled and type(box.Enable) == "function" then
+            box:Enable()
+        elseif not enabled and type(box.Disable) == "function" then
+            box:Disable()
+        end
+        if type(box.EnableMouse) == "function" then
+            box:EnableMouse(enabled)
+        end
+        if not enabled and type(box.ClearFocus) == "function" then
+            box:ClearFocus()
+        end
+        container:SetAlpha(enabled and 1 or DISABLED_ALPHA)
+    end
+
+    --- Cable une infobulle sur la zone de saisie.
+    function container.SetTooltip(title, body, anchor)
+        AttachTooltip(box, title, body, anchor or "ANCHOR_RIGHT")
+    end
+
+    if opts.tooltip then
+        container.SetTooltip(opts.tooltip.title, opts.tooltip.body, opts.tooltip.anchor)
+    end
+
+    return container
+end
+
+--- Liste deroulante a choix unique : libelle a gauche, bouton a droite.
+--
+-- Primaire : DropdownButton + WowStyle1DropdownTemplate et l'API Menu (11.0+),
+-- dont le texte se met a jour depuis les radios selectionnes a chaque
+-- GenerateMenu. Repli : UIDropDownMenuTemplate quand le client n'expose pas
+-- SetupMenu ; le texte y est pousse a la main par UIDropDownMenu_SetText.
+--
+-- opts.choices  : { { value =, label =, tooltip = }, ... }, dans l'ordre d'affichage
+-- opts.get      : fonction() -> valeur courante
+-- opts.onSelect : fonction(value)
+-- opts.width    : largeur du bouton (defaut 160)
+-- opts.labelWidth : largeur imposee du libelle
+-- opts.tooltip  : { title, body, anchor }
+--
+-- container.dropdown, container.label, container.isLegacy (true en repli) ;
+-- container.Refresh() relit opts.get(), container.SetEnabled(bool).
+function UI.CreateDropdown(parent, text, opts)
+    if type(parent) ~= "table" or type(CreateFrame) ~= "function" then
+        return nil
+    end
+    opts = opts or {}
+    local choices = type(opts.choices) == "table" and opts.choices or {}
+    local width = opts.width or 160
+
+    local function Get()
+        if type(opts.get) == "function" then
+            return opts.get()
+        end
+        return nil
+    end
+
+    local function Select(value)
+        if type(opts.onSelect) == "function" then
+            opts.onSelect(value)
+        end
+    end
+
+    local function LabelOf(value)
+        for _, choice in ipairs(choices) do
+            if choice.value == value then
+                return tostring(choice.label or choice.value)
+            end
+        end
+        return ""
+    end
+
+    local container = CreateFrame("Frame", opts.name, parent)
+    container:SetHeight(UI.SIZE.iconButton)
+
+    local label = container:CreateFontString(nil, "OVERLAY", UI.FONT.body)
+    label:SetPoint("LEFT", container, "LEFT", 0, 0)
+    if opts.labelWidth then
+        label:SetWidth(opts.labelWidth)
+    end
+    label:SetText(text or "")
+    UI.BoundLabel(label, "LEFT")
+    container.label = label
+
+    local dropdown
+    local okModern, modern = pcall(CreateFrame, "DropdownButton", nil, container, "WowStyle1DropdownTemplate")
+    if okModern and type(modern) == "table" and type(modern.SetupMenu) == "function" then
+        dropdown = modern
+        container.isLegacy = false
+        dropdown:SetPoint("LEFT", label, "RIGHT", UI.PAD.lg, 0)
+        dropdown:SetWidth(width)
+        if type(dropdown.SetDefaultText) == "function" then
+            pcall(dropdown.SetDefaultText, dropdown, LabelOf(Get()))
+        end
+        dropdown:SetupMenu(function(_, root)
+            for _, choice in ipairs(choices) do
+                local value = choice.value
+                local radio = root:CreateRadio(tostring(choice.label or value),
+                    function() return Get() == value end,
+                    function() Select(value) end)
+                if choice.tooltip and type(radio) == "table" and type(radio.SetTooltip) == "function" then
+                    pcall(radio.SetTooltip, radio, function(tooltip)
+                        tooltip:SetText(tostring(choice.label or value))
+                        tooltip:AddLine(choice.tooltip, 1, 1, 1, true)
+                    end)
+                end
+            end
+        end)
+
+        --- Relit opts.get() et remet le texte du bouton a jour.
+        function container.Refresh()
+            if type(dropdown.SetDefaultText) == "function" then
+                pcall(dropdown.SetDefaultText, dropdown, LabelOf(Get()))
+            end
+            if type(dropdown.GenerateMenu) == "function" then
+                pcall(dropdown.GenerateMenu, dropdown)
+            end
+        end
+    else
+        if okModern and type(modern) == "table" and type(modern.Hide) == "function" then
+            modern:Hide()
+        end
+        local okLegacy, legacy = pcall(CreateFrame, "Frame", opts.name and (opts.name .. "Menu") or nil,
+            container, "UIDropDownMenuTemplate")
+        if not okLegacy or type(legacy) ~= "table" then
+            container:Hide()
+            return nil
+        end
+        dropdown = legacy
+        container.isLegacy = true
+        -- Le template deborde de 16 px a gauche de son bouton.
+        dropdown:SetPoint("LEFT", label, "RIGHT", UI.PAD.lg - 16, 0)
+        if type(UIDropDownMenu_SetWidth) == "function" then
+            UIDropDownMenu_SetWidth(dropdown, width)
+        end
+        if type(UIDropDownMenu_Initialize) == "function" then
+            UIDropDownMenu_Initialize(dropdown, function(_, level)
+                for _, choice in ipairs(choices) do
+                    local value = choice.value
+                    local info = type(UIDropDownMenu_CreateInfo) == "function" and UIDropDownMenu_CreateInfo() or {}
+                    info.text = tostring(choice.label or value)
+                    info.value = value
+                    info.checked = Get() == value
+                    info.func = function()
+                        Select(value)
+                        if type(UIDropDownMenu_SetText) == "function" then
+                            UIDropDownMenu_SetText(dropdown, LabelOf(Get()))
+                        end
+                    end
+                    if choice.tooltip then
+                        info.tooltipTitle = info.text
+                        info.tooltipText = choice.tooltip
+                        info.tooltipOnButton = true
+                    end
+                    if type(UIDropDownMenu_AddButton) == "function" then
+                        UIDropDownMenu_AddButton(info, level)
+                    end
+                end
+            end)
+        end
+
+        --- Relit opts.get() et remet le texte du bouton a jour.
+        function container.Refresh()
+            if type(UIDropDownMenu_SetText) == "function" then
+                UIDropDownMenu_SetText(dropdown, LabelOf(Get()))
+            end
+        end
+    end
+    container.dropdown = dropdown
+
+    --- Grise ou reactive la liste.
+    function container.SetEnabled(first, second)
+        local enabled = ResolveEnabledArg(container, first, second)
+        if container.isLegacy then
+            if enabled and type(UIDropDownMenu_EnableDropDown) == "function" then
+                UIDropDownMenu_EnableDropDown(dropdown)
+            elseif not enabled and type(UIDropDownMenu_DisableDropDown) == "function" then
+                UIDropDownMenu_DisableDropDown(dropdown)
+            end
+        elseif type(dropdown.SetEnabled) == "function" then
+            pcall(dropdown.SetEnabled, dropdown, enabled)
+        elseif enabled and type(dropdown.Enable) == "function" then
+            dropdown:Enable()
+        elseif not enabled and type(dropdown.Disable) == "function" then
+            dropdown:Disable()
+        end
+        if type(dropdown.EnableMouse) == "function" then
+            dropdown:EnableMouse(enabled)
+        end
+        container:SetAlpha(enabled and 1 or DISABLED_ALPHA)
+    end
+
+    --- Cable une infobulle sur le bouton.
+    function container.SetTooltip(title, body, anchor)
+        AttachTooltip(dropdown, title, body, anchor or "ANCHOR_RIGHT")
+    end
+
+    if opts.tooltip then
+        container.SetTooltip(opts.tooltip.title, opts.tooltip.body, opts.tooltip.anchor)
+    end
+
+    container.Refresh()
+    return container
 end
 
 --- Croix de fermeture du rail d'en-tete.

@@ -11,6 +11,9 @@ WIDGET_FIELD_NAMES = {
     Right = true, Middle = true, NormalTexture = true, ScrollBar = true,
     ScrollChild = true, EditBox = true, Title = true, TitleText = true,
     CloseButton = true, Bg = true, Center = true, Overlay = true,
+    -- Bornes d'OptionsSliderTemplate : sans elles, le repli du stub rendrait
+    -- une fonction et le slider echouerait sur `low:SetText`.
+    Low = true, High = true,
 }
 
 local function NewWidget(name, kind)
@@ -65,8 +68,42 @@ local function NewWidget(name, kind)
     function methods.GetStringWidth(self) return 50 end
     function methods.GetText(self) return self.__text end
     function methods.SetText(self, text) self.__text = text end
+    -- Controles a etat des panneaux d'options : slider, champ numerique,
+    -- case a cocher et menu deroulant. Le socle relit ces valeurs apres les
+    -- avoir posees, un stub sans memoire y verrait toujours nil.
+    function methods.SetValue(self, value)
+        self.__value = value
+        local handler = self.__scripts["OnValueChanged"]
+        if handler then handler(self, value, true) end
+    end
+    function methods.GetValue(self) return self.__value end
+    function methods.SetMinMaxValues(self, minValue, maxValue)
+        self.__minValue, self.__maxValue = minValue, maxValue
+    end
+    function methods.GetMinMaxValues(self) return self.__minValue, self.__maxValue end
+    function methods.SetValueStep(self, step) self.__valueStep = step end
+    function methods.GetValueStep(self) return self.__valueStep end
+    function methods.SetObeyStepOnDrag(self, obey) self.__obeyStep = obey end
+    function methods.SetNumber(self, value) self.__text = tostring(value) end
+    function methods.GetNumber(self) return tonumber(self.__text) or 0 end
+    function methods.SetChecked(self, checked) self.__checked = checked and true or false end
+    function methods.GetChecked(self) return self.__checked == true end
+    -- SetupMenu(generator) memorise le generateur ; OpenMenu le rejoue sur une
+    -- racine qui enregistre les entrees, pour verifier la liste des choix.
+    function methods.SetupMenu(self, generator) self.__menuGenerator = generator end
+    function methods.OpenMenu(self)
+        local root = MenuRootStub()
+        if self.__menuGenerator then self.__menuGenerator(self, root) end
+        return root
+    end
+    function methods.CloseMenu(self) end
     function methods.SetFormattedText(self, fmt, ...) self.__text = string.format(fmt, ...) end
-    function methods.IsEnabled(self) return true end
+    -- L'etat actif est suivi : c'est lui qui dit si un bouton d'action est
+    -- reellement proposable, et le raccourci partage comme les tests s'y fient.
+    function methods.SetEnabled(self, enabled) self.__enabled = enabled ~= false end
+    function methods.Enable(self) self.__enabled = true end
+    function methods.Disable(self) self.__enabled = false end
+    function methods.IsEnabled(self) return self.__enabled ~= false end
     function methods.NumLines(self) return 0 end
     function methods.GetFont(self) return "Fonts\\FRIZQT__.TTF", 12, "" end
     function methods.CreateFontString(self, name, layer, template)
@@ -115,6 +152,45 @@ local function NewWidget(name, kind)
     end
     return widget
 end
+
+-- Racine de menu Blizzard (MenuUtil) : chaque Create* enregistre son entree
+-- dans `entries`, et `Select(index)` rejoue le callback de l'entree choisie.
+function MenuRootStub()
+    local root = { entries = {} }
+    local function Register(kind, label, isSelected, setSelected, data)
+        local entry = {
+            kind = kind,
+            label = label,
+            isSelected = isSelected,
+            setSelected = setSelected,
+            data = data,
+            entries = {},
+        }
+        root.entries[#root.entries + 1] = entry
+        return entry
+    end
+    function root.CreateTitle(_, label) return Register("title", label) end
+    function root.CreateDivider() return Register("divider") end
+    function root.CreateButton(_, label, callback, data) return Register("button", label, nil, callback, data) end
+    function root.CreateRadio(_, label, isSelected, setSelected, data)
+        return Register("radio", label, isSelected, setSelected, data)
+    end
+    function root.CreateCheckbox(_, label, isSelected, setSelected, data)
+        return Register("checkbox", label, isSelected, setSelected, data)
+    end
+    function root.Select(_, index)
+        local entry = root.entries[index]
+        if entry and entry.setSelected then entry.setSelected(entry.data) end
+    end
+    return root
+end
+MenuUtil = {
+    CreateContextMenu = function(owner, generator)
+        local root = MenuRootStub()
+        if generator then generator(owner, root) end
+        return root
+    end,
+}
 
 ALL_FRAMES = {}
 function CreateFrame(kind, name, parent, template)
@@ -229,14 +305,32 @@ C_Timer = {
     NewTicker = function() return { Cancel = function() end } end,
 }
 
+-- Les transferts sont enregistres plutot qu'executes : c'est la seule facon de
+-- verifier hors du jeu qu'un clic sort bien UN objet, depuis le bon
+-- emplacement, et qu'un second clic immediat ne fait rien.
+TRANSFER_CALLS = {}
 C_Container = {
     GetContainerNumSlots = function() return 0 end,
     GetContainerItemInfo = function() return nil end,
     GetContainerItemID = function() return nil end,
     GetContainerItemLink = function() return nil end,
     UseContainerItem = function() end,
-    PickupContainerItem = function() end,
+    PickupContainerItem = function(bag, slot)
+        TRANSFER_CALLS[#TRANSFER_CALLS + 1] = ("Pickup %s:%s"):format(tostring(bag), tostring(slot))
+        return true
+    end,
+    SplitContainerItem = function(bag, slot, amount)
+        TRANSFER_CALLS[#TRANSFER_CALLS + 1] = ("Split %s:%s x%s"):format(
+            tostring(bag), tostring(slot), tostring(amount))
+        return true
+    end,
 }
+
+function GetCursorInfo() return nil end
+function ClearCursor()
+    TRANSFER_CALLS[#TRANSFER_CALLS + 1] = "ClearCursor"
+end
+function GetServerTime() return 1770000000 end
 
 C_Item = {
     GetItemInfoInstant = function() return nil end,
@@ -291,7 +385,16 @@ C_AddOns = {
     GetAddOnMetadata = function() return nil end,
 }
 C_EquipmentSet = {}
-C_Bank = {}
+-- La banque de compte : sans ces onglets ni `Enum.BankType`, l'addon conclut
+-- que la Warbank n'est jamais ouverte et rien du flux ne s'exerce.
+C_Bank = {
+    FetchPurchasedBankTabIDs = function() return {} end,
+}
+BankFrame = NewWidget("BankFrame", "Frame")
+BankFrame.__activeBankType = nil
+function BankFrame.GetActiveBankType(self)
+    return (self or BankFrame).__activeBankType
+end
 C_PlayerInteractionManager = {}
 C_DateAndTime = { GetCurrentCalendarTime = function() return { hour = 12, minute = 0 } end }
 
@@ -300,13 +403,27 @@ Enum = {
     TooltipDataUsageRequirementType = { NotAlreadyKnown = 1 },
     CraftingReagentType = { Basic = 1, Finishing = 2, Modifying = 3 },
     PlayerInteractionType = { AccountBanker = 1, MerchantFrame = 2 },
-    BagIndex = { Bank = -1, Bankbag = 6, AccountBankTab = 13, Reagentbank = -3 },
+    BankType = { Character = 0, Account = 2 },
+    BagIndex = {
+        Bank = -1, Bankbag = 6, AccountBankTab = 13, Reagentbank = -3,
+        AccountBankTab_1 = 13, AccountBankTab_2 = 14, AccountBankTab_3 = 15,
+        AccountBankTab_4 = 16, AccountBankTab_5 = 17,
+    },
     ItemQuality = { Poor = 0, Common = 1, Uncommon = 2, Rare = 3, Epic = 4 },
 }
 
+-- Categories enregistrees par les panneaux d'options : GetID est ce que le
+-- socle YayaCore.Settings passe a OpenToCategory.
+SETTINGS_REGISTERED_CATEGORIES = {}
 Settings = {
-    RegisterAddOnCategory = function() end,
-    RegisterCanvasLayoutCategory = function() return { ID = 1 } end,
+    RegisterAddOnCategory = function(category)
+        if type(category) == "table" then category.added = true end
+    end,
+    RegisterCanvasLayoutCategory = function(panel, name)
+        local category = { ID = 1, panel = panel, name = name, GetID = function() return 1 end }
+        SETTINGS_REGISTERED_CATEGORIES[#SETTINGS_REGISTERED_CATEGORIES + 1] = category
+        return category
+    end,
     RegisterVerticalLayoutCategory = function() return { ID = 1 } end,
     CreateCheckbox = function() end,
     CreateControlTextContainer = function()
@@ -315,13 +432,23 @@ Settings = {
     RegisterProxySetting = function()
         return { SetValueChangedCallback = function() end }
     end,
+    -- Memorise l'ouverture demandee : un test peut verifier que /ywt options
+    -- cible bien la categorie enregistree.
+    OpenToCategory = function(categoryID)
+        SETTINGS_OPENED_CATEGORY = categoryID
+    end,
     Default = {}, VarType = { Boolean = "boolean", Number = "number" },
 }
 SettingsPanel = NewWidget("SettingsPanel", "Frame")
+function InterfaceOptionsFrame_OpenToCategory(panel)
+    SETTINGS_OPENED_PANEL = panel
+end
 
+-- L'emplacement porte ses coordonnees : sans elles, une doublure de
+-- `C_Item.IsBound` ne peut pas distinguer un exemplaire lie d'un autre.
 ItemLocation = {
-    CreateFromBagAndSlot = function() return {} end,
-    CreateFromEquipmentSlot = function() return {} end,
+    CreateFromBagAndSlot = function(bag, slot) return { bag = bag, slot = slot } end,
+    CreateFromEquipmentSlot = function(slot) return { equipmentSlot = slot } end,
 }
 
 BackdropTemplateMixin = {}

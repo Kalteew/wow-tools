@@ -55,8 +55,98 @@ les commandes `R` et cadenas du bandeau, `CreateCheckbox(parent, text, opts)`,
 opts)`, `CreateRow` / `DecorateRow`, `CreateScrollList(parent, opts)` et
 `StackLayout(parent, opts)`.
 
+**Controles de reglage.** Trois fabriques pour les panneaux d'options, toutes
+avec `SetValueSilently`-ou-`Refresh` pour resynchroniser sans rappeler le
+callback, et un `SetEnabled(bool)` en style point :
+
+- `CreateSlider(parent, text, opts)` : `OptionsSliderTemplate`, `opts.min / max
+  / step / value / width (200) / format ("%d", "%.1fx" ou fonction) /
+  onChange(value, slider) / tooltip`. La valeur est arrondie au pas et `onChange`
+  n'est rappele que si la valeur arrondie change. Expose `slider.label`,
+  `SetValueSilently(v)`, `GetValueRounded()`, `SetEnabled(bool)`.
+- `CreateNumberInput(parent, text, opts)` : conteneur de hauteur `SIZE.headerH`,
+  libelle + `EditBox InputBoxTemplate` (`opts.width`, defaut `SIZE.inputW`) +
+  suffixe (`opts.suffix`, ex. `"po"`). `SetNumeric(true)` seulement si
+  `opts.decimals` est nil ou 0. Validation sur Entree et perte de focus, Echap
+  restaure ; saisie invalide restauree, clamp `min/max` ; `onCommit(value, box)`
+  seulement si la valeur validee change. Expose `editBox`, `label`, `suffix`,
+  `SetValueSilently(v)`, `GetValue()`, `SetEnabled(bool)`.
+- `CreateDropdown(parent, text, opts)` : `opts.choices = { {value, label,
+  tooltip}, ... }` ordonne, `opts.get()`, `opts.onSelect(value)`, `opts.width
+  (160)`. Primaire `WowStyle1DropdownTemplate` + `SetupMenu` (API Menu), repli
+  `UIDropDownMenuTemplate` si `SetupMenu` manque. Expose `dropdown`, `label`,
+  `isLegacy`, `Refresh()`, `SetEnabled(bool)`.
+
+`SetWidgetEnabled(widget, enabled)` grise n'importe lequel de ces controles ou
+une case a cocher : il appelle le `SetEnabled` expose par nos conteneurs, sinon
+`Enable/Disable` + `EnableMouse`, puis `SetAlpha(1 ou 0.45)`. Tokens dedies :
+`SIZE.settingsRailW 140`, `SIZE.sliderRowH 44`, `SIZE.inputW 80`.
+
 Toutes les fabriques **degradent en `nil`** plutot que de lever quand le client
 n'expose pas ce qu'elles demandent : l'appelant doit traiter ce cas.
+
+### `YayaCore.Settings`
+
+Constructeur de panneaux d'options a categories, charge apres `UI.lua`. Un
+panneau = un rail de boutons a gauche (une entree par categorie, omis s'il n'y a
+qu'une categorie) et une page scrollable par categorie a droite. Les widgets
+sont relies a la base par `get`/`set` et resynchronises a chaque ouverture.
+
+**Descripteur d'option** (une table de donnees par entree) :
+
+```lua
+{ type = "checkbox"|"radio"|"slider"|"number"|"dropdown"|"button"|"section"|"text"|"orderlist",
+  -- type absent + key presente => "checkbox" ; type absent sans key => entree ignoree
+  key, label, tooltip, category,   -- category absente => celle de l'entree precedente, sinon "General"
+  default,                         -- sinon spec.defaults[key]
+  get = function(db) end,          -- defaut db[key] ; checkbox : db[key] ~= false si default == true,
+  set = function(db, v) end,       --   db[key] == true sinon
+  onChange = function(key, v, desc) end,   -- en plus du onChange du panneau
+  dependsOn = "autreCle" | function(db) -> bool,  -- grise le widget si faux
+  db = function() end,             -- base propre a ce descripteur (perso vs compte)
+  effect = "...",                  -- champ libre, non interprete par le socle
+  min, max, step, format, suffix, width, decimals,   -- slider / number
+  choices = { {value, label, tooltip}, ... },        -- radio / dropdown
+  onClick = function(desc, button) end,              -- button
+  items = { {id, label}, ... } | function() -> liste, hiddenKey = "..." }   -- orderlist
+```
+
+`radio` : un descripteur avec `choices` produit un groupe de boutons radio, un
+seul coche, valeur ecrite = `choice.value`. `orderlist` : une ligne par element
+(case « visible » si `hiddenKey`, libelle, boutons `^` / `v`) ; la valeur
+`db[key]` est la liste ordonnee des ids, normalisee a la lecture (ordre stocke
+filtre aux ids connus, ids manquants en queue dans l'ordre de `items`) ;
+`db[hiddenKey][id] = true` pour un element decoche. Le widget expose `rows[i]`
+avec `id`, `check`, `label`, `up`, `down`.
+
+**Fonctions.**
+
+- `ApplyDefaults(db, defaults, keys?)` : remplit uniquement les valeurs `nil`
+  (un `false` est garde), copie profonde des tables ; `keys` optionnel, tableau
+  de chaines ou de descripteurs.
+- `NormalizeOption(desc, previousCategory)` : complete type, categorie, get et
+  set ; rend `nil` pour une entree sans type ni cle.
+- `BuildPanel(spec)` avec `spec = { name, description, db = function() -> table,
+  defaults, options, onChange = function(key, value, desc) end, framePrefix,
+  rail = nil|true|false }`. Rend `nil` sans `CreateFrame`, sinon un handle
+  `{ panel, category, Open(), Refresh(), SetCategory(name), widgets = {[key] =
+  widget}, pages = {[category] = frame}, categories = {name, ...} }`. Le
+  panneau est enregistre via `Settings.RegisterCanvasLayoutCategory`, repli
+  `InterfaceOptions_AddCategory`, sinon `category == nil` et `Open()` ne fait
+  rien. `panel.OnDefault` remet chaque cle a son defaut connu.
+
+Une ecriture suit toujours le meme chemin : `desc.set(db, v)` puis
+`desc.onChange`, puis `spec.onChange(key, v, desc)`, puis `Refresh()`. Pendant
+`Refresh()` un drapeau interne fait ignorer tout evenement de widget : sans lui,
+`SetValue` declenche `OnValueChanged` et chaque ouverture reecrirait la base.
+Un widget dont le template manque en jeu est saute sans erreur.
+
+**Regle « zero local de chunk » cote consommateur.** Poser les descripteurs sur
+une table deja globale (`runtimeState.trackingOptions`) ou les construire dans
+la fonction qui appelle `BuildPanel` : une closure ecrite au niveau chunk ne
+voit pas les locals declares plus bas dans le fichier et lirait des globales
+`nil`. Les descripteurs peuvent rester purement data (`effect = "..."`) et
+laisser le `onChange` du panneau faire le dispatch.
 
 ### `YayaCore.ActionBinding`
 
@@ -139,8 +229,14 @@ est absente ou desactivee.
 
 ## Tests
 
-`Tests/test_yayacore.lua` s'execute hors du jeu avec Lua 5.1, l'API WoW etant
-remplacee par des doublures :
+`Tests/test_yayacore.lua`, `Tests/test_yayacoreui.lua`,
+`Tests/test_action_binding.lua` et `Tests/test_yayacoresettings.lua` s'executent
+hors du jeu avec Lua 5.1, l'API WoW etant remplacee par des doublures.
+`Tests/ui_stub.lua` (charge par `dofile`, pas une suite) fournit des widgets a
+etat -- `SetChecked/GetChecked`, `SetValue` qui rejoue `OnValueChanged`,
+`ClearFocus` qui declenche `OnEditFocusLost`, `SetupMenu` capturant les radios
+-- plus les stubs `Settings` et `UIDropDownMenu_*`, et une table
+`MISSING_TEMPLATES` pour simuler un template absent :
 
 ```
 pwsh -NoProfile -File ..\..\scripts\Test-Addons.ps1 -LuaPath <dossier lua>

@@ -8,18 +8,18 @@ sinon le bouton d'action YWT visible et actif le plus bas. Inactif en combat.
 Addon Retail simple pour :
 
 - ajouter une recette depuis l'UI Blizzard des metiers avec la quantite placee a cote du bouton `Ajouter YQ`
-- masquer l'optimisateur de reactifs par defaut et le basculer avec le bouton `optimiseur` de la rangee d'actions du metier, ou avec `/yq opti [on|off]`. Masque, il ne construit pas ses widgets et n'engage aucun solveur ; l'etat est persiste dans `YayaQueueDB.qualityPanelEnabled` et survit a un changement de recette, a une reouverture de metier et a un `/reload` -- la croix du panneau eteint la meme preference
-- afficher sur la page de fabrication une frame de sélection de qualité YQ, avec icônes de qualité, qualité maximale atteignable, concentration optionnelle, quantité conservée entre les recettes (réinitialisation configurable dans les options WoW, désactivée par défaut) avec reset `R` et choix automatique des réactifs les moins chers
+- masquer l'optimisateur de reactifs par defaut et le basculer avec le bouton `optimiseur` de la rangee d'actions du metier, ou avec `/yq opti [on|off]`, ou depuis `/yq options` > Panneau de file. Masque, il ne construit pas ses widgets et n'engage aucun solveur ; l'etat est persiste dans `YayaQueueDB.qualityPanelEnabled` et survit a un changement de recette, a une reouverture de metier et a un `/reload` -- la croix du panneau eteint la meme preference
+- afficher sur la page de fabrication une frame de sélection de qualité YQ, avec icônes de qualité, qualité maximale atteignable, concentration optionnelle, quantité conservée entre les recettes (réinitialisation configurable dans `/yq options` > Automatismes, désactivée par défaut) avec reset `R` et choix automatique des réactifs les moins chers
 - utiliser uniquement les réactifs rang 1 dans les flows automatiques ; les rangs supérieurs restent réservés au flow explicite d'optimisation des réactifs. La contrainte est appliquée au point d'étranglement `AddRecipeToQueue`, donc sur tous les chemins d'ajout — patron orders, dumps de concentration, first crafts — sauf l'optimiseur (identifié par sa qualité cible) et les fusions Gold Star, qui consomment par construction des rangs supérieurs. Un stock de rang supérieur, warbank comprise, ne masque plus le manque de rang 1 : celui-ci apparaît en manquant dans la liste d'achat, et une commande de patron dont la qualité exigée n'est pas atteignable en rang 1 n'est pas mise en file automatiquement
 - arrêter proprement les auto-queues d’ouverture si une préparation échoue, sans boucle de relance ni blocage du scan des premières fabrications
 - afficher cette frame comme une fenêtre flottante bâtie sur le design system partagé `YayaCore.UI` : bandeau de titre déplaçable avec verrou de position (persistée dans `qualityPanelPoint`), bandeau d'information en deux colonnes de paires libellé/valeur, et lignes de réactifs portant l'icône, le nom de l'objet, les quantités réparties par rang, le prix unitaire et le coût de la ligne. La fenêtre est ancrée en bas et pousse vers le haut, pour que le bouton d'ajout ne se déplace pas quand on change de recette. Le corps du panneau n'active pas la souris : il partage la strate de `YayaFrame` et intercepterait les clics destinés au tracker hebdo situé dessous
 - afficher toujours `dump conc.` sur une recette visible, puis le griser si la concentration restante après les réservations de la queue ne permet pas d'ajouter au moins un craft
 - afficher la file dans une liste scrollable de lignes riches (icône d'objet, infobulle, quantité en colonne), sans plafond de tâches détaillées
-- régler le nombre de lignes visibles en tirant le bord **haut** du panneau, ou avec `/yq rows <n>` ; la valeur est conservée entre les sessions
-- verrouiller la position du panneau avec le cadenas de l'en-tête ou `/yq lock`, et vider la file avec le bouton `R`
+- régler le nombre de lignes visibles en tirant le bord **haut** du panneau, avec `/yq rows <n>` ou le curseur de `/yq options` > Panneau de file ; la valeur est conservée entre les sessions
+- verrouiller la position du panneau avec le cadenas de l'en-tête, `/yq lock` ou `/yq options` > Panneau de file, et vider la file avec le bouton `R`
 - ancrer le coin inférieur gauche de la fenêtre pour que ses changements de hauteur s'étendent vers le haut et la droite
 - inclure le réactif actuellement sélectionné dans les slots requis sélectionnables (par exemple Mote of Primal Energy), même si l’API de transaction l’omet
-- ajouter en une fois les first crafts connus non realises dont le cout CraftSim est strictement inferieur a 1000 po
+- ajouter en une fois les first crafts connus non realises dont le cout CraftSim est strictement inferieur au plafond `firstCraftCostLimitGold` (1000 po par defaut)
 - exclure automatiquement des first crafts les recettes qui consomment un Spark, de l'Artisan's Mettle/Acuity ou du Fused Vitality
 - garder une frame flottante a l'ecran pour suivre la queue
 - accepter des ajouts externes via `YayaQueueAPI.AddRecipe(...)`, des besoins supplementaires via `YayaQueueAPI.AddItem(itemID, quantite, nom [, variante])`, leur lecture via `YayaQueueAPI.GetDirectItemQuantity(itemID [, variante])`, leur retrait via `YayaQueueAPI.RemoveItem(itemID, quantite [, variante])` et des cibles idempotentes via `YayaQueueAPI.SetItemTarget(...)`
@@ -27,12 +27,12 @@ Addon Retail simple pour :
 - garder a l'HV les composants PvP echangeables achetes contre une monnaie, meme s'ils sont proposes par un vendeur
 - afficher `Acquérir X` pour les composants soulbound, sans les envoyer vers l'HV
 - afficher un bouton unique d'achat groupé chez les marchands compatibles
-- acheter automatiquement les composants manquants à l'ouverture d'un marchand compatible (désactivable avec `/yq vendor off`)
+- acheter automatiquement les composants manquants à l'ouverture d'un marchand compatible (désactivable avec `/yq vendor off` ou `/yq options` > Automatismes)
 - exposer un onglet `YayaQueue` a l'HV, le selectionner par defaut quand des achats HV sont requis, avec un bouton unique `Rechercher tout` puis `Acheter suivant`
-- demander une confirmation avant tout achat HV dont le prix atteint 1,5x le `dbrecent` TSM
+- demander une confirmation avant tout achat HV dont le prix atteint `auctionHighPriceMultiplier` fois le `dbrecent` TSM (1,5 par defaut)
 - persister le dernier prix unitaire observe a l'HV dans `YayaQueueDB` (region pour les commodities, royaume pour les autres objets) et le reutiliser pour les prix des reactifs
 - comparer chaque achat au snapshot precedent; une hausse affiche une alerte dans le chat et joue un son configurable dans l'onglet YQ ; hors seuil `dbrecent`, l'achat automatique continue
-- la commande de patron actuellement claimée passe avant toute autre entrée, dans le bouton `Next` comme dans la liste affichée ; le blocage `Next: relâche la commande` ne subsiste que si cette commande n'est pas du tout dans la file
+- la commande de patron actuellement claimée passe avant toute autre entrée, dans le bouton `Next` comme dans la liste affichée ; le blocage `Next: relâche la commande` ne subsiste que si cette commande n'est pas du tout dans la file (voir « Tri de la file » : la cascade complete vit dans `QueueOrder.lua` et se choisit avec `/yq sort`)
 - une recette de broyage ou de recyclage est reconnue comme telle dès la construction du contexte (`isSalvageRecipe` de l'API, à défaut `recipeType`), quel que soit le chemin d'ajout : elle passe par `CraftSalvage` et non par `CraftRecipe`, qui restait sans effet et laissait le bouton bloqué 30 s. L'`ItemLocation` privilégie une pile des sacs, puis retombe sur la banque du personnage ou la Warbank : un stock rangé en banque ne bloque plus `Next`, et le bouton affiche alors `(banque)`. Le regroupement `Next: regroupe les piles` compare désormais le stock total, banques comprises, car `CraftSalvage` ne consomme qu'une seule pile
 - un `UNIT_SPELLCAST_FAILED` ou `UNIT_SPELLCAST_INTERRUPTED` ne purge l’état de craft en attente que si le sort en échec est celui du craft suivi : pour une recette de métier l’identifiant de sort est le `recipeID`. Un sort étranger jetait l’entrée en attente, et le craft réussi juste après ne pouvait plus être consommé de la file. Les deux cas sont tracés avec `spellID` et le nom du sort
 - afficher un bouton `Next` en bas de la queue pour avancer les crafts normaux et les patron orders par API directe, sans changer la recette ou l’onglet visibles ; les patrons suivent `ClaimOrder` → craft avec `orderID` → `FulfillOrder`, avec resynchronisation headless seulement après erreur ou timeout, et une etape `Mailbox` après achat HV
@@ -75,12 +75,12 @@ Notes :
 - pour un patron order, `Next` transmet aussi l’option concentration à l’appel direct de craft ; le flag du contexte YCO ne reste pas limité aux crafts normaux
 - une commande patron est strictement unique par `orderID`; les doublons persistés sont normalisés à un craft et les synchronisations ne retirent jamais la commande affichée, claimée ou verrouillée par `Next`
 - les commandes patron mémorisent leurs `CraftingReagentInfo` joueur ; Blizzard conserve les composants fournis par le client et les réactifs de base. L’entrée n’est consommée et marquée récemment terminée qu’après confirmation de sa disparition suivant le fulfill ; une disparition antérieure est traitée comme une expiration
-- chaque ajout d’une entrée avec concentration ajoute une demande de Flasque d’inventivité haranir (R1 par défaut, R2 configurable via `/yq options`); le même bouton sécurisé `Next: Phial` consomme l’objet depuis les sacs avant le craft normal, le patron order ou le broyage si le buff est absent, puis redevient `Next: Craft` après confirmation du buff
+- chaque ajout d’une entrée avec concentration ajoute une demande de Flasque d’inventivité haranir (R1 par défaut, R2 configurable via `/yq options` > Concentration); le même bouton sécurisé `Next: Phial` consomme l’objet depuis les sacs avant le craft normal, le patron order ou le broyage si le buff est absent, puis redevient `Next: Craft` après confirmation du buff
 - le buff d’ingéniosité est détecté par tous les signaux disponibles — l’ID de sort connu, plus ceux résolus via `C_Item.GetItemSpell` pour chaque rang, avec repli sur les noms d’objet et de sort rendus par le client, donc déjà localisés : la détection reste correcte quelle que soit la langue du client. Le clic relit l’aura juste avant de consommer, et une consommation qui reste sans confirmation coupe tout réarmement automatique au lieu d’enchaîner les flasques
 - toute recette d’enchantement Midnight ajoutée par l’UI, l’optimiseur de réactifs, les first crafts ou un patron conserve son marqueur d’enchantement ; avant chaque craft normal ou patron d’enchantement, `Next` vérifie d’abord que le sort Shatter (`1235731`) est appris, puis l’aura Shatter par ID (`1235733`); si nécessaire, il utilise une mote disponible dans les sacs ou la warbank sans retrait manuel via `CraftSalvage` et sa `ItemLocation`, puis achète la mote Midnight la moins chère parmi les IDs connus (`236949` à `236952`) avant de reprendre le craft après confirmation de l’aura
-- les achats marchand de phials Haranir d’ingéniosité se font par 10 par défaut afin de conserver un buffer, avec choix par 10 ou par 1 dans l’onglet d’options WoW `YayaQueue`
-- l’utilisation automatique des phials peut être désactivée dans `/yq options`; les demandes automatiques déjà présentes sont masquées pendant la désactivation
-- la réinjection après remboursement d’Ingéniosité peut être désactivée dans l’onglet d’options WoW `YayaQueue`
+- les achats marchand de phials Haranir d’ingéniosité se font par 10 par défaut afin de conserver un buffer, avec choix par 10 ou par 1 dans `/yq options` > Concentration
+- l’utilisation automatique des phials peut être désactivée dans `/yq options` > Concentration; les demandes automatiques déjà présentes sont masquées pendant la désactivation
+- la réinjection après remboursement d’Ingéniosité peut être désactivée dans `/yq options` > Concentration
 - les traces `/yq debug` corrèlent l’ouverture du métier, le métier courant, l’attente des données, les favoris, les transmutations/alchimie, la chaîne générique de déduction de chaque craft (appel API, pending, événement, match et quantité restante), les remplissages de spécialisations (instantané de tout le chemin, décision, appels et réponses de l’API Traits, attente, rang avant/après, déblocage et résumé du clic) et les quantités finalement ajoutées
 - une session YQ ne crée qu’une seule demande automatique de phial, même si plusieurs entrées concentration sont ajoutées
 - une recette sans plan CraftSim repasse explicitement en allocation automatique Blizzard afin qu'un ancien plan manuel ne bloque pas le craft
@@ -104,6 +104,8 @@ Notes :
 - le choix d'outil de craft (`state.craftGear`) lit desormais la statistique par cette meme table : il visait les globals `_RATING*` inexistants et des alias inventes, si bien qu'un outil Resourcefulness restait de role `none` sur un client francais. Plus aucun repli sur `GetItemStats`, qui peut ne decrire que l'objet de base
 - une demande a variante forme sa **propre tache** : le stock possede comme les annonces achetables changent avec la contrainte. L'outil Resourcefulness et l'outil Multicrafting d'un metier partagent leur itemID et coexistent donc en deux lignes, distinguees dans la liste par `<statistique ilvl>=seuil>`
 - le stock est compte par variante, en relisant les liens des sacs et des emplacements equipes : posseder un outil rang 1 n'annule plus la demande d'un outil rang maximal. Une sortie craftee, elle, n'a pas de variante et ne satisfait aucune demande de ce type
+- la banque de compte entre dans l'ecremage par `C_Item.GetItemCount` mais reste illisible d'ici : ses onglets ne sont adressables que banque ouverte, et un lien manquant ne dit ni la statistique ni le rang. `state.CountOwnedVariant` interroge donc l'instantane Warbank de YayaWeeklyTracker (`YayaWeeklyTrackerAPI.ResolveWarbankItem`), ce qui evite de racheter un exemplaire conforme qui y dort. Dependance optionnelle : sans le tracker, le comportement d'avant
+- le filtre soulbound est **conserve** pour l'echange d'outil avant craft : YayaQueue n'equipe que ce qui appartient deja au personnage. C'est l'inverse du tracker, qui compte la possession et retient donc aussi un outil tout juste achete, pas encore lie
 - une demande a variante tient son **propre compteur d'achats en transit**, sous une cle `itemID#variante` (`state.AddVariantIncomingPurchase`, `state.SettleVariantIncoming`). Un objet non empilable achete a l'hotel des ventes arrive **par courrier**, donc ni dans les sacs ni a l'equipement : sans ce compteur la ligne gardait son manquant et le meme outil se rachetait a chaque clic. Le compteur general, lui, est porte par l'itemID : s'en servir masquait les **deux** lignes d'un outil des qu'une seule etait achetee, puisque l'outil Resourcefulness et l'outil Multicrafting partagent leur itemID, et interdisait d'acheter le second avant d'avoir releve le courrier
 - la livraison se solde en comparant le stock **de la variante** a celui observe juste avant l'achat : c'est la seule mesure qui sache dire laquelle des deux vient d'arriver. Un stock deja present avant l'achat ne solde donc rien
 - une seule recherche HV sert toutes les variantes d'un itemID. Un niveau d'objet **nul** rend toutes les annonces d'une marchandise, mais **pas** celles d'un equipement : le serveur range ses resultats sous la cle exacte des annonces, niveau compris. La file tente donc le niveau nul, puis **une seule fois** le niveau exige par la variante quand rien ne revient (trace `search-retry`). `GetItemKeyRequiresLevel` ne sert pas d'arbitre : elle depend d'un `GetItemKeyInfo` asynchrone et repond faux tant que la cle n'est pas chargee, ce qui ramenerait justement au niveau nul. Les resultats sont relus avec la cle rendue par l'evenement, donc celle que le serveur a servie
@@ -141,3 +143,76 @@ Notes :
 - en combat, une action qui exige un bouton securise (`equip_tool`, `shatter`, `merge`) affiche `(combat)` et grise le bouton : `SetAttribute` etant interdit sous lockdown, le bouton restait auparavant actif et le clic ne faisait rien
 - pendant la fenetre de confirmation d'un Shatter, seule la reussite du sort de Shatter court-circuite le traitement des crafts ; les autres crafts confirmes continuent de decrementer la queue, de liberer le verrou de lot et d'alimenter le suivi du favori en concentration
 - les evenements sont routes par une table plutot que par une chaine de tests successifs ; le comportement est identique, y compris le double traitement volontaire de `BAG_UPDATE_DELAYED` (invalidation du stock, puis relance de l'achat marchand)
+
+## Options
+
+`/yq options` ouvre le panneau `YayaQueue` de la fenetre d'options du client. Il est construit par `YayaCore.Settings.BuildPanel` a partir de descripteurs ecrits dans `YQQuality.EnsureOptions` : un rail de six categories a gauche, une page scrollable par categorie a droite, et chaque widget relie a `YayaQueueDB` par lecture/ecriture directe. Une ecriture faite ailleurs -- slash, cadenas, poignee de redimensionnement, case de l'onglet HV, bouton `optimiseur` -- resynchronise le panneau via `state.RefreshOptionsPanel()`, si bien que la valeur affichee est toujours celle de la base. Tous les reglages sont normalises au chargement par `state.EnsureDB` : une valeur absente ou hors bornes vaut son defaut.
+
+| Categorie | Cle | Widget | Defaut | Bornes / valeurs | Effet |
+|---|---|---|---|---|---|
+| Panneau de file | `panelLocked` | case | `false` | | cadenas du panneau (`/yq lock`) |
+| Panneau de file | `craftVisibleRows` | curseur | 8 | 2 a 24 | lignes visibles de la file (`/yq rows`, bord haut du panneau) |
+| Panneau de file | `queueSortMode` | liste | `standard` | modes de `QueueOrder.MODES` | ordre du bouton `Next` et de la liste (`/yq sort`) |
+| Panneau de file | `qualityPanelEnabled` | case | `false` | | affiche l'optimisateur de reactifs via `SetSelectorEnabled` (`/yq opti`, bouton `optimiseur`) |
+| Panneau de file | `qualityPanelLocked` | case | `false` | | cadenas de la fenetre d'optimisation |
+| Concentration | `concentrationPhialEnabled` | case | `true` | | demande automatique de phial avant les crafts concentration |
+| Concentration | `concentrationPhialRank` | case « rang 2 » | 1 | 1 ou 2 | rang de la phial demandee |
+| Concentration | `concentrationPhialPurchaseQuantity` | radio | 10 | 10 ou 1 | quantite achetee chez le marchand |
+| Concentration | `autoQueueIngenuityRefund` | case | `true` | | reinjection apres remboursement d'ingeniosite ; coupe, le tracker est remis a zero |
+| Automatismes | `autoBuyVendor` | case | `true` | | achat automatique chez le marchand (`/yq vendor`) |
+| Automatismes | `autoQueueFavoriteConcentration` | case | `true` | | favori en concentration a l'ouverture du metier |
+| Automatismes | `autoQueueAlchemy` | case | `true` | | transmutations d'alchimie a l'ouverture du metier ; coupe, le scan en attente est annule |
+| Automatismes | `resetQuantityOnRecipeChange` | case | `false` | | quantite remise a 1 au changement de recette |
+| HV et seuils | `auctionPriceWarningSoundEnabled` | case | `true` | | son si le prix HV est trop haut (case de l'onglet HV) |
+| HV et seuils | `auctionPriceWarningTolerancePercent` | curseur | 0 | 0 a 50 % | hausse toleree avant l'alerte de prix |
+| HV et seuils | `auctionHighPriceMultiplier` | curseur | 1,5 | 1,0 a 3,0 pas 0,1 | confirmation au-dela de ce multiple du `dbrecent` TSM |
+| HV et seuils | `auctionCutPercent` | curseur | 5 | 0 a 15 pas 0,5 | taxe HV retenue dans le profit ; invalide le cache de prix |
+| HV et seuils | `firstCraftCostLimitGold` | nombre (po) | 1000 | 0 a 100000 | plafond de cout d'un first craft automatique |
+| HV et seuils | `wondrousSynergistMinBuyoutGold` | nombre (po) | 90 | 0 a 10000 | plancher `dbminbuyout` de la transmutation Wondrous Synergist |
+| Shatter (enchantement) | `shatterGatingEnabled` | case | `true` | | coupe : le Shatter est traite comme un sort inconnu, ni bouton ni demande de mote ; la demande en file est retiree |
+| Shatter (enchantement) | `shatterPreferredMoteItemID` | liste | 0 | 0 (la moins chere) ou l'une des quatre motes `236949`-`236952` | mote utilisee ; changer retire la demande en file |
+| Diagnostic | `debugEnabled` | case | `false` | | mode debug, account-wide, conserve apres `/reload` (`/yq debug`) |
+| Diagnostic | `debugLogOnly` | case | `false` | | traces vers le journal `/yq log` seulement, sans le chat ; grisee si le debug est coupe |
+
+`qualityUseGoldStar` reste pilote par la fenetre d'optimisation et n'a pas de widget dans ce panneau. Si `YayaCore.Settings` n'est pas charge, le panneau n'est pas construit et `/yq options` est muet ; le reste de l'addon fonctionne.
+
+## Tri de la file
+
+Le bouton `Next` et la liste affichee partagent une seule cascade de tri, ecrite dans `QueueOrder.lua` et testee hors du jeu par `Tests/test_queueorder.lua`. Elle vivait auparavant en double dans `YayaQueue.lua` (une boucle « garder le meilleur » pour le bouton, un comparateur pour la liste), et toute retouche devait etre faite deux fois a l'identique.
+
+Trois invariants tiennent dans tous les modes, parce qu'un autre ordre casse le bouton `Next` :
+
+1. la commande de patron actuellement claim passe en tete (sinon `Next` reste sur « relache la commande ») ;
+2. le salvage, le recyclage et le broyage viennent ensuite ;
+3. au sein d'un meme bloc de metier, les fusions (`merge`) precedent les crafts, par profondeur croissante : un craft consommateur place devant son producteur bloque `Next` sur « materiaux ». En `standard` et `profession_insertion` ce bloc est celui du metier ouvert (une recette du metier ouvert passe donc avant une fusion d'un autre metier, comme historiquement) ; en `profit` et `insertion` toutes les fusions precedent tout craft.
+
+La suite est choisie par `queueSortMode` (`/yq sort <mode>`, conserve apres `/reload`) :
+
+| Mode | Cascade complete apres claim et salvage |
+|---|---|
+| `standard` (defaut) | metier ouvert, puis fusions avant crafts et profondeur croissante, puis outil de metier a equiper (rien a equiper d'abord), puis profit decroissant, puis profit connu avant inconnu, puis ordre d'ajout -- cran pour cran la cascade historique |
+| `profit` | fusions avant crafts et profondeur croissante, puis profit decroissant, puis profit connu avant inconnu, puis metier ouvert, puis outil a equiper, puis ordre d'ajout |
+| `profession_insertion` | metier ouvert, puis fusions avant crafts et profondeur croissante, puis ordre d'ajout |
+| `insertion` | fusions avant crafts et profondeur croissante, puis ordre d'ajout |
+
+L'ordre d'ajout departage toujours en dernier : l'ordre est strict et total, donc deux entrees ne sont jamais a egalite et la premiere ligne de la liste est exactement l'entree du bouton `Next`. Un mode inconnu dans la base vaut `standard`.
+
+## Commandes
+
+| Commande | Effet |
+|---|---|
+| `/yq` | resume de la file : nombre de crafts, d'achats HV et marchand |
+| `/yq help` | liste des commandes |
+| `/yq reset` | vide la file |
+| `/yq debug [on\|off]` | bascule le mode debug, account-wide, conserve apres `/reload` |
+| `/yq options` | ouvre le panneau d'options |
+| `/yq stock` | composition brute du stock vendable |
+| `/yq lock` | verrouille ou deverrouille la position du panneau |
+| `/yq rows [n]` | nombre de lignes visibles de la file (2 a 24) |
+| `/yq opttest` | tests internes du solveur de reactifs |
+| `/yq opti [on\|off]` | affiche ou masque l'optimisateur de reactifs |
+| `/yq vendor [on\|off\|status]` | achat automatique chez le marchand |
+| `/yq sort [mode]` | sans argument : mode courant et liste des modes ; avec un mode : l'ecrit et rafraichit la file |
+| `/yq log [n\|clear]` | journal debug persistant : les `n` dernieres lignes, ou vidage |
+
+Les reglages persistants (`YayaQueueDB`) sont tous normalises au chargement par `state.EnsureDB` : une valeur absente ou hors bornes vaut son defaut. Leur liste, avec defauts et bornes, est le tableau de la section « Options » ; chaque slash qui en ecrit un (`debug`, `lock`, `rows`, `opti`, `vendor`, `sort`) resynchronise le panneau.
