@@ -93,16 +93,23 @@ print("Valeurs par defaut")
 
 local db = ResetDb()
 equals("la proposition de reload est silencieuse par defaut", db.promptReload, false)
-equals("le tri par defaut porte sur le nom", db.sortKey, "name")
-equals("le tri par defaut est croissant", db.sortDesc, false)
+equals("le tri par defaut porte sur le niveau", db.sortKey, "level")
+equals("le tri par defaut est decroissant", db.sortDesc, true)
 equals("le diagnostic reste actif par defaut", db.debug, true)
 
 -- Un choix deja pose ne doit pas etre ecrase au chargement suivant.
-_G.YayaAddonProfilesDB = { promptReload = true, sortKey = "level", sortDesc = true, debug = false }
+_G.YayaAddonProfilesDB = { promptReload = true, sortKey = "name", sortDesc = false, debug = false }
 Internal.EnsureDb()
 equals("un choix de reload existant survit", _G.YayaAddonProfilesDB.promptReload, true)
-equals("une cle de tri existante survit", _G.YayaAddonProfilesDB.sortKey, "level")
-equals("un sens de tri existant survit", _G.YayaAddonProfilesDB.sortDesc, true)
+equals("une cle de tri existante survit", _G.YayaAddonProfilesDB.sortKey, "name")
+equals("un sens de tri existant survit", _G.YayaAddonProfilesDB.sortDesc, false)
+
+-- Le defaut est couple : une cle deja choisie sans sens enregistre ne doit pas
+-- heriter du sens decroissant du niveau.
+_G.YayaAddonProfilesDB = { sortKey = "name" }
+Internal.EnsureDb()
+equals("une cle seule est conservee", _G.YayaAddonProfilesDB.sortKey, "name")
+equals("le sens manquant retombe sur le croissant", _G.YayaAddonProfilesDB.sortDesc, false)
 
 -- ---------------------------------------------------------------------------
 -- RememberCharacter : la fusion champ par champ
@@ -242,6 +249,9 @@ local function ids(list)
     return table.concat(names, ",")
 end
 
+-- Hors jeu, personne n'est connecte : le tri doit se lire sans tete de liste.
+Internal.SetCurrentCharacter(nil, nil)
+
 db = ResetDb({
     ["Bbb-Hyjal"] = { id = "Bbb-Hyjal", level = 80 },
     ["Aaa-Hyjal"] = { id = "Aaa-Hyjal", level = 60 },
@@ -279,23 +289,86 @@ db.sortDesc = true
 equals("tri par profil decroissant, sans profil toujours en fin", ids(Internal.SortedCharacters()),
     "Aaa-Hyjal,Bbb-Hyjal,Ccc-Hyjal,Ddd-Hyjal")
 
+-- Le personnage connecte ouvre la liste quel que soit le tri ; le reste de la
+-- liste garde l'ordre de la colonne.
+Internal.SetCurrentCharacter("Ccc-Hyjal", nil)
+
+db.sortKey, db.sortDesc = "name", false
+equals("le connecte precede le tri par nom croissant", ids(Internal.SortedCharacters()),
+    "Ccc-Hyjal,Aaa-Hyjal,Bbb-Hyjal,Ddd-Hyjal")
+
+db.sortDesc = true
+equals("le connecte precede le tri par nom decroissant", ids(Internal.SortedCharacters()),
+    "Ccc-Hyjal,Ddd-Hyjal,Bbb-Hyjal,Aaa-Hyjal")
+
+-- Meme sans niveau connu, le connecte n'est pas relegue en fin de liste.
+db.sortKey, db.sortDesc = "level", true
+equals("le connecte sans niveau precede le tri par niveau decroissant", ids(Internal.SortedCharacters()),
+    "Ccc-Hyjal,Bbb-Hyjal,Ddd-Hyjal,Aaa-Hyjal")
+
+db.sortKey, db.sortDesc = "profile", false
+equals("le connecte sans profil precede le tri par profil croissant", ids(Internal.SortedCharacters()),
+    "Ccc-Hyjal,Bbb-Hyjal,Aaa-Hyjal,Ddd-Hyjal")
+
+-- Le GUID suffit quand l'identifiant differe, par exemple une entree gardee
+-- sous une forme de royaume que le jeu ne regenere pas.
+db.characters["Ddd-Hyjal"].guid = "Player-1390-0000DDDD"
+Internal.SetCurrentCharacter("Autre-Hyjal", "Player-1390-0000DDDD")
+db.sortKey, db.sortDesc = "name", false
+equals("le connecte se reconnait par son GUID quand l'identifiant differe",
+    ids(Internal.SortedCharacters()), "Ddd-Hyjal,Aaa-Hyjal,Bbb-Hyjal,Ccc-Hyjal")
+
+-- Un connecte absent de la liste ne change rien a l'ordre.
+Internal.SetCurrentCharacter("Inconnu-Hyjal", "Player-1390-FFFFFFFF")
+equals("un connecte inconnu laisse l'ordre du cas nil", ids(Internal.SortedCharacters()),
+    "Aaa-Hyjal,Bbb-Hyjal,Ccc-Hyjal,Ddd-Hyjal")
+Internal.SetCurrentCharacter(nil, nil)
+
 -- Le comparateur doit rester un ordre strict total, sinon table.sort leve
 -- "invalid order function for sorting" sur certaines permutations.
-db = ResetDb()
-for index = 1, 40 do
-    local id = ("Perso%02d-Hyjal"):format(index)
-    db.characters[id] = { id = id, level = (index % 3 == 0) and nil or (60 + (index % 7)) }
-    if index % 4 == 0 then
-        db.assignments[id] = ("Profil%d"):format(index % 3)
+local function SeedFuzzCharacters()
+    db = ResetDb()
+    for index = 1, 40 do
+        local id = ("Perso%02d-Hyjal"):format(index)
+        db.characters[id] = { id = id, level = (index % 3 == 0) and nil or (60 + (index % 7)) }
+        if index % 4 == 0 then
+            db.assignments[id] = ("Profil%d"):format(index % 3)
+        end
+    end
+    return db
+end
+
+local function CheckStrictOrder(label)
+    for _, key in ipairs({ "name", "level", "profile" }) do
+        for _, desc in ipairs({ false, true }) do
+            db.sortKey, db.sortDesc = key, desc
+            local ok = pcall(Internal.SortedCharacters)
+            check(("le tri %s %s reste un ordre strict%s"):format(
+                key, desc and "descendant" or "ascendant", label), ok)
+        end
     end
 end
-for _, key in ipairs({ "name", "level", "profile" }) do
-    for _, desc in ipairs({ false, true }) do
-        db.sortKey, db.sortDesc = key, desc
-        local ok = pcall(Internal.SortedCharacters)
-        check(("le tri %s %s reste un ordre strict"):format(key, desc and "descendant" or "ascendant"), ok)
-    end
-end
+
+SeedFuzzCharacters()
+CheckStrictOrder("")
+
+-- Avec un connecte, la partition ne doit pas casser la stricte totalite.
+Internal.SetCurrentCharacter("Perso17-Hyjal", nil)
+CheckStrictOrder(" avec un connecte")
+equals("le connecte ouvre la liste dans le fuzz", Internal.SortedCharacters()[1].id, "Perso17-Hyjal")
+
+-- Deux entrees non fusionnees partageant le GUID courant sont toutes deux
+-- connectees : elles se departagent entre elles par la cascade habituelle.
+SeedFuzzCharacters()
+db.characters["Perso05-Hyjal"].guid = "Player-1390-DOUBLON"
+db.characters["Perso23-Hyjal"].guid = "Player-1390-DOUBLON"
+Internal.SetCurrentCharacter("Perso05-Hyjal", "Player-1390-DOUBLON")
+CheckStrictOrder(" avec un GUID en double")
+db.sortKey, db.sortDesc = "name", false
+local doubled = Internal.SortedCharacters()
+equals("le premier doublon ouvre la liste", doubled[1].id, "Perso05-Hyjal")
+equals("le second doublon suit immediatement", doubled[2].id, "Perso23-Hyjal")
+Internal.SetCurrentCharacter(nil, nil)
 
 -- ---------------------------------------------------------------------------
 -- SetSortKey
@@ -304,7 +377,10 @@ end
 print("")
 print("SetSortKey")
 
+-- Le defaut etant deja le niveau, on part du nom pour observer un changement
+-- de colonne et non une inversion.
 db = ResetDb()
+db.sortKey, db.sortDesc = "name", false
 Internal.SetSortKey("level")
 equals("une nouvelle colonne devient active", db.sortKey, "level")
 equals("le niveau part du plus haut", db.sortDesc, true)
@@ -340,6 +416,10 @@ local function SelectedIds()
     end
     return table.concat(ids, ",")
 end
+
+-- Sans connecte, l'ordre affiche est celui de la colonne : les index de lignes
+-- attendus ci-dessous en dependent.
+Internal.SetCurrentCharacter(nil, nil)
 
 db = ResetDb({
     ["P1-Hyjal"] = { id = "P1-Hyjal", level = 80 },
