@@ -231,6 +231,10 @@ local state = {
         pendingItem = nil,
         highPriceConfirmation = nil,
         soundCheckbox = nil,
+        skipButton = nil,
+        -- Taches HV ecartees par le bouton Passer, cle itemID ou itemID#variante.
+        -- Etat de session : un /reload les retablit, la fermeture de l'HV non.
+        skippedTasks = {},
         statusMessage = "",
     },
     searchCache = {},
@@ -2079,6 +2083,129 @@ state.CountTableKeys = function(value)
         count = count + 1
     end
     return count
+end
+
+-- Cle d'une tache HV : l'itemID nu, ou itemID#variante quand la demande porte
+-- une variante. C'est la meme identite que `neededByItemID` dans le resume.
+state.GetAuctionTaskKey = function(task)
+    if type(task) ~= "table" or not task.itemID then
+        return nil
+    end
+    return state.GetItemVariantTaskKey(task.itemID, task.variantKey) or task.itemID
+end
+
+state.IsAuctionTaskSkipped = function(task)
+    local key = state.GetAuctionTaskKey(task)
+    return key ~= nil and state.ah.skippedTasks[key] == true
+end
+
+state.SetAuctionTaskSkipped = function(task, skipped)
+    local key = state.GetAuctionTaskKey(task)
+    if key == nil then
+        return false
+    end
+    state.ah.skippedTasks[key] = skipped and true or nil
+    return true
+end
+
+state.ClearSkippedAuctionTasks = function()
+    local count = 0
+    for key in pairs(state.ah.skippedTasks) do
+        state.ah.skippedTasks[key] = nil
+        count = count + 1
+    end
+    return count
+end
+
+-- Cout du prochain achat d'une tache, tel que `Acheter suivant` le passerait :
+-- pour une marchandise la somme des annonces les moins cheres jusqu'a la
+-- quantite manquante, pour un objet le buyout de la meilleure annonce conforme.
+-- Rend le cout et la quantite couverte, ou nil quand rien n'est achetable.
+state.GetAuctionTaskCost = function(task, view, cache)
+    if type(task) ~= "table" or type(view) ~= "table" or type(cache) ~= "table" then
+        return nil
+    end
+    local quantity = math.min(tonumber(task.missing) or 0, tonumber(view.available) or 0)
+    if quantity <= 0 then
+        return nil
+    end
+    if cache.kind == "commodity" then
+        local listings = cache.listings
+        if type(listings) == "table" and #listings > 0 then
+            local remaining, total = quantity, 0
+            for _, listing in ipairs(listings) do
+                if remaining <= 0 then
+                    break
+                end
+                local taken = math.min(remaining, tonumber(listing.quantity) or 0)
+                total = total + taken * (tonumber(listing.unitPrice) or 0)
+                remaining = remaining - taken
+            end
+            return total, quantity - remaining
+        end
+        if tonumber(view.unitPrice) and view.unitPrice > 0 then
+            return view.unitPrice * quantity, quantity
+        end
+        return nil
+    end
+    local auction = view.bestAuction
+    local buyout = auction and tonumber(auction.buyoutAmount) or nil
+    if not buyout or buyout <= 0 then
+        return nil
+    end
+    return buyout, math.max(1, math.min(quantity, tonumber(auction.quantity) or 1))
+end
+
+state.GetPlayerMoney = function()
+    if type(GetMoney) ~= "function" then
+        return nil
+    end
+    local ok, money = pcall(GetMoney)
+    return ok and tonumber(money) or nil
+end
+
+-- true si la bourse couvre le cout, false sinon, nil quand l'un des deux est
+-- inconnu : un doute ne doit ni bloquer ni colorer en rouge.
+state.CanAffordAuctionCost = function(cost)
+    cost = tonumber(cost)
+    if not cost then
+        return nil
+    end
+    local money = state.GetPlayerMoney()
+    if not money then
+        return nil
+    end
+    return money >= cost
+end
+
+state.DescribeInsufficientFunds = function(name, cost)
+    local money = state.GetPlayerMoney() or 0
+    local format = type(GetMoneyString) == "function"
+        and function(value) return GetMoneyString(math.floor(value), true) end
+        or function(value) return tostring(math.floor(value)) end
+    cost = tonumber(cost)
+    if not cost then
+        -- Cout inconnu (refus du serveur avant tout devis) : ne pas inventer
+        -- un « 0 requis » qui contredirait l'erreur.
+        return ("Or insuffisant pour %s : %s en bourse"):format(
+            tostring(name or "?"),
+            format(money)
+        )
+    end
+    return ("Or insuffisant pour %s : %s requis, %s en bourse (manque %s)"):format(
+        tostring(name or "?"),
+        format(cost),
+        format(money),
+        format(math.max(0, cost - money))
+    )
+end
+
+-- Une annonce du personnage ou d'un reroll du compte ne s'achete pas : le
+-- serveur repond ERR_AUCTION_BID_OWN. Elle ne doit donc jamais compter comme
+-- disponible, sinon la file bute dessus a chaque clic.
+state.IsOwnAuctionListing = function(info)
+    return type(info) == "table"
+        and (info.containsOwnerItem == true or info.containsAccountItem == true)
 end
 
 state.GetTaskAuctionCache = function(task)
@@ -7215,14 +7342,40 @@ local function FindAuctionTask(summary, itemID)
     return fallback
 end
 
+-- Premiere tache achetable et payable. Une tache passee par le bouton Passer
+-- est ignoree ; une tache achetable mais trop chere pour la bourse est
+-- rendue en troisieme valeur, pour que le clic explique pourquoi rien ne part
+-- au lieu de laisser le serveur repondre ERR_NOT_ENOUGH_MONEY.
 local function GetNextPurchasableTask(summary)
+    local blocked
     for _, task in ipairs(summary.auctionTasks) do
-        local view = state.GetTaskAuctionCache(task)
-        if view and view.available and view.available > 0 then
-            return task, view
+        local view, cache = state.GetTaskAuctionCache(task)
+        if view and view.available and view.available > 0
+            and not state.IsAuctionTaskSkipped(task) then
+            local cost = state.GetAuctionTaskCost(task, view, cache)
+            if state.CanAffordAuctionCost(cost) ~= false then
+                return task, view
+            end
+            blocked = blocked or { task = task, cost = cost }
         end
     end
-    return nil, nil
+    return nil, nil, blocked
+end
+
+-- Tache que le bouton Passer ecarterait : celle que `Acheter suivant`
+-- tenterait, trop chere ou non, sinon la premiere ligne encore active.
+state.GetAuctionSkipTarget = function(summary)
+    local fallback
+    for _, task in ipairs(summary.auctionTasks) do
+        if not state.IsAuctionTaskSkipped(task) then
+            fallback = fallback or task
+            local view = state.GetTaskAuctionCache(task)
+            if view and view.available and view.available > 0 then
+                return task
+            end
+        end
+    end
+    return fallback
 end
 
 
@@ -10138,14 +10291,40 @@ local function CaptureSearchCache(itemID, searchItemKey)
             demand.unresolved = true
         end
         WarmItemData(itemID)
+        -- Le serveur sert les marchandises de la moins chere a la plus chere,
+        -- sans laisser choisir : une annonce du compte bloque tout ce qui la
+        -- suit, donc seules les unites qui la precedent sont achetables.
+        local listings = {}
+        cache.ownQuantity = 0
         local resultCount = C_AuctionHouse and C_AuctionHouse.GetNumCommoditySearchResults and C_AuctionHouse.GetNumCommoditySearchResults(itemID) or 0
         for index = 1, resultCount do
             local info = C_AuctionHouse.GetCommoditySearchResultInfo(itemID, index)
             if info and (info.quantity or 0) > 0 then
                 cache.hasResults = true
-                cache.available = cache.available + info.quantity
-                if not cache.unitPrice or info.unitPrice < cache.unitPrice then
-                    cache.unitPrice = info.unitPrice
+                listings[#listings + 1] = {
+                    index = index,
+                    quantity = info.quantity,
+                    unitPrice = tonumber(info.unitPrice) or 0,
+                    own = state.IsOwnAuctionListing(info),
+                }
+            end
+        end
+        table.sort(listings, function(a, b)
+            if a.unitPrice ~= b.unitPrice then
+                return a.unitPrice < b.unitPrice
+            end
+            return a.index < b.index
+        end)
+        cache.listings = {}
+        for _, listing in ipairs(listings) do
+            if listing.own then
+                cache.ownQuantity = cache.ownQuantity + listing.quantity
+                cache.ownBlocked = true
+            elseif not cache.ownBlocked then
+                cache.available = cache.available + listing.quantity
+                cache.listings[#cache.listings + 1] = listing
+                if not cache.unitPrice or listing.unitPrice < cache.unitPrice then
+                    cache.unitPrice = listing.unitPrice
                 end
             end
         end
@@ -10155,12 +10334,19 @@ local function CaptureSearchCache(itemID, searchItemKey)
         -- ce tri la file retenait la meilleure annonce toutes variantes
         -- confondues, soit le rang 1 a statistique quelconque.
         local itemKey = searchItemKey or state.MakeSearchItemKey(itemID)
+        cache.ownQuantity = 0
         local resultCount = itemKey and C_AuctionHouse and C_AuctionHouse.GetNumItemSearchResults and C_AuctionHouse.GetNumItemSearchResults(itemKey) or 0
         for index = 1, resultCount do
             local info = itemKey and C_AuctionHouse.GetItemSearchResultInfo(itemKey, index) or nil
             local buyoutAmount = info and info.buyoutAmount or 0
             local quantity = info and info.quantity or 0
-            if buyoutAmount > 0 and quantity > 0 then
+            if buyoutAmount > 0 and quantity > 0 and state.IsOwnAuctionListing(info) then
+                -- Annonce du personnage ou d'un reroll : le serveur refuse
+                -- l'achat, elle ne compte donc ni comme disponible ni comme
+                -- meilleure annonce.
+                cache.hasResults = true
+                cache.ownQuantity = cache.ownQuantity + quantity
+            elseif buyoutAmount > 0 and quantity > 0 then
                 local unitPrice = math.floor(buyoutAmount / quantity)
                 local auction = {
                     auctionID = info.auctionID,
@@ -10199,6 +10385,7 @@ local function CaptureSearchCache(itemID, searchItemKey)
         end
         for _, demand in pairs(cache.variants) do
             demand.hasResults = cache.hasResults
+            demand.ownQuantity = cache.ownQuantity
             demand.expectedPrice = cache.expectedPrice
             demand.expectedSource = cache.expectedSource
             demand.expectedCapturedAt = cache.expectedCapturedAt
@@ -10231,6 +10418,7 @@ local function CaptureSearchCache(itemID, searchItemKey)
             .. " kind=" .. tostring(cache.kind)
             .. " listings=" .. tostring(cache.available)
             .. " hasResults=" .. tostring(cache.hasResults)
+            .. " own=" .. tostring(cache.ownQuantity)
             .. " unitPrice=" .. tostring(cache.unitPrice)
             .. " variants=" .. tostring(state.CountTableKeys(cache.variants))
     )
@@ -10274,6 +10462,7 @@ function craftUI.BuildAuctionTasks(summary)
         else
             hasUnknownEstimate = true
         end
+        local cost = state.GetAuctionTaskCost(task, view, cache)
 
         tasks[#tasks + 1] = {
             index = #tasks + 1,
@@ -10284,6 +10473,11 @@ function craftUI.BuildAuctionTasks(summary)
             available = view and tostring(view.available or 0) or "?",
             estimate = estimateText,
             known = estimateText ~= "?",
+            -- Le prochain achat depasse la bourse : la ligne passe en rouge et
+            -- le clic la saute, au lieu de laisser le serveur refuser.
+            affordable = state.CanAffordAuctionCost(cost),
+            skipped = state.IsAuctionTaskSkipped(task),
+            ownQuantity = view and view.ownQuantity or nil,
             -- Une tache a variante montre ce qu'elle exige et ce que l'hotel
             -- des ventes lui a refuse : sans ca, un « 0 dispo » devant des
             -- dizaines d'annonces passe pour une panne de recherche.
@@ -10322,13 +10516,18 @@ function craftUI.InitAuctionRow(row, task)
     -- statistique reellement vises. Le pourquoi d'un zero doit donc tenir dans
     -- le libelle, sinon il n'a nulle part ou s'afficher.
     local function AvailabilityBadge()
+        -- Les annonces du compte sont comptees a part : elles expliquent un
+        -- zero disponible devant des annonces bien visibles a l'HV.
+        local ownSuffix = (tonumber(task.ownQuantity) or 0) > 0
+            and (", " .. tostring(task.ownQuantity) .. " du compte")
+            or ""
         if not task.variantLabel then
-            return "[" .. tostring(task.available) .. "]"
+            return "[" .. tostring(task.available) .. ownSuffix .. "]"
         end
         if not task.searched then
             return "[?]"
         end
-        if (tonumber(task.listings) or 0) <= 0 then
+        if (tonumber(task.listings) or 0) <= 0 and ownSuffix == "" then
             return "[aucune annonce]"
         end
         local badge = tostring(task.available) .. " conf."
@@ -10338,23 +10537,39 @@ function craftUI.InitAuctionRow(row, task)
         if (task.variantPending or 0) > 0 then
             badge = badge .. ", " .. tostring(task.variantPending) .. " a charger"
         end
-        return "[" .. badge .. "]"
+        return "[" .. badge .. ownSuffix .. "]"
     end
 
     local function Label()
-        return ("%dx %s%s%s  %s"):format(
+        local status = ""
+        if task.skipped then
+            status = "  " .. UI.Colorize("muted", "[passe]")
+        elseif task.affordable == false then
+            status = "  " .. UI.Colorize("danger", "[or insuffisant]")
+        end
+        return ("%dx %s%s%s  %s%s"):format(
             task.missing or 0,
             task.name or "?",
             task.quality or "",
             task.variantLabel and (" " .. UI.Colorize("accent", "<" .. task.variantLabel .. ">")) or "",
-            UI.Colorize("muted", AvailabilityBadge())
+            UI.Colorize("muted", AvailabilityBadge()),
+            status
         )
     end
 
     row.Reset()
     row.SetStripe(task.index or 1)
     row.value:SetText(task.estimate)
-    row.SetTone(task.known and "text" or "textMuted")
+    if task.skipped then
+        row.SetTone("textMuted")
+        row.SetLabelTone("textMuted")
+    elseif task.affordable == false then
+        row.SetTone("danger")
+        row.SetLabelTone("text")
+    else
+        row.SetTone(task.known and "text" or "textMuted")
+        row.SetLabelTone("text")
+    end
     row.label:SetText(Label())
     row.SetItemTarget(task.itemID, task.itemLink, function(name)
         task.name = name
@@ -10363,15 +10578,21 @@ function craftUI.InitAuctionRow(row, task)
 end
 
 local function UpdateAuctionLines(summary)
+    local UI = YayaCore.UI
     local tasks, totalEstimate, hasUnknownEstimate = craftUI.BuildAuctionTasks(summary)
 
     if state.ah.totalText then
+        -- Le total passe en rouge quand la bourse ne le couvre pas.
+        local totalText = FormatMoneyEstimate(totalEstimate)
+        if state.CanAffordAuctionCost(totalEstimate) == false then
+            totalText = UI.Colorize("danger", totalText)
+        end
         if #summary.auctionTasks == 0 then
             state.ah.totalText:SetText("Total estime: 0")
         elseif totalEstimate > 0 and hasUnknownEstimate then
-            state.ah.totalText:SetText("Total estime: " .. FormatMoneyEstimate(totalEstimate) .. " + ?")
+            state.ah.totalText:SetText("Total estime: " .. totalText .. " + ?")
         elseif totalEstimate > 0 then
-            state.ah.totalText:SetText("Total estime: " .. FormatMoneyEstimate(totalEstimate))
+            state.ah.totalText:SetText("Total estime: " .. totalText)
         else
             state.ah.totalText:SetText("Total estime: ?")
         end
@@ -10393,6 +10614,16 @@ local function UpdateAuctionButton(summary)
     local hasTasks = #summary.auctionTasks > 0
     local isBusy = state.ah.pendingCommodity or state.ah.pendingItem or state.ah.activeSearch or state.ah.waitingSearch or (state.ah.searchQueue and #state.ah.searchQueue > 0)
     local needsSearch = hasTasks and NeedsAuctionSearch(summary)
+
+    if state.ah.skipButton then
+        local skipTarget = hasTasks and not isBusy and state.GetAuctionSkipTarget(summary) or nil
+        state.ah.skipButton.target = skipTarget
+        if skipTarget or state.CountTableKeys(state.ah.skippedTasks) > 0 then
+            state.ah.skipButton:Enable()
+        else
+            state.ah.skipButton:Disable()
+        end
+    end
 
     if not hasTasks then
         state.ah.actionButton:SetText("Rien a acheter")
@@ -16203,7 +16434,7 @@ local function CreateAuctionFrame()
 
     local statusText = frame:CreateFontString(nil, "OVERLAY", YayaCore.UI.FONT.muted)
     statusText:SetPoint("BOTTOMLEFT", 14, 16)
-    statusText:SetPoint("RIGHT", frame, "RIGHT", -160, 0)
+    statusText:SetPoint("RIGHT", frame, "RIGHT", -250, 0)
     statusText:SetJustifyH("LEFT")
     statusText:SetText("")
 
@@ -16211,6 +16442,40 @@ local function CreateAuctionFrame()
     actionButton:SetPoint("BOTTOMRIGHT", -14, 12)
     actionButton:SetScript("OnClick", function()
         state.OnAuctionActionClick()
+    end)
+
+    -- Passer : ecarte l'item que `Acheter suivant` prendrait, sans l'acheter,
+    -- pour un prix juge trop haut par exemple. Maj+clic retablit tout.
+    local skipButton = YayaCore.UI.CreateButton(frame, "Passer", {
+        width = 80,
+        motionWhileDisabled = true,
+    })
+    skipButton:SetPoint("RIGHT", actionButton, "LEFT", -YayaCore.UI.PAD.sm, 0)
+    skipButton:SetScript("OnClick", function()
+        state.OnAuctionSkipClick(IsShiftKeyDown and IsShiftKeyDown() or false)
+    end)
+    skipButton.SetTooltipProvider(function(tooltip, button)
+        tooltip:AddLine("Passer l'item suivant")
+        local target = button.target
+        if target then
+            local variantLabel = state.DescribeItemVariant(target.variant)
+            tooltip:AddLine(
+                "Ecarte " .. tostring(target.name or "?")
+                    .. (variantLabel and (" <" .. variantLabel .. ">") or "")
+                    .. " sans l'acheter, jusqu'au prochain /reload.",
+                0.9, 0.9, 0.88, true
+            )
+        else
+            tooltip:AddLine("Rien a passer pour l'instant.", 0.62, 0.62, 0.60, true)
+        end
+        local skippedCount = state.CountTableKeys(state.ah.skippedTasks)
+        if skippedCount > 0 then
+            tooltip:AddLine(
+                "Maj+clic : retablir les " .. skippedCount .. " item(s) passe(s).",
+                0.62, 0.62, 0.60, true
+            )
+        end
+        return true
     end)
 
     listHost:SetPoint("BOTTOM", actionButton, "TOP", 0, YayaCore.UI.PAD.lg)
@@ -16222,6 +16487,7 @@ local function CreateAuctionFrame()
     state.ah.statusText = statusText
     state.ah.totalText = totalText
     state.ah.actionButton = actionButton
+    state.ah.skipButton = skipButton
     state.ah.soundCheckbox = soundCheckbox
 end
 
@@ -16425,6 +16691,15 @@ local function StartPurchaseFromCache(summary, itemID, task)
         return
     end
 
+    local purchaseCost = state.GetAuctionTaskCost(task, view, cache)
+    if state.CanAffordAuctionCost(purchaseCost) == false then
+        local message = state.DescribeInsufficientFunds(task.name, purchaseCost)
+        state.ah.statusMessage = message
+        Print(message)
+        ScheduleRefresh()
+        return
+    end
+
     if cache.kind == "commodity" then
         local quantity = math.min(task.missing, view.available)
         if quantity <= 0 then
@@ -16493,15 +16768,27 @@ local function StartPurchaseFromCache(summary, itemID, task)
 end
 
 local function BuyNext(summary)
-    local task, view = GetNextPurchasableTask(summary)
+    local task, view, blocked = GetNextPurchasableTask(summary)
     DebugPrint(
         "buy-next picked=" .. tostring(task and task.itemID)
             .. " variant=" .. tostring(task and state.DescribeItemVariant(task.variant))
             .. " available=" .. tostring(view and view.available)
+            .. " blocked=" .. tostring(blocked and blocked.task.itemID)
+            .. " skipped=" .. tostring(state.CountTableKeys(state.ah.skippedTasks))
             .. " tasks=" .. tostring(#summary.auctionTasks)
     )
     if task and view then
         StartPurchaseFromCache(summary, task.itemID, task)
+        return
+    end
+
+    if blocked then
+        -- Tout ce qui reste achetable depasse la bourse : le dire, plutot que
+        -- de relancer une recherche qui ne changera rien au prix.
+        local message = state.DescribeInsufficientFunds(blocked.task.name, blocked.cost)
+        state.ah.statusMessage = message .. " | Passer pour l'ecarter"
+        Print(message)
+        ScheduleRefresh()
         return
     end
 
@@ -16515,9 +16802,13 @@ local function BuyNext(summary)
         local emptyView = state.GetTaskAuctionCache(auctionTask)
         -- Une variante sans annonce conforme mais avec des annonces ecartees a
         -- bien ete cherchee : relancer la recherche ne changerait rien, et la
-        -- boucle repartirait sans fin. Seul un cache vraiment vide se rejoue.
+        -- boucle repartirait sans fin. Seul un cache vraiment vide se rejoue,
+        -- et jamais celui d'une tache passee, ni d'un objet dont les seules
+        -- annonces sont celles du compte.
         if emptyView and (tonumber(emptyView.available) or 0) <= 0
-            and (tonumber(emptyView.rejected) or 0) <= 0 then
+            and (tonumber(emptyView.rejected) or 0) <= 0
+            and (tonumber(emptyView.ownQuantity) or 0) <= 0
+            and not state.IsAuctionTaskSkipped(auctionTask) then
             state.searchCache[auctionTask.itemID] = nil
             retryEmptySearch = true
         end
@@ -16528,7 +16819,46 @@ local function BuyNext(summary)
         return
     end
 
-    state.ah.statusMessage = "Rien de dispo a acheter"
+    local skippedCount = state.CountTableKeys(state.ah.skippedTasks)
+    state.ah.statusMessage = skippedCount > 0
+        and ("Rien de dispo a acheter (" .. skippedCount .. " passe(s), Maj+Passer pour retablir)")
+        or "Rien de dispo a acheter"
+    ScheduleRefresh()
+end
+
+-- Bouton Passer : ecarte la tache que `Acheter suivant` tenterait, pour la
+-- session. Maj+clic retablit toutes les taches passees.
+state.OnAuctionSkipClick = function(shiftDown)
+    if shiftDown then
+        local restored = state.ClearSkippedAuctionTasks()
+        state.ah.statusMessage = restored > 0
+            and (restored .. " item(s) retabli(s)")
+            or "Aucun item passe"
+        ScheduleRefresh()
+        return
+    end
+
+    local busy = state.ah.pendingCommodity or state.ah.pendingItem
+    if busy then
+        return
+    end
+
+    local summary = BuildQueueSummary()
+    local task = state.GetAuctionSkipTarget(summary)
+    if not task then
+        state.ah.statusMessage = "Rien a passer"
+        ScheduleRefresh()
+        return
+    end
+    state.SetAuctionTaskSkipped(task, true)
+    local variantLabel = state.DescribeItemVariant(task.variant)
+    state.ah.statusMessage = "Passe " .. tostring(task.name or "?")
+        .. (variantLabel and (" <" .. variantLabel .. ">") or "")
+    DebugPrint(
+        "ah-skip item=" .. tostring(task.itemID)
+            .. " variant=" .. tostring(variantLabel)
+            .. " skipped=" .. tostring(state.CountTableKeys(state.ah.skippedTasks))
+    )
     ScheduleRefresh()
 end
 
@@ -17435,6 +17765,17 @@ handle.CommodityPriceUpdated = function(event, arg1, arg2, arg3)
             if pending.confirmationShown then
                 return true
             end
+            -- Le devis du serveur est le seul prix exact : s'il depasse la
+            -- bourse, confirmer n'aboutirait qu'a ERR_NOT_ENOUGH_MONEY.
+            local totalPrice = tonumber(arg2)
+                or (unitPrice and unitPrice * (tonumber(pending.quantity) or 0))
+            if state.CanAffordAuctionCost(totalPrice) == false then
+                local message = state.DescribeInsufficientFunds(pending.name, totalPrice)
+                Print(message)
+                ClearAuctionTransientState(message)
+                ScheduleRefresh()
+                return true
+            end
             local warning = YQQuality.WarnIfAuctionPriceAboveExpected(
                 pending.name,
                 unitPrice,
@@ -17565,14 +17906,33 @@ handle.UiErrorMessage = function(event, arg1, arg2, arg3)
             )
             return true
         end
-        if (state.ah.pendingItem or state.ah.pendingCommodity) and (
+        local pending = state.ah.pendingItem or state.ah.pendingCommodity
+        if pending and (
             message == ERR_AUCTION_DATABASE_ERROR
             or message == ERR_AUCTION_HIGHER_BID
             or message == ERR_ITEM_NOT_FOUND
             or message == ERR_AUCTION_BID_OWN
             or message == ERR_NOT_ENOUGH_MONEY
         ) then
-            ClearAuctionTransientState(type(message) == "string" and message or "Achat echoue")
+            local statusMessage = type(message) == "string" and message or "Achat echoue"
+            if message == ERR_NOT_ENOUGH_MONEY then
+                local cost = pending.buyoutAmount
+                    or ((tonumber(pending.unitPrice) or 0) * (tonumber(pending.quantity) or 0))
+                statusMessage = state.DescribeInsufficientFunds(pending.name, cost)
+                Print(statusMessage)
+            elseif message == ERR_AUCTION_BID_OWN then
+                -- Annonce du personnage ou d'un reroll : le filtre de capture
+                -- l'a manquee, la tache est passee pour ne pas y rebuter.
+                state.SetAuctionTaskSkipped(
+                    { itemID = pending.itemID, variantKey = pending.variantKey },
+                    true
+                )
+                state.searchCache[pending.itemID] = nil
+                statusMessage = "Annonce de votre compte (reroll) pour "
+                    .. tostring(pending.name or "?") .. " : item passe"
+                Print(statusMessage)
+            end
+            ClearAuctionTransientState(statusMessage)
             ScheduleRefresh()
             return true
         end
