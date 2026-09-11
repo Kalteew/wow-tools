@@ -382,9 +382,9 @@ ResetChat()
 SlashCmdList.YAYAWEEKLYTRACKER("help")
 check("silent : la reponse a /ywt help s'affiche", ChatContains("/ywt options"))
 
--- Erreur reelle : le bouton d'achat d'equipement sans YayaQueue.
-local gearButton = _G.YayaWeeklyTrackerProfessionGearBuyButton
-check("le bouton d'achat d'equipement existe", gearButton ~= nil)
+-- Erreur reelle : le bouton d'approvisionnement (Warbank puis YayaQueue) sans YayaQueue.
+local gearButton = _G.YayaWeeklyTrackerProfessionSupplyButton
+check("le bouton d'approvisionnement existe", gearButton ~= nil)
 local savedQueue = YayaQueueAPI
 YayaQueueAPI = nil
 ResetChat()

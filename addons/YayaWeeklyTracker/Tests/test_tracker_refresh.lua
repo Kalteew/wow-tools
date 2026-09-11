@@ -115,6 +115,13 @@ else
     if not gearTrace:find("mcOk=false") then
         Fail("un outil Multicrafting ilvl 206 passe pour conforme :: " .. gearTrace)
     end
+    -- Cet exemplaire sortant est ecarte de la comptabilite des enchantements,
+    -- et aucune action ne propose de l enchanter : sur deux outils possedes,
+    -- un seul est compte nu et une seule action est offerte, celle de l outil
+    -- conforme.
+    if not gearTrace:find("tools=2 unench=1 wrong=0 skipped=1 apply=1", 1, true) then
+        Fail("l outil sortant n est pas ecarte des enchantements :: " .. gearTrace)
+    end
 end
 
 -- 3. Le plan d'achat vise bien une variante, et emmene l'enchantement avec.
@@ -125,9 +132,19 @@ end
 -- Multicrafting ilvl >= 232 -- pas l'itemID nu, qui rendrait le rang 1 -- et
 -- l'enchantement Multicraft (243995) avec lui. Les deux emplacements
 -- d'accessoire fautifs completent le plan, sur le rang seul.
+--
+-- Les enchantements sont desormais dans LE MEME plan que l equipement. Tant
+-- qu il y avait deux boutons, ce plan-ci n annoncait que l enchantement de l
+-- outil qu il commandait et les autres vivaient sur l autre bouton, si bien
+-- qu aucun des deux compteurs ne disait ce qui manquait vraiment.
+--
+-- Il en reste deux, pas trois : le Resourcefulness equipe est nu et conforme,
+-- donc il reclame le sien (243967) ; le futur outil Multicrafting emmene le
+-- sien (243995) ; mais le Multicrafting ilvl 206 garde en sac ne compte pas,
+-- puisque c est precisement lui qu on remplace.
 local planTrace
 for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
-    if entry:find("Profession gear plan", 1, true) then
+    if entry:find("Profession supply plan", 1, true) then
         planTrace = entry
     end
 end
@@ -137,8 +154,19 @@ else
     if not planTrace:find("multicrafting:232", 1, true) then
         Fail("l'outil Multicrafting n'est pas demande sur sa variante :: " .. planTrace)
     end
+    -- UN seul enchantement Multicraft, celui du futur outil. L exemplaire
+    -- ilvl 206 garde en sac porte la meme statistique mais part des que le
+    -- 232 arrive : l enchanter serait jeter un parchemin, et son besoin est
+    -- deja porte par son remplacant. En compter deux faisait acheter deux
+    -- parchemins pour un seul outil final.
     if not planTrace:find("1x243995/enchant", 1, true) then
-        Fail("l'enchantement Multicraft ne part pas avec l'outil :: " .. planTrace)
+        Fail("l enchantement du futur outil Multicraft manque :: " .. planTrace)
+    end
+    if planTrace:find("2x243995/enchant", 1, true) then
+        Fail("l outil Multicraft sortant reclame encore son enchantement :: " .. planTrace)
+    end
+    if not planTrace:find("1x243967/enchant", 1, true) then
+        Fail("l'enchantement de l'outil Resourcefulness nu manque :: " .. planTrace)
     end
     if planTrace:find("resourcefulness:", 1, true) then
         Fail("un outil Resourcefulness conforme est possede, il ne doit rien declencher :: " .. planTrace)
@@ -147,7 +175,7 @@ else
     if not planTrace:find("rank:232", 1, true) then
         Fail("les accessoires ne sont pas demandes sur le rang :: " .. planTrace)
     end
-    if not planTrace:find("gear=3 ench=1", 1, true) then
+    if not planTrace:find("gear=3 ench=2", 1, true) then
         Fail("le decompte du plan est inattendu :: " .. planTrace)
     end
     if planTrace:find("unknownStats=[1-9]") then
@@ -173,7 +201,7 @@ for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
     if entry:find("gear%[2906%]") then
         swappedGearTrace = entry
     end
-    if entry:find("Profession gear plan", 1, true) then
+    if entry:find("Profession supply plan", 1, true) then
         swappedPlanTrace = entry
     end
 end
@@ -195,11 +223,342 @@ else
         Fail("un outil Multicrafting conforme est equipe, il ne doit rien declencher :: "
             .. swappedPlanTrace)
     end
-    -- Restent les deux accessoires, sur le rang seul, et plus aucun
-    -- enchantement d'outil a acheter puisque plus aucun outil n'est demande.
-    if not swappedPlanTrace:find("gear=2 ench=0", 1, true) then
+    -- Restent les deux accessoires sur le rang seul, et les enchantements des
+    -- deux outils possedes : aucun outil n'est plus a acheter, mais les deux
+    -- exemplaires en main sont toujours nus.
+    if not swappedPlanTrace:find("gear=2 ench=2", 1, true) then
         Fail("le decompte du plan est inattendu apres l'echange d'outil :: " .. swappedPlanTrace)
     end
+end
+
+-- 5. L'instantane de la Warbank : ecrit banque ouverte, il survit a sa
+-- fermeture. C'est le seul moyen de repondre « present en Warbank » a l'hotel
+-- des ventes, loin de la banque.
+local function LastTrace(needle)
+    local found
+    for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
+        if entry:find(needle, 1, true) then
+            found = entry
+        end
+    end
+    return found
+end
+
+FillWarbankFixture()
+OpenWarbankFixture()
+FireEvent("BANKFRAME_OPENED")
+FireEvent("PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
+RunTimers(5)
+
+local inventoryTrace = LastTrace("Warbank inventory")
+if not inventoryTrace then
+    Fail("aucune trace d'inventaire Warbank : le scan n'a pas tourne")
+else
+    for _, expected in ipairs({ "243995x2", "245778x3", "244626x1", "245755x3" }) do
+        if not inventoryTrace:find(expected, 1, true) then
+            Fail("l'inventaire Warbank ne voit pas " .. expected .. " :: " .. inventoryTrace)
+        end
+    end
+    -- L'exemplaire sans lien est enregistre, mais marque indecis.
+    if not inventoryTrace:find("unresolved=1", 1, true) then
+        Fail("l'exemplaire sans lien n'est pas marque indecis :: " .. inventoryTrace)
+    end
+    if not inventoryTrace:find("oracle=client", 1, true) then
+        Fail("l'oracle du client aurait du etre valide par le scan :: " .. inventoryTrace)
+    end
+end
+
+local snapshot = (YayaWeeklyTrackerAccountDB or {}).warbankSnapshot
+if type(snapshot) ~= "table" or type(snapshot.itemsByID) ~= "table" then
+    Fail("l'instantane Warbank n'est pas persiste")
+else
+    local tool = snapshot.itemsByID[245778]
+    if not tool or #tool.instances ~= 3 then
+        Fail("les trois exemplaires d'outil ne sont pas enregistres")
+    else
+        local resourceful, wrongStat, unresolved = 0, 0, 0
+        for _, instance in ipairs(tool.instances) do
+            if instance.unresolved then
+                unresolved = unresolved + 1
+            elseif instance.statKey == "resourcefulness" and instance.itemLevel == 232 then
+                resourceful = resourceful + 1
+            elseif instance.statKey == "multicrafting" then
+                wrongStat = wrongStat + 1
+            end
+        end
+        if resourceful ~= 1 or wrongStat ~= 1 or unresolved ~= 1 then
+            Fail(("identites d'outil mal lues en Warbank : rf=%d mc=%d indecis=%d")
+                :format(resourceful, wrongStat, unresolved))
+        end
+    end
+end
+
+-- 6. Banque refermee, l'instantane repond encore, et chaque verdict garde ses
+-- trois etats : conforme, non conforme, indecis.
+CloseWarbankFixture()
+FireEvent("BANKFRAME_CLOSED")
+RunTimers(5)
+
+local warbank = _G.YayaWeeklyTrackerAPI
+    and { Resolve = _G.YayaWeeklyTrackerAPI.ResolveWarbankItem }
+    or nil
+if not warbank or not warbank.Resolve then
+    Fail("l'inventaire Warbank n'est pas expose par YayaWeeklyTrackerAPI")
+else
+    local rfVariant = { minItemLevel = 232, statKey = "resourcefulness" }
+    local mcVariant = { minItemLevel = 232, statKey = "multicrafting" }
+
+    local scroll = warbank.Resolve(243995, nil)
+    if not scroll.known or scroll.matched ~= 2 then
+        Fail(("une marchandise en Warbank n'est pas vue banque fermee : known=%s matched=%s")
+            :format(tostring(scroll.known), tostring(scroll.matched)))
+    end
+
+    local rf = warbank.Resolve(245778, rfVariant)
+    if not rf.known then
+        Fail("l'outil Resourcefulness en Warbank n'est pas jugeable banque fermee")
+    elseif rf.matched ~= 1 then
+        Fail("l'exemplaire Resourcefulness conforme n'est pas reconnu : matched=" .. tostring(rf.matched))
+    elseif rf.undecided ~= 1 then
+        Fail("l'exemplaire sans lien devrait rester indecis : undecided=" .. tostring(rf.undecided))
+    end
+
+    -- Le seul exemplaire Multicrafting est ilvl 206 : possede, mais non
+    -- conforme. Il ne doit ni compter, ni bloquer.
+    local mc = warbank.Resolve(245778, mcVariant)
+    if not mc.known or mc.matched ~= 0 then
+        Fail("un outil Multicrafting sous le seuil est pris pour conforme : matched="
+            .. tostring(mc.matched))
+    end
+
+    -- Rien en Warbank : absent CERTAIN, sans instantane. C'est ce qui permet
+    -- de proposer un achat sur une installation neuve.
+    local absent = warbank.Resolve(243967, { minItemLevel = 232 })
+    if not absent.known or absent.count ~= 0 then
+        Fail("un objet absent de la Warbank devrait etre un verdict certain")
+    end
+
+    -- Instantane perime : le compte vivant grimpe sans qu'un scan l'ait vu.
+    -- Indecis, donc ni recuperation ni achat.
+    DesyncWarbankFixture(245778, 1)
+    local stale = warbank.Resolve(245778, rfVariant)
+    if stale.known then
+        Fail("un instantane perime devrait rendre un verdict inconnu")
+    end
+    WARBANK_DESYNC[245778] = nil
+end
+
+-- Le scenario qui motive tout : a l'hotel des ventes, banque fermee, ce qui
+-- dort en Warbank n'est PAS rachete, et le bouton propose l'achat du reste.
+FireEvent("BAG_UPDATE_DELAYED")
+RunTimers(5)
+
+local closedPlanTrace = LastTrace("Profession supply plan")
+if not closedPlanTrace then
+    Fail("aucun plan banque fermee")
+else
+    -- L'accessoire 244626 et le parchemin 243995 dorment en banque : ils
+    -- passent en recuperation, jamais en achat. Restent 239635 et 243967.
+    if not closedPlanTrace:find("+wb", 1, true) then
+        Fail("banque fermee, le plan ne voit plus la Warbank :: " .. closedPlanTrace)
+    end
+    if closedPlanTrace:find("1x244626/rank:232,", 1, true)
+        or closedPlanTrace:find("1x244626/rank:232$") then
+        Fail("un accessoire present en Warbank est propose a l'achat :: " .. closedPlanTrace)
+    end
+    if not closedPlanTrace:find("gear=1 ench=1", 1, true) then
+        Fail("le plan banque fermee ne deduit pas la Warbank :: " .. closedPlanTrace)
+    end
+end
+
+local closedButton = _G.YayaWeeklyTrackerProfessionSupplyButton
+if not closedButton or not closedButton:IsShown() then
+    Fail("le bouton d'approvisionnement disparait banque fermee")
+elseif not (closedButton.__text or ""):find("Acheter") then
+    -- Banque fermee, les emplacements ne sont pas adressables : le clic doit
+    -- basculer sur l'achat plutot que de proposer un transfert impossible.
+    Fail("banque fermee, le bouton n'annonce pas l'achat :: " .. tostring(closedButton.__text))
+elseif not closedButton:IsEnabled() then
+    Fail("banque fermee, le bouton d'achat est grise alors que YayaQueue repond")
+end
+
+-- 7. Le geste de transfert : un clic sort UN objet, depuis le bon emplacement,
+-- et un second clic immediat ne fait rien. Les deux implementations qu'il
+-- remplace laissaient passer le double-clic et le curseur charge.
+OpenWarbankFixture()
+FireEvent("BANKFRAME_OPENED")
+RunTimers(5)
+
+local supplyButton = _G.YayaWeeklyTrackerProfessionSupplyButton
+if not supplyButton or not supplyButton:IsShown() then
+    Fail("le bouton d'approvisionnement n'apparait pas alors qu'il reste des manques")
+elseif not (supplyButton.__text or ""):find("Récupérer WB") then
+    -- Warbank ouverte et objets conformes dedans : le prochain clic recupere,
+    -- il n'achete pas. Le libelle doit le dire.
+    Fail("le bouton n'annonce pas la recuperation Warbank :: " .. tostring(supplyButton.__text))
+else
+    TRANSFER_CALLS = {}
+    supplyButton.__scripts.OnClick(supplyButton, "LeftButton", false)
+    -- L'accessoire conforme dort en 14:3, seul exemplaire de sa pile.
+    if TRANSFER_CALLS[1] ~= "Pickup 14:3" then
+        Fail("le transfert ne part pas du bon emplacement Warbank :: "
+            .. tostring(TRANSFER_CALLS[1]))
+    end
+    -- La destination doit etre un emplacement VIDE. Un exemplaire du meme
+    -- objet dort en 0:4 : le designer comme destination faisait executer au
+    -- jeu un echange a deux sens, et l'objet du sac -- soulbound des qu'il a
+    -- ete equipe une fois -- repartait vers la Warbank, qui le refusait.
+    if TRANSFER_CALLS[2] ~= "Pickup 0:5" then
+        Fail("l'objet sorti n'est pas depose dans un emplacement vide :: "
+            .. tostring(TRANSFER_CALLS[2]))
+    end
+    if #TRANSFER_CALLS ~= 2 then
+        Fail(("un clic a produit %d appels de transfert au lieu de 2"):format(#TRANSFER_CALLS))
+    end
+
+    -- Verrou anti-multiclic : rien avant le rafraichissement suivant.
+    local afterFirst = #TRANSFER_CALLS
+    supplyButton.__scripts.OnClick(supplyButton, "LeftButton", false)
+    if #TRANSFER_CALLS ~= afterFirst then
+        Fail("un second clic immediat sort un deuxieme objet")
+    end
+
+    -- Le verrou tombe a BAG_UPDATE_DELAYED, alors que les onglets de la banque
+    -- de compte se rafraichissent plus tard. Ici la Warbank montre encore
+    -- l exemplaire deja sorti -- exactement l etat du client entre les deux
+    -- evenements -- et le plan doit pourtant cesser de le proposer.
+    FireEvent("BAG_UPDATE_DELAYED")
+    RunTimers(5)
+
+    local inFlightPlan = LastTrace("Profession supply plan")
+    if not inFlightPlan then
+        Fail("aucun plan apres le premier retrait")
+    else
+        if inFlightPlan:find("244626/rank:232+wb", 1, true) then
+            Fail("l exemplaire deja sorti est encore propose a la recuperation :: "
+                .. inFlightPlan)
+        end
+        -- Bloque, donc ni ressorti ni rachete : c est le seul verdict tenable
+        -- tant que le client n a pas tranche.
+        if not inFlightPlan:find("blocked=1", 1, true) then
+            Fail("un transfert en cours devrait bloquer son objet :: " .. inFlightPlan)
+        end
+    end
+
+    -- Le clic suivant enchaine sur un AUTRE objet : c est le contrat du bouton,
+    -- « reclique jusqu a extinction ». Ce qu il ne doit pas faire, c est
+    -- ressortir le meme.
+    TRANSFER_CALLS = {}
+    supplyButton.__scripts.OnClick(supplyButton, "LeftButton", false)
+    for _, call in ipairs(TRANSFER_CALLS) do
+        if call:find("14:3", 1, true) then
+            Fail("le meme exemplaire ressort une seconde fois :: " .. call)
+        end
+    end
+    if #TRANSFER_CALLS == 0 then
+        Fail("le bouton n enchaine pas sur l objet suivant")
+    end
+
+    -- Une fois le client a jour, le transit se resorbe et l objet reprend son
+    -- cours normal -- ici un achat, puisqu il a quitte la Warbank.
+    RemoveFromWarbankFixture(14, 3)
+    FireEvent("PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
+    FireEvent("BAG_UPDATE_DELAYED")
+    RunTimers(5)
+    local settledPlan = LastTrace("Profession supply plan")
+    if not settledPlan then
+        Fail("aucun plan apres rattrapage du client")
+    elseif not settledPlan:find("1x244626/rank:232,", 1, true) then
+        Fail("le transit ne se resorbe pas apres rattrapage du client :: " .. settledPlan)
+    end
+
+    -- Curseur charge : le transfert doit renoncer, sinon il echange
+    -- silencieusement ce que le curseur porte contre l'objet vise.
+    supplyButton.itemActionLocked = false
+    local previousCursor = GetCursorInfo
+    GetCursorInfo = function() return "item", 12345 end
+    TRANSFER_CALLS = {}
+    supplyButton.__scripts.OnClick(supplyButton, "LeftButton", false)
+    GetCursorInfo = previousCursor
+    if #TRANSFER_CALLS ~= 0 then
+        Fail("un curseur charge n'empeche pas le transfert")
+    end
+end
+
+-- 8. Un seul bouton : les trois anciens ont disparu, et le raccourci partage
+-- ne peut plus tomber sur un doublon.
+for _, name in ipairs({
+    "YayaWeeklyTrackerToolEnchantPullButton",
+    "YayaWeeklyTrackerToolEnchantBuyButton",
+    "YayaWeeklyTrackerProfessionGearBuyButton",
+    "YayaWeeklyTrackerWarbankTreatiseButton1",
+}) do
+    if _G[name] then
+        Fail("un bouton remplace existe encore : " .. name)
+    end
+end
+CloseWarbankFixture()
+FireEvent("BANKFRAME_CLOSED")
+RunTimers(3)
+
+-- 9. Les jetons de ligne : deux, et derives des memes sources que le plan.
+-- Les quatre anciens -- outil KO, outil RF, MC KO, outil xN -- decoupaient la
+-- meme regle en morceaux sous deux options differentes.
+local tokenTrace = LastTrace("Profession tokens[2906]")
+if not tokenTrace then
+    Fail("aucune trace de jetons de metier : ils ne sont plus verifiables hors du jeu")
+else
+    for _, gone in ipairs({ "outil KO", "outil RF", "MC KO" }) do
+        if tokenTrace:find(gone, 1, true) then
+            Fail("un jeton remplace est encore emis : " .. gone .. " :: " .. tokenTrace)
+        end
+    end
+    -- Deux accessoires fautifs, aucun besoin d'outil apres l'echange, et les
+    -- deux outils possedes sont nus.
+    if not tokenTrace:find("stuff x2", 1, true) then
+        Fail("le jeton de materiel ne compte pas les deux accessoires :: " .. tokenTrace)
+    end
+    if not tokenTrace:find("ench x2", 1, true) then
+        Fail("le jeton d'enchantement ne compte pas les deux outils nus :: " .. tokenTrace)
+    end
+end
+
+-- 10. Un outil rare NON LIE compte comme possede. C'est l'etat d'un achat tout
+-- juste livre par le courrier : l'ignorer faisait commander un doublon dans la
+-- foulee de la livraison. YayaQueue, lui, garde son filtre soulbound pour
+-- l'echange d'outil avant craft.
+local toolsBefore
+for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
+    local count = entry:match("id=2906 .- tools=(%d+)")
+    if count then
+        toolsBefore = tonumber(count)
+    end
+end
+
+AddUnboundToolFixture()
+ISBOUND_CALLS = 0
+FireEvent("BAG_UPDATE_DELAYED")
+RunTimers(5)
+
+-- La preuve que le filtre a bien disparu : le tracker ne demande plus l'etat
+-- de liaison d'aucun objet. Le compter vaut mieux qu'esperer, car un outil
+-- lie serait compte de toute facon.
+if ISBOUND_CALLS ~= 0 then
+    Fail(("le tracker consulte encore l'etat de liaison (%d appels)"):format(ISBOUND_CALLS))
+end
+
+local toolsAfter
+for _, entry in ipairs((YayaWeeklyTrackerAccountDB or {}).debugLog or {}) do
+    local count = entry:match("id=2906 .- tools=(%d+)")
+    if count then
+        toolsAfter = tonumber(count)
+    end
+end
+if not toolsBefore or not toolsAfter then
+    Fail("la trace de scan d'outils ne rend plus son compte")
+elseif toolsAfter ~= toolsBefore + 1 then
+    Fail(("un outil rare non lie n'est pas compte comme possede : %s -> %s")
+        :format(tostring(toolsBefore), tostring(toolsAfter)))
 end
 
 if failures > 0 then
@@ -207,4 +566,4 @@ if failures > 0 then
     os.exit(1)
 end
 
-print("test_tracker_refresh : rafraichissement sans erreur, scan d'equipement conforme, plan d'achat par variante, outil Multicrafting equipe reconnu")
+print("test_tracker_refresh : rafraichissement sans erreur, scan d'equipement conforme, plan d'achat par variante, outil Multicrafting equipe reconnu, Warbank suivie et jugee par variante")

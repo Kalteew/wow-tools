@@ -1962,6 +1962,21 @@ state.CountOwnedVariant = function(itemID, variant)
         end
     end
 
+    -- La banque de compte entre dans `total` mais reste illisible d'ici : ses
+    -- onglets ne sont adressables que banque ouverte, et un lien manquant ne
+    -- dit ni la statistique ni le rang. YayaWeeklyTracker en tient un
+    -- instantane, ecrit a chaque passage devant la Warbank : l'interroger evite
+    -- de racheter un exemplaire conforme qui y dort. Dependance optionnelle,
+    -- son absence ne change rien -- on retombe alors sur le comportement
+    -- d'avant, qui rachetait.
+    local trackerAPI = _G.YayaWeeklyTrackerAPI
+    if trackerAPI and type(trackerAPI.ResolveWarbankItem) == "function" then
+        local resolved = SafeCall(trackerAPI.ResolveWarbankItem, itemID, variant)
+        if type(resolved) == "table" and resolved.known == true then
+            owned = owned + (tonumber(resolved.matched) or 0)
+        end
+    end
+
     return owned
 end
 
