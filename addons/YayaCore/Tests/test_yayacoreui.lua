@@ -496,6 +496,9 @@ check("CreateGlyphButton degrade sans CreateFrame", UI.CreateGlyphButton({}, "lo
 check("CreateHeader degrade sans CreateFrame", UI.CreateHeader({}, "x") == nil)
 check("CreateScrollList degrade sans les templates", UI.CreateScrollList({}, {}) == nil)
 check("CreateDivider degrade sans CreateTexture", UI.CreateDivider({}) == nil)
+check("CreateSlider degrade sans CreateFrame", UI.CreateSlider({}, "x") == nil)
+check("CreateNumberInput degrade sans CreateFrame", UI.CreateNumberInput({}, "x") == nil)
+check("CreateDropdown degrade sans CreateFrame", UI.CreateDropdown({}, "x") == nil)
 
 -- ApplyPanelBackdrop doit poser un aplat quand SetBackdrop manque, comme
 -- YayaFrame le faisait a la main avant ce module.
