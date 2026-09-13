@@ -79,6 +79,7 @@ Notes :
 - le buff d’ingéniosité est détecté par tous les signaux disponibles — l’ID de sort connu, plus ceux résolus via `C_Item.GetItemSpell` pour chaque rang, avec repli sur les noms d’objet et de sort rendus par le client, donc déjà localisés : la détection reste correcte quelle que soit la langue du client. Le clic relit l’aura juste avant de consommer, et une consommation qui reste sans confirmation coupe tout réarmement automatique au lieu d’enchaîner les flasques
 - toute recette d’enchantement Midnight ajoutée par l’UI, l’optimiseur de réactifs, les first crafts ou un patron conserve son marqueur d’enchantement ; avant chaque craft normal ou patron d’enchantement, `Next` vérifie d’abord que le sort Shatter (`1235731`) est appris, puis l’aura Shatter par ID (`1235733`); si nécessaire, il utilise une mote disponible dans les sacs ou la warbank sans retrait manuel via `CraftSalvage` et sa `ItemLocation`, puis achète la mote Midnight la moins chère parmi les IDs connus (`236949` à `236952`) avant de reprendre le craft après confirmation de l’aura
 - les achats marchand de phials Haranir d’ingéniosité se font par 10 par défaut afin de conserver un buffer, avec choix par 10 ou par 1 dans `/yq options` > Concentration
+- l’`Oil of Heartwood` du recyclage suit la même logique de buffer : dès qu’il en manque, même une seule unité, l’achat marchand porte sur au moins 100 unités par défaut, réglable de 1 à 1000 dans `/yq options` > Automatismes ou avec `/yq oil [n]`
 - l’utilisation automatique des phials peut être désactivée dans `/yq options` > Concentration; les demandes automatiques déjà présentes sont masquées pendant la désactivation
 - la réinjection après remboursement d’Ingéniosité peut être désactivée dans `/yq options` > Concentration
 - les traces `/yq debug` corrèlent l’ouverture du métier, le métier courant, l’attente des données, les favoris, les transmutations/alchimie, la chaîne générique de déduction de chaque craft (appel API, pending, événement, match et quantité restante), les remplissages de spécialisations (instantané de tout le chemin, décision, appels et réponses de l’API Traits, attente, rang avant/après, déblocage et résumé du clic) et les quantités finalement ajoutées
@@ -160,6 +161,7 @@ Notes :
 | Concentration | `concentrationPhialPurchaseQuantity` | radio | 10 | 10 ou 1 | quantite achetee chez le marchand |
 | Concentration | `autoQueueIngenuityRefund` | case | `true` | | reinjection apres remboursement d'ingeniosite ; coupe, le tracker est remis a zero |
 | Automatismes | `autoBuyVendor` | case | `true` | | achat automatique chez le marchand (`/yq vendor`) |
+| Automatismes | `oilOfHeartwoodPurchaseQuantity` | nombre (unites) | 100 | 1 a 1000 | lot minimum d'`Oil of Heartwood` achete au marchand des qu'il en manque (`/yq oil`) |
 | Automatismes | `autoQueueFavoriteConcentration` | case | `true` | | favori en concentration a l'ouverture du metier |
 | Automatismes | `autoQueueAlchemy` | case | `true` | | transmutations d'alchimie a l'ouverture du metier ; coupe, le scan en attente est annule |
 | Automatismes | `resetQuantityOnRecipeChange` | case | `false` | | quantite remise a 1 au changement de recette |
@@ -212,7 +214,8 @@ L'ordre d'ajout departage toujours en dernier : l'ordre est strict et total, don
 | `/yq opttest` | tests internes du solveur de reactifs |
 | `/yq opti [on\|off]` | affiche ou masque l'optimisateur de reactifs |
 | `/yq vendor [on\|off\|status]` | achat automatique chez le marchand |
+| `/yq oil [n]` | lot minimum d'`Oil of Heartwood` achete au marchand (1 a 1000) ; sans argument : valeur courante |
 | `/yq sort [mode]` | sans argument : mode courant et liste des modes ; avec un mode : l'ecrit et rafraichit la file |
 | `/yq log [n\|clear]` | journal debug persistant : les `n` dernieres lignes, ou vidage |
 
-Les reglages persistants (`YayaQueueDB`) sont tous normalises au chargement par `state.EnsureDB` : une valeur absente ou hors bornes vaut son defaut. Leur liste, avec defauts et bornes, est le tableau de la section « Options » ; chaque slash qui en ecrit un (`debug`, `lock`, `rows`, `opti`, `vendor`, `sort`) resynchronise le panneau.
+Les reglages persistants (`YayaQueueDB`) sont tous normalises au chargement par `state.EnsureDB` : une valeur absente ou hors bornes vaut son defaut. Leur liste, avec defauts et bornes, est le tableau de la section « Options » ; chaque slash qui en ecrit un (`debug`, `lock`, `rows`, `opti`, `vendor`, `oil`, `sort`) resynchronise le panneau.
