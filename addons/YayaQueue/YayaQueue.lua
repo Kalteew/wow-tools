@@ -54,6 +54,12 @@ local CONFIG = {
     RECYCLE_POTIONS_RECIPE_ID = 1233129,
     RECYCLE_POTIONS_ITEM_ID = 242637,
     OIL_OF_HEARTWOOD_ITEM_ID = 247811,
+    -- L'huile ne sert qu'au recyclage, deux par craft, et le marchand la vend
+    -- en stock illimite : acheter le seul manquant obligeait a repasser chez
+    -- lui a chaque lot de recyclage. Un plancher d'achat constitue un buffer
+    -- qui tient plusieurs series.
+    OIL_OF_HEARTWOOD_DEFAULT_PURCHASE = 100,
+    OIL_OF_HEARTWOOD_PURCHASE_MAX = 1000,
     RECYCLE_BATCH_SIZE = 5,
     RECYCLE_POTIONS_PER_CRAFT = 3,
     RECYCLE_ESTIMATED_DERIVATES_PER_CRAFT = 2,
@@ -2459,6 +2465,14 @@ state.EnsureDB = function()
     YayaQueueDB.concentrationPhialPurchaseQuantity = phialPurchaseQuantity == 1
         and 1
         or CONFIG.CONCENTRATION_PHIAL_DEFAULT_PURCHASE
+    -- Meme buffer que la phial, mais en quantite libre : l'huile de recyclage
+    -- s'achete par lots pour ne pas retourner chez le marchand a chaque serie.
+    YayaQueueDB.oilOfHeartwoodPurchaseQuantity = math.floor(state.ClampSettingNumber(
+        YayaQueueDB.oilOfHeartwoodPurchaseQuantity,
+        CONFIG.OIL_OF_HEARTWOOD_DEFAULT_PURCHASE,
+        1,
+        CONFIG.OIL_OF_HEARTWOOD_PURCHASE_MAX
+    ))
     -- Reglages du panneau et des automatismes. Tout est normalise ici, une
     -- fois, pour que les lecteurs n'aient jamais a se defendre d'une valeur
     -- absente ou hors bornes : un reglage mal ecrit vaut son defaut.
@@ -2949,6 +2963,18 @@ YQQuality.GetConcentrationPhialPurchaseQuantity = function()
     return db.concentrationPhialPurchaseQuantity
 end
 
+--- Plancher d'achat marchand de l'Oil of Heartwood : des qu'il en manque,
+--- meme une seule unite, le marchand en vend au moins ce lot.
+YQQuality.GetOilOfHeartwoodPurchaseQuantity = function()
+    state.EnsureDB()
+    return math.floor(state.GetSettingNumber(
+        "oilOfHeartwoodPurchaseQuantity",
+        CONFIG.OIL_OF_HEARTWOOD_DEFAULT_PURCHASE,
+        1,
+        CONFIG.OIL_OF_HEARTWOOD_PURCHASE_MAX
+    ))
+end
+
 YQQuality.GetIngenuityPhialCount = function(itemID, getter)
     itemID = tonumber(itemID) or 0
     if type(getter) ~= "function" then
@@ -3403,6 +3429,16 @@ YQQuality.EnsureOptions = function()
             label = "Acheter automatiquement chez le marchand",
             tooltip = "A l'ouverture d'un marchand compatible, achete les composants marchand manquants de la file. Meme reglage que /yq vendor.",
             default = true,
+        },
+        {
+            key = "oilOfHeartwoodPurchaseQuantity",
+            type = "number",
+            label = "Lot minimum d'Oil of Heartwood",
+            tooltip = "Des qu'il manque de l'Oil of Heartwood pour un recyclage, en acheter au moins autant chez le marchand, pour garder un buffer. Meme reglage que /yq oil.",
+            min = 1,
+            max = CONFIG.OIL_OF_HEARTWOOD_PURCHASE_MAX,
+            suffix = "unites",
+            default = CONFIG.OIL_OF_HEARTWOOD_DEFAULT_PURCHASE,
         },
         {
             key = "autoQueueFavoriteConcentration",
@@ -5861,6 +5897,8 @@ local function BuildQueueSummary()
                 or itemID == CONFIG.CONCENTRATION_PHIAL_ITEM_IDS[2]
             then
                 task.missing = math.max(task.missing, YQQuality.GetConcentrationPhialPurchaseQuantity())
+            elseif itemID == CONFIG.OIL_OF_HEARTWOOD_ITEM_ID then
+                task.missing = math.max(task.missing, YQQuality.GetOilOfHeartwoodPurchaseQuantity())
             end
             -- Le panier decide si une recherche HV aura lieu un jour : une
             -- tache rangee en marchand ou en « a acquerir » n'est jamais
@@ -18410,6 +18448,7 @@ YQQuality.PrintHelp = function()
     Print("  /yq opttest                tests internes du solveur de reactifs")
     Print("  /yq opti [on|off]          affiche ou masque l'optimisateur de reactifs")
     Print("  /yq vendor [on|off|status] achat automatique chez le marchand")
+    Print("  /yq oil [n]                lot minimum d'Oil of Heartwood achete au marchand")
     Print("  /yq sort [mode]            mode de tri de la file (sans argument : etat et modes)")
     Print("  /yq log [n|clear]          journal debug persistant")
     Print("  /yq help                   cette aide")
@@ -18552,6 +18591,25 @@ SlashCmdList.YAYAQUEUE = function(message)
     if command == "vendor" or command == "vendor status" then
         state.EnsureDB()
         Print("Achat automatique marchand " .. (db.autoBuyVendor and "active" or "inactif") .. ".")
+        return
+    end
+    local oilArgument = command:match("^oil%s+(%d+)$")
+    if command == "oil" or oilArgument then
+        state.EnsureDB()
+        if oilArgument then
+            db.oilOfHeartwoodPurchaseQuantity = math.floor(state.ClampSettingNumber(
+                oilArgument,
+                CONFIG.OIL_OF_HEARTWOOD_DEFAULT_PURCHASE,
+                1,
+                CONFIG.OIL_OF_HEARTWOOD_PURCHASE_MAX
+            ))
+            state.RefreshOptionsPanel()
+            ScheduleRefresh()
+        end
+        Print(("Lot minimum d'Oil of Heartwood : %d (de 1 a %d)."):format(
+            YQQuality.GetOilOfHeartwoodPurchaseQuantity(),
+            CONFIG.OIL_OF_HEARTWOOD_PURCHASE_MAX
+        ))
         return
     end
     if command == "log clear" then

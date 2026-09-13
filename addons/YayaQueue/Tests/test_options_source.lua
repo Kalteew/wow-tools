@@ -68,7 +68,8 @@ local KEYS = {
     "concentrationPhialEnabled", "concentrationPhialRank", "concentrationPhialPurchaseQuantity",
     "autoQueueIngenuityRefund",
     -- Automatismes
-    "autoBuyVendor", "autoQueueFavoriteConcentration", "autoQueueAlchemy", "resetQuantityOnRecipeChange",
+    "autoBuyVendor", "oilOfHeartwoodPurchaseQuantity", "autoQueueFavoriteConcentration",
+    "autoQueueAlchemy", "resetQuantityOnRecipeChange",
     -- Hotel des ventes et seuils
     "auctionPriceWarningSoundEnabled", "auctionPriceWarningTolerancePercent", "auctionHighPriceMultiplier",
     "auctionCutPercent", "firstCraftCostLimitGold", "wondrousSynergistMinBuyoutGold",
@@ -77,7 +78,7 @@ local KEYS = {
     -- Diagnostic
     "debugEnabled", "debugLogOnly",
 }
-equals("le tableau compte 23 cles", #KEYS, 23)
+equals("le tableau compte 24 cles", #KEYS, 24)
 
 for _, key in ipairs(KEYS) do
     local needle = 'key = "' .. key .. '"'
