@@ -337,7 +337,9 @@ C_Item = {
     GetItemQualityByID = function() return nil end,
     GetItemCount = function() return 0 end,
     RequestLoadItemDataByID = function() end,
-    IsBound = function() return false end,
+    -- Inconnu, jamais « non lie » : un faux negatif ferait passer chaque objet
+    -- pour une copie destinee a la vente. game_state.lua pose la vraie doublure.
+    IsBound = function() return nil end,
     IsEquippableItem = function() return false end,
     GetItemNameByID = function() return nil end,
     GetCurrentItemLevel = function() return nil end,
@@ -446,9 +448,15 @@ end
 
 -- L'emplacement porte ses coordonnees : sans elles, une doublure de
 -- `C_Item.IsBound` ne peut pas distinguer un exemplaire lie d'un autre.
+--
+-- Mixin du client : l'appel reel est `ItemLocation:CreateFromBagAndSlot(...)`,
+-- avec deux-points, comme partout dans le depot. Sans le `self`, la doublure
+-- decale ses arguments -- `bag` recoit la table ItemLocation -- et rend un
+-- emplacement introuvable : toute assertion sur la liaison passerait alors
+-- pour la mauvaise raison, sans la moindre erreur.
 ItemLocation = {
-    CreateFromBagAndSlot = function(bag, slot) return { bag = bag, slot = slot } end,
-    CreateFromEquipmentSlot = function(slot) return { equipmentSlot = slot } end,
+    CreateFromBagAndSlot = function(_, bag, slot) return { bag = bag, slot = slot } end,
+    CreateFromEquipmentSlot = function(_, slot) return { equipmentSlot = slot } end,
 }
 
 BackdropTemplateMixin = {}

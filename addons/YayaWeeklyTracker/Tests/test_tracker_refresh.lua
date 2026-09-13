@@ -540,11 +540,16 @@ ISBOUND_CALLS = 0
 FireEvent("BAG_UPDATE_DELAYED")
 RunTimers(5)
 
--- La preuve que le filtre a bien disparu : le tracker ne demande plus l'etat
--- de liaison d'aucun objet. Le compter vaut mieux qu'esperer, car un outil
--- lie serait compte de toute facon.
-if ISBOUND_CALLS ~= 0 then
-    Fail(("le tracker consulte encore l'etat de liaison (%d appels)"):format(ISBOUND_CALLS))
+-- L'etat de liaison n'est plus interdit -- il decide desormais quels outils
+-- meritent un ENCHANTEMENT -- mais il ne doit toujours pas toucher la
+-- POSSESSION, ce que verifie l'assertion de comptage juste en dessous. Et il
+-- ne doit jamais etre demande a l'outil PORTE : le porter le lie, et une
+-- reponse fantaisiste sur un emplacement d'inventaire ferait disparaitre le
+-- seul enchantement dont on soit sur.
+for _, location in ipairs(ISBOUND_LOCATIONS or {}) do
+    if not location:find("equipmentSlot=nil", 1, true) then
+        Fail("l'etat de liaison est demande a l'outil porte :: " .. location)
+    end
 end
 
 local toolsAfter
@@ -559,6 +564,117 @@ if not toolsBefore or not toolsAfter then
 elseif toolsAfter ~= toolsBefore + 1 then
     Fail(("un outil rare non lie n'est pas compte comme possede : %s -> %s")
         :format(tostring(toolsBefore), tostring(toolsAfter)))
+end
+
+
+-- 11. Un seul enchantement par STATISTIQUE, et les copies craftees pour la
+-- revente n'en reclament aucun.
+--
+-- Le compte se faisait par exemplaire : chaque outil rare sans le bon
+-- enchantement reclamait son parchemin, y compris les copies gardees en sac
+-- pour etre revendues, et y compris quand la statistique etait deja couverte
+-- par l'outil qu'on utilise. Le metier n'a pourtant besoin que d'UN outil
+-- enchante par statistique.
+--
+-- Le journal est vide avant chaque etape : c'est un tampon circulaire, et une
+-- fois sa limite atteinte il recycle ses plus anciennes cases EN PLACE. Passe
+-- ce point, la derniere entree du tableau n'est plus la plus recente, et une
+-- lecture par `ipairs` rendrait une trace perimee. Vider avant chaque mesure
+-- garantit qu'on lit bien la trace de l'etape en cours -- et, au passage,
+-- qu'une etape qui ne change rien n'ecrit rien, la trace n'etant journalisee
+-- que sur changement de signature.
+local function ClearTraces()
+    SlashCmdList.YAYAWEEKLYTRACKER("log clear")
+end
+
+-- A ce stade le personnage possede : l'outil Multicrafting porte (nu), un
+-- outil Resourcefulness en sac (nu, lie) et l'outil Perception non lie pose
+-- par la section 10. Deux statistiques a enchanter, donc deux actions ; le
+-- Perception non lie est ecarte, c'est une copie destinee a la vente.
+local function CheckGear(label, tools, unench, apply, unbound)
+    local trace = LastTrace("id=2906 ")
+    if not trace then
+        Fail(label .. " : aucune trace de scan n'a ete journalisee")
+        return
+    end
+    local actual = ("tools=%s unench=%s apply=%s unbound=%s"):format(
+        tostring(trace:match("tools=(%d+)")),
+        tostring(trace:match("unench=(%d+)")),
+        tostring(trace:match("apply=(%d+)")),
+        tostring(trace:match("unbound=(%d+)")))
+    local expected = ("tools=%d unench=%d apply=%d unbound=%d"):format(tools, unench, apply, unbound)
+    if actual ~= expected then
+        Fail(("%s :: attendu %s, obtenu %s"):format(label, expected, actual))
+    end
+end
+
+-- 11a. Un seul enchantement par statistique, demontre SANS la liaison : cet
+-- exemplaire de rechange est lie, bien a soi, conforme et nu. L'outil
+-- Resourcefulness deja possede couvre la statistique, donc rien de plus a
+-- enchanter -- l'exemplaire surnumeraire est compte dans `dup`.
+ClearTraces()
+AddBoundSpareToolFixture()
+FireEvent("BAG_UPDATE_DELAYED")
+RunTimers(5)
+CheckGear("un second outil lie de la meme statistique reclame son propre parchemin", 4, 2, 2, 1)
+
+-- 11b. Le cas signale : trois copies craftees pour la revente, meme
+-- statistique, non liees. Elles comptent comme possedees -- le tracker ne doit
+-- pas en racheter -- mais aucune ne reclame de parchemin.
+ClearTraces()
+local callsBefore = ISBOUND_CALLS
+AddResaleToolCopiesFixture(3)
+FireEvent("BAG_UPDATE_DELAYED")
+RunTimers(5)
+CheckGear("une copie destinee a la revente reclame un parchemin", 7, 2, 2, 4)
+-- Sans cette verification, 11b passerait aussi si l'oracle n'etait jamais
+-- consulte et que le regroupement par statistique faisait tout le travail.
+if ISBOUND_CALLS <= callsBefore then
+    Fail("l'etat de liaison n'a jamais ete consulte : 11b passe pour la mauvaise raison")
+end
+
+-- 11c. Le reglage est la soupape, et c'est la commande qui fait foi : elle
+-- invalide le cache des enchantements. Une ecriture directe en base ne
+-- relancerait rien tant que les sacs n'ont pas bouge. Decoche, tout redevient
+-- enchantable, le Perception non lie comme les copies -- mais une seule action
+-- par statistique, toujours.
+ClearTraces()
+SlashCmdList.YAYAWEEKLYTRACKER("stuff lies off")
+RunTimers(5)
+if YayaWeeklyTrackerAccountDB.professionGearEnchantBoundToolsOnly ~= false then
+    Fail("/ywt stuff lies off ne desactive pas le reglage")
+end
+CheckGear("reglage decoche : les outils non lies ne redeviennent pas enchantables", 7, 3, 3, 0)
+
+ClearTraces()
+SlashCmdList.YAYAWEEKLYTRACKER("stuff lies on")
+RunTimers(5)
+if YayaWeeklyTrackerAccountDB.professionGearEnchantBoundToolsOnly ~= true then
+    Fail("/ywt stuff lies on ne reactive pas le reglage")
+end
+CheckGear("la bascule n'est pas reversible", 7, 2, 2, 4)
+
+-- 11d. La cible ne danse pas. Le choix du meilleur exemplaire s'appuie sur un
+-- ordre total -- (source, sac, slot) est une identite unique -- donc a etat de
+-- jeu constant deux rafraichissements designent le meme outil et produisent la
+-- meme signature. Une cible qui glisserait en ferait journaliser une nouvelle.
+ClearTraces()
+FireEvent("BAG_UPDATE_DELAYED")
+RunTimers(5)
+FireEvent("BAG_UPDATE_DELAYED")
+RunTimers(5)
+if LastTrace("id=2906 ") then
+    Fail(("la cible d'enchantement change sans que l'etat de jeu bouge :: %s"):format(
+        tostring(LastTrace("id=2906 "))))
+end
+
+-- 11e. L'etat de liaison n'est jamais demande a l'outil PORTE : le porter le
+-- lie, et une reponse fantaisiste sur un emplacement d'inventaire ferait
+-- disparaitre le seul enchantement dont on soit sur.
+for _, location in ipairs(ISBOUND_LOCATIONS or {}) do
+    if not location:find("equipmentSlot=nil", 1, true) then
+        Fail("l'etat de liaison est demande a l'outil porte :: " .. location)
+    end
 end
 
 if failures > 0 then

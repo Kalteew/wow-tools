@@ -444,12 +444,20 @@ end
 -- Un outil rare qui vient d'etre achete n'est pas encore lie : c'est
 -- exactement l'exemplaire qu'il ne faut pas racheter. L'emplacement porte
 -- desormais ses coordonnees, donc la doublure peut repondre par slot.
--- Les appels sont comptes : le tracker ne doit plus consulter cette API du
--- tout. Un compteur non nul signalerait le retour du filtre soulbound, et donc
--- du doublon commande juste apres une livraison.
+--
+-- Le tracker consulte cette API pour decider quels outils meritent un
+-- ENCHANTEMENT -- une copie craftee pour la revente n'en merite pas -- mais
+-- jamais pour compter la possession, et jamais sur l'outil porte. Les appels
+-- et les emplacements demandes sont donc enregistres, pour que le harnais
+-- puisse verifier a qui la question est posee.
 ISBOUND_CALLS = 0
+ISBOUND_LOCATIONS = {}
 C_Item.IsBound = function(location)
     ISBOUND_CALLS = ISBOUND_CALLS + 1
+    if type(location) == "table" then
+        ISBOUND_LOCATIONS[#ISBOUND_LOCATIONS + 1] = ("bag=%s slot=%s equipmentSlot=%s"):format(
+            tostring(location.bag), tostring(location.slot), tostring(location.equipmentSlot))
+    end
     if type(location) == "table" and location.bag and location.slot then
         local entry = BAG_CONTENT[location.bag] and BAG_CONTENT[location.bag][location.slot]
         if entry and entry.unbound then
@@ -468,4 +476,31 @@ ITEMS[245779] = { name = "Sin'dorei Alchemist's Spare Rod", quality = 3,
                   stat = "Perception" }
 function AddUnboundToolFixture()
     BAG_CONTENT[0][7] = { itemID = 245779, itemLevel = 232, stat = "Perception", unbound = true }
+end
+
+-- Des copies craftees POUR LA REVENTE : meme statistique que l'outil deja
+-- possede, liees quand equipees donc encore NON liees, gardees en sac. Elles
+-- comptent comme possedees -- c'est du stock -- mais chacune reclamait son
+-- propre parchemin. Leur itemID leur est propre : un lien de sac de cette
+-- doublure ne porte que l'itemID, donc deux exemplaires d'un meme modele y
+-- partageraient leur identite.
+ITEMS[245780] = { name = "Sin'dorei Alchemist's Trade Rod", quality = 3,
+                  equipLoc = "INVTYPE_PROFESSION_TOOL", skillLine = ALCH_SKILL_LINE,
+                  stat = "Ingéniosité" }
+function AddResaleToolCopiesFixture(count)
+    for index = 1, (count or 3) do
+        BAG_CONTENT[0][2 + index] = {
+            itemID = 245780, itemLevel = 232, stat = "Ingéniosité", unbound = true,
+        }
+    end
+end
+
+-- Le meme outil, la meme statistique, mais LIE : un exemplaire de rechange bien
+-- a soi. Il prouve que le regroupement par statistique corrige a lui seul, sans
+-- rien devoir a l'etat de liaison.
+ITEMS[245781] = { name = "Sin'dorei Alchemist's Second Rod", quality = 3,
+                  equipLoc = "INVTYPE_PROFESSION_TOOL", skillLine = ALCH_SKILL_LINE,
+                  stat = "Ingéniosité" }
+function AddBoundSpareToolFixture()
+    BAG_CONTENT[0][2] = { itemID = 245781, itemLevel = 232, stat = "Ingéniosité" }
 end

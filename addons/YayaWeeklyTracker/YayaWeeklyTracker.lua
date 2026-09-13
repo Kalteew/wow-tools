@@ -1138,6 +1138,10 @@ local TRACKER_DEFAULTS = {
     trackProfessionTools = true,
     trackProfessionToolEnchants = true,
     trackProfessionGear = true,
+    -- Les copies craftees pour la revente dorment en sac, non liees. Elles
+    -- comptent comme possedees -- c'est du stock -- mais chacune reclamait son
+    -- parchemin d'enchantement.
+    professionGearEnchantBoundToolsOnly = true,
     trackSparksOfTides = true,
     autoBuyAbundanceEnchantingBags = false,
     autoBuyAbundanceFusedVitality = false,
@@ -1214,6 +1218,9 @@ runtimeState.trackingOptions = {
             { value = 3, label = "Rare" },
             { value = 4, label = "Epique" },
         } },
+    { category = "Metiers Midnight", key = "professionGearEnchantBoundToolsOnly", effect = "gear",
+        label = "Equipement de metier : n'enchanter que les outils lies",
+        tooltip = "Un outil que le client declare NON lie est une copie destinee a la vente : elle compte comme possedee, mais n'est pas enchantee. Un outil lie, ou dont la liaison n'est pas lisible, reste enchantable. Decocher pour enchanter aussi les outils non lies, par exemple un achat tout juste livre par le courrier." },
     -- `items` est renseigne plus bas par trackerUI.GetProfessionOrderItems.
     { category = "Metiers affiches et ordre", key = "professionOrder", type = "orderlist",
         hiddenKey = "hiddenProfessions", effect = "professions",
@@ -5206,6 +5213,158 @@ trackerUI.GetToolEnchantWarbankQuantity = function(itemID)
     end
 end
 
+-- La cle d'identite d'une application d'enchantement. Deux outils de rechange
+-- peuvent partager un meme slotIndex dans deux sacs differents, donc la source
+-- et le sac en font partie. Un seul endroit la fabrique : deux formules
+-- divergentes donneraient un epinglage qui ne matche jamais, sans la moindre
+-- erreur visible. Attention, `0` est un bagID valide ET truthy en Lua.
+trackerUI.BuildToolEnchantPendingKey = function(skillLineID, source, toolBag, toolSlot)
+    return table.concat({
+        tostring(skillLineID),
+        tostring(source or "equipment"),
+        toolBag == nil and "-" or tostring(toolBag),
+        tostring(toolSlot),
+    }, ":")
+end
+
+-- Un outil que le client declare NON lie est une copie destinee a la vente :
+-- elle compte comme possedee -- c'est du stock, et le tracker n'en rachete
+-- donc pas -- mais l'enchanter reviendrait a poser un parchemin sur de la
+-- marchandise.
+--
+-- `C_Item.IsBound` est la seule source autoritaire pour CET exemplaire. Le
+-- bindType du modele ne dit rien de lui : un objet lie quand equipe, deja
+-- porte puis retire, garde `bindType == 2`. Les lectures de bindType ailleurs
+-- dans la suite repondent a une autre question -- « ce MODELE se lie-t-il a la
+-- prise ? » -- et ne valent pas ici.
+--
+-- Trois etats, jamais deux. API absente, emplacement non adressable ou erreur
+-- avalee rendent INCONNU, et un inconnu n'exclut jamais : meme doctrine que
+-- `compliant` et `pendingToolStats`.
+trackerUI.IsToolKnownUnbound = function(details)
+    -- L'outil PORTE n'est jamais interroge : le porter le lie, et une reponse
+    -- fantaisiste sur un emplacement d'inventaire ferait disparaitre le seul
+    -- enchantement dont on soit sur.
+    if not details or details.source ~= "bag" then
+        return false
+    end
+    if details.bagID == nil or details.slotIndex == nil then
+        return false
+    end
+    if type(ItemLocation) ~= "table"
+        or type(ItemLocation.CreateFromBagAndSlot) ~= "function"
+        or not C_Item
+        or type(C_Item.IsBound) ~= "function" then
+        return false
+    end
+
+    -- Le mixin s'appelle avec deux-points : passer `ItemLocation` en premier
+    -- argument est la meme chose, et reste compatible avec SafeCall.
+    local location = SafeCall(
+        ItemLocation.CreateFromBagAndSlot, ItemLocation, details.bagID, details.slotIndex)
+    if type(location) ~= "table" then
+        return false
+    end
+    local bound = SafeCall(C_Item.IsBound, location)
+    if type(bound) ~= "boolean" then
+        return false
+    end
+    return bound == false
+end
+
+trackerUI.IsToolEnchantTargetEligible = function(details)
+    if GetAccountDB().professionGearEnchantBoundToolsOnly == false then
+        return true
+    end
+    return not trackerUI.IsToolKnownUnbound(details)
+end
+
+-- Une application deja lancee epingle sa cible. Le `PostClick` du bouton
+-- invalide le cache aussitot, donc un rafraichissement recalcule le meilleur
+-- exemplaire pendant l'incantation : sans cet epinglage, un niveau d'objet qui
+-- finit de charger ferait glisser le bouton vers un autre outil, et un second
+-- clic acheterait un second parchemin pour une seule statistique.
+trackerUI.HasLiveToolEnchantPending = function(skillLineID, details)
+    if not details then
+        return false
+    end
+    local key = trackerUI.BuildToolEnchantPendingKey(
+        skillLineID,
+        details.source,
+        details.source == "bag" and details.bagID or nil,
+        details.slotIndex)
+    local pending = (runtimeState.toolEnchantApplicationPending or EMPTY_TABLE)[key]
+    if not pending then
+        return false
+    end
+    local now = GetTime and GetTime() or 0
+    return not pending.expiresAt or now <= pending.expiresAt
+end
+
+-- Ordre TOTAL et strict sur les exemplaires d'une meme statistique. `AddTool`
+-- garantit qu'un emplacement n'apparait qu'une fois, donc (source, sac, slot)
+-- est une identite unique : a etat de jeu constant, deux rafraichissements
+-- designent forcement le meme outil, et la cible du bouton ne danse pas. Une
+-- reduction lineaire, pas un table.sort : celui de Lua n'est pas stable, et
+-- un comparateur qui ne serait pas un ordre strict leve « invalid order
+-- function for sorting ».
+--
+-- `x == true and 0 or 1` : le `0` est truthy en Lua, l'idiome est correct. Ne
+-- pas le « simplifier » en `x and 0 or 1`, qui confondrait `nil` et `false` et
+-- rangerait un niveau d'objet pas encore lisible avec les outils trop bas.
+trackerUI.IsBetterToolEnchantTarget = function(skillLineID, candidate, current)
+    if not candidate then
+        return false
+    end
+    if not current then
+        return true
+    end
+
+    local candidatePinned = trackerUI.HasLiveToolEnchantPending(skillLineID, candidate) and 0 or 1
+    local currentPinned = trackerUI.HasLiveToolEnchantPending(skillLineID, current) and 0 or 1
+    if candidatePinned ~= currentPinned then
+        return candidatePinned < currentPinned
+    end
+
+    -- L'exemplaire porte gagne : c'est celui que YayaQueue echange au fil des
+    -- recettes, et le tri de `result.applyEnchants` le remonte deja en tete.
+    local candidateWorn = candidate.source == "equipment" and 0 or 1
+    local currentWorn = current.source == "equipment" and 0 or 1
+    if candidateWorn ~= currentWorn then
+        return candidateWorn < currentWorn
+    end
+
+    local candidateFit = candidate.compliant == true and 0
+        or (candidate.compliant == nil and 1 or 2)
+    local currentFit = current.compliant == true and 0
+        or (current.compliant == nil and 1 or 2)
+    if candidateFit ~= currentFit then
+        return candidateFit < currentFit
+    end
+
+    -- `-1` et non `0` : un niveau d'objet illisible perd contre tout niveau
+    -- connu, y compris zero.
+    local candidateLevel = tonumber(candidate.itemLevel) or -1
+    local currentLevel = tonumber(current.itemLevel) or -1
+    if candidateLevel ~= currentLevel then
+        return candidateLevel > currentLevel
+    end
+
+    local candidateItem = tonumber(candidate.itemID) or 0
+    local currentItem = tonumber(current.itemID) or 0
+    if candidateItem ~= currentItem then
+        return candidateItem < currentItem
+    end
+
+    local candidateBag = tonumber(candidate.bagID) or -1
+    local currentBag = tonumber(current.bagID) or -1
+    if candidateBag ~= currentBag then
+        return candidateBag < currentBag
+    end
+
+    return (tonumber(candidate.slotIndex) or -1) < (tonumber(current.slotIndex) or -1)
+end
+
 -- Les enchantements reclames par les outils possedes, arretes APRES les
 -- besoins d'outil parce qu'ils en dependent.
 --
@@ -5216,6 +5375,13 @@ end
 -- commande avec son enchantement. Compter les deux faisait acheter deux
 -- parchemins pour un seul outil final, et proposer de poser le premier sur
 -- l'outil qu'on remplace.
+--
+-- Le compte se fait par STATISTIQUE, jamais par exemplaire. Un metier n'a
+-- besoin que d'UN outil enchante par statistique : c'est deja ainsi que
+-- `SummarizeProfessionGear` et `GetProfessionToolNeeds` raisonnent. Compter
+-- par exemplaire reclamait un parchemin pour chaque copie -- typiquement des
+-- outils crafte pour la revente, gardes en sac a cote de celui qu'on utilise
+-- -- alors que la statistique etait deja couverte, et parfois deja enchantee.
 trackerUI.CollectProfessionEnchantNeeds = function(profession, skillLineID, result)
     local replacedStats = {}
     for _, need in ipairs(profession.toolNeeds or EMPTY_TABLE) do
@@ -5224,13 +5390,49 @@ trackerUI.CollectProfessionEnchantNeeds = function(profession, skillLineID, resu
         end
     end
 
-    local skipped = 0
+    -- Une entree par statistique, plus `order` pour un parcours deterministe :
+    -- `pairs` sur une table hachee change d'un rafraichissement a l'autre, et
+    -- `profession.applyEnchants` n'est pas retrie ensuite.
+    local groups, order = {}, {}
+    local skipped, duplicates, unbound = 0, 0, 0
+
     for _, details in ipairs(profession.tools) do
         local statInfo = details.statInfo
         local wrongEnchant = not statInfo or details.enchantID ~= statInfo.enchantID
+        -- Ce test reste en TETE : il garantit que `requiredByItemID` et les
+        -- statistiques encore ouvertes dans `toolNeeds` restent disjoints, ce
+        -- sur quoi le plan d'approvisionnement compte pour ne pas additionner
+        -- deux fois le meme parchemin.
         if wrongEnchant and replacedStats[details.statKey] then
             skipped = skipped + 1
-        elseif wrongEnchant then
+        elseif details.statKey then
+            local group = groups[details.statKey]
+            if not group then
+                group = { satisfied = false, best = nil }
+                groups[details.statKey] = group
+                order[#order + 1] = group
+            end
+            if not wrongEnchant then
+                -- Un exemplaire porte deja le bon enchantement : la
+                -- statistique est couverte, aucun parchemin n'est reclame.
+                group.satisfied = true
+            elseif not trackerUI.IsToolEnchantTargetEligible(details) then
+                unbound = unbound + 1
+            elseif trackerUI.IsBetterToolEnchantTarget(skillLineID, details, group.best) then
+                if group.best then
+                    duplicates = duplicates + 1
+                end
+                group.best = details
+            else
+                duplicates = duplicates + 1
+            end
+        end
+    end
+
+    for _, group in ipairs(order) do
+        local details = (not group.satisfied) and group.best or nil
+        if details then
+            local statInfo = details.statInfo
             local requiredItemID = statInfo and statInfo.itemID or nil
 
             if details.missingEnchant then
@@ -5299,7 +5501,7 @@ trackerUI.CollectProfessionEnchantNeeds = function(profession, skillLineID, resu
         end
     end
 
-    return skipped
+    return skipped, duplicates, unbound
 end
 
 trackerUI.FindToolEnchantState = function(trackedRows)
@@ -5490,7 +5692,7 @@ trackerUI.FindToolEnchantState = function(trackedRows)
         profession.toolNeeds = trackerUI.GetProfessionToolNeeds(profession, row.config)
         -- Les enchantements viennent apres, et pas avant : ils dependent de ce
         -- que les besoins d'outil declarent sortant.
-        local skippedEnchants =
+        local skippedEnchants, duplicateEnchants, unboundEnchants =
             trackerUI.CollectProfessionEnchantNeeds(profession, row.skillLineID, result)
         local unenchantedCount = 0
         local wrongEnchantCount = 0
@@ -5524,7 +5726,10 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             tostring(profession.hasMulticraftTool),
             tostring(gear.compliantToolStats.multicrafting == true),
             #needParts > 0 and table.concat(needParts, "+") or "none")
-        debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d skipped=%d apply=%d equipped=%s rf=%s pending=%s"):format(
+        -- `dup=` et `unbound=` sont ajoutes EN QUEUE, jamais intercales : une
+        -- assertion du harnais cherche la sous-chaine litterale qui va de
+        -- `tools=` a `apply=`.
+        debugParts[#debugParts + 1] = ("id=%d prof=%s slot=%s tools=%d unench=%d wrong=%d skipped=%d apply=%d equipped=%s rf=%s pending=%s dup=%d unbound=%d"):format(
             row.skillLineID,
             tostring(profession.professionID),
             tostring(profession.toolSlot),
@@ -5535,7 +5740,9 @@ trackerUI.FindToolEnchantState = function(trackedRows)
             #profession.applyEnchants,
             tostring(profession.hasEquippedTool),
             tostring(profession.hasResourcefulnessTool),
-            tostring(profession.toolScanPending)
+            tostring(profession.toolScanPending),
+            duplicateEnchants,
+            unboundEnchants
         )
     end
     local debugSummary = #debugParts > 0 and table.concat(debugParts, " | ") or "none"
@@ -5590,13 +5797,11 @@ trackerUI.MarkToolEnchantApplicationPending = function(action)
 
     -- Deux outils de rechange peuvent partager un meme slotIndex dans deux
     -- sacs differents : la source et le sac font partie de l'identite de la
-    -- cible, sinon une confirmation validerait la mauvaise application.
-    local key = table.concat({
-        tostring(action.skillLineID),
-        tostring(action.source or "equipment"),
-        tostring(action.toolBag or "-"),
-        tostring(action.toolSlot),
-    }, ":")
+    -- cible, sinon une confirmation validerait la mauvaise application. La
+    -- cle est fabriquee en UN seul endroit, partage avec l'epinglage lu par
+    -- trackerUI.HasLiveToolEnchantPending.
+    local key = trackerUI.BuildToolEnchantPendingKey(
+        action.skillLineID, action.source, action.toolBag, action.toolSlot)
     runtimeState.toolEnchantApplicationPending[key] = {
         skillLineID = action.skillLineID,
         source = action.source or "equipment",
@@ -9951,7 +10156,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
                 trackerUI.Say("reply", "/ywt reset - remet la frame a sa position par defaut")
                 trackerUI.Say("reply", "/ywt debug [on|off|now] - journal de debug, ou rafraichissement force")
                 trackerUI.Say("reply", "/ywt log [n|clear] - lit ou vide le journal persistant")
-                trackerUI.Say("reply", "/ywt stuff [on|off|ilvl n|ilvl reset] - equipement de metier et son seuil d'ilvl")
+                trackerUI.Say("reply", "/ywt stuff [on|off|ilvl n|ilvl reset|lies [on|off]] - equipement de metier, son seuil d'ilvl, et l'enchantement reserve aux outils lies")
                 trackerUI.Say("reply", "/ywt traites [on|off] - rappel des traites (inscription)")
                 trackerUI.Say("reply", "/ywt autoopen [reset [all]] - bilan ou purge des verdicts d'auto-ouverture")
                 trackerUI.Say("reply", "/ywt help - cette liste")
@@ -10028,6 +10233,24 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
                 trackerUI.InvalidateToolEnchantCache()
                 ScheduleTrackerRefresh(0, false)
                 trackerUI.Say("reply", "Equipement de metier desactive")
+            elseif command == "stuff lies" then
+                local accountDB = GetAccountDB()
+                local isEnabled = accountDB.professionGearEnchantBoundToolsOnly ~= false
+                accountDB.professionGearEnchantBoundToolsOnly = not isEnabled
+                trackerUI.InvalidateToolEnchantCache()
+                ScheduleTrackerRefresh(0, false)
+                trackerUI.Say("reply", ("Enchantement reserve aux outils lies %s"):format(
+                    accountDB.professionGearEnchantBoundToolsOnly and "active" or "desactive"))
+            elseif command == "stuff lies on" then
+                GetAccountDB().professionGearEnchantBoundToolsOnly = true
+                trackerUI.InvalidateToolEnchantCache()
+                ScheduleTrackerRefresh(0, false)
+                trackerUI.Say("reply", "Enchantement reserve aux outils lies active")
+            elseif command == "stuff lies off" then
+                GetAccountDB().professionGearEnchantBoundToolsOnly = false
+                trackerUI.InvalidateToolEnchantCache()
+                ScheduleTrackerRefresh(0, false)
+                trackerUI.Say("reply", "Enchantement reserve aux outils lies desactive")
             elseif command == "traites" then
                 local accountDB = GetAccountDB()
                 local isEnabled = accountDB.trackTreatises ~= false
