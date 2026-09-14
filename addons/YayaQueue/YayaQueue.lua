@@ -18435,6 +18435,130 @@ function YayaQueueAPI.HasPatronOrder(orderID)
     return false
 end
 
+-- ---------------------------------------------------------------------------
+-- Specialisations de metier : facade publique du moteur profession-spec-mass
+--
+-- Le moteur vit dans YQQuality (FindProfessionSpecPath, MassPurchaseProfessionSpecPath
+-- et la machine asynchrone qui les suit). Il n'etait joignable que par Alt+clic sur un
+-- noeud de la fenetre Blizzard. YayaWeeklyTracker a besoin des memes primitives pour
+-- derouler un plan ordonne, d'ou cette facade : elle n'ajoute aucune regle de decision,
+-- elle expose ce qui existe deja. Tout est champ de table, le chunk etant a 196 locals
+-- sur les 200 que Lua 5.1 autorise.
+-- ---------------------------------------------------------------------------
+
+--- Rend la frame de specialisation Blizzard, ou nil.
+-- requireVisible distingue les deux usages : la LECTURE d'un rang se passe de frame
+-- (repli C_Traits dans GetProfessionSpecPathRanks), l'ACHAT non.
+function YayaQueueAPI.GetProfessionSpecFrame(requireVisible)
+    local frame = (ProfessionsFrame and ProfessionsFrame.SpecPage) or _G.ProfessionsSpecFrame
+    if type(frame) ~= "table" or type(frame.GetConfigID) ~= "function" then
+        return nil
+    end
+    if requireVisible and type(frame.IsVisible) == "function" and not frame:IsVisible() then
+        return nil
+    end
+    return frame
+end
+
+function YayaQueueAPI.IsProfessionSpecBusy()
+    return state.professionSpecMassPurchase ~= nil
+        and state.professionSpecMassPurchase.active == true
+end
+
+function YayaQueueAPI.GetProfessionSpecConfigID(skillLineID)
+    if type(C_ProfSpecs) ~= "table"
+        or type(C_ProfSpecs.GetConfigIDForSkillLine) ~= "function" then
+        return nil
+    end
+
+    local configID = SafeCall(C_ProfSpecs.GetConfigIDForSkillLine, skillLineID)
+    if not configID or configID == 0 then
+        return nil
+    end
+    return configID
+end
+
+--- Rang courant et rang maximal d'un noeud, rang de deblocage exclu.
+function YayaQueueAPI.GetProfessionSpecPathRanks(configID, nodeID)
+    return YQQuality.GetProfessionSpecPathRanks(
+        YayaQueueAPI.GetProfessionSpecFrame(true),
+        configID,
+        nodeID
+    )
+end
+
+function YayaQueueAPI.GetProfessionSpecPathState(configID, nodeID)
+    return YQQuality.GetProfessionSpecPathState(configID, nodeID)
+end
+
+--- Bascule la fenetre sur le sous-onglet demande.
+-- MassPurchaseProfessionSpecPath part de talentFrame:GetRootNodeID() : un noeud qui
+-- appartient a un autre onglet n'est jamais trouve par le DFS et l'operation echoue
+-- sur invalid-context. C'est donc un prealable, pas un confort d'affichage.
+function YayaQueueAPI.SelectProfessionSpecTab(treeID)
+    local frame = YayaQueueAPI.GetProfessionSpecFrame(true)
+    treeID = tonumber(treeID)
+    if not frame or not treeID or type(frame.SetSelectedTab) ~= "function" then
+        return false
+    end
+    if type(frame.GetTalentTreeID) == "function" and frame:GetTalentTreeID() == treeID then
+        return true
+    end
+
+    local ok = pcall(frame.SetSelectedTab, frame, treeID)
+    DebugPrint(
+        "profession-spec-plan select-tab tree=" .. tostring(treeID)
+            .. " ok=" .. tostring(ok)
+            .. " current=" .. tostring(
+                type(frame.GetTalentTreeID) == "function" and frame:GetTalentTreeID() or nil
+            )
+    )
+    return ok == true
+end
+
+--- Achete UN rang sur un noeud, sans passer par l'orchestration du chemin.
+--
+-- Sert a debloquer une page de specialisation. `MassPurchaseProfessionSpecPath`
+-- y repond par `CheckConfirmPurchaseTab`, c'est-a-dire par une fenetre de
+-- confirmation dont le `onAccept` appelle `C_Traits.CommitConfig` : aucun addon
+-- ne peut la valider, le predicat `AllowedWhenUntainted` refusant l'appel des
+-- que la pile d'execution porte du code d'addon. L'achat direct, lui, met le
+-- rang en attente comme n'importe quel autre et se valide avec eux.
+function YayaQueueAPI.PurchaseProfessionSpecRank(nodeID)
+    nodeID = tonumber(nodeID)
+    if not nodeID then
+        return false, "invalid-target"
+    end
+
+    local frame = YayaQueueAPI.GetProfessionSpecFrame(true)
+    if not frame then
+        return false, "frame-unavailable"
+    end
+    return YQQuality.PurchaseProfessionSpecRank(frame, nodeID)
+end
+
+--- Avance d'un palier vers targetNodeID. stepSize nil = etape complete.
+function YayaQueueAPI.StepProfessionSpecTarget(targetNodeID, stepSize)
+    targetNodeID = tonumber(targetNodeID)
+    if not targetNodeID then
+        return false, "invalid-target"
+    end
+    if YayaQueueAPI.IsProfessionSpecBusy() then
+        return false, "busy"
+    end
+
+    local frame = YayaQueueAPI.GetProfessionSpecFrame(true)
+    if not frame then
+        return false, "frame-unavailable"
+    end
+
+    local started = YQQuality.MassPurchaseProfessionSpecPath(frame, targetNodeID, stepSize)
+    if started == true then
+        return true, nil
+    end
+    return false, "engine-refused"
+end
+
 --- Aide des commandes : une ligne par commande, syntaxe puis effet.
 YQQuality.PrintHelp = function()
     Print("Commandes /yq :")

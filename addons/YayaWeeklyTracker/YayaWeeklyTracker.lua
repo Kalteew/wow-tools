@@ -1142,6 +1142,7 @@ local TRACKER_DEFAULTS = {
     -- comptent comme possedees -- c'est du stock -- mais chacune reclamait son
     -- parchemin d'enchantement.
     professionGearEnchantBoundToolsOnly = true,
+    trackSpecPlan = true,
     trackSparksOfTides = true,
     autoBuyAbundanceEnchantingBags = false,
     autoBuyAbundanceFusedVitality = false,
@@ -1208,6 +1209,10 @@ runtimeState.trackingOptions = {
         label = "Equipement de metier : outils, accessoires, enchantements (seuils ci-dessous)" },
     { category = "Metiers Midnight", key = "unspentKnowledgeWarningThreshold", type = "slider", default = 5,
         min = 0, max = 50, step = 1, label = "Points de connaissance non depenses : seuil d'alerte KP" },
+    { category = "Metiers Midnight", key = "trackSpecPlan",
+        label = "Bouton de depense des points de connaissance (plan par metier)",
+        tooltip = "Avance d'un palier dans le plan du metier a chaque clic. "
+            .. "Sans plan pour le metier, le bouton n'apparait pas." },
     { category = "Metiers Midnight", key = "moxieWarningThreshold", type = "slider", default = 600,
         min = 0, max = 2000, step = 50, label = "Moxie : seuil d'alerte" },
     { category = "Metiers Midnight", key = "professionGearMinimumItemLevel", type = "slider", default = 232,
@@ -6461,6 +6466,68 @@ trackerUI.UpdateProfessionSupplyButton = function(plan)
     return true
 end
 
+--- Rend true, false ou nil selon que le plan de specialisation du metier a
+-- encore quelque chose de depensable. Le module est une dependance optionnelle :
+-- son absence doit laisser le rappel KP exactement comme avant, d'ou le nil.
+trackerUI.GetSpecPlanSpendableWork = function(skillLineID)
+    local specPlan = _G.YayaWeeklyTrackerSpecPlan
+    if not (specPlan and type(specPlan.HasSpendableWork) == "function") then
+        return nil
+    end
+    local ok, result = pcall(specPlan.HasSpendableWork, skillLineID)
+    if not ok then
+        DebugLog("SpecPlan HasSpendableWork erreur: %s", tostring(result))
+        return nil
+    end
+    return result
+end
+
+--- Bouton de depense des points de connaissance. Toute la decision est dans
+-- YayaWeeklyTrackerSpecPlan.lua : ici on ne fait que poser le libelle, qui
+-- annonce ce que le PROCHAIN clic fera, comme le bouton d'approvisionnement.
+--
+-- `knowledgeButtonVisible` efface le bouton tant qu'il reste un objet KP a
+-- consommer. Les deux se partageaient la pile d'actions, et un autoclicker qui
+-- martele le bas de la frame ne choisit pas : il prend ce qui s'y trouve, et
+-- les points de spe ouvrent la fenetre de metier, donc deplacent ce que le
+-- clic suivant atteint. Un seul bouton a la fois, dans l'ordre utile : les
+-- livres d'abord -- chacun rend dix points de plus a placer -- le plan ensuite,
+-- quand les sacs sont vides.
+trackerUI.UpdateSpecPlanButton = function(knowledgeButtonVisible)
+    local button = trackerFrame and trackerFrame.specPlanButton
+    if not button then
+        return false
+    end
+
+    local specPlan = _G.YayaWeeklyTrackerSpecPlan
+    local state
+    if not knowledgeButtonVisible
+        and specPlan and type(specPlan.BuildButtonState) == "function" then
+        local ok, result = pcall(specPlan.BuildButtonState)
+        state = ok and result or nil
+        if not ok then
+            DebugLog("SpecPlan BuildButtonState erreur: %s", tostring(result))
+        end
+    end
+
+    if not state then
+        button.specPlanTooltip = nil
+        if not (InCombatLockdown and InCombatLockdown()) then
+            button:SetAttribute("type", nil)
+            button:SetAttribute("clickbutton", nil)
+            button:SetAttribute("macrotext", nil)
+            button:Hide()
+        end
+        return false
+    end
+
+    button:SetText(state.label or "Spé métier")
+    button.specPlanTooltip = state.tooltip
+    button:SetEnabled(state.enabled == true)
+    button:Show()
+    return true
+end
+
 trackerUI.UpdateToolEnchantApplyButtons = function(state)
     local buttons = trackerFrame and trackerFrame.toolEnchantApplyButtons or EMPTY_TABLE
     local actions = state and state.applyEnchants or EMPTY_TABLE
@@ -7336,8 +7403,14 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         row.skillLineID
     )
     local unspentKnowledge = type(knowledgeInfo) == "table" and knowledgeInfo.numAvailable or 0
+    -- Un metier dont le plan de specialisation n'a plus rien de depensable --
+    -- plan termine, ou tout ce qui reste attend une page verrouillee par le
+    -- niveau -- ne doit plus reclamer : ces points ne sont pas placables, et
+    -- l'alerte deviendrait permanente. `nil` signifie « pas de plan » ou « arbre
+    -- illisible » : le rappel reste alors exactement ce qu'il etait.
     if type(unspentKnowledge) == "number"
-        and unspentKnowledge > trackerUI.GetNumberSetting("unspentKnowledgeWarningThreshold") then
+        and unspentKnowledge > trackerUI.GetNumberSetting("unspentKnowledgeWarningThreshold")
+        and trackerUI.GetSpecPlanSpendableWork(row.skillLineID) ~= false then
         Push(tokens,
             ("KP%s%d"):format(NB, unspentKnowledge),
             ("%d points de connaissance a depenser"):format(unspentKnowledge),
@@ -8628,6 +8701,30 @@ _G.YayaWeeklyTrackerAutoOpen.RequestTrackerRefresh = function()
     ScheduleTrackerRefresh(0, false)
 end
 
+-- Pont vers YayaWeeklyTrackerSpecPlan.lua, sur le modele d'AutoOpen : le module
+-- decide quel noeud de specialisation acheter, ce fichier lui prete l'etat du
+-- tracker et son bouton. La table est creee par celui des deux fichiers qui
+-- s'execute en premier, l'ordre du TOC n'ayant pas a etre une dependance.
+_G.YayaWeeklyTrackerSpecPlan = _G.YayaWeeklyTrackerSpecPlan or {}
+_G.YayaWeeklyTrackerSpecPlan.GetActionButton = function()
+    return trackerFrame and trackerFrame.specPlanButton or nil
+end
+_G.YayaWeeklyTrackerSpecPlan.GetTrackedProfessionRows = function()
+    return GetTrackedMidnightProfessions()
+end
+_G.YayaWeeklyTrackerSpecPlan.RequestTrackerRefresh = function()
+    ScheduleTrackerRefresh(0, false)
+end
+_G.YayaWeeklyTrackerSpecPlan.IsEnabled = function()
+    return GetAccountDB().trackSpecPlan ~= false
+end
+_G.YayaWeeklyTrackerSpecPlan.DebugLog = function(...)
+    DebugLog(...)
+end
+_G.YayaWeeklyTrackerSpecPlan.Say = function(level, message)
+    trackerUI.Say(level, message)
+end
+
 trackerUI.FinishTradeSkillBootstrap = function()
     if not runtimeState.tradeSkillBootstrapPending then
         return
@@ -9235,6 +9332,7 @@ trackerUI.actionButtonFields = {
     "recipeMarlButton",
     "treasureButton",
     "professionSupplyButton",
+    "specPlanButton",
     "autoOpenButton",
 }
 
@@ -9435,6 +9533,13 @@ UpdateTracker = function()
                     trackedRows)
                 or nil
         ) or false
+        -- Le bouton KP passe en parametre : tant qu'il est la, le plan de
+        -- spe s'efface au lieu de lui disputer la pile.
+        local hasSpecPlanButton = DebugSafeCall(
+            "UpdateSpecPlanButton",
+            trackerUI.UpdateSpecPlanButton,
+            hasKnowledgeButton
+        ) or false
         local autoOpenApi = _G.YayaWeeklyTrackerAutoOpen
         local autoOpenButton = autoOpenApi
             and type(autoOpenApi.GetActionButton) == "function"
@@ -9456,10 +9561,10 @@ UpdateTracker = function()
             and not (InCombatLockdown and InCombatLockdown()) then
             autoOpenButton:Hide()
         end
-        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|fm=%d|tt=%s|tea=%d|sup=%s|ao=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, tostring(hasTreasureButton), toolEnchantApplyButtonCount, tostring(hasSupplyButton), tostring(hasAutoOpenButton))
+        local trackerDebugSignature = ("%d|kp=%s|recipe=%s|marl=%s|po=%s|sr=%d|fm=%d|tt=%s|tea=%d|sup=%s|spec=%s|ao=%s"):format(#entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, tostring(hasTreasureButton), toolEnchantApplyButtonCount, tostring(hasSupplyButton), tostring(hasSpecPlanButton), tostring(hasAutoOpenButton))
         if trackerDebugSignature ~= debugSignatures.tracker then
             debugSignatures.tracker = trackerDebugSignature
-            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d mergeButtons=%d treasureButton=%s toolApply=%d supplyButton=%s autoOpen=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, tostring(hasTreasureButton), toolEnchantApplyButtonCount, tostring(hasSupplyButton), tostring(hasAutoOpenButton))
+            DebugLog("UpdateTracker entries=%d kpButton=%s recipeButton=%s marlButton=%s payoutButton=%s surplusButtons=%d mergeButtons=%d treasureButton=%s toolApply=%d supplyButton=%s specPlanButton=%s autoOpen=%s", #entries, tostring(hasKnowledgeButton), tostring(hasRecipeButton), tostring(hasRecipeMarlButton), tostring(hasPayoutButton), surplusButtonCount, finishingReagentMergeButtonCount, tostring(hasTreasureButton), toolEnchantApplyButtonCount, tostring(hasSupplyButton), tostring(hasSpecPlanButton), tostring(hasAutoOpenButton))
         end
         local hasUsefulEntry = false
         for _, entry in ipairs(entries) do
@@ -9468,7 +9573,7 @@ UpdateTracker = function()
                 break
             end
         end
-        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and finishingReagentMergeButtonCount == 0 and not hasTreasureButton and toolEnchantApplyButtonCount == 0 and not hasSupplyButton and not hasAutoOpenButton then
+        if not hasUsefulEntry and not hasKnowledgeButton and not hasRecipeButton and not hasRecipeMarlButton and not hasPayoutButton and surplusButtonCount == 0 and finishingReagentMergeButtonCount == 0 and not hasTreasureButton and toolEnchantApplyButtonCount == 0 and not hasSupplyButton and not hasSpecPlanButton and not hasAutoOpenButton then
             DebugLog("UpdateTracker hide frame: all professions complete and no other actions")
             trackerFrame:Hide()
             if YayaFrameAPI and type(YayaFrameAPI.Refresh) == "function" then
@@ -9521,6 +9626,12 @@ UpdateTracker = function()
         end
 
         AddAction(hasPayoutButton and trackerFrame.payoutButton)
+        -- Ces deux-la ne coexistent plus : UpdateSpecPlanButton efface le
+        -- plan de spe tant qu'un livre reste a consommer. L'ordre garde quand
+        -- meme l'enchainement voulu -- les livres d'abord, les points ensuite,
+        -- la pile etant packee depuis le bas -- pour le jour ou la regle
+        -- tomberait.
+        AddAction(hasSpecPlanButton and trackerFrame.specPlanButton)
         AddAction(hasKnowledgeButton and trackerFrame.knowledgeButton)
         AddAction(hasRecipeButton and trackerFrame.recipeButton)
         AddAction(hasRecipeMarlButton and trackerFrame.recipeMarlButton)
@@ -9537,6 +9648,23 @@ UpdateTracker = function()
         end
         AddAction(hasAutoOpenButton and autoOpenButton)
         trackerFrame.bindingActions = actions
+
+        -- L'ordre de la pile, en clair. Le premier de `actions` est le plus
+        -- HAUT (StackLayout ancre en TOPLEFT avec un offset croissant) et le
+        -- dernier le plus BAS, donc celui que le raccourci prend en premier :
+        -- YayaCore.ActionBinding.ResolveTarget retient le plus petit GetBottom().
+        -- Sans cette trace, discuter d'un ordre d'affichage revenait a se fier a
+        -- ce que chacun croit lire dans AddAction.
+        local actionOrder = {}
+        for index, button in ipairs(actions) do
+            actionOrder[index] = tostring(button:GetName() or "?")
+                :gsub("^" .. addonName, "")
+        end
+        local actionOrderSignature = table.concat(actionOrder, ">")
+        if actionOrderSignature ~= debugSignatures.actionOrder then
+            debugSignatures.actionOrder = actionOrderSignature
+            DebugLog("UpdateTracker pile haut->bas: %s", actionOrderSignature)
+        end
 
         -- CRITIQUE AUTOCLICKER. La pile est packee depuis le bas, a pas
         -- constant : la frame est ancree BOTTOMLEFT et grandit vers le haut,
@@ -10031,6 +10159,43 @@ trackerUI.CreateTrackerFrame = function()
     end)
     trackerFrame.professionSupplyButton:SetScript("OnLeave", GameTooltip_Hide)
 
+    -- Depense des points de connaissance selon le plan du metier. Securise pour
+    -- la seule etape d'application : le bouton Appliquer de Blizzard commite la
+    -- configuration de traits, et C_Traits.CommitConfig est refuse a du code
+    -- d'addon. Les autres etapes sont de simples appels d'API faits en PreClick,
+    -- ou l'evenement materiel est acquis. Toute la decision vit dans
+    -- YayaWeeklyTrackerSpecPlan.lua, ce bouton n'en est que la surface.
+    trackerFrame.specPlanButton = CreateFrame("Button", addonName .. "SpecPlanButton", trackerFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+    trackerFrame.specPlanButton:SetSize(178, YayaCore.UI.ACTION.height)
+    trackerFrame.specPlanButton:RegisterForClicks("AnyUp")
+    trackerFrame.specPlanButton:SetAttribute("useOnKeyDown", false)
+    trackerFrame.specPlanButton:SetText("Spé métier")
+    trackerFrame.specPlanButton:Hide()
+    trackerFrame.specPlanButton:SetScript("PreClick", function(self, _, down)
+        if down then
+            return
+        end
+        local specPlan = _G.YayaWeeklyTrackerSpecPlan
+        if specPlan and type(specPlan.Step) == "function" then
+            local ok, err = pcall(specPlan.Step, self)
+            if not ok then
+                DebugLog("SpecPlan Step erreur: %s", tostring(err))
+            end
+        end
+    end)
+    trackerFrame.specPlanButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Depense les points de connaissance selon le plan du metier.")
+        for _, line in ipairs(self.specPlanTooltip or EMPTY_TABLE) do
+            GameTooltip:AddLine(line, 1, 1, 1, true)
+        end
+        if not self:IsEnabled() then
+            GameTooltip:AddLine("Rien d'actionnable pour l'instant.", 1, 0.6, 0.2, true)
+        end
+        GameTooltip:Show()
+    end)
+    trackerFrame.specPlanButton:SetScript("OnLeave", GameTooltip_Hide)
+
     trackerFrame.toolEnchantApplyButtons = {}
     -- Les outils de rechange en sac ont chacun leur bouton : 11 ne couvrait
     -- que les metiers, pas les exemplaires supplementaires.
@@ -10158,6 +10323,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
                 trackerUI.Say("reply", "/ywt log [n|clear] - lit ou vide le journal persistant")
                 trackerUI.Say("reply", "/ywt stuff [on|off|ilvl n|ilvl reset|lies [on|off]] - equipement de metier, son seuil d'ilvl, et l'enchantement reserve aux outils lies")
                 trackerUI.Say("reply", "/ywt traites [on|off] - rappel des traites (inscription)")
+                trackerUI.Say("reply", "/ywt spec [dump [metier]] [on|off] - plan de depense des points de connaissance")
                 trackerUI.Say("reply", "/ywt autoopen [reset [all]] - bilan ou purge des verdicts d'auto-ouverture")
                 trackerUI.Say("reply", "/ywt help - cette liste")
             elseif command == "options" then
@@ -10262,6 +10428,21 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             elseif command == "traites off" then
                 GetAccountDB().trackTreatises = false
                 trackerUI.Say("reply", "Tracker les traites (inscription) desactive")
+            elseif command == "spec on" then
+                GetAccountDB().trackSpecPlan = true
+                ScheduleTrackerRefresh(0, false)
+                trackerUI.Say("reply", "Bouton de depense des points de connaissance active")
+            elseif command == "spec off" then
+                GetAccountDB().trackSpecPlan = false
+                ScheduleTrackerRefresh(0, false)
+                trackerUI.Say("reply", "Bouton de depense des points de connaissance desactive")
+            elseif command == "spec" or command:match("^spec%s") then
+                -- Le module porte l'etat et l'arbre : il repond lui-meme.
+                local specPlan = _G.YayaWeeklyTrackerSpecPlan
+                if not (specPlan and type(specPlan.HandleSlash) == "function"
+                    and specPlan.HandleSlash(command:match("^spec%s*(.*)$"))) then
+                    trackerUI.Say("reply", "usage: /ywt spec [dump [metier]] | spec on | spec off")
+                end
             elseif command == "autoopen reset" or command == "autoopen reset all" then
                 local api = _G.YayaWeeklyTrackerAutoOpen
                 if api and type(api.ResetContainerCaches) == "function" then

@@ -677,9 +677,52 @@ for _, location in ipairs(ISBOUND_LOCATIONS or {}) do
     end
 end
 
+-- 12. Un seul bouton a la fois : le plan de specialisation s'efface tant qu'un
+-- livre de connaissance dort en sac.
+--
+-- Les deux boutons vivent dans la meme pile d'actions, packee depuis le bas de
+-- la frame, et un autoclicker qui martele ce bord ne choisit pas : il prend ce
+-- qui s'y trouve. Le bouton de spe ouvre en plus la fenetre de metier, donc
+-- deplace ce que le clic suivant atteint. Ranger l'un au-dessus de l'autre ne
+-- suffisait pas ; il faut que le second n'existe pas tant que le premier est la.
+--
+-- Le module de plan n'est pas charge par cette suite : sa surface est doublee
+-- ici, ce qui suffit -- le tracker ne lui demande qu'un etat de bouton.
+_G.YayaWeeklyTrackerSpecPlan.BuildButtonState = function()
+    return { label = "Spe test", enabled = true, tooltip = {} }
+end
+
+-- La trace n'est journalisee que sur changement de pile. Poser la doublure en
+-- fait entrer un bouton de plus : cette mesure-ci est donc toujours ecrite.
+ClearTraces()
+FireEvent("BAG_UPDATE_DELAYED")
+RunTimers(5)
+local stackWithoutBook = LastTrace("UpdateTracker pile haut->bas:")
+if not stackWithoutBook then
+    Fail("aucune trace de pile apres le plan de spe : le test 12 ne couvre plus rien")
+elseif not stackWithoutBook:find("SpecPlanButton", 1, true) then
+    Fail("sacs sans livre : le bouton de spe manque a la pile :: " .. stackWithoutBook)
+end
+
+ClearTraces()
+AddKnowledgeConsumableFixture()
+FireEvent("BAG_UPDATE_DELAYED")
+RunTimers(5)
+local stackWithBook = LastTrace("UpdateTracker pile haut->bas:")
+if not stackWithBook then
+    Fail("le livre en sac ne change rien a la pile")
+else
+    if not stackWithBook:find("KnowledgeButton", 1, true) then
+        Fail("le livre en sac ne fait pas apparaitre le bouton KP :: " .. stackWithBook)
+    end
+    if stackWithBook:find("SpecPlanButton", 1, true) then
+        Fail("le bouton de spe dispute la pile au bouton KP :: " .. stackWithBook)
+    end
+end
+
 if failures > 0 then
     print(("%d echec(s)"):format(failures))
     os.exit(1)
 end
 
-print("test_tracker_refresh : rafraichissement sans erreur, scan d'equipement conforme, plan d'achat par variante, outil Multicrafting equipe reconnu, Warbank suivie et jugee par variante")
+print("test_tracker_refresh : rafraichissement sans erreur, scan d'equipement conforme, plan d'achat par variante, outil Multicrafting equipe reconnu, Warbank suivie et jugee par variante, plan de spe efface tant qu un livre KP reste en sac")

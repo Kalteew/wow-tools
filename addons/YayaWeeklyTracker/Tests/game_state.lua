@@ -495,6 +495,15 @@ function AddResaleToolCopiesFixture(count)
     end
 end
 
+-- Un livre de connaissance d'alchimie en sac : c'est lui qui fait apparaitre le
+-- bouton « Utiliser KP », et donc lui qui doit effacer le bouton du plan de
+-- specialisation. L'emplacement 6 est le seul que les autres doublures laissent
+-- libre -- 3 a 5 vont aux copies de revente, 7 a l'outil non lie.
+ITEMS[245755] = { name = "Alchemist's Notebook", quality = 3 }
+function AddKnowledgeConsumableFixture()
+    BAG_CONTENT[0][6] = { itemID = 245755 }
+end
+
 -- Le meme outil, la meme statistique, mais LIE : un exemplaire de rechange bien
 -- a soi. Il prouve que le regroupement par statistique corrige a lui seul, sans
 -- rien devoir a l'etat de liaison.
