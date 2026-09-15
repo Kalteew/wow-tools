@@ -219,12 +219,17 @@ ProfessionsFrame = {
 -- Pont du tracker
 --------------------------------------------------------------------------------
 
+RANDOM_FILL_ENABLED = false
+
 _G.YayaWeeklyTrackerSpecPlan = {
     GetTrackedProfessionRows = function()
         return { { skillLineID = SKILL_LINE_ID, config = { label = "Alch" } } }
     end,
     IsEnabled = function()
         return true
+    end,
+    IsRandomFillEnabled = function()
+        return RANDOM_FILL_ENABLED == true
     end,
     RequestTrackerRefresh = function() end,
     DebugLog = function() end,
@@ -266,6 +271,8 @@ local function Reset(plan)
     APPLY_CLICKS = 0
     POPUP_SHOWN = nil
     POPUP_CLICKS = 0
+    RANDOM_FILL_ENABLED = false
+    specPlan.SetRandomSource(nil)
     specPlan.SetPlanForSkillLine(SKILL_LINE_ID, plan)
 end
 
@@ -736,6 +743,172 @@ Check("le libelle porte la progression",
     buttonState and buttonState.label)
 Check("l'infobulle annonce le rang vise par CE clic",
     buttonState and #buttonState.tooltip >= 3)
+
+--------------------------------------------------------------------------------
+-- Remplissage libre, une fois le plan termine
+--
+-- L'arbre du harnais : page 100 racine 10 (max 30) -> 11 (max 26) -> 12 (max 20),
+-- page 200 racine 20 (max 15). Apres un Reset, seul 10 est appris et tout est a
+-- zero, donc les quatre noeuds sont candidats, tries par pathID croissant :
+-- {10, 11, 12, 20}.
+--------------------------------------------------------------------------------
+
+print("")
+print("Remplissage libre, une fois le plan termine")
+
+-- Un plan d'une seule etape deja satisfaite : le noeud 10 est appris, donc une
+-- etape `rank = 0` dessus ne demande plus rien.
+local FINISHED_PLAN = { steps = { { path = 10, rank = 0, name = "Racine" } } }
+
+local pickCalls = 0
+local pickIndex = 1
+local function CountingSource(count)
+    pickCalls = pickCalls + 1
+    -- Rend un index qui CHANGE a chaque appel : si la cible etait retiree a
+    -- chaque passe, les tests de stabilite le verraient immediatement.
+    pickIndex = pickIndex % count + 1
+    return pickIndex
+end
+
+Reset(FINISHED_PLAN)
+Check("plan termine, option eteinte : rien a faire, comme avant",
+    specPlan.ResolvePlanTarget(SKILL_LINE_ID) == nil)
+Check("et l'alerte KP s'eteint", specPlan.HasSpendableWork(SKILL_LINE_ID) == false)
+
+Reset(FINISHED_PLAN)
+specPlan.IsRandomFillEnabled = nil
+Check("le reglage absent vaut ETEINT, a l'inverse de IsEnabled",
+    specPlan.ResolvePlanTarget(SKILL_LINE_ID) == nil)
+specPlan.IsRandomFillEnabled = function()
+    return RANDOM_FILL_ENABLED == true
+end
+
+Reset(FINISHED_PLAN)
+RANDOM_FILL_ENABLED = true
+specPlan.SetRandomSource(CountingSource)
+pickCalls = 0
+RANKS[11] = 5
+UNLOCKED[11] = true
+local fill = specPlan.ResolvePlanTarget(SKILL_LINE_ID)
+Check("plan termine : un noeud entame devient la cible",
+    fill ~= nil and fill.pathID == 11, fill and fill.pathID)
+Check("il est mene a son maximum, pas a un palier intermediaire",
+    fill ~= nil and fill.targetRank == 26, fill and fill.targetRank)
+Check("la cible se declare hors plan", fill ~= nil and fill.randomFill == true)
+Check("finir un noeud entame ne consulte JAMAIS le tirage", pickCalls == 0)
+Check("et l'alerte KP reste allumee", specPlan.HasSpendableWork(SKILL_LINE_ID) == true)
+
+RANKS[12] = 3
+UNLOCKED[12] = true
+fill = specPlan.ResolvePlanTarget(SKILL_LINE_ID)
+Check("deux noeuds entames : le plus petit pathID gagne, sans hasard",
+    fill ~= nil and fill.pathID == 11, fill and fill.pathID)
+
+Reset(FINISHED_PLAN)
+RANDOM_FILL_ENABLED = true
+specPlan.SetRandomSource(CountingSource)
+pickCalls = 0
+fill = specPlan.ResolvePlanTarget(SKILL_LINE_ID)
+local firstPick = fill and fill.pathID
+local againPick = specPlan.ResolvePlanTarget(SKILL_LINE_ID)
+Check("aucun noeud entame : un vierge est tire au sort", firstPick ~= nil)
+Check("le tirage ne rejoue pas d'une passe a l'autre",
+    againPick ~= nil and againPick.pathID == firstPick,
+    tostring(firstPick) .. " puis " .. tostring(againPick and againPick.pathID))
+Check("la source n'a ete consultee qu'une fois", pickCalls == 1, pickCalls)
+
+-- Le noeud tire est mene a son maximum : il quitte alors la liste, et seulement
+-- la un nouveau tirage a lieu.
+RANKS[firstPick] = MAX_RANKS[firstPick]
+UNLOCKED[firstPick] = true
+fill = specPlan.ResolvePlanTarget(SKILL_LINE_ID)
+Check("le noeud tire complete, un autre est tire",
+    fill ~= nil and fill.pathID ~= firstPick, fill and fill.pathID)
+Check("et la source a ete reconsultee", pickCalls == 2, pickCalls)
+
+Reset(FINISHED_PLAN)
+RANDOM_FILL_ENABLED = true
+specPlan.SetRandomSource(function() return 2 end)
+fill = specPlan.ResolvePlanTarget(SKILL_LINE_ID)
+Check("un noeud encore verrouille est tire comme les autres",
+    fill ~= nil and fill.pathID == 11, fill and fill.pathID)
+Check("mais il s'annonce comme un deblocage, pas comme un rang",
+    fill ~= nil and fill.unlockOnly == true)
+Check("son nom retombe sur le pathID quand l'arbre ne le nomme pas",
+    fill ~= nil and fill.step.name == "path 11", fill and fill.step.name)
+
+Reset(FINISHED_PLAN)
+RANDOM_FILL_ENABLED = true
+TAB_STATES[200] = Enum.ProfessionsSpecTabState.Locked
+specPlan.SetRandomSource(function() return 4 end)
+fill = specPlan.ResolvePlanTarget(SKILL_LINE_ID)
+Check("une page verrouillee par le niveau ne fournit aucun candidat",
+    fill ~= nil and fill.pathID ~= 20, fill and fill.pathID)
+
+Reset(FINISHED_PLAN)
+RANDOM_FILL_ENABLED = true
+TAB_STATES[200] = Enum.ProfessionsSpecTabState.Unlockable
+specPlan.SetRandomSource(function() return 1 end)
+fill = specPlan.ResolvePlanTarget(SKILL_LINE_ID)
+Check("une page seulement achetable attend que les pages payees soient pleines",
+    fill ~= nil and fill.pathID ~= 20, fill and fill.pathID)
+
+RANKS[10], RANKS[11], RANKS[12] = 30, 26, 20
+UNLOCKED[11], UNLOCKED[12] = true, true
+fill = specPlan.ResolvePlanTarget(SKILL_LINE_ID)
+Check("page payee pleine : la cible devient la RACINE de la page achetable",
+    fill ~= nil and fill.pathID == 20, fill and fill.pathID)
+Check("visee en deblocage, seule cible qui ouvre la fenetre de Blizzard",
+    fill ~= nil and fill.unlockOnly == true)
+
+Reset(FINISHED_PLAN)
+RANDOM_FILL_ENABLED = true
+RANKS[10], RANKS[11], RANKS[12], RANKS[20] = 30, 26, 20, 15
+Check("arbre entierement plein : plus rien a faire",
+    specPlan.ResolvePlanTarget(SKILL_LINE_ID) == nil)
+Check("et l'alerte KP s'eteint pour de bon",
+    specPlan.HasSpendableWork(SKILL_LINE_ID) == false)
+
+-- Une etape SAUTEE n'ouvre pas le repli : la page verrouillee finira par
+-- s'ouvrir, et les points qu'elle attend ne doivent pas partir ailleurs.
+Reset({ steps = { { path = 20, rank = 10, name = "Autre page" } } })
+RANDOM_FILL_ENABLED = true
+TAB_STATES[200] = Enum.ProfessionsSpecTabState.Locked
+local skippedTarget, skippedReason = specPlan.ResolvePlanTarget(SKILL_LINE_ID)
+Check("etape sautee faute de page ouverte : pas de remplissage libre",
+    skippedTarget == nil and skippedReason == "tab-locked", tostring(skippedReason))
+
+-- Le plan reste la loi : une etape encore ouverte passe devant le repli.
+Reset({ steps = { { path = 12, rank = 20, name = "Feuille" } } })
+RANDOM_FILL_ENABLED = true
+RANKS[11] = 5
+UNLOCKED[11] = true
+fill = specPlan.ResolvePlanTarget(SKILL_LINE_ID)
+Check("une etape de plan encore ouverte passe avant le remplissage libre",
+    fill ~= nil and fill.pathID == 12 and fill.randomFill == nil,
+    fill and fill.pathID)
+
+-- Le clic : un seul pas mene le noeud entame a son maximum.
+Reset(FINISHED_PLAN)
+RANDOM_FILL_ENABLED = true
+RANKS[11] = 5
+UNLOCKED[11] = true
+OpenUpTo(100)
+buttonState = specPlan.BuildButtonState()
+Check("le bouton reste affiche apres la fin du plan",
+    buttonState ~= nil and buttonState.enabled == true)
+Check("son infobulle dit que le plan est derriere, sans etape numerotee",
+    buttonState ~= nil
+        and buttonState.tooltip[1]:find("Remplissage libre", 1, true) ~= nil
+        and buttonState.tooltip[1]:find("tape ", 1, true) == nil,
+    buttonState and buttonState.tooltip[1])
+specPlan.Step(FakeButton())
+Check("le clic vise bien le noeud a finir",
+    lastPurchase ~= nil and lastPurchase.nodeID == 11,
+    lastPurchase and lastPurchase.nodeID)
+Check("et le pas demande est le maximum du noeud, sans le depasser",
+    lastPurchase ~= nil and GoalFor(5, 26, lastPurchase.stepSize) == 26,
+    lastPurchase and lastPurchase.stepSize)
 
 --------------------------------------------------------------------------------
 

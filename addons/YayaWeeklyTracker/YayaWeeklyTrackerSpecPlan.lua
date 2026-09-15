@@ -82,6 +82,62 @@ local SPEC_PLANS = {
             { path = 109660, rank = 30, name = "Perfected Products" },
         },
     },
+
+    -- Midnight Blacksmithing. L'ordre est celui dicte par le joueur : la racine
+    -- « The Old Ways » d'abord, puis ses quatre feuilles, puis les deux noeuds
+    -- utiles de la page Craftsmithing, et enfin le deblocage a zero point des dix
+    -- feuilles d'armure et des quatre feuilles d'arme -- chacune apporte ses
+    -- recettes de base sans rien couter de plus.
+    --
+    -- Les noeuds intermediaires ne sont volontairement pas listes : Armorsmithing,
+    -- Large Plate Armor, Sculpted Armor, Articulating Armor, Weaponsmithing, Blades
+    -- et Hafted Weapons sont remontes par le moteur, qui n'y met que le strict
+    -- necessaire au deblocage de l'enfant vise. Tool Stones et Weaponstones restent
+    -- hors plan.
+    [2907] = {
+        steps = {
+            { path = 104292, rank = 40, name = "The Old Ways" },
+            { path = 104289, rank = 20, name = "Prolific Worker" },
+            { path = 104290, rank = 20, name = "Resourceful Smith" },
+            { path = 104291, rank = 20, name = "Second Nature" },
+            { path = 104288, rank = 20, name = "Alloys" },
+            { path = 104257, rank = 20, name = "Trade Tools" },
+            { path = 104256, rank = 15, name = "Trade Accessories" },
+            { path = 104574, rank = 0, name = "Chestplates" },
+            { path = 104573, rank = 0, name = "Greaves" },
+            { path = 104572, rank = 0, name = "Shields" },
+            { path = 104570, rank = 0, name = "Helms" },
+            { path = 104569, rank = 0, name = "Pauldrons" },
+            { path = 104568, rank = 0, name = "Sabatons" },
+            { path = 104566, rank = 0, name = "Belts" },
+            { path = 104565, rank = 0, name = "Vambraces" },
+            { path = 104564, rank = 0, name = "Gauntlets" },
+            { path = 104631, rank = 0, name = "Short Blades" },
+            { path = 104630, rank = 0, name = "Long Blades" },
+            { path = 104628, rank = 0, name = "Maces" },
+            { path = 104627, rank = 0, name = "Axes and Polearms" },
+        },
+    },
+
+    -- Midnight Enchanting. La page « Spellbound Shatterer » est saturee en premier,
+    -- puis la branche Haranir de « Elevating Equipment » remonte des feuilles vers
+    -- sa racine, puis « Reputable Rods » est seulement apprise, et « Crystal
+    -- Collector » finit le dezenchantement. Les racines intermediaires (Haranir
+    -- Heightening exclu, qui est une etape a part entiere) sont remontees par le
+    -- moteur : Transitories -> Outstanding Outfits pour Reputable Rods, et
+    -- Disenchanting Delegate pour Crystal Collector.
+    [2909] = {
+        steps = {
+            { path = 107616, rank = 30, name = "Responsible Resources" },
+            { path = 107617, rank = 30, name = "Spellbound Shatterer" },
+            { path = 107615, rank = 30, name = "Infinite Ingenuity" },
+            { path = 107757, rank = 20, name = "Nature's Novelties" },
+            { path = 107760, rank = 20, name = "Haranir Heightening" },
+            { path = 107769, rank = 30, name = "Elevating Equipment" },
+            { path = 107686, rank = 0, name = "Reputable Rods" },
+            { path = 107646, rank = 30, name = "Crystal Collector" },
+        },
+    },
 }
 
 -- Pas utilise pour une etape de simple apprentissage, et pour le deblocage
@@ -486,6 +542,203 @@ local function FindSpecConfirmPopup()
 end
 
 -- ---------------------------------------------------------------------------
+-- Remplissage libre, une fois le plan termine
+--
+-- Le plan ne remplit jamais l'arbre entier : il s'arrete sur ce qui a ete
+-- arbitre. Passe cette ligne, les points restants n'ont plus de destination
+-- choisie, et le bouton disparaissait en les laissant dormir. Le repli prend
+-- alors la suite, en deux temps : finir les specialisations DEJA entamees --
+-- laisser un noeud a moitie rempli ne sert a rien -- puis en completer une tiree
+-- au sort, et recommencer.
+--
+-- Un noeud simplement debloque a zero point n'est PAS « entame » : les etapes a
+-- `rank = 0` du plan Forgeron en ouvrent quatorze d'un coup, et les traiter comme
+-- entames aurait supprime le tirage de fait.
+-- ---------------------------------------------------------------------------
+
+-- Noeud tire au sort par metier, garde jusqu'a ce qu'il soit plein.
+local randomChoice = {}
+
+local function DefaultRandomSource(count)
+    return math.random(count)
+end
+
+local randomSource = DefaultRandomSource
+
+--- Remplace la source du tirage. Reservee aux tests, qui exigent un choix connu.
+-- Vide la memoire au passage : sans cela, un choix deja tire serait garde et la
+-- source injectee ne serait jamais consultee -- un test vert qui ne teste rien.
+function api.SetRandomSource(source)
+    randomSource = type(source) == "function" and source or DefaultRandomSource
+    randomChoice = {}
+end
+
+--- L'option de remplissage libre est-elle active ?
+--
+-- Absente, elle est consideree ETEINTE -- l'inverse de `IsEnabled`, et c'est
+-- voulu : le pont du tracker la pose toujours en jeu, donc le seul cas d'absence
+-- est le module charge seul. Inventer un remplissage y depenserait des points sur
+-- une decision que personne n'a prise.
+local function RandomFillAllowed()
+    if type(api.IsRandomFillEnabled) ~= "function" then
+        return false
+    end
+    return api.IsRandomFillEnabled() == true
+end
+
+--- Noeuds encore remplissables d'un metier : entames d'abord, vierges ensuite.
+--
+-- Rend `nil` quand l'arbre n'est pas lisible : ne pas savoir n'est pas la meme
+-- chose qu'un arbre plein, et les deux ne doivent pas se confondre plus haut.
+--
+-- Une page seulement ACHETABLE est mise de cote au lieu d'etre fouillee. Deux
+-- raisons : ses noeuds interieurs ne sont pas des cibles valides -- le moteur
+-- n'ouvre la fenetre de confirmation de Blizzard que sur la racine -- et ouvrir
+-- une page coute un point alors qu'il reste des noeuds a finir sur les pages
+-- deja payees. Sa racine ne sert donc que de dernier recours.
+local function CollectFillCandidates(skillLineID, configID)
+    local byPath = GetTreeIDsByPath(skillLineID)
+    if not byPath then
+        return nil
+    end
+
+    local started, untouched = {}, {}
+    local buyableRoot
+    local readable = 0
+
+    for pathID, treeID in pairs(byPath) do
+        -- Une page verrouillee par le niveau de metier s'ouvrira d'elle-meme :
+        -- ses noeuds ne sont pas candidats, pas plus que pour le plan.
+        if not IsTabLocked(treeID, configID) then
+            if not IsTabUnlocked(treeID, configID) then
+                if GetRootPathForTab(treeID) == pathID
+                    and (not buyableRoot or pathID < buyableRoot.pathID) then
+                    buyableRoot = {
+                        pathID = pathID,
+                        treeID = treeID,
+                        currentRank = 0,
+                        maxRank = 0,
+                        locked = true,
+                    }
+                end
+            else
+                local currentRank, maxRank = GetPathRanks(configID, pathID)
+                if currentRank and maxRank then
+                    readable = readable + 1
+                    if maxRank > 0 and currentRank < maxRank then
+                        local entry = {
+                            pathID = pathID,
+                            treeID = treeID,
+                            currentRank = currentRank,
+                            maxRank = maxRank,
+                            -- Jamais appris : le moteur ne fera que le debloquer,
+                            -- et l'infobulle doit annoncer cela, pas un rang.
+                            locked = IsPathUnlocked(configID, pathID) == false,
+                        }
+                        if currentRank > 0 then
+                            started[#started + 1] = entry
+                        else
+                            untouched[#untouched + 1] = entry
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- `pairs` ne garantit aucun ordre : sans tri, deux passes successives sur le
+    -- MEME etat pourraient nommer deux noeuds differents, et le libelle du bouton
+    -- changerait entre l'affichage et le clic.
+    local function ByPathID(a, b)
+        return a.pathID < b.pathID
+    end
+    table.sort(started, ByPathID)
+    table.sort(untouched, ByPathID)
+    return started, untouched, buyableRoot, readable
+end
+
+--- Noeud vierge a completer, tire une fois et garde jusqu'a ce qu'il soit plein.
+--
+-- Rejouer le tirage a chaque rafraichissement ferait danser la cible entre deux
+-- clics, et un autoclicker sauterait d'un noeud a l'autre sans jamais en finir
+-- un. Le choix n'a pas besoin de survivre au /reload : des le premier point pose,
+-- le noeud devient « entame » et passe devant tout nouveau tirage.
+local function PickUntouched(skillLineID, untouched)
+    local chosen = randomChoice[skillLineID]
+    if chosen then
+        for _, entry in ipairs(untouched) do
+            if entry.pathID == chosen then
+                return entry
+            end
+        end
+        -- Plus candidat : plein, page refermee, ou arbre change.
+        randomChoice[skillLineID] = nil
+    end
+
+    local count = #untouched
+    if count == 0 then
+        return nil
+    end
+
+    local index = tonumber(randomSource(count)) or 1
+    index = math.floor(index)
+    if index < 1 or index > count then
+        index = 1
+    end
+
+    local entry = untouched[index]
+    randomChoice[skillLineID] = entry.pathID
+    return entry
+end
+
+--- Cible de repli, de la meme forme que celle du plan.
+--
+-- `targetRank` vaut le maximum du noeud, donc `ResolveStepSize` rend ce maximum
+-- et un seul clic remplit le noeud : le moteur plafonne de toute facon a
+-- `maxRank`, il n'y a rien a depasser.
+local function ResolveRandomFillTarget(skillLineID, configID)
+    if not RandomFillAllowed() then
+        return nil
+    end
+
+    local started, untouched, buyableRoot, readable =
+        CollectFillCandidates(skillLineID, configID)
+    if not started then
+        return nil, "tree-unavailable"
+    end
+    if readable == 0 and not buyableRoot then
+        -- L'arbre repond, mais aucun rang ne se lit : ce n'est pas un arbre plein,
+        -- et l'alerte KP n'a aucune raison de s'eteindre la-dessus.
+        return nil, "rank-unavailable"
+    end
+
+    -- Les pages deja payees d'abord, en entier : ouvrir la suivante coute un point
+    -- et une confirmation, et rouvre une fournee de candidats.
+    local entry = started[1] or PickUntouched(skillLineID, untouched) or buyableRoot
+    if not entry then
+        return nil
+    end
+
+    return {
+        skillLineID = skillLineID,
+        configID = configID,
+        pathID = entry.pathID,
+        treeID = entry.treeID,
+        currentRank = entry.currentRank,
+        targetRank = entry.maxRank,
+        maxRank = entry.maxRank,
+        unlockOnly = entry.locked == true,
+        randomFill = true,
+        step = {
+            path = entry.pathID,
+            rank = entry.maxRank,
+            name = GetPathName(configID, entry.pathID)
+                or ("path " .. tostring(entry.pathID)),
+        },
+    }
+end
+
+-- ---------------------------------------------------------------------------
 -- Resolution du plan
 -- ---------------------------------------------------------------------------
 
@@ -567,7 +820,12 @@ function api.ResolvePlanTarget(skillLineID)
     if skipped then
         return nil, "tab-locked", skipped
     end
-    return nil
+
+    -- Plan termine : le repli prend la suite s'il est autorise, sinon `nil`, comme
+    -- avant lui. Une etape SAUTEE ne l'ouvre pas : la page verrouillee finira par
+    -- s'ouvrir et les points qu'elle attend ne doivent pas partir ailleurs
+    -- entre-temps -- ils ne se reprennent pas.
+    return ResolveRandomFillTarget(skillLineID, configID)
 end
 
 --- Palier a demander au moteur : la cible du plan elle-meme.
@@ -870,12 +1128,20 @@ local function BuildButtonStateInternal()
         }
     end
 
-    lines[#lines + 1] = ("Plan %s, étape %d/%d : %s"):format(
-        label,
-        target.stepIndex or 0,
-        target.totalSteps or 0,
-        DescribeTarget(target)
-    )
+    if target.randomFill then
+        -- Hors plan : plus aucune etape numerotee a annoncer.
+        lines[#lines + 1] = ("Remplissage libre %s : %s"):format(
+            label,
+            DescribeTarget(target)
+        )
+    else
+        lines[#lines + 1] = ("Plan %s, étape %d/%d : %s"):format(
+            label,
+            target.stepIndex or 0,
+            target.totalSteps or 0,
+            DescribeTarget(target)
+        )
+    end
     lines[#lines + 1] = ("%d point(s) de connaissance disponible(s)."):format(
         target.knowledge or 0
     )
@@ -981,7 +1247,8 @@ function api.HasSpendableWork(skillLineID)
     end
     if reason == "rank-unavailable"
         or reason == "state-unavailable"
-        or reason == "config-unavailable" then
+        or reason == "config-unavailable"
+        or reason == "tree-unavailable" then
         return nil
     end
     return false
@@ -1247,6 +1514,11 @@ end
 function api.InvalidateCaches()
     treeIDCache = {}
     pendingAction = nil
+    -- Le noeud tire au sort, LUI, survit : cette fonction tourne a chaque
+    -- TRAIT_CONFIG_UPDATED, donc apres chaque achat. Le vider ici rejouerait le
+    -- tirage entre deux clics -- exactement ce qu'il sert a empecher. Un choix
+    -- devenu invalide est ecarte par `PickUntouched`, qui le revalide contre la
+    -- liste vivante.
 end
 
 -- ---------------------------------------------------------------------------
@@ -1421,7 +1693,13 @@ local function ReportStatus()
     end
 
     local target = action.target
-    if target and target.step then
+    if target and target.step and target.randomFill then
+        Say("reply", ("spec : %s, remplissage libre, %s, %d KP, action=%s"):format(
+            tostring(target.label),
+            DescribeTarget(target),
+            target.knowledge or 0,
+            action.kind))
+    elseif target and target.step then
         Say("reply", ("spec : %s, etape %d/%d, %s, %d KP, action=%s"):format(
             tostring(target.label),
             target.stepIndex or 0,
@@ -1445,6 +1723,25 @@ function api.HandleSlash(args)
 
     if args == "diag" then
         ReportDiagnostics()
+        return true
+    end
+
+    if args == "random" or args == "random on" or args == "random off" then
+        if type(api.SetRandomFillEnabled) ~= "function" then
+            Say("reply", "spec random : reglage indisponible sans le tracker.")
+            return true
+        end
+        local wanted
+        if args == "random on" then
+            wanted = true
+        elseif args == "random off" then
+            wanted = false
+        else
+            wanted = not RandomFillAllowed()
+        end
+        api.SetRandomFillEnabled(wanted)
+        Say("reply", ("spec : remplissage libre une fois le plan termine %s"):format(
+            wanted and "active" or "desactive"))
         return true
     end
 

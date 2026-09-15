@@ -1143,6 +1143,7 @@ local TRACKER_DEFAULTS = {
     -- parchemin d'enchantement.
     professionGearEnchantBoundToolsOnly = true,
     trackSpecPlan = true,
+    specPlanRandomFill = true,
     trackSparksOfTides = true,
     autoBuyAbundanceEnchantingBags = false,
     autoBuyAbundanceFusedVitality = false,
@@ -1213,6 +1214,13 @@ runtimeState.trackingOptions = {
         label = "Bouton de depense des points de connaissance (plan par metier)",
         tooltip = "Avance d'un palier dans le plan du metier a chaque clic. "
             .. "Sans plan pour le metier, le bouton n'apparait pas." },
+    { category = "Metiers Midnight", key = "specPlanRandomFill", default = true,
+        dependsOn = "trackSpecPlan",
+        label = "Placer les points aleatoirement une fois l'arbre termine",
+        tooltip = "Quand le plan du metier est fini, le bouton ne disparait plus : "
+            .. "il termine d'abord les specialisations deja entamees, puis en complete "
+            .. "une tiree au hasard, et recommence jusqu'a remplir l'arbre. "
+            .. "Decoche, les points restants dorment et l'alerte KP se tait." },
     { category = "Metiers Midnight", key = "moxieWarningThreshold", type = "slider", default = 600,
         min = 0, max = 2000, step = 50, label = "Moxie : seuil d'alerte" },
     { category = "Metiers Midnight", key = "professionGearMinimumItemLevel", type = "slider", default = 232,
@@ -8718,6 +8726,13 @@ end
 _G.YayaWeeklyTrackerSpecPlan.IsEnabled = function()
     return GetAccountDB().trackSpecPlan ~= false
 end
+_G.YayaWeeklyTrackerSpecPlan.IsRandomFillEnabled = function()
+    return GetAccountDB().specPlanRandomFill ~= false
+end
+_G.YayaWeeklyTrackerSpecPlan.SetRandomFillEnabled = function(enabled)
+    GetAccountDB().specPlanRandomFill = enabled and true or false
+    ScheduleTrackerRefresh(0, false)
+end
 _G.YayaWeeklyTrackerSpecPlan.DebugLog = function(...)
     DebugLog(...)
 end
@@ -10441,7 +10456,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
                 local specPlan = _G.YayaWeeklyTrackerSpecPlan
                 if not (specPlan and type(specPlan.HandleSlash) == "function"
                     and specPlan.HandleSlash(command:match("^spec%s*(.*)$"))) then
-                    trackerUI.Say("reply", "usage: /ywt spec [dump [metier]] | spec on | spec off")
+                    trackerUI.Say("reply", "usage: /ywt spec [dump [metier]] | spec on | spec off | spec random [on|off]")
                 end
             elseif command == "autoopen reset" or command == "autoopen reset all" then
                 local api = _G.YayaWeeklyTrackerAutoOpen
