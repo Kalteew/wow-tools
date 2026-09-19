@@ -9533,101 +9533,79 @@ local function BuildFirstCraftContext(
     DebugPrint("first-craft-cost begin recipe=" .. tostring(recipeID)
         .. " profession=" .. tostring(professionID)
         .. " reserved=" .. tostring(reserved and "yes" or "no"))
-    if type(_G.CraftSimAPI) ~= "table" or type(_G.CraftSimAPI.GetRecipeData) ~= "function" then
-        return nil, "craftsim"
-    end
-
-    local ok, recipeData = pcall(_G.CraftSimAPI.GetRecipeData, _G.CraftSimAPI, { recipeID = recipeID })
-    if not ok or type(recipeData) ~= "table" or type(recipeData.reagentData) ~= "table" then
-        return nil, "incompatible"
-    end
-    if RecipeUsesExcludedFirstCraftReagent(recipeData) then
-        return nil, "fused-vitality"
-    end
-    local recipeSkillLineID = recipeData.professionData and recipeData.professionData.skillLineID
-    if currentSkillLineID and recipeSkillLineID ~= currentSkillLineID then
-        return nil, "incompatible"
-    end
-    local cooldownData = recipeData.cooldownData
-    local cooldownKey = GetCraftSimCooldownKey(craftSim, recipeID, cooldownData)
-    if cooldownKey then
-        local okCharges, currentCharges = false, nil
-        if cooldownData and type(cooldownData.GetCurrentCharges) == "function" then
-            okCharges, currentCharges = pcall(cooldownData.GetCurrentCharges, cooldownData)
-        end
-        currentCharges = okCharges and tonumber(currentCharges) or nil
-        if currentCharges == nil
-            or math.floor(currentCharges) <= (cooldownReservations and cooldownReservations[cooldownKey] or 0) then
-            return nil, "cooldown"
-        end
-    end
-    if type(recipeData.SetNonQualityReagentsMax) ~= "function"
-        or type(recipeData.SetCheapestQualityReagentsMax) ~= "function"
-        or type(recipeData.Update) ~= "function"
-        or not pcall(recipeData.SetNonQualityReagentsMax, recipeData)
-        or not pcall(recipeData.SetCheapestQualityReagentsMax, recipeData) then
-        return nil, "incompatible"
-    end
-    local selectionCallOK, pricesKnown = pcall(SelectKnownCraftSimReagents, recipeData, reserved)
-    if not selectionCallOK or not pricesKnown then
-        return nil, "unknown"
-    end
-    if not pcall(recipeData.Update, recipeData) then
-        return nil, "incompatible"
-    end
-
-    local priceData = recipeData.priceData
-    local craftingCost = tonumber(priceData and priceData.craftingCosts)
-    DebugPrint("first-craft-cost price-data recipe=" .. tostring(recipeID)
-        .. " craftingCosts=" .. tostring(priceData and priceData.craftingCosts)
-        .. " parsed=" .. tostring(craftingCost))
-    if not craftingCost then
-        DebugPrint("first-craft-cost abort recipe=" .. tostring(recipeID) .. " reason=unknown-cost")
-        return nil, "unknown"
-    end
-    if recipeInfo and recipeInfo.isEnchantingRecipe then
-        local vellumPrice = GetCraftSimItemPrice(38682)
-        if not vellumPrice then
-            return nil, "unknown"
-        end
-        craftingCost = craftingCost + vellumPrice
-    end
-
     local schematic = SafeCall(C_TradeSkillUI.GetRecipeSchematic, recipeID, false, nil)
     if type(schematic) ~= "table" then
         return nil, "incompatible"
     end
-    local reagents = {}
-    local ownedSoulboundUsage = {}
-    for _, reagent in ipairs(recipeData.reagentData.requiredReagents or {}) do
-        for _, reagentItem in ipairs(reagent.items or {}) do
-            local quantity = tonumber(reagentItem.quantity) or 0
-            local pricedItemID = reagentItem.item and reagentItem.item.GetItemID and reagentItem.item:GetItemID() or nil
-            local originalItemID = reagentItem.originalItem and reagentItem.originalItem.GetItemID
-                and reagentItem.originalItem:GetItemID()
-                or pricedItemID
-            if quantity > 0 and pricedItemID then
-                if not IsCraftSimPriceKnown(priceData, pricedItemID) then
-                    local reservedWithCurrent = (reserved and reserved[pricedItemID] or 0)
-                        + (ownedSoulboundUsage[pricedItemID] or 0)
-                    if not IsOwnedSoulboundReagent(pricedItemID, quantity, { [pricedItemID] = reservedWithCurrent }) then
-                        return nil, "unknown"
-                    end
-                    ownedSoulboundUsage[pricedItemID] = (ownedSoulboundUsage[pricedItemID] or 0) + quantity
-                end
-                reagents[#reagents + 1] = { itemID = originalItemID, quantity = quantity }
+
+    -- Keep the exclusions independent from CraftSim. Checking every candidate
+    -- also covers selectable quality slots before Blizzard has chosen one.
+    for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
+        for _, candidate in ipairs(slot.reagents or {}) do
+            local itemID = tonumber(candidate.itemID)
+            local currencyID = tonumber(candidate.currencyID)
+            if CONFIG.FIRST_CRAFT_EXCLUDED_ITEM_IDS[itemID]
+                or CONFIG.SPARK_ITEM_IDS[itemID]
+                or CONFIG.FIRST_CRAFT_EXCLUDED_ITEM_IDS[currencyID]
+            then
+                return nil, "fused-vitality"
             end
         end
     end
 
-    local requiredSlot = recipeData.reagentData.requiredSelectableReagentSlot
-    local activeReagent = requiredSlot and requiredSlot.activeReagent
-    if activeReagent then
-        local quantity = tonumber(requiredSlot.maxQuantity) or 1
-        local itemID = activeReagent.item and activeReagent.item.GetItemID and activeReagent.item:GetItemID() or nil
-        local currencyID = tonumber(activeReagent.currencyID)
-        if itemID then
-            if not IsCraftSimPriceKnown(priceData, itemID) then
+    local context = BuildRecipeContext(recipeID, recipeInfo, schematic, nil, false)
+    if not context then
+        return nil, "incompatible"
+    end
+
+    -- Blizzard exposes the cooldown state without requiring CraftSim. Secret
+    -- values are contained inside pcall; an unreadable cooldown is skipped,
+    -- never treated as an available charge.
+    local cooldownKey
+    local cooldownStateOK, hasCooldown, availableCharges = true, false, nil
+    if type(C_TradeSkillUI) == "table" and type(C_TradeSkillUI.GetRecipeCooldown) == "function" then
+        cooldownStateOK, hasCooldown, availableCharges = pcall(function()
+            local currentCooldown, isDayCooldown, currentCharges, maxCharges =
+                C_TradeSkillUI.GetRecipeCooldown(recipeID)
+            local numericCooldown = tonumber(currentCooldown)
+            local numericCharges = tonumber(currentCharges)
+            local numericMaxCharges = tonumber(maxCharges)
+            if numericMaxCharges and numericMaxCharges > 0 then
+                return true, numericCharges and math.max(0, math.floor(numericCharges)) or nil
+            end
+            if isDayCooldown == true then
+                return true, numericCooldown and (numericCooldown > 0 and 0 or 1) or nil
+            end
+            if numericCooldown and numericCooldown > 0 then
+                return true, 0
+            end
+            return false, nil
+        end)
+    end
+    if not cooldownStateOK then
+        return nil, "cooldown"
+    end
+    if hasCooldown then
+        cooldownKey = GetCraftSimCooldownKey(craftSim, recipeID, { isCooldownRecipe = true })
+            or ("recipe:" .. tostring(recipeID))
+        if availableCharges == nil
+            or math.floor(availableCharges) <= (cooldownReservations and cooldownReservations[cooldownKey] or 0)
+        then
+            return nil, "cooldown"
+        end
+    end
+
+    local craftingCost = 0
+    local ownedSoulboundUsage = {}
+    for _, reagent in ipairs(context.reagents or {}) do
+        local itemID = tonumber(reagent.itemID)
+        local quantity = math.max(0, tonumber(reagent.quantity) or 0)
+        if itemID and itemID > 0 and quantity > 0 then
+            local quoteOK, quote = pcall(YQQuality.GetFallbackItemPrice, itemID)
+            local unitPrice = quoteOK and tonumber(quote and quote.unitPrice) or nil
+            if unitPrice and unitPrice >= 0 then
+                craftingCost = craftingCost + unitPrice * quantity
+            else
                 local reservedWithCurrent = (reserved and reserved[itemID] or 0)
                     + (ownedSoulboundUsage[itemID] or 0)
                 if not IsOwnedSoulboundReagent(itemID, quantity, { [itemID] = reservedWithCurrent }) then
@@ -9635,27 +9613,15 @@ local function BuildFirstCraftContext(
                 end
                 ownedSoulboundUsage[itemID] = (ownedSoulboundUsage[itemID] or 0) + quantity
             end
-            reagents[#reagents + 1] = { itemID = itemID, quantity = quantity }
         end
     end
 
+    DebugPrint("first-craft-cost price-data recipe=" .. tostring(recipeID)
+        .. " craftingCosts=" .. tostring(craftingCost))
     if craftingCost >= YQQuality.GetFirstCraftCostLimitGold() * 10000 then
         return nil, "expensive"
     end
 
-    local context = BuildRecipeContext(recipeID, recipeInfo, schematic, nil, false)
-    if not context then
-        return nil, "incompatible"
-    end
-    context.reagents = AddEnchantingVellumReagent(reagents, recipeInfo)
-    local reagentInfoOK, craftingReagents = pcall(
-        recipeData.reagentData.GetCraftingReagentInfoTbl,
-        recipeData.reagentData
-    )
-    if not reagentInfoOK or type(craftingReagents) ~= "table" then
-        return nil, "incompatible"
-    end
-    context.craftingReagents = NormalizeCraftingReagents(craftingReagents)
     context.slotAllocations = {}
     context.clearSlotIndices = {}
     context.professionID = professionID
@@ -9687,8 +9653,7 @@ local function HasQueuedRecipe(recipeID)
 end
 
 local function HasAddableFirstCraft()
-    if type(_G.CraftSimAPI) ~= "table" or type(_G.CraftSimAPI.GetRecipeData) ~= "function"
-        or type(C_TradeSkillUI) ~= "table" or type(C_TradeSkillUI.GetAllRecipeIDs) ~= "function" then
+    if type(C_TradeSkillUI) ~= "table" or type(C_TradeSkillUI.GetAllRecipeIDs) ~= "function" then
         return false
     end
 
@@ -9724,15 +9689,18 @@ local function HasAddableFirstCraft()
     end
     table.sort(recipeIDs)
 
-    local okCraftSim, craftSim = pcall(_G.CraftSimAPI.GetCraftSim, _G.CraftSimAPI)
-    if not okCraftSim or type(craftSim) ~= "table" then
-        scan.scanning = false
-        scan.hasAddable = false
-        return false
+    local craftSim
+    if type(_G.CraftSimAPI) == "table" and type(_G.CraftSimAPI.GetCraftSim) == "function" then
+        local okCraftSim, optionalCraftSim = pcall(_G.CraftSimAPI.GetCraftSim, _G.CraftSimAPI)
+        if okCraftSim and type(optionalCraftSim) == "table" then
+            craftSim = optionalCraftSim
+        end
     end
 
     local professionID = state.GetCurrentProfessionID()
     local cooldownReservations = BuildQueuedCooldownReservations(craftSim)
+    local reservedSoulboundReagents = type(YQQuality.GetQueuedReagentReservations) == "function"
+        and YQQuality.GetQueuedReagentReservations() or {}
     local function FinishAvailabilityScan(hasAddable)
         if state.firstCraftAvailability ~= scan then
             return
@@ -9766,7 +9734,7 @@ local function HasAddableFirstCraft()
                     SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID),
                     professionID,
                     skillLineID,
-                    {},
+                    reservedSoulboundReagents,
                     cooldownReservations,
                     craftSim
                 )
@@ -9786,14 +9754,6 @@ local function QueueAllAffordableFirstCrafts(button, source)
     source = source or (button and "button" or "automatic")
     if state.firstCraftScanRunning then
         return false, "already-running"
-    end
-    if type(_G.CraftSimAPI) ~= "table" or type(_G.CraftSimAPI.GetRecipeData) ~= "function" then
-        if button then
-            Print("CraftSim est requis pour chiffrer les first crafts.")
-        else
-            DebugPrint("first-craft skip source=" .. tostring(source) .. " reason=craftsim-unavailable")
-        end
-        return false, "craftsim-unavailable"
     end
     if type(C_TradeSkillUI) ~= "table" or type(C_TradeSkillUI.GetAllRecipeIDs) ~= "function" then
         if button then
@@ -9815,15 +9775,14 @@ local function QueueAllAffordableFirstCrafts(button, source)
 
     local stats = { added = 0, expensive = 0, unknown = 0, cooldown = 0, queued = 0, incompatible = 0 }
     local professionID = state.GetCurrentProfessionID()
-    local reservedSoulboundReagents = {}
-    local okCraftSim, craftSim = pcall(_G.CraftSimAPI.GetCraftSim, _G.CraftSimAPI)
-    if not okCraftSim or type(craftSim) ~= "table" then
-        if button then
-            Print("CraftSim est indisponible pour verifier les cooldowns.")
-        else
-            DebugPrint("first-craft skip source=" .. tostring(source) .. " reason=craftsim-state-unavailable")
+    local reservedSoulboundReagents = type(YQQuality.GetQueuedReagentReservations) == "function"
+        and YQQuality.GetQueuedReagentReservations() or {}
+    local craftSim
+    if type(_G.CraftSimAPI) == "table" and type(_G.CraftSimAPI.GetCraftSim) == "function" then
+        local okCraftSim, optionalCraftSim = pcall(_G.CraftSimAPI.GetCraftSim, _G.CraftSimAPI)
+        if okCraftSim and type(optionalCraftSim) == "table" then
+            craftSim = optionalCraftSim
         end
-        return false, "craftsim-state-unavailable"
     end
     local reservedCooldownCharges = BuildQueuedCooldownReservations(craftSim)
     local currentSkillLineID = type(C_TradeSkillUI.GetProfessionChildSkillLineID) == "function"

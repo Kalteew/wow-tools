@@ -19,7 +19,7 @@ Addon Retail simple pour :
 - verrouiller la position du panneau avec le cadenas de l'en-tête, `/yq lock` ou `/yq options` > Panneau de file, et vider la file avec le bouton `R`
 - ancrer le coin inférieur gauche de la fenêtre pour que ses changements de hauteur s'étendent vers le haut et la droite
 - inclure le réactif actuellement sélectionné dans les slots requis sélectionnables (par exemple Mote of Primal Energy), même si l’API de transaction l’omet
-- ajouter en une fois les first crafts connus non realises dont le cout CraftSim est strictement inferieur au plafond `firstCraftCostLimitGold` (1000 po par defaut)
+- ajouter en une fois les first crafts connus non realises dont le cout calcule par le schema Blizzard et les prix YQ est strictement inferieur au plafond `firstCraftCostLimitGold` (1000 po par defaut), sans attendre CraftSim
 - exclure automatiquement des first crafts les recettes qui consomment un Spark, de l'Artisan's Mettle/Acuity ou du Fused Vitality
 - garder une frame flottante a l'ecran pour suivre la queue
 - accepter des ajouts externes via `YayaQueueAPI.AddRecipe(...)`, des besoins supplementaires via `YayaQueueAPI.AddItem(itemID, quantite, nom [, variante])`, leur lecture via `YayaQueueAPI.GetDirectItemQuantity(itemID [, variante])`, leur retrait via `YayaQueueAPI.RemoveItem(itemID, quantite [, variante])` et des cibles idempotentes via `YayaQueueAPI.SetItemTarget(...)`
@@ -51,7 +51,7 @@ Addon Retail simple pour :
 
 Notes :
 
-- la queue est locale a l'addon, sans dependance obligatoire; l'ajout groupe des first crafts utilise CraftSim et sa source de prix
+- la queue est locale a l'addon, sans dependance obligatoire; CraftSim reste optionnel et n'est plus requis pour l'ajout groupe des first crafts
 - par defaut la quantite correspond a un nombre de crafts, pas a un nombre d'outputs
 - les first crafts deja en file, y compris via une commande patron hors recraft, et ceux dont un prix de composant est inconnu sont ignores; un composant lie sans prix AH est accepte a cout marginal nul seulement s'il est deja possede
 - le bouton `first craft` n'est affiche que si la profession ouverte contient au moins une recette reellement ajoutable (cout, prix, queue et cooldown valides)
