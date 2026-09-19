@@ -162,6 +162,9 @@ _G.YayaWeeklyTrackerSpecPlan = api
 
 local treeIDCache = {}
 
+-- Boutons de Blizzard qui referment l'apercu d'une page, par ordre de preference.
+local PREVIEW_BUTTON_KEYS = { "BackToFullTreeButton", "ViewTreeButton" }
+
 -- Tentatives de selection d'un onglet dont l'arbre charge ne suit pas encore.
 local SELECT_TREE_MAX_ATTEMPTS = 3
 local selectAttempts = {}
@@ -512,6 +515,57 @@ local function GetApplyButton()
         return nil, "apply-disabled"
     end
     return applyButton
+end
+
+--- L'apercu d'une page de specialisation recouvre-t-il l'arbre ?
+--
+-- `SetSelectedTab` affiche cet apercu -- la page de presentation, titre,
+-- description et icone -- des que la page visee est verrouillee, et SEUL le
+-- `onAccept` de la fenetre de confirmation de Blizzard le referme. L'achat
+-- direct de la racine, lui, deverrouille la page en laissant l'apercu par
+-- dessus : Blizzard garde alors son propre « Appliquer » cache, puisqu'il le
+-- montre a la condition `not isLocked and not TreePreview:IsShown()`. Le plan
+-- s'arretait la, sur une page de presentation sans bouton a cliquer.
+local function IsTreePreviewShown()
+    local frame = GetSpecFrame(true)
+    local preview = frame and frame.TreePreview
+    if type(preview) ~= "table" or type(preview.IsShown) ~= "function" then
+        return false
+    end
+    return SafeCall(preview.IsShown, preview) == true
+end
+
+--- Bouton qui referme cet apercu, ou nil et la raison.
+--
+-- Les deux font le meme geste -- `TreePreview:Hide()` -- et Blizzard n'en montre
+-- qu'un : « Voir l'arbre complet » quand la page est deja deverrouillee, « Voir
+-- l'arbre » quand elle ne l'est pas encore. Prendre celui qui est la evite de
+-- dependre de l'ordre dans lequel le deblocage et l'affichage se sont produits.
+local function GetTreePreviewButton()
+    local frame = GetSpecFrame(true)
+    if not frame then
+        return nil, "spec-page-hidden"
+    end
+    if not IsTreePreviewShown() then
+        return nil, "preview-hidden"
+    end
+    -- Meme raison que pour « Appliquer » : Blizzard ne revoit la visibilite de
+    -- ses boutons qu'au passage suivant de son `OnUpdate`, donc pas encore au
+    -- clic qui vient de debloquer la page.
+    if type(frame.UpdateSelectedTabState) == "function" then
+        pcall(frame.UpdateSelectedTabState, frame)
+    end
+
+    for index = 1, #PREVIEW_BUTTON_KEYS do
+        local candidate = frame[PREVIEW_BUTTON_KEYS[index]]
+        if type(candidate) == "table"
+            and type(candidate.Click) == "function"
+            and (type(candidate.IsShown) ~= "function" or candidate:IsShown())
+            and (type(candidate.IsEnabled) ~= "function" or candidate:IsEnabled()) then
+            return candidate
+        end
+    end
+    return nil, "preview-button-hidden"
 end
 
 --- Index et nom de la fenetre de confirmation de specialisation affichee.
@@ -924,6 +978,50 @@ local function BuildAction(kind, target, reason)
     }
 end
 
+--- Rangs poses sur le metier OUVERT et pas encore appliques : l'etape qui les
+-- sauve, ou nil s'il n'y a rien en attente.
+--
+-- Cette question passe AVANT tout changement de metier. Avec deux metiers a
+-- servir, le plan du premier se deroulait -- rangs mis en attente, jamais
+-- commites -- puis, plus aucun achat n'y etant possible, la boucle proposait
+-- d'OUVRIR le second : la fenetre changeait de metier et les points poses sur
+-- le premier n'etaient jamais appliques. L'application ne vient donc « en
+-- dernier » que pour le metier AFFICHE ; le quitter, c'est la perdre.
+--
+-- Onglet Specialisations masque : on le rouvre d'abord, le bouton natif
+-- « Appliquer » n'existe que la. Le libelle est repris de la ligne du tracker,
+-- pour que le bouton dise de quel metier il s'agit.
+local function ResolvePendingApplyAction(openedSkillLineID, rows)
+    if not openedSkillLineID then
+        return nil
+    end
+    local openedConfigID = GetConfigID(openedSkillLineID)
+    if not HasStagedChanges(openedConfigID) then
+        return nil
+    end
+
+    local label
+    for _, row in ipairs(rows or {}) do
+        if row and tonumber(row.skillLineID) == openedSkillLineID then
+            label = row.config and row.config.label or nil
+            break
+        end
+    end
+    local target = {
+        skillLineID = openedSkillLineID,
+        configID = openedConfigID,
+        label = label,
+        pendingApply = true,
+    }
+    if not IsSpecPageVisible() then
+        return BuildAction("open-spec-tab", target)
+    end
+    if IsTreePreviewShown() then
+        return BuildAction("close-preview", target)
+    end
+    return BuildAction("apply", target)
+end
+
 --- Decrit ce que le prochain clic fera, ou nil s'il n'y a rien a faire.
 function api.GetNextAction()
     if type(api.IsEnabled) == "function" and api.IsEnabled() == false then
@@ -960,7 +1058,26 @@ function api.GetNextAction()
 
     local openedSkillLineID = GetOpenProfessionSkillLineID()
 
-    for _, row in ipairs(rows) do
+    -- Le metier AFFICHE passe en premier : son plan se termine avant qu'on
+    -- envisage d'en changer, quel que soit l'ordre des lignes du tracker. Sinon
+    -- une ligne placee avant lui proposait d'appliquer -- ou d'ouvrir -- alors
+    -- qu'un achat y restait possible.
+    local ordered = rows
+    if openedSkillLineID then
+        ordered = {}
+        for _, row in ipairs(rows) do
+            if row and tonumber(row.skillLineID) == openedSkillLineID then
+                ordered[#ordered + 1] = row
+            end
+        end
+        for _, row in ipairs(rows) do
+            if not (row and tonumber(row.skillLineID) == openedSkillLineID) then
+                ordered[#ordered + 1] = row
+            end
+        end
+    end
+
+    for _, row in ipairs(ordered) do
         local skillLineID = row and tonumber(row.skillLineID)
         if skillLineID and SPEC_PLANS[skillLineID] then
             local knowledge = GetAvailableKnowledge(skillLineID)
@@ -972,6 +1089,12 @@ function api.GetNextAction()
                     target.label = row.config and row.config.label or tostring(skillLineID)
 
                     if openedSkillLineID ~= skillLineID then
+                        -- Ne jamais quitter un metier dont les rangs poses ne
+                        -- sont pas appliques : ils ne survivent pas au changement.
+                        local pending = ResolvePendingApplyAction(openedSkillLineID, rows)
+                        if pending then
+                            return pending
+                        end
                         return BuildAction("open-profession", target)
                     end
                     openAttempts[skillLineID] = nil
@@ -1011,6 +1134,10 @@ function api.GetNextAction()
                         end
                         return BuildAction("unlock-tab", target)
                     end
+                    -- Page deverrouillee, mais l'apercu la recouvre encore.
+                    if IsTreePreviewShown() then
+                        return BuildAction("close-preview", target)
+                    end
                     return BuildAction("purchase", target)
                 elseif reason then
                     DebugLog(
@@ -1025,7 +1152,8 @@ function api.GetNextAction()
         end
     end
 
-    -- L'application vient EN DERNIER, quand plus aucun achat n'est possible.
+    -- L'application vient EN DERNIER, quand plus aucun achat n'est possible sur
+    -- le metier affiche.
     --
     -- Elle etait prioritaire, et c'etait un piege : le moteur laisse les rangs
     -- en attente, si bien qu'apres le tout premier achat le bouton ne proposait
@@ -1033,17 +1161,9 @@ function api.GetNextAction()
     -- entier -- observe sur Processing, debloque a 0 puis plus rien. Les rangs
     -- en attente s'empilent sans se gener : mieux vaut derouler le plan, puis
     -- valider, et si la validation ne part pas le joueur garde le bouton natif.
-    if openedSkillLineID and IsSpecPageVisible() then
-        local openedConfigID = GetConfigID(openedSkillLineID)
-        if HasStagedChanges(openedConfigID) then
-            return BuildAction("apply", {
-                skillLineID = openedSkillLineID,
-                configID = openedConfigID,
-            })
-        end
-    end
-
-    return nil
+    -- Le changement de metier, lui, est traite dans la boucle : il passe apres
+    -- l'application, jamais avant.
+    return ResolvePendingApplyAction(openedSkillLineID, rows)
 end
 
 -- ---------------------------------------------------------------------------
@@ -1099,11 +1219,31 @@ local function BuildButtonStateInternal()
         }
     end
 
+    if action.kind == "close-preview" then
+        local previewButton, previewReason = GetTreePreviewButton()
+        return {
+            action = action,
+            label = "Spé : voir l'arbre",
+            enabled = previewButton ~= nil,
+            tooltip = previewButton and {
+                "La page de présentation recouvre l'arbre de spécialisation.",
+                "Tant qu'elle est affichée, le jeu cache son bouton « Appliquer ».",
+                "Ce clic affiche l'arbre complet.",
+            } or {
+                ("Bouton de retour à l'arbre indisponible (%s)."):format(
+                    tostring(previewReason)),
+                "Clique « Voir l'arbre » toi-même dans la fenêtre de métier.",
+            },
+        }
+    end
+
     if action.kind == "apply" then
         local applyButton, applyReason = GetApplyButton()
         return {
             action = action,
-            label = "Spé : appliquer",
+            label = target and target.label
+                and ("Spé %s : appliquer"):format(target.label)
+                or "Spé : appliquer",
             enabled = applyButton ~= nil,
             tooltip = applyButton and {
                 "Applique les points déjà placés.",
@@ -1128,23 +1268,29 @@ local function BuildButtonStateInternal()
         }
     end
 
-    if target.randomFill then
-        -- Hors plan : plus aucune etape numerotee a annoncer.
-        lines[#lines + 1] = ("Remplissage libre %s : %s"):format(
-            label,
-            DescribeTarget(target)
-        )
+    if target.pendingApply then
+        -- Pas de cible d'achat : seulement des rangs poses a sauver avant de
+        -- passer a un autre metier.
+        lines[#lines + 1] = ("Des points placés sur %s attendent d'être appliqués."):format(label)
     else
-        lines[#lines + 1] = ("Plan %s, étape %d/%d : %s"):format(
-            label,
-            target.stepIndex or 0,
-            target.totalSteps or 0,
-            DescribeTarget(target)
+        if target.randomFill then
+            -- Hors plan : plus aucune etape numerotee a annoncer.
+            lines[#lines + 1] = ("Remplissage libre %s : %s"):format(
+                label,
+                DescribeTarget(target)
+            )
+        else
+            lines[#lines + 1] = ("Plan %s, étape %d/%d : %s"):format(
+                label,
+                target.stepIndex or 0,
+                target.totalSteps or 0,
+                DescribeTarget(target)
+            )
+        end
+        lines[#lines + 1] = ("%d point(s) de connaissance disponible(s)."):format(
+            target.knowledge or 0
         )
     end
-    lines[#lines + 1] = ("%d point(s) de connaissance disponible(s)."):format(
-        target.knowledge or 0
-    )
 
     if action.kind == "open-profession" then
         lines[#lines + 1] = "Ce clic ouvre la fenêtre du métier."
@@ -1400,6 +1546,20 @@ function api.Step(button)
         return armed
     end
 
+    if action.kind == "close-preview" then
+        local previewButton, previewReason = GetTreePreviewButton()
+        local armed = ArmSecureClick(button, previewButton)
+        DebugLog(
+            "SpecPlan close-preview armed=%s raison=%s",
+            tostring(armed),
+            tostring(previewReason)
+        )
+        if type(api.RequestTrackerRefresh) == "function" then
+            api.RequestTrackerRefresh()
+        end
+        return armed
+    end
+
     if action.kind == "apply" then
         local applyButton, applyReason = GetApplyButton()
         local armed = ArmSecureClick(button, applyButton)
@@ -1604,6 +1764,14 @@ local function ReportDiagnostics()
     local applyButton, applyReason = GetApplyButton()
     ReportLine(("diag ApplyButton=%s raison=%s"):format(
         tostring(applyButton ~= nil), tostring(applyReason)))
+
+    -- L'apercu cache le bouton « Appliquer » de Blizzard : sans cette ligne, le
+    -- diagnostic disait seulement « apply-hidden », sans dire ce qui le cachait.
+    local previewButton, previewReason = GetTreePreviewButton()
+    ReportLine(("diag TreePreview visible=%s bouton=%s raison=%s"):format(
+        tostring(IsTreePreviewShown()),
+        tostring(previewButton ~= nil),
+        tostring(previewReason)))
 
     -- Pourquoi le bouton natif refuse, dans le detail. Blizzard le desactive
     -- notamment tant qu'une de SES fenetres est ouverte -- `AnyPopupShown` --

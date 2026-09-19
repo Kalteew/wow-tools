@@ -33,11 +33,17 @@ dofile("Tests/wow_env.lua")
 local SKILL_LINE_ID = 2906
 local CONFIG_ID = 777
 
+-- Un second metier, reduit a une page et une racine : il ne sert qu'a verifier
+-- que le plan ne le rejoint pas en abandonnant des rangs en attente ailleurs.
+local OTHER_SKILL_LINE_ID = 2913
+local OTHER_CONFIG_ID = 778
+
 local CHILDREN = {
     [10] = { 11 },
     [11] = { 12 },
     [12] = {},
     [20] = {},
+    [30] = {},
 }
 
 local MAX_RANKS = {
@@ -45,14 +51,15 @@ local MAX_RANKS = {
     [11] = 26,
     [12] = 20,
     [20] = 15,
+    [30] = 20,
 }
 
 local RANKS = {}
 local UNLOCKED = {}
 
 local function ResetRanks()
-    RANKS = { [10] = 0, [11] = 0, [12] = 0, [20] = 0 }
-    UNLOCKED = { [10] = true }
+    RANKS = { [10] = 0, [11] = 0, [12] = 0, [20] = 0, [30] = 0 }
+    UNLOCKED = { [10] = true, [30] = true }
 end
 
 ResetRanks()
@@ -64,23 +71,33 @@ Enum.ProfessionsSpecTabState = { Locked = 0, Unlocked = 1, Unlockable = 2 }
 -- Etat de chaque page. Le second onglet sert de page verrouillee par le niveau
 -- de metier : c'est celle qu'on doit savoir sauter, puis reprendre.
 TAB_STATES = { [100] = Enum.ProfessionsSpecTabState.Unlocked,
-    [200] = Enum.ProfessionsSpecTabState.Unlocked }
+    [200] = Enum.ProfessionsSpecTabState.Unlocked,
+    [300] = Enum.ProfessionsSpecTabState.Unlocked }
+
+-- Points par metier quand ils different ; sinon KNOWLEDGE_AVAILABLE pour tous.
+KNOWLEDGE_BY_SKILL = {}
 
 C_ProfSpecs = {
     GetConfigIDForSkillLine = function(skillLineID)
-        return skillLineID == SKILL_LINE_ID and CONFIG_ID or nil
+        if skillLineID == SKILL_LINE_ID then
+            return CONFIG_ID
+        end
+        return skillLineID == OTHER_SKILL_LINE_ID and OTHER_CONFIG_ID or nil
     end,
     GetSpecTabIDsForSkillLine = function(skillLineID)
-        return skillLineID == SKILL_LINE_ID and { 100, 200 } or {}
+        if skillLineID == SKILL_LINE_ID then
+            return { 100, 200 }
+        end
+        return skillLineID == OTHER_SKILL_LINE_ID and { 300 } or {}
     end,
     GetRootPathForTab = function(tabID)
-        return tabID == 100 and 10 or (tabID == 200 and 20 or nil)
+        return tabID == 100 and 10 or (tabID == 200 and 20 or (tabID == 300 and 30 or nil))
     end,
     GetChildrenForPath = function(pathID)
         return CHILDREN[pathID] or {}
     end,
-    GetCurrencyInfoForSkillLine = function()
-        return { numAvailable = KNOWLEDGE_AVAILABLE }
+    GetCurrencyInfoForSkillLine = function(skillLineID)
+        return { numAvailable = KNOWLEDGE_BY_SKILL[skillLineID] or KNOWLEDGE_AVAILABLE }
     end,
     GetStateForTab = function(treeID)
         return TAB_STATES[treeID]
@@ -131,7 +148,13 @@ YayaQueueAPI = {
         return SPEC_FRAME
     end,
     SelectProfessionSpecTab = function(treeID)
-        SELECTED_TREE_ID = treeID
+        -- Comme le vrai : rien a faire si l'onglet est deja le bon. C'est ce
+        -- court-circuit qui laisse l'apercu en place apres un deblocage, la
+        -- frame ne repassant alors jamais par SetSelectedTab.
+        if SELECTED_TREE_ID == treeID then
+            return true
+        end
+        SPEC_FRAME.SetSelectedTab(SPEC_FRAME, treeID)
         return true
     end,
     StepProfessionSpecTarget = function(nodeID, stepSize)
@@ -156,6 +179,13 @@ POPUP_CLICKS = 0
 -- pendant que la frame affiche encore l'ancien arbre. nil = les deux d'accord.
 DISPLAYED_ROOT_ID = nil
 
+-- L'apercu d'une page -- titre, description, icone -- que Blizzard affiche par
+-- dessus l'arbre des qu'on selectionne une page verrouillee. Il ne se referme
+-- ni a l'achat de la racine ni au deverrouillage : seuls les deux boutons
+-- ci-dessous, et le `onAccept` de la fenetre de confirmation, le cachent.
+PREVIEW_SHOWN = false
+PREVIEW_CLICKS = 0
+
 SPEC_FRAME = {
     GetTalentTreeID = function() return SELECTED_TREE_ID end,
     GetRootNodeID = function()
@@ -167,6 +197,8 @@ SPEC_FRAME = {
     SetSelectedTab = function(_, treeID)
         SELECTED_TREE_ID = treeID
         DISPLAYED_ROOT_ID = nil
+        -- `TreePreview:SetShown(isLocked)`, la derniere ligne du vrai.
+        PREVIEW_SHOWN = TAB_STATES[treeID] ~= Enum.ProfessionsSpecTabState.Unlocked
     end,
     GetConfigID = function() return CONFIG_ID end,
     professionInfo = setmetatable({}, {
@@ -175,10 +207,40 @@ SPEC_FRAME = {
         end,
     }),
     UpdateConfigButtonsState = function() end,
+    UpdateSelectedTabState = function() end,
     ApplyButton = {
         Click = function() APPLY_CLICKS = APPLY_CLICKS + 1 end,
-        IsShown = function() return true end,
+        -- `ApplyButton:SetShown(not isLocked and not TreePreview:IsShown())` :
+        -- l'apercu ne grise pas le bouton, il le fait disparaitre.
+        IsShown = function() return not PREVIEW_SHOWN end,
         IsEnabled = function() return APPLY_ENABLED end,
+    },
+    TreePreview = {
+        IsShown = function() return PREVIEW_SHOWN end,
+    },
+    -- Blizzard n'en montre qu'un : « voir l'arbre complet » quand la page est
+    -- deja deverrouillee, « voir l'arbre » quand elle ne l'est pas encore.
+    BackToFullTreeButton = {
+        Click = function()
+            PREVIEW_CLICKS = PREVIEW_CLICKS + 1
+            PREVIEW_SHOWN = false
+        end,
+        IsShown = function()
+            return PREVIEW_SHOWN
+                and TAB_STATES[SELECTED_TREE_ID] == Enum.ProfessionsSpecTabState.Unlocked
+        end,
+        IsEnabled = function() return true end,
+    },
+    ViewTreeButton = {
+        Click = function()
+            PREVIEW_CLICKS = PREVIEW_CLICKS + 1
+            PREVIEW_SHOWN = false
+        end,
+        IsShown = function()
+            return PREVIEW_SHOWN
+                and TAB_STATES[SELECTED_TREE_ID] ~= Enum.ProfessionsSpecTabState.Unlocked
+        end,
+        IsEnabled = function() return true end,
     },
 }
 
@@ -221,9 +283,13 @@ ProfessionsFrame = {
 
 RANDOM_FILL_ENABLED = false
 
+ALCH_ROW = { skillLineID = SKILL_LINE_ID, config = { label = "Alch" } }
+OTHER_ROW = { skillLineID = OTHER_SKILL_LINE_ID, config = { label = "Inscr" } }
+TRACKED_ROWS = { ALCH_ROW }
+
 _G.YayaWeeklyTrackerSpecPlan = {
     GetTrackedProfessionRows = function()
-        return { { skillLineID = SKILL_LINE_ID, config = { label = "Alch" } } }
+        return TRACKED_ROWS
     end,
     IsEnabled = function()
         return true
@@ -259,21 +325,27 @@ end
 local function Reset(plan)
     ResetRanks()
     KNOWLEDGE_AVAILABLE = 20
+    KNOWLEDGE_BY_SKILL = {}
     STAGED_CHANGES = false
+    TRACKED_ROWS = { ALCH_ROW }
     SPEC_PAGE_VISIBLE = false
     SELECTED_TREE_ID = nil
     DISPLAYED_ROOT_ID = nil
     OPEN_SKILL_LINE_ID = nil
     lastPurchase = nil
     TAB_STATES = { [100] = Enum.ProfessionsSpecTabState.Unlocked,
-        [200] = Enum.ProfessionsSpecTabState.Unlocked }
+        [200] = Enum.ProfessionsSpecTabState.Unlocked,
+        [300] = Enum.ProfessionsSpecTabState.Unlocked }
     APPLY_ENABLED = true
     APPLY_CLICKS = 0
+    PREVIEW_SHOWN = false
+    PREVIEW_CLICKS = 0
     POPUP_SHOWN = nil
     POPUP_CLICKS = 0
     RANDOM_FILL_ENABLED = false
     specPlan.SetRandomSource(nil)
     specPlan.SetPlanForSkillLine(SKILL_LINE_ID, plan)
+    specPlan.SetPlanForSkillLine(OTHER_SKILL_LINE_ID, nil)
 end
 
 --- Faux bouton du tracker : il enregistre l'action securisee qu'on lui arme,
@@ -909,6 +981,155 @@ Check("le clic vise bien le noeud a finir",
 Check("et le pas demande est le maximum du noeud, sans le depasser",
     lastPurchase ~= nil and GoalFor(5, 26, lastPurchase.stepSize) == 26,
     lastPurchase and lastPurchase.stepSize)
+
+--------------------------------------------------------------------------------
+print("\nApercu de page : la presentation qui cache le bouton Appliquer")
+--------------------------------------------------------------------------------
+
+-- Le deblocage d'une page marchait, la suite non : on restait sur la page de
+-- presentation, ou Blizzard CACHE son bouton « Appliquer » au lieu de le griser,
+-- et le plan s'arretait la pour de bon.
+
+Reset({ steps = { { path = 20, rank = 10, name = "Racine 200" } } })
+TAB_STATES[200] = Enum.ProfessionsSpecTabState.Unlockable
+OPEN_SKILL_LINE_ID = SKILL_LINE_ID
+SPEC_PAGE_VISIBLE = true
+
+action = specPlan.GetNextAction()
+Check("page verrouillee : on commence par la selectionner",
+    action and action.kind == "select-tree", action and action.kind)
+specPlan.Step(FakeButton())
+Check("la selection d'une page verrouillee ouvre l'apercu, comme en jeu",
+    PREVIEW_SHOWN == true)
+
+action = specPlan.GetNextAction()
+Check("puis on debloque la page", action and action.kind == "unlock-tab",
+    action and action.kind)
+specPlan.Step(FakeButton())
+TAB_STATES[200] = Enum.ProfessionsSpecTabState.Unlocked
+STAGED_CHANGES = true
+Check("le deblocage ne referme PAS l'apercu", PREVIEW_SHOWN == true)
+
+action = specPlan.GetNextAction()
+Check("l'etape suivante est donc de revenir a l'arbre, pas d'acheter a l'aveugle",
+    action and action.kind == "close-preview", action and action.kind)
+
+local previewWidget = FakeButton()
+Check("elle arme un clic securise", specPlan.Step(previewWidget) == true)
+Check("vers le bouton « voir l'arbre complet » du jeu",
+    previewWidget:GetAttribute("type") == "click"
+        and previewWidget:GetAttribute("clickbutton") == SPEC_FRAME.BackToFullTreeButton)
+previewWidget.Fire()
+Check("le clic referme l'apercu", PREVIEW_CLICKS == 1 and PREVIEW_SHOWN == false,
+    PREVIEW_CLICKS)
+
+action = specPlan.GetNextAction()
+Check("l'arbre revenu, l'achat reprend", action and action.kind == "purchase",
+    action and action.kind)
+
+-- Et la garde tient aussi devant l'application finale : un plan termine dont
+-- l'apercu serait reste ouvert n'a pas de bouton « Appliquer » a cliquer.
+Reset({ steps = { { path = 12, rank = 20, name = "Feuille" } } })
+RANKS[12] = 20
+OpenUpTo(100)
+STAGED_CHANGES = true
+PREVIEW_SHOWN = true
+
+action = specPlan.GetNextAction()
+Check("apercu ouvert : on le referme avant d'appliquer",
+    action and action.kind == "close-preview", action and action.kind)
+local finalWidget = FakeButton()
+specPlan.Step(finalWidget)
+finalWidget.Fire()
+action = specPlan.GetNextAction()
+Check("apercu referme : l'application redevient l'etape courante",
+    action and action.kind == "apply", action and action.kind)
+
+--------------------------------------------------------------------------------
+print("\nDeux metiers : appliquer avant de changer de metier")
+--------------------------------------------------------------------------------
+
+-- Regression : avec deux metiers a servir, le plan du premier se deroulait --
+-- rangs mis en attente, jamais commites -- puis, plus aucun achat n'y etant
+-- possible, le bouton proposait d'OUVRIR le second. La fenetre changeait de
+-- metier et les points poses sur le premier n'etaient jamais appliques.
+local OTHER_PLAN = { steps = { { path = 30, rank = 10, name = "Autre" } } }
+
+Reset({ steps = { { path = 12, rank = 20, name = "Feuille" } } })
+specPlan.SetPlanForSkillLine(OTHER_SKILL_LINE_ID, OTHER_PLAN)
+TRACKED_ROWS = { ALCH_ROW, OTHER_ROW }
+OpenUpTo(100)
+RANKS[12] = 20
+STAGED_CHANGES = true
+action = specPlan.GetNextAction()
+Check("plan du metier ouvert deroule, lot en attente : appliquer AVANT d'ouvrir l'autre",
+    action and action.kind == "apply" and action.skillLineID == SKILL_LINE_ID,
+    action and (action.kind .. " " .. tostring(action.skillLineID)))
+buttonState = specPlan.BuildButtonState()
+Check("le libelle nomme le metier a appliquer",
+    buttonState and buttonState.label:find("Alch", 1, true) ~= nil,
+    buttonState and buttonState.label)
+
+-- Points epuises sur le metier ouvert alors que son plan n'est pas fini : c'est
+-- le cas courant, et il doit aussi appliquer avant de partir.
+RANKS[12] = 10
+KNOWLEDGE_BY_SKILL[SKILL_LINE_ID] = 0
+action = specPlan.GetNextAction()
+Check("points epuises sur le metier ouvert, lot en attente : appliquer d'abord",
+    action and action.kind == "apply" and action.skillLineID == SKILL_LINE_ID,
+    action and action.kind)
+
+STAGED_CHANGES = false
+action = specPlan.GetNextAction()
+Check("une fois applique : ouvrir le second metier",
+    action and action.kind == "open-profession"
+        and action.skillLineID == OTHER_SKILL_LINE_ID,
+    action and (action.kind .. " " .. tostring(action.skillLineID)))
+
+-- L'ordre des lignes du tracker ne doit rien y changer.
+TRACKED_ROWS = { OTHER_ROW, ALCH_ROW }
+STAGED_CHANGES = true
+action = specPlan.GetNextAction()
+Check("le second metier liste en premier : appliquer d'abord quand meme",
+    action and action.kind == "apply" and action.skillLineID == SKILL_LINE_ID,
+    action and (action.kind .. " " .. tostring(action.skillLineID)))
+
+-- Onglet Specialisations masque avec un lot en attente : le rouvrir, le bouton
+-- natif Appliquer n'existe que la.
+SPEC_PAGE_VISIBLE = false
+action = specPlan.GetNextAction()
+Check("onglet Specialisations masque : le rouvrir avant d'appliquer",
+    action and action.kind == "open-spec-tab" and action.skillLineID == SKILL_LINE_ID,
+    action and (action.kind .. " " .. tostring(action.skillLineID)))
+buttonState = specPlan.BuildButtonState()
+Check("et l'infobulle dit pourquoi",
+    buttonState and table.concat(buttonState.tooltip, " "):find("appliqu", 1, true) ~= nil,
+    buttonState and table.concat(buttonState.tooltip, " | "))
+
+-- Un achat encore possible sur le metier ouvert garde la priorite sur
+-- l'application : les rangs en attente s'empilent sans se gener.
+Reset({ steps = { { path = 12, rank = 20, name = "Feuille" } } })
+specPlan.SetPlanForSkillLine(OTHER_SKILL_LINE_ID, OTHER_PLAN)
+TRACKED_ROWS = { OTHER_ROW, ALCH_ROW }
+OpenUpTo(100)
+RANKS[12] = 5
+STAGED_CHANGES = true
+action = specPlan.GetNextAction()
+Check("un achat encore possible sur le metier ouvert passe avant l'application",
+    action and action.kind == "purchase" and action.skillLineID == SKILL_LINE_ID,
+    action and (action.kind .. " " .. tostring(action.skillLineID)))
+
+-- Fenetre de metier fermee : rien en attente a proteger, on ouvre le premier
+-- metier servi.
+Reset({ steps = { { path = 12, rank = 20, name = "Feuille" } } })
+specPlan.SetPlanForSkillLine(OTHER_SKILL_LINE_ID, OTHER_PLAN)
+TRACKED_ROWS = { ALCH_ROW, OTHER_ROW }
+action = specPlan.GetNextAction()
+Check("fenetre fermee : ouvrir le premier metier",
+    action and action.kind == "open-profession" and action.skillLineID == SKILL_LINE_ID,
+    action and (action.kind .. " " .. tostring(action.skillLineID)))
+
+Reset(nil)
 
 --------------------------------------------------------------------------------
 
