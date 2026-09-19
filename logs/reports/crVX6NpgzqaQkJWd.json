@@ -1,0 +1,73 @@
+{
+  "reportCode": "crVX6NpgzqaQkJWd",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/crVX6NpgzqaQkJWd?fight=last",
+  "capturedAt": "2026-09-19",
+  "backfilled": true,
+  "fight": {
+    "id": 1,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 12,
+    "durationMs": 1829761,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 366.760009765625,
+    "enemyForces": {"reached": 656, "required": 687, "percent": 95.49},
+    "bossesKilled": ["Adderis and Aspix", "Merektha", "Galvazzt", "Avatar of Sethraliss"]
+  },
+  "players": [
+    {"name":"Wandsolo","class":"Mage","spec":"Arcane","realm":"Draenor","itemLevel":313},
+    {"name":"Сквознякик","class":"Paladin","spec":"Holy","realm":"СвежевательДуш","itemLevel":315},
+    {"name":"Kalteew","class":"Warrior","spec":"Protection","realm":"Hyjal","itemLevel":321},
+    {"name":"Piffpif","class":"Evoker","spec":"Devastation","realm":"Draenor","itemLevel":306},
+    {"name":"Azaelle","class":"DemonHunter","spec":"Havoc","realm":"Hyjal","itemLevel":310}
+  ],
+  "metrics": {
+    "deathsTotal": 14,
+    "dps": {"Piffpif":193688,"Azaelle":163078,"Wandsolo":151202,"Kalteew":131423,"Сквознякик":8211},
+    "hps": {"Сквознякик":96127,"Kalteew":43109},
+    "deathsByPlayer": {"Wandsolo":6,"Azaelle":3,"Сквознякик":3,"Kalteew":1,"Piffpif":1}
+  },
+  "userSentiment": {
+    "overall": "La clé était un désastre.",
+    "firstPull": "Le heal n'arrivait pas à burst/pump.",
+    "mage": "Le mage a pris les AOE à esquiver et est mort plusieurs fois hors combat.",
+    "recordedAs": "user_observation_to_verify"
+  },
+  "focus": {
+    "primary": {"name":"Kalteew","matched":true},
+    "secondary": {"name":"Azaelle","matched":true,"spec":"Havoc"}
+  },
+  "deaths": [
+    {"player":"Azaelle","atSeconds":20,"cause":"Serrated Charge"},
+    {"player":"Сквознякик","atSeconds":119,"cause":"Serrated Charge"},
+    {"player":"Wandsolo","atSeconds":119,"cause":"Arrow Barrage"},
+    {"player":"Kalteew","atSeconds":131,"cause":"Melee"},
+    {"player":"Azaelle","atSeconds":133,"cause":"Slither Strike"},
+    {"player":"Piffpif","atSeconds":133,"cause":"Melee"},
+    {"player":"Azaelle","atSeconds":429,"cause":"Volley"},
+    {"player":"Wandsolo","atSeconds":508,"cause":"Cytotoxin"},
+    {"player":"Wandsolo","atSeconds":519,"cause":"Volley"},
+    {"player":"Wandsolo","atSeconds":538,"cause":"Volley"},
+    {"player":"Сквознякик","atSeconds":815,"cause":"Electrified Ground"},
+    {"player":"Wandsolo","atSeconds":912,"cause":"Release Charge"},
+    {"player":"Wandsolo","atSeconds":975,"cause":"Imbued Conduction"},
+    {"player":"Сквознякик","atSeconds":1235,"cause":"Loose Sparks"}
+  ],
+  "rankings": {
+    "queried": false,
+    "reason": "Aucun percentile de clé confirmé dans les données déjà récupérées."
+  },
+  "conclusions": {
+    "confirmed": [
+      "La clé est terminée en +1 avec 14 morts.",
+      "Le premier gros pack concentre six morts en environ deux minutes.",
+      "Wandsolo représente six morts, dont trois sur Volley.",
+      "Les quatre boss sont morts ; les pertes viennent surtout des packs et des mécaniques évitables."
+    ],
+    "toVerify": [
+      "Le manque de burst heal sur le premier pull doit être vérifié avec la fenêtre de soins du Holy Paladin.",
+      "La performance Havoc d'Azaelle doit être séparée entre morts, uptime et rotation.",
+      "Comparer Kalteew à d'autres Protection Warriors seulement sur demande."
+    ]
+  }
+}

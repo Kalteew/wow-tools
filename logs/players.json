@@ -1,0 +1,19 @@
+{
+  "primary": [
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": null,
+      "note": "Personnage principal à résoudre exactement dans chaque report."
+    }
+  ],
+  "secondary": [
+    {
+      "aliases": ["Azaelle"],
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": null
+    }
+  ]
+}
