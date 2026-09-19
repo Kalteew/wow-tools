@@ -3,6 +3,10 @@
   "canonicalUrl": "https://www.warcraftlogs.com/reports/crVX6NpgzqaQkJWd?fight=last",
   "capturedAt": "2026-09-19",
   "backfilled": true,
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
   "fight": {
     "id": 1,
     "dungeon": "Temple of Sethraliss",
