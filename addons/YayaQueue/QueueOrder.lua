@@ -32,6 +32,9 @@ ns.QueueOrder = QueueOrder
 
 QueueOrder.DEFAULT_MODE = "standard"
 
+-- Primal Philosopher's Stone (Midnight Alchemy).
+QueueOrder.PHILOSOPHER_STONE_ITEM_ID = 241291
+
 -- Ordre d'affichage des modes dans les options et dans `/yq sort`.
 QueueOrder.MODES = { "standard", "profit", "profession_insertion", "insertion" }
 
@@ -78,6 +81,11 @@ function QueueOrder.Describe(entry, index, ctx)
     local claimedOrderID = tonumber(ctx.claimedOrderID) or 0
     local currentProfessionID = ctx.currentProfessionID
     local isMerge = entry.queueKind == "merge"
+    local isSalvage = entry.queueKind == "recycle" or entry.isSalvageRecipe == true
+    local isNormalCraft = entry.queueKind ~= "patron"
+        and entry.queueKind ~= "direct_item"
+        and not isMerge
+        and not isSalvage
     local gearRank = 0
     if type(ctx.gearRank) == "function" then
         gearRank = tonumber(ctx.gearRank(entry)) or 0
@@ -93,10 +101,14 @@ function QueueOrder.Describe(entry, index, ctx)
         -- Le milling est une recette salvage sans queueKind "recycle" : il
         -- beneficie de la meme priorite, sinon il reste derriere les crafts
         -- normaux.
-        isSalvage = entry.queueKind == "recycle" or entry.isSalvageRecipe == true,
+        isSalvage = isSalvage,
         matchesOpenProfession = currentProfessionID ~= nil
             and (tonumber(entry.professionID) or nil) == currentProfessionID,
         isMerge = isMerge,
+        professionID = tonumber(entry.professionID) or nil,
+        isNormalCraft = isNormalCraft,
+        isPriorityPhilosopherStone = isNormalCraft
+            and tonumber(entry.outputItemID) == QueueOrder.PHILOSOPHER_STONE_ITEM_ID,
         -- Une fusion sans profondeur passe apres toutes celles qui en ont une.
         mergeDepth = isMerge and (tonumber(entry.mergeDepth) or math.huge) or nil,
         gearRank = gearRank,
@@ -130,6 +142,21 @@ local function CompareMerge(left, right)
     return nil
 end
 
+-- La pierre philosophale Midnight passe avant les autres crafts du meme
+-- metier, mais apres les fusions : un craft consommateur ne doit jamais passer
+-- devant son producteur Gold Star.
+local function ComparePriorityCraft(left, right)
+    if not left.isNormalCraft or not right.isNormalCraft
+        or not left.professionID or left.professionID ~= right.professionID
+    then
+        return nil
+    end
+    if left.isPriorityPhilosopherStone ~= right.isPriorityPhilosopherStone then
+        return left.isPriorityPhilosopherStone
+    end
+    return nil
+end
+
 -- Rang d'outil croissant : 0 = rien a equiper, donc craftable tout de suite.
 local function CompareGearRank(left, right)
     if left.gearRank ~= right.gearRank then
@@ -153,10 +180,10 @@ end
 -- `profession_insertion` les fusions sont classees a l'interieur du bloc
 -- « metier ouvert » ; en `profit` et `insertion` elles precedent tout craft.
 local MODE_STEPS = {
-    standard = { CompareOpenProfession, CompareMerge, CompareGearRank, CompareProfit },
-    profit = { CompareMerge, CompareProfit, CompareOpenProfession, CompareGearRank },
-    profession_insertion = { CompareOpenProfession, CompareMerge },
-    insertion = { CompareMerge },
+    standard = { CompareOpenProfession, CompareMerge, ComparePriorityCraft, CompareGearRank, CompareProfit },
+    profit = { CompareMerge, ComparePriorityCraft, CompareProfit, CompareOpenProfession, CompareGearRank },
+    profession_insertion = { CompareOpenProfession, CompareMerge, ComparePriorityCraft },
+    insertion = { CompareMerge, ComparePriorityCraft },
 }
 
 --- Ordre strict total : true si `left` passe avant `right`.

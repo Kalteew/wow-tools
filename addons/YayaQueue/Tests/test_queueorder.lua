@@ -41,6 +41,7 @@ local QueueOrder = assert(ns.QueueOrder, "ns.QueueOrder non exporte")
 
 local OPEN_PROFESSION = 2906
 local CLAIMED_ORDER = 777
+local PHILOSOPHER_STONE_ITEM_ID = 241291
 
 -- Rang d'outil injecte : lu sur l'entree elle-meme pour le test.
 local function GearRank(entry)
@@ -168,6 +169,23 @@ equals("aucune valeur pour un profit inconnu", d.profitValue, nil)
 d = QueueOrder.Describe(Entry("profit", { profitKnown = false, profitValue = 1500 }), 1, CTX)
 equals("profitKnown false vaut inconnu malgre la valeur", d.hasKnownProfit, false)
 
+d = QueueOrder.Describe(Entry("pierre", {
+    outputItemID = PHILOSOPHER_STONE_ITEM_ID,
+}), 1, CTX)
+equals("itemID de la pierre Midnight expose", QueueOrder.PHILOSOPHER_STONE_ITEM_ID,
+    PHILOSOPHER_STONE_ITEM_ID)
+equals("la pierre normale est prioritaire", d.isPriorityPhilosopherStone, true)
+d = QueueOrder.Describe(Entry("pierre patron", {
+    queueKind = "patron",
+    outputItemID = PHILOSOPHER_STONE_ITEM_ID,
+}), 1, CTX)
+equals("la pierre d'un patron order n'est pas prioritaire", d.isPriorityPhilosopherStone, false)
+d = QueueOrder.Describe(Entry("pierre directe", {
+    queueKind = "direct_item",
+    outputItemID = PHILOSOPHER_STONE_ITEM_ID,
+}), 1, CTX)
+equals("un achat direct n'est pas prioritaire", d.isPriorityPhilosopherStone, false)
+
 -- ---------------------------------------------------------------------------
 -- Cascade standard, cran par cran
 -- ---------------------------------------------------------------------------
@@ -253,6 +271,32 @@ equals("profit connu avant profit inconnu, meme negatif",
         Entry("inconnu"),
         Entry("perte", { profitKnown = true, profitValue = -50 }),
     }, "standard"), "perte,inconnu")
+
+equals("la pierre Midnight passe avant les autres crafts d'alchimie",
+    SortedNames({
+        Entry("autre alchimie", { outputItemID = 241292 }),
+        Entry("pierre", { outputItemID = PHILOSOPHER_STONE_ITEM_ID }),
+    }, "standard"), "pierre,autre alchimie")
+
+equals("la pierre ne passe pas devant une fusion productrice",
+    SortedNames({
+        Entry("pierre", { outputItemID = PHILOSOPHER_STONE_ITEM_ID }),
+        Entry("fusion", { queueKind = "merge", mergeDepth = 0 }),
+    }, "standard"), "fusion,pierre")
+
+equals("la pierre ne reordonne pas un autre metier",
+    SortedNames({
+        Entry("autre metier", { professionID = 2913, outputItemID = 241292 }),
+        Entry("pierre", { outputItemID = PHILOSOPHER_STONE_ITEM_ID }),
+    }, "insertion"), "autre metier,pierre")
+
+for _, mode in ipairs(QueueOrder.MODES) do
+    equals("la priorite pierre tient en mode " .. mode,
+        SortedNames({
+            Entry("autre alchimie", { outputItemID = 241292 }),
+            Entry("pierre", { outputItemID = PHILOSOPHER_STONE_ITEM_ID }),
+        }, mode), "pierre,autre alchimie")
+end
 
 equals("a egalite complete, l'ordre d'ajout",
     SortedNames({
