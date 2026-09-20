@@ -1,0 +1,95 @@
+{
+  "reportCode": "7wRbcdH1DLmQ8pyz",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7wRbcdH1DLmQ8pyz?fight=3",
+  "capturedAt": "2026-09-09",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 3,
+  "fight": {
+    "id": 3,
+    "dungeon": "Altar of Fangs",
+    "keyLevel": 13,
+    "durationMs": 1681550,
+    "keystoneTimeMs": 1681550,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 382.4700012207031,
+    "deathsTotal": 10,
+    "enemyForces": {
+      "reached": 835,
+      "required": 817,
+      "percent": 102.2
+    }
+  },
+  "players": [
+    {
+      "name": "Thorgrïm",
+      "class": "Shaman",
+      "spec": "Enhancement",
+      "realm": "Eldre'Thalas",
+      "itemLevel": 318
+    },
+    {
+      "name": "Fareda",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "TarrenMill",
+      "itemLevel": 317
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 306
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 314
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Thorgrïm": 246732,
+      "Fareda": 239804,
+      "Azåelle": 186485,
+      "Kalteew": 175159,
+      "Kylse": 46541
+    },
+    "hps": {
+      "Thorgrïm": 5375,
+      "Fareda": 11667,
+      "Azåelle": 17222,
+      "Kalteew": 54957,
+      "Kylse": 130673
+    },
+    "deathsByPlayer": {
+      "Thorgrïm": 2,
+      "Fareda": 4,
+      "Azåelle": 1,
+      "Kalteew": 2,
+      "Kylse": 1
+    },
+    "deathsTotal": 10
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

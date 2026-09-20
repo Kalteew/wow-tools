@@ -1,0 +1,95 @@
+{
+  "reportCode": "7VG8R4AXznhtfWBv",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7VG8R4AXznhtfWBv?fight=5",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 5,
+  "fight": {
+    "id": 5,
+    "dungeon": "Altar of Fangs",
+    "keyLevel": 12,
+    "durationMs": 1634613,
+    "keystoneTimeMs": 1634613,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 368.45001220703125,
+    "deathsTotal": 5,
+    "enemyForces": {
+      "reached": 830,
+      "required": 817,
+      "percent": 101.59
+    }
+  },
+  "players": [
+    {
+      "name": "Aleaszä",
+      "class": "Evoker",
+      "spec": "Devastation",
+      "realm": "Hyjal",
+      "itemLevel": 319
+    },
+    {
+      "name": "Vanbubble",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Blackhand",
+      "itemLevel": 309
+    },
+    {
+      "name": "Istari",
+      "class": "Mage",
+      "spec": "Fire",
+      "realm": "Drak'thul",
+      "itemLevel": 313
+    },
+    {
+      "name": "Shìnzo",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Thrall",
+      "itemLevel": 303
+    },
+    {
+      "name": "Lectus",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "DunModr",
+      "itemLevel": 306
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Aleaszä": 222115,
+      "Vanbubble": 208630,
+      "Istari": 187229,
+      "Shìnzo": 133524,
+      "Lectus": 21349
+    },
+    "hps": {
+      "Aleaszä": 9143,
+      "Vanbubble": 10006,
+      "Istari": 6500,
+      "Shìnzo": 90036,
+      "Lectus": 104585
+    },
+    "deathsByPlayer": {
+      "Aleaszä": 2,
+      "Vanbubble": 1,
+      "Istari": 1,
+      "Shìnzo": 0,
+      "Lectus": 1
+    },
+    "deathsTotal": 5
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

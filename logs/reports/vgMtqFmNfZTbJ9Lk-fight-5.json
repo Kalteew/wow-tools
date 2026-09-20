@@ -1,0 +1,95 @@
+{
+  "reportCode": "vgMtqFmNfZTbJ9Lk",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/vgMtqFmNfZTbJ9Lk?fight=5",
+  "capturedAt": "2026-09-18",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 5,
+  "fight": {
+    "id": 5,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 12,
+    "durationMs": 1829761,
+    "keystoneTimeMs": 1829761,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 366.760009765625,
+    "deathsTotal": 14,
+    "enemyForces": {
+      "reached": 656,
+      "required": 687,
+      "percent": 95.49
+    }
+  },
+  "players": [
+    {
+      "name": "Piffpif",
+      "class": "Evoker",
+      "spec": "Devastation",
+      "realm": "Draenor",
+      "itemLevel": 305
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 310
+    },
+    {
+      "name": "Wandsolo",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Draenor",
+      "itemLevel": 313
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 321
+    },
+    {
+      "name": "Сквознякик",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "СвежевательДуш",
+      "itemLevel": 315
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Piffpif": 193688,
+      "Azåelle": 163077,
+      "Wandsolo": 151202,
+      "Kalteew": 131423,
+      "Сквознякик": 8211
+    },
+    "hps": {
+      "Piffpif": 8849,
+      "Azåelle": 11721,
+      "Wandsolo": 6371,
+      "Kalteew": 43109,
+      "Сквознякик": 96126
+    },
+    "deathsByPlayer": {
+      "Piffpif": 1,
+      "Azåelle": 3,
+      "Wandsolo": 6,
+      "Kalteew": 1,
+      "Сквознякик": 3
+    },
+    "deathsTotal": 14
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

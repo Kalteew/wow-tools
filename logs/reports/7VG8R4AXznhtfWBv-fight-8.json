@@ -1,0 +1,95 @@
+{
+  "reportCode": "7VG8R4AXznhtfWBv",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7VG8R4AXznhtfWBv?fight=8",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 8,
+  "fight": {
+    "id": 8,
+    "dungeon": "Altar of Fangs",
+    "keyLevel": 12,
+    "durationMs": 1801607,
+    "keystoneTimeMs": 1801607,
+    "completed": true,
+    "keystoneBonus": 0,
+    "rating": 319.9700012207031,
+    "deathsTotal": 11,
+    "enemyForces": {
+      "reached": 846,
+      "required": 817,
+      "percent": 103.55
+    }
+  },
+  "players": [
+    {
+      "name": "Sluffywl",
+      "class": "Warlock",
+      "spec": "Affliction",
+      "realm": "Blackhand",
+      "itemLevel": 308
+    },
+    {
+      "name": "Vanbubble",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Blackhand",
+      "itemLevel": 309
+    },
+    {
+      "name": "Lulugunz",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Blackhand",
+      "itemLevel": 287
+    },
+    {
+      "name": "Zumix",
+      "class": "Druid",
+      "spec": "Guardian",
+      "realm": "Blackhand",
+      "itemLevel": 322
+    },
+    {
+      "name": "Thelvadam",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Blackhand",
+      "itemLevel": 317
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Sluffywl": 242202,
+      "Vanbubble": 229719,
+      "Lulugunz": 162492,
+      "Zumix": 114459,
+      "Thelvadam": 24106
+    },
+    "hps": {
+      "Sluffywl": 14014,
+      "Vanbubble": 10002,
+      "Lulugunz": 7552,
+      "Zumix": 70675,
+      "Thelvadam": 116552
+    },
+    "deathsByPlayer": {
+      "Sluffywl": 2,
+      "Vanbubble": 2,
+      "Lulugunz": 4,
+      "Zumix": 1,
+      "Thelvadam": 2
+    },
+    "deathsTotal": 11
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "reportCode": "92fJZ7az6ybHANhV",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/92fJZ7az6ybHANhV?fight=2",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "Murder Row",
+    "keyLevel": 11,
+    "durationMs": 1497461,
+    "keystoneTimeMs": 1497461,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 344.9700012207031,
+    "deathsTotal": 4,
+    "enemyForces": {
+      "reached": 656,
+      "required": 655,
+      "percent": 100.15
+    }
+  },
+  "players": [
+    {
+      "name": "Nixxle",
+      "class": "Rogue",
+      "spec": "Assassination",
+      "realm": "Malygos",
+      "itemLevel": 315
+    },
+    {
+      "name": "Bazuak",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Blackhand",
+      "itemLevel": 311
+    },
+    {
+      "name": "Rayaz",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Echsenkessel",
+      "itemLevel": 319
+    },
+    {
+      "name": "Miikew",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Ravencrest",
+      "itemLevel": 284
+    },
+    {
+      "name": "Satila",
+      "class": "Evoker",
+      "spec": "Preservation",
+      "realm": "Norgannon",
+      "itemLevel": 280
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Nixxle": 215789,
+      "Bazuak": 197082,
+      "Rayaz": 162515,
+      "Miikew": 115022,
+      "Satila": 11968
+    },
+    "hps": {
+      "Nixxle": 11955,
+      "Bazuak": 9081,
+      "Rayaz": 107657,
+      "Miikew": 9084,
+      "Satila": 68290
+    },
+    "deathsByPlayer": {
+      "Nixxle": 0,
+      "Bazuak": 2,
+      "Rayaz": 0,
+      "Miikew": 1,
+      "Satila": 1
+    },
+    "deathsTotal": 4
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

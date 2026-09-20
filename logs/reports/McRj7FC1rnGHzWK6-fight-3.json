@@ -1,0 +1,95 @@
+{
+  "reportCode": "McRj7FC1rnGHzWK6",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/McRj7FC1rnGHzWK6?fight=3",
+  "capturedAt": "2026-09-17",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 3,
+  "fight": {
+    "id": 3,
+    "dungeon": "Murder Row",
+    "keyLevel": 12,
+    "durationMs": 1282066,
+    "keystoneTimeMs": 1282066,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 378.92999267578125,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 674,
+      "required": 655,
+      "percent": 102.9
+    }
+  },
+  "players": [
+    {
+      "name": "Bästion",
+      "class": "Shaman",
+      "spec": "Enhancement",
+      "realm": "BurningLegion",
+      "itemLevel": 323
+    },
+    {
+      "name": "Ocdx",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Silvermoon",
+      "itemLevel": 323
+    },
+    {
+      "name": "Finiis",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Stormscale",
+      "itemLevel": 309
+    },
+    {
+      "name": "Polyxx",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Drak'thul",
+      "itemLevel": 322
+    },
+    {
+      "name": "Cak",
+      "class": "Priest",
+      "spec": "Discipline",
+      "realm": "TwistingNether",
+      "itemLevel": 318
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Bästion": 268663,
+      "Ocdx": 243206,
+      "Finiis": 227761,
+      "Polyxx": 162263,
+      "Cak": 22337
+    },
+    "hps": {
+      "Bästion": 2537,
+      "Ocdx": 9259,
+      "Finiis": 8880,
+      "Polyxx": 60967,
+      "Cak": 113952
+    },
+    "deathsByPlayer": {
+      "Bästion": 0,
+      "Ocdx": 0,
+      "Finiis": 0,
+      "Polyxx": 0,
+      "Cak": 0
+    },
+    "deathsTotal": 0
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

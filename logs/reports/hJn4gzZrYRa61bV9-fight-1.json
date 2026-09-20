@@ -1,0 +1,95 @@
+{
+  "reportCode": "hJn4gzZrYRa61bV9",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/hJn4gzZrYRa61bV9?fight=1",
+  "capturedAt": "2026-09-10",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Den of Nalorakk",
+    "keyLevel": 14,
+    "durationMs": 1548387,
+    "keystoneTimeMs": 1548387,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 402.260009765625,
+    "deathsTotal": 6,
+    "enemyForces": {
+      "reached": 751,
+      "required": 729,
+      "percent": 103.02
+    }
+  },
+  "players": [
+    {
+      "name": "Ladowz",
+      "class": "Warlock",
+      "spec": "Affliction",
+      "realm": "TarrenMill",
+      "itemLevel": 322
+    },
+    {
+      "name": "Meridian",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Drak'thul",
+      "itemLevel": 320
+    },
+    {
+      "name": "Kaydoo",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Kazzak",
+      "itemLevel": 316
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 315
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Ladowz": 229636,
+      "Meridian": 222077,
+      "Kaydoo": 186425,
+      "Kalteew": 137857,
+      "Kylse": 40572
+    },
+    "hps": {
+      "Ladowz": 15128,
+      "Meridian": 8860,
+      "Kaydoo": 11164,
+      "Kalteew": 49674,
+      "Kylse": 88234
+    },
+    "deathsByPlayer": {
+      "Ladowz": 2,
+      "Meridian": 0,
+      "Kaydoo": 3,
+      "Kalteew": 0,
+      "Kylse": 1
+    },
+    "deathsTotal": 6
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

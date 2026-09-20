@@ -1,0 +1,95 @@
+{
+  "reportCode": "BrMRQTYDzqy2F1xh",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/BrMRQTYDzqy2F1xh?fight=2",
+  "capturedAt": "2026-09-10",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "Murder Row",
+    "keyLevel": 14,
+    "durationMs": 1723799,
+    "keystoneTimeMs": 1723799,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 400.80999755859375,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 693,
+      "required": 655,
+      "percent": 105.8
+    }
+  },
+  "players": [
+    {
+      "name": "Tëmñíÿpríñçé",
+      "class": "Warlock",
+      "spec": "Affliction",
+      "realm": "Ravencrest",
+      "itemLevel": 318
+    },
+    {
+      "name": "Welkin",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Silvermoon",
+      "itemLevel": 320
+    },
+    {
+      "name": "Delinor",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Silvermoon",
+      "itemLevel": 314
+    },
+    {
+      "name": "Solarrim",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Silvermoon",
+      "itemLevel": 318
+    },
+    {
+      "name": "Xenoryaftw",
+      "class": "Shaman",
+      "spec": "Restoration",
+      "realm": "TwistingNether",
+      "itemLevel": 320
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Tëmñíÿpríñçé": 232572,
+      "Welkin": 231898,
+      "Delinor": 214987,
+      "Solarrim": 115210,
+      "Xenoryaftw": 28577
+    },
+    "hps": {
+      "Tëmñíÿpríñçé": 17642,
+      "Welkin": 13147,
+      "Delinor": 8730,
+      "Solarrim": 66723,
+      "Xenoryaftw": 133853
+    },
+    "deathsByPlayer": {
+      "Tëmñíÿpríñçé": 0,
+      "Welkin": 0,
+      "Delinor": 0,
+      "Solarrim": 0,
+      "Xenoryaftw": 0
+    },
+    "deathsTotal": 0
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

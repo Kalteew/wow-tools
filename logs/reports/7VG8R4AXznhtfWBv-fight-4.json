@@ -1,0 +1,95 @@
+{
+  "reportCode": "7VG8R4AXznhtfWBv",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7VG8R4AXznhtfWBv?fight=4",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 4,
+  "fight": {
+    "id": 4,
+    "dungeon": "Den of Nalorakk",
+    "keyLevel": 12,
+    "durationMs": 1761642,
+    "keystoneTimeMs": 1761642,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 368.0899963378906,
+    "deathsTotal": 5,
+    "enemyForces": {
+      "reached": 787,
+      "required": 729,
+      "percent": 107.96
+    }
+  },
+  "players": [
+    {
+      "name": "Vanbubble",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Blackhand",
+      "itemLevel": 309
+    },
+    {
+      "name": "Ellmoo",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Ragnaros",
+      "itemLevel": 304
+    },
+    {
+      "name": "Farria",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "BurningLegion",
+      "itemLevel": 306
+    },
+    {
+      "name": "Shìnzo",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Thrall",
+      "itemLevel": 303
+    },
+    {
+      "name": "Mowcket",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 308
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Vanbubble": 204329,
+      "Ellmoo": 179406,
+      "Farria": 138939,
+      "Shìnzo": 116287,
+      "Mowcket": 18707
+    },
+    "hps": {
+      "Vanbubble": 6465,
+      "Ellmoo": 9493,
+      "Farria": 8020,
+      "Shìnzo": 80484,
+      "Mowcket": 118597
+    },
+    "deathsByPlayer": {
+      "Vanbubble": 1,
+      "Ellmoo": 3,
+      "Farria": 1,
+      "Shìnzo": 0,
+      "Mowcket": 0
+    },
+    "deathsTotal": 5
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

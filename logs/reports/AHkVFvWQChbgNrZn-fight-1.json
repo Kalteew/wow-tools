@@ -1,0 +1,95 @@
+{
+  "reportCode": "AHkVFvWQChbgNrZn",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/AHkVFvWQChbgNrZn?fight=1",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "The Blinding Vale",
+    "keyLevel": 10,
+    "durationMs": 1122534,
+    "keystoneTimeMs": 1122534,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 334.1099853515625,
+    "deathsTotal": 3,
+    "enemyForces": {
+      "reached": 703,
+      "required": 655,
+      "percent": 107.33
+    }
+  },
+  "players": [
+    {
+      "name": "Gówyne",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    },
+    {
+      "name": "Tsundre",
+      "class": "Druid",
+      "spec": "Feral",
+      "realm": "Stormscale",
+      "itemLevel": 299
+    },
+    {
+      "name": "Bäskadrips",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Stormscale",
+      "itemLevel": 287
+    },
+    {
+      "name": "Juniordk",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Ravencrest",
+      "itemLevel": 297
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 316
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Gówyne": 260114,
+      "Tsundre": 205627,
+      "Bäskadrips": 173865,
+      "Juniordk": 132849,
+      "Kylse": 49555
+    },
+    "hps": {
+      "Gówyne": 10726,
+      "Tsundre": 9938,
+      "Bäskadrips": 11271,
+      "Juniordk": 71951,
+      "Kylse": 103002
+    },
+    "deathsByPlayer": {
+      "Gówyne": 0,
+      "Tsundre": 2,
+      "Bäskadrips": 0,
+      "Juniordk": 0,
+      "Kylse": 1
+    },
+    "deathsTotal": 3
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "reportCode": "7VG8R4AXznhtfWBv",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7VG8R4AXznhtfWBv?fight=9",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 9,
+  "fight": {
+    "id": 9,
+    "dungeon": "Murder Row",
+    "keyLevel": 12,
+    "durationMs": 1377684,
+    "keystoneTimeMs": 1377684,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 377.1700134277344,
+    "deathsTotal": 2,
+    "enemyForces": {
+      "reached": 666,
+      "required": 655,
+      "percent": 101.68
+    }
+  },
+  "players": [
+    {
+      "name": "Harzy",
+      "class": "Druid",
+      "spec": "Balance",
+      "realm": "TarrenMill",
+      "itemLevel": 320
+    },
+    {
+      "name": "Vandecay",
+      "class": "DeathKnight",
+      "spec": "Unholy",
+      "realm": "Antonidas",
+      "itemLevel": 323
+    },
+    {
+      "name": "Citublinks",
+      "class": "Mage",
+      "spec": "Fire",
+      "realm": "Kazzak",
+      "itemLevel": 313
+    },
+    {
+      "name": "Shìnzo",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Thrall",
+      "itemLevel": 303
+    },
+    {
+      "name": "Satherap",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "TwistingNether",
+      "itemLevel": 299
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Harzy": 298789,
+      "Vandecay": 214349,
+      "Citublinks": 204458,
+      "Shìnzo": 127660,
+      "Satherap": 15308
+    },
+    "hps": {
+      "Harzy": 11260,
+      "Vandecay": 9755,
+      "Citublinks": 4357,
+      "Shìnzo": 96589,
+      "Satherap": 121679
+    },
+    "deathsByPlayer": {
+      "Harzy": 1,
+      "Vandecay": 0,
+      "Citublinks": 0,
+      "Shìnzo": 0,
+      "Satherap": 1
+    },
+    "deathsTotal": 2
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

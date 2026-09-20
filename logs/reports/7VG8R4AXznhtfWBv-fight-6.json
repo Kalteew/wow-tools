@@ -1,0 +1,95 @@
+{
+  "reportCode": "7VG8R4AXznhtfWBv",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7VG8R4AXznhtfWBv?fight=6",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 6,
+  "fight": {
+    "id": 6,
+    "dungeon": "Murder Row",
+    "keyLevel": 10,
+    "durationMs": 1274595,
+    "keystoneTimeMs": 1274595,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 334.07000732421875,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 658,
+      "required": 655,
+      "percent": 100.46
+    }
+  },
+  "players": [
+    {
+      "name": "Vanbubble",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Blackhand",
+      "itemLevel": 309
+    },
+    {
+      "name": "Banemag",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Ravencrest",
+      "itemLevel": 315
+    },
+    {
+      "name": "Lulugunz",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Blackhand",
+      "itemLevel": 287
+    },
+    {
+      "name": "Zumix",
+      "class": "Druid",
+      "spec": "Guardian",
+      "realm": "Blackhand",
+      "itemLevel": 322
+    },
+    {
+      "name": "Ppriest",
+      "class": "Priest",
+      "spec": "Discipline",
+      "realm": "Karazhan",
+      "itemLevel": 298
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Vanbubble": 235066,
+      "Banemag": 233238,
+      "Lulugunz": 164944,
+      "Zumix": 102819,
+      "Ppriest": 14006
+    },
+    "hps": {
+      "Vanbubble": 7293,
+      "Banemag": 6013,
+      "Lulugunz": 6383,
+      "Zumix": 66293,
+      "Ppriest": 91937
+    },
+    "deathsByPlayer": {
+      "Vanbubble": 0,
+      "Banemag": 0,
+      "Lulugunz": 0,
+      "Zumix": 0,
+      "Ppriest": 0
+    },
+    "deathsTotal": 0
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

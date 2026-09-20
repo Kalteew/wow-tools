@@ -1,0 +1,95 @@
+{
+  "reportCode": "McRj7FC1rnGHzWK6",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/McRj7FC1rnGHzWK6?fight=4",
+  "capturedAt": "2026-09-17",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 4,
+  "fight": {
+    "id": 4,
+    "dungeon": "Murder Row",
+    "keyLevel": 16,
+    "durationMs": 1757930,
+    "keystoneTimeMs": 1757930,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 430.19000244140625,
+    "deathsTotal": 1,
+    "enemyForces": {
+      "reached": 674,
+      "required": 655,
+      "percent": 102.9
+    }
+  },
+  "players": [
+    {
+      "name": "Tiemyss",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Drak'thul",
+      "itemLevel": 323
+    },
+    {
+      "name": "Thunderaxe",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "TarrenMill",
+      "itemLevel": 324
+    },
+    {
+      "name": "Triceps",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "TheMaelstrom",
+      "itemLevel": 322
+    },
+    {
+      "name": "Polyxx",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Drak'thul",
+      "itemLevel": 322
+    },
+    {
+      "name": "Temu",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Arathi",
+      "itemLevel": 322
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Tiemyss": 326565,
+      "Thunderaxe": 241315,
+      "Triceps": 237765,
+      "Polyxx": 166636,
+      "Temu": 24878
+    },
+    "hps": {
+      "Tiemyss": 11897,
+      "Thunderaxe": 16490,
+      "Triceps": 18731,
+      "Polyxx": 96134,
+      "Temu": 126094
+    },
+    "deathsByPlayer": {
+      "Tiemyss": 0,
+      "Thunderaxe": 0,
+      "Triceps": 1,
+      "Polyxx": 0,
+      "Temu": 0
+    },
+    "deathsTotal": 1
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

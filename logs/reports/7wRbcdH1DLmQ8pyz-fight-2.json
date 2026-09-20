@@ -1,0 +1,95 @@
+{
+  "reportCode": "7wRbcdH1DLmQ8pyz",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7wRbcdH1DLmQ8pyz?fight=2",
+  "capturedAt": "2026-09-09",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "Den of Nalorakk",
+    "keyLevel": 13,
+    "durationMs": 1835857,
+    "keystoneTimeMs": 1835857,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 381.6400146484375,
+    "deathsTotal": 8,
+    "enemyForces": {
+      "reached": 779,
+      "required": 729,
+      "percent": 106.86
+    }
+  },
+  "players": [
+    {
+      "name": "Waldhar",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "TheMaelstrom",
+      "itemLevel": 315
+    },
+    {
+      "name": "Loutrasse",
+      "class": "Hunter",
+      "spec": "Marksmanship",
+      "realm": "KhazModan",
+      "itemLevel": 318
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 306
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 314
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Waldhar": 177143,
+      "Loutrasse": 169993,
+      "Azåelle": 138958,
+      "Kalteew": 138164,
+      "Kylse": 51813
+    },
+    "hps": {
+      "Waldhar": 7266,
+      "Loutrasse": 8242,
+      "Azåelle": 11737,
+      "Kalteew": 43500,
+      "Kylse": 99507
+    },
+    "deathsByPlayer": {
+      "Waldhar": 3,
+      "Loutrasse": 2,
+      "Azåelle": 2,
+      "Kalteew": 0,
+      "Kylse": 1
+    },
+    "deathsTotal": 8
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

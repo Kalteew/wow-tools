@@ -1,0 +1,95 @@
+{
+  "reportCode": "Mv69gJmdyLthAVkf",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/Mv69gJmdyLthAVkf?fight=1",
+  "capturedAt": "2026-09-17",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Den of Nalorakk",
+    "keyLevel": 12,
+    "durationMs": 1635350,
+    "keystoneTimeMs": 1635350,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 370.55999755859375,
+    "deathsTotal": 4,
+    "enemyForces": {
+      "reached": 798,
+      "required": 729,
+      "percent": 109.47
+    }
+  },
+  "players": [
+    {
+      "name": "Вертекаль",
+      "class": "Druid",
+      "spec": "Balance",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 322
+    },
+    {
+      "name": "Dregoth",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Archimonde",
+      "itemLevel": 316
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 311
+    },
+    {
+      "name": "Hirukoishi",
+      "class": "DemonHunter",
+      "spec": "Vengeance",
+      "realm": "Blackhand",
+      "itemLevel": 319
+    },
+    {
+      "name": "Lenkâ",
+      "class": "Monk",
+      "spec": "Mistweaver",
+      "realm": "Hyjal",
+      "itemLevel": 304
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Вертекаль": 224351,
+      "Dregoth": 168502,
+      "Azåelle": 139137,
+      "Hirukoishi": 74837,
+      "Lenkâ": 38740
+    },
+    "hps": {
+      "Вертекаль": 6510,
+      "Dregoth": 10449,
+      "Azåelle": 12362,
+      "Hirukoishi": 50094,
+      "Lenkâ": 97659
+    },
+    "deathsByPlayer": {
+      "Вертекаль": 0,
+      "Dregoth": 2,
+      "Azåelle": 1,
+      "Hirukoishi": 0,
+      "Lenkâ": 1
+    },
+    "deathsTotal": 4
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "reportCode": "vcHRQJ73ZywzrLmk",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/vcHRQJ73ZywzrLmk?fight=1",
+  "capturedAt": "2026-09-12",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 9,
+    "durationMs": 1654560,
+    "keystoneTimeMs": 1654560,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 295.17999267578125,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 662,
+      "required": 687,
+      "percent": 96.36
+    }
+  },
+  "players": [
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 307
+    },
+    {
+      "name": "Màrzael",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Forscherliga",
+      "itemLevel": 304
+    },
+    {
+      "name": "Malman",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "TwistingNether",
+      "itemLevel": 307
+    },
+    {
+      "name": "Themise",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "TwistingNether",
+      "itemLevel": 308
+    },
+    {
+      "name": "Palpalis",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "TwistingNether",
+      "itemLevel": 308
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Azåelle": 176559,
+      "Màrzael": 110660,
+      "Malman": 109684,
+      "Themise": 76026,
+      "Palpalis": 839
+    },
+    "hps": {
+      "Azåelle": 11810,
+      "Màrzael": 11159,
+      "Malman": 7257,
+      "Themise": 43370,
+      "Palpalis": 87529
+    },
+    "deathsByPlayer": {
+      "Azåelle": 0,
+      "Màrzael": 0,
+      "Malman": 0,
+      "Themise": 0,
+      "Palpalis": 0
+    },
+    "deathsTotal": 0
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

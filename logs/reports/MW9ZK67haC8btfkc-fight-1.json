@@ -1,0 +1,95 @@
+{
+  "reportCode": "MW9ZK67haC8btfkc",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/MW9ZK67haC8btfkc?fight=1",
+  "capturedAt": "2026-09-16",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Ruby Life Pools",
+    "keyLevel": 10,
+    "durationMs": 963189,
+    "keystoneTimeMs": 963189,
+    "completed": true,
+    "keystoneBonus": 3,
+    "rating": 335,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 557,
+      "required": 553,
+      "percent": 100.72
+    }
+  },
+  "players": [
+    {
+      "name": "Миллерс",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Гордунни",
+      "itemLevel": 322
+    },
+    {
+      "name": "Allangelo",
+      "class": "Hunter",
+      "spec": "Marksmanship",
+      "realm": "Ysondre",
+      "itemLevel": 323
+    },
+    {
+      "name": "Тобошх",
+      "class": "Shaman",
+      "spec": "Elemental",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 321
+    },
+    {
+      "name": "Слипнморе",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 304
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Миллерс": 248012,
+      "Allangelo": 242590,
+      "Тобошх": 211322,
+      "Слипнморе": 108796,
+      "Kylse": 57457
+    },
+    "hps": {
+      "Миллерс": 5139,
+      "Allangelo": 5821,
+      "Тобошх": 6800,
+      "Слипнморе": 65104,
+      "Kylse": 133164
+    },
+    "deathsByPlayer": {
+      "Миллерс": 0,
+      "Allangelo": 0,
+      "Тобошх": 0,
+      "Слипнморе": 0,
+      "Kylse": 0
+    },
+    "deathsTotal": 0
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

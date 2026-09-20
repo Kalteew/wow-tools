@@ -1,0 +1,95 @@
+{
+  "reportCode": "vgMtqFmNfZTbJ9Lk",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/vgMtqFmNfZTbJ9Lk?fight=1",
+  "capturedAt": "2026-09-18",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Den of Nalorakk",
+    "keyLevel": 12,
+    "durationMs": 1619283,
+    "keystoneTimeMs": 1619283,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 370.8699951171875,
+    "deathsTotal": 1,
+    "enemyForces": {
+      "reached": 752,
+      "required": 729,
+      "percent": 103.16
+    }
+  },
+  "players": [
+    {
+      "name": "Lazercowski",
+      "class": "Shaman",
+      "spec": "Enhancement",
+      "realm": "Blackmoore",
+      "itemLevel": 318
+    },
+    {
+      "name": "Melsd",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Blackmoore",
+      "itemLevel": 315
+    },
+    {
+      "name": "Piffpif",
+      "class": "Evoker",
+      "spec": "Devastation",
+      "realm": "Draenor",
+      "itemLevel": 305
+    },
+    {
+      "name": "Пухлаяпися",
+      "class": "Druid",
+      "spec": "Guardian",
+      "realm": "Гордунни",
+      "itemLevel": 314
+    },
+    {
+      "name": "Eugene",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Nethersturm",
+      "itemLevel": 311
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Lazercowski": 196390,
+      "Melsd": 194653,
+      "Piffpif": 180325,
+      "Пухлаяпися": 67699,
+      "Eugene": 15526
+    },
+    "hps": {
+      "Lazercowski": 4391,
+      "Melsd": 11989,
+      "Piffpif": 6655,
+      "Пухлаяпися": 37961,
+      "Eugene": 96164
+    },
+    "deathsByPlayer": {
+      "Lazercowski": 0,
+      "Melsd": 0,
+      "Piffpif": 1,
+      "Пухлаяпися": 0,
+      "Eugene": 0
+    },
+    "deathsTotal": 1
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

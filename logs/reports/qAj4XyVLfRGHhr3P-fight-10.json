@@ -1,0 +1,95 @@
+{
+  "reportCode": "qAj4XyVLfRGHhr3P",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/qAj4XyVLfRGHhr3P?fight=10",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 10,
+  "fight": {
+    "id": 10,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 12,
+    "durationMs": 1501020,
+    "keystoneTimeMs": 1501020,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 373.17999267578125,
+    "deathsTotal": 5,
+    "enemyForces": {
+      "reached": 650,
+      "required": 687,
+      "percent": 94.61
+    }
+  },
+  "players": [
+    {
+      "name": "Nepec",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "TwistingNether",
+      "itemLevel": 319
+    },
+    {
+      "name": "Vandecay",
+      "class": "DeathKnight",
+      "spec": "Unholy",
+      "realm": "Antonidas",
+      "itemLevel": 323
+    },
+    {
+      "name": "Perdeadoi",
+      "class": "Mage",
+      "spec": "Frost",
+      "realm": "Ravencrest",
+      "itemLevel": 314
+    },
+    {
+      "name": "Shìnzo",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Thrall",
+      "itemLevel": 303
+    },
+    {
+      "name": "Trêtbôôt",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Blackmoore",
+      "itemLevel": 316
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Nepec": 253054,
+      "Vandecay": 203691,
+      "Perdeadoi": 145217,
+      "Shìnzo": 125195,
+      "Trêtbôôt": 16683
+    },
+    "hps": {
+      "Nepec": 11723,
+      "Vandecay": 5550,
+      "Perdeadoi": 8698,
+      "Shìnzo": 69953,
+      "Trêtbôôt": 103144
+    },
+    "deathsByPlayer": {
+      "Nepec": 2,
+      "Vandecay": 0,
+      "Perdeadoi": 0,
+      "Shìnzo": 0,
+      "Trêtbôôt": 3
+    },
+    "deathsTotal": 5
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

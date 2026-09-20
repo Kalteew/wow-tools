@@ -1,0 +1,95 @@
+{
+  "reportCode": "y8HXqgwLZbVr6jxk",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/y8HXqgwLZbVr6jxk?fight=1",
+  "capturedAt": "2026-09-14",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Kings' Rest",
+    "keyLevel": 10,
+    "durationMs": 1407838,
+    "keystoneTimeMs": 1407838,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 330.8399963378906,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 587,
+      "required": 608,
+      "percent": 96.55
+    }
+  },
+  "players": [
+    {
+      "name": "Shiniji",
+      "class": "Shaman",
+      "spec": "Elemental",
+      "realm": "Drak'thul",
+      "itemLevel": 313
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 310
+    },
+    {
+      "name": "Anatura",
+      "class": "Warrior",
+      "spec": "Fury",
+      "realm": "Blackrock",
+      "itemLevel": 309
+    },
+    {
+      "name": "Xilxia",
+      "class": "DemonHunter",
+      "spec": "Vengeance",
+      "realm": "Thunderhorn",
+      "itemLevel": 296
+    },
+    {
+      "name": "Nerusi",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Drak'thul",
+      "itemLevel": 317
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Shiniji": 180822,
+      "Azåelle": 133462,
+      "Anatura": 120266,
+      "Xilxia": 46813,
+      "Nerusi": 27471
+    },
+    "hps": {
+      "Shiniji": 8995,
+      "Azåelle": 10792,
+      "Anatura": 6850,
+      "Xilxia": 31487,
+      "Nerusi": 86789
+    },
+    "deathsByPlayer": {
+      "Shiniji": 0,
+      "Azåelle": 0,
+      "Anatura": 0,
+      "Xilxia": 0,
+      "Nerusi": 0
+    },
+    "deathsTotal": 0
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

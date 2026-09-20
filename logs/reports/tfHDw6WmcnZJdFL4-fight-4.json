@@ -1,0 +1,95 @@
+{
+  "reportCode": "tfHDw6WmcnZJdFL4",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/tfHDw6WmcnZJdFL4?fight=4",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 4,
+  "fight": {
+    "id": 4,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 10,
+    "durationMs": 1095409,
+    "keystoneTimeMs": 1095409,
+    "completed": true,
+    "keystoneBonus": 3,
+    "rating": 335,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 650,
+      "required": 687,
+      "percent": 94.61
+    }
+  },
+  "players": [
+    {
+      "name": "Вайперко",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Гордунни",
+      "itemLevel": 312
+    },
+    {
+      "name": "Cíel",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Norgannon",
+      "itemLevel": 319
+    },
+    {
+      "name": "Увэувэосас",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Гордунни",
+      "itemLevel": 312
+    },
+    {
+      "name": "Validar",
+      "class": "Hunter",
+      "spec": "Survival",
+      "realm": "DieAldor",
+      "itemLevel": 286
+    },
+    {
+      "name": "Novalast",
+      "class": "Evoker",
+      "spec": "Preservation",
+      "realm": "Blackrock",
+      "itemLevel": 318
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Вайперко": 268534,
+      "Cíel": 212069,
+      "Увэувэосас": 131988,
+      "Validar": 119427,
+      "Novalast": 77815
+    },
+    "hps": {
+      "Вайперко": 4286,
+      "Cíel": 6831,
+      "Увэувэосас": 40011,
+      "Validar": 5204,
+      "Novalast": 112849
+    },
+    "deathsByPlayer": {
+      "Вайперко": 0,
+      "Cíel": 0,
+      "Увэувэосас": 0,
+      "Validar": 0,
+      "Novalast": 0
+    },
+    "deathsTotal": 0
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

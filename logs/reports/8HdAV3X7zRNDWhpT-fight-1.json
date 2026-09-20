@@ -1,0 +1,95 @@
+{
+  "reportCode": "8HdAV3X7zRNDWhpT",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/8HdAV3X7zRNDWhpT?fight=1",
+  "capturedAt": "2026-09-10",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Murder Row",
+    "keyLevel": 14,
+    "durationMs": 1972323,
+    "keystoneTimeMs": 1972323,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 396.239990234375,
+    "deathsTotal": 9,
+    "enemyForces": {
+      "reached": 660,
+      "required": 655,
+      "percent": 100.76
+    }
+  },
+  "players": [
+    {
+      "name": "Шурукках",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 317
+    },
+    {
+      "name": "Ривасег",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Гордунни",
+      "itemLevel": 321
+    },
+    {
+      "name": "Illidana",
+      "class": "DemonHunter",
+      "spec": "Devourer",
+      "realm": "Mal'Ganis",
+      "itemLevel": 319
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 315
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Шурукках": 212801,
+      "Ривасег": 178924,
+      "Illidana": 168385,
+      "Kalteew": 119630,
+      "Kylse": 30015
+    },
+    "hps": {
+      "Шурукках": 13366,
+      "Ривасег": 9908,
+      "Illidana": 15664,
+      "Kalteew": 52339,
+      "Kylse": 123508
+    },
+    "deathsByPlayer": {
+      "Шурукках": 2,
+      "Ривасег": 2,
+      "Illidana": 3,
+      "Kalteew": 2,
+      "Kylse": 0
+    },
+    "deathsTotal": 9
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

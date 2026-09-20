@@ -1,0 +1,95 @@
+{
+  "reportCode": "4YQdGXx2BqWMjwJg",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/4YQdGXx2BqWMjwJg?fight=2",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "Ruby Life Pools",
+    "keyLevel": 10,
+    "durationMs": 1159476,
+    "keystoneTimeMs": 1159476,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 331.6199951171875,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 593,
+      "required": 553,
+      "percent": 107.23
+    }
+  },
+  "players": [
+    {
+      "name": "Todi",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Doomhammer",
+      "itemLevel": 308
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 308
+    },
+    {
+      "name": "Zhinler",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Draenor",
+      "itemLevel": 306
+    },
+    {
+      "name": "Kêrês",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "TarrenMill",
+      "itemLevel": 304
+    },
+    {
+      "name": "Seralen",
+      "class": "Monk",
+      "spec": "Mistweaver",
+      "realm": "Silvermoon",
+      "itemLevel": 319
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Todi": 202270,
+      "Azåelle": 180967,
+      "Zhinler": 172191,
+      "Kêrês": 132605,
+      "Seralen": 31765
+    },
+    "hps": {
+      "Todi": 11119,
+      "Azåelle": 13482,
+      "Zhinler": 5505,
+      "Kêrês": 72219,
+      "Seralen": 112112
+    },
+    "deathsByPlayer": {
+      "Todi": 0,
+      "Azåelle": 0,
+      "Zhinler": 0,
+      "Kêrês": 0,
+      "Seralen": 0
+    },
+    "deathsTotal": 0
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

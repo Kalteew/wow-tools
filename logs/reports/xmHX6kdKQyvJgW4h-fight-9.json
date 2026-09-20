@@ -1,0 +1,95 @@
+{
+  "reportCode": "xmHX6kdKQyvJgW4h",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/xmHX6kdKQyvJgW4h?fight=9",
+  "capturedAt": "2026-09-12",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 9,
+  "fight": {
+    "id": 9,
+    "dungeon": "Ruby Life Pools",
+    "keyLevel": 10,
+    "durationMs": 1010042,
+    "keystoneTimeMs": 1010042,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 334.95001220703125,
+    "deathsTotal": 1,
+    "enemyForces": {
+      "reached": 553,
+      "required": 553,
+      "percent": 100
+    }
+  },
+  "players": [
+    {
+      "name": "Umbolzer",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Blackrock",
+      "itemLevel": 323
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 307
+    },
+    {
+      "name": "Baloonat",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "TwistingNether",
+      "itemLevel": 306
+    },
+    {
+      "name": "Krupta",
+      "class": "Druid",
+      "spec": "Guardian",
+      "realm": "Blackrock",
+      "itemLevel": 311
+    },
+    {
+      "name": "Thalárd",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Blackrock",
+      "itemLevel": 0
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Umbolzer": 328456,
+      "Azåelle": 184970,
+      "Baloonat": 155032,
+      "Krupta": 123827,
+      "Thalárd": 25716
+    },
+    "hps": {
+      "Umbolzer": 7238,
+      "Azåelle": 12446,
+      "Baloonat": 10170,
+      "Krupta": 53686,
+      "Thalárd": 80226
+    },
+    "deathsByPlayer": {
+      "Umbolzer": 0,
+      "Azåelle": 0,
+      "Baloonat": 1,
+      "Krupta": 0,
+      "Thalárd": 0
+    },
+    "deathsTotal": 1
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

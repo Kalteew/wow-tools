@@ -1,0 +1,95 @@
+{
+  "reportCode": "McRj7FC1rnGHzWK6",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/McRj7FC1rnGHzWK6?fight=1",
+  "capturedAt": "2026-09-17",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Murder Row",
+    "keyLevel": 13,
+    "durationMs": 1795156,
+    "keystoneTimeMs": 1795156,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 384.5,
+    "deathsTotal": 1,
+    "enemyForces": {
+      "reached": 671,
+      "required": 655,
+      "percent": 102.44
+    }
+  },
+  "players": [
+    {
+      "name": "Смертоангел",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 317
+    },
+    {
+      "name": "Джоэни",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Корольлич",
+      "itemLevel": 320
+    },
+    {
+      "name": "Виксария",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Седогрив",
+      "itemLevel": 323
+    },
+    {
+      "name": "Polyxx",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Drak'thul",
+      "itemLevel": 322
+    },
+    {
+      "name": "Энергия",
+      "class": "Shaman",
+      "spec": "Restoration",
+      "realm": "Гордунни",
+      "itemLevel": 318
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Смертоангел": 215692,
+      "Джоэни": 213684,
+      "Виксария": 188897,
+      "Polyxx": 133281,
+      "Энергия": 11426
+    },
+    "hps": {
+      "Смертоангел": 2914,
+      "Джоэни": 7254,
+      "Виксария": 9836,
+      "Polyxx": 69624,
+      "Энергия": 108395
+    },
+    "deathsByPlayer": {
+      "Смертоангел": 1,
+      "Джоэни": 0,
+      "Виксария": 0,
+      "Polyxx": 0,
+      "Энергия": 0
+    },
+    "deathsTotal": 1
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "reportCode": "XF8AqMczJrTf4mZ6",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/XF8AqMczJrTf4mZ6?fight=1",
+  "capturedAt": "2026-09-16",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Ruby Life Pools",
+    "keyLevel": 14,
+    "durationMs": 1579853,
+    "keystoneTimeMs": 1579853,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 397.239990234375,
+    "deathsTotal": 10,
+    "enemyForces": {
+      "reached": 553,
+      "required": 553,
+      "percent": 100
+    }
+  },
+  "players": [
+    {
+      "name": "Divinejyden",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Magtheridon",
+      "itemLevel": 322
+    },
+    {
+      "name": "Darkxaox",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "C'Thun",
+      "itemLevel": 318
+    },
+    {
+      "name": "Magmiron",
+      "class": "Shaman",
+      "spec": "Elemental",
+      "realm": "TwistingNether",
+      "itemLevel": 319
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 321
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 321
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Divinejyden": 270052,
+      "Darkxaox": 175891,
+      "Magmiron": 171902,
+      "Kalteew": 150074,
+      "Kylse": 43817
+    },
+    "hps": {
+      "Divinejyden": 12214,
+      "Darkxaox": 11912,
+      "Magmiron": 7266,
+      "Kalteew": 52281,
+      "Kylse": 130546
+    },
+    "deathsByPlayer": {
+      "Divinejyden": 2,
+      "Darkxaox": 3,
+      "Magmiron": 2,
+      "Kalteew": 1,
+      "Kylse": 2
+    },
+    "deathsTotal": 10
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

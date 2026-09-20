@@ -1,0 +1,95 @@
+{
+  "reportCode": "tfHDw6WmcnZJdFL4",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/tfHDw6WmcnZJdFL4?fight=1",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 10,
+    "durationMs": 1112442,
+    "keystoneTimeMs": 1112442,
+    "completed": true,
+    "keystoneBonus": 3,
+    "rating": 335,
+    "deathsTotal": 1,
+    "enemyForces": {
+      "reached": 650,
+      "required": 687,
+      "percent": 94.61
+    }
+  },
+  "players": [
+    {
+      "name": "Убемугамосас",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Гордунни",
+      "itemLevel": 320
+    },
+    {
+      "name": "Шляпастрел",
+      "class": "Hunter",
+      "spec": "Survival",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 311
+    },
+    {
+      "name": "Trevoun",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Rexxar",
+      "itemLevel": 301
+    },
+    {
+      "name": "Жадинка",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Гордунни",
+      "itemLevel": 321
+    },
+    {
+      "name": "Selení",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Rexxar",
+      "itemLevel": 300
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Убемугамосас": 248085,
+      "Шляпастрел": 196738,
+      "Trevoun": 181489,
+      "Жадинка": 155548,
+      "Selení": 4014
+    },
+    "hps": {
+      "Убемугамосас": 7235,
+      "Шляпастрел": 9142,
+      "Trevoun": 9902,
+      "Жадинка": 55321,
+      "Selení": 102827
+    },
+    "deathsByPlayer": {
+      "Убемугамосас": 0,
+      "Шляпастрел": 0,
+      "Trevoun": 1,
+      "Жадинка": 0,
+      "Selení": 0
+    },
+    "deathsTotal": 1
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

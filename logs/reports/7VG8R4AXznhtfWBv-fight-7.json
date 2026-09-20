@@ -1,0 +1,95 @@
+{
+  "reportCode": "7VG8R4AXznhtfWBv",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7VG8R4AXznhtfWBv?fight=7",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 7,
+  "fight": {
+    "id": 7,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 12,
+    "durationMs": 1483561,
+    "keystoneTimeMs": 1483561,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 373.5199890136719,
+    "deathsTotal": 3,
+    "enemyForces": {
+      "reached": 650,
+      "required": 687,
+      "percent": 94.61
+    }
+  },
+  "players": [
+    {
+      "name": "Vanbubble",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Blackhand",
+      "itemLevel": 309
+    },
+    {
+      "name": "Sluffywl",
+      "class": "Warlock",
+      "spec": "Affliction",
+      "realm": "Blackhand",
+      "itemLevel": 308
+    },
+    {
+      "name": "Lulugunz",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Blackhand",
+      "itemLevel": 287
+    },
+    {
+      "name": "Zumix",
+      "class": "Druid",
+      "spec": "Guardian",
+      "realm": "Blackhand",
+      "itemLevel": 322
+    },
+    {
+      "name": "Karachokeanu",
+      "class": "Shaman",
+      "spec": "Restoration",
+      "realm": "Thrall",
+      "itemLevel": 315
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Vanbubble": 229330,
+      "Sluffywl": 221724,
+      "Lulugunz": 183227,
+      "Zumix": 93711,
+      "Karachokeanu": 33904
+    },
+    "hps": {
+      "Vanbubble": 7712,
+      "Sluffywl": 12555,
+      "Lulugunz": 7046,
+      "Zumix": 59886,
+      "Karachokeanu": 104142
+    },
+    "deathsByPlayer": {
+      "Vanbubble": 2,
+      "Sluffywl": 1,
+      "Lulugunz": 0,
+      "Zumix": 0,
+      "Karachokeanu": 0
+    },
+    "deathsTotal": 3
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

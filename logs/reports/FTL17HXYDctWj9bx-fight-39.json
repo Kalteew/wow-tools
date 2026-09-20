@@ -1,0 +1,95 @@
+{
+  "reportCode": "FTL17HXYDctWj9bx",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/FTL17HXYDctWj9bx?fight=39",
+  "capturedAt": "2026-09-18",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 39,
+  "fight": {
+    "id": 39,
+    "dungeon": "Voidscar Arena",
+    "keyLevel": 17,
+    "durationMs": 1650026,
+    "keystoneTimeMs": 1650026,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 443.1199951171875,
+    "deathsTotal": 7,
+    "enemyForces": {
+      "reached": 797,
+      "required": 738,
+      "percent": 107.99
+    }
+  },
+  "players": [
+    {
+      "name": "Yuqi",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Ravencrest",
+      "itemLevel": 324
+    },
+    {
+      "name": "Thrallspark",
+      "class": "Shaman",
+      "spec": "Enhancement",
+      "realm": "Draenor",
+      "itemLevel": 323
+    },
+    {
+      "name": "Dékota",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Draenor",
+      "itemLevel": 321
+    },
+    {
+      "name": "Radiodesk",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Draenor",
+      "itemLevel": 324
+    },
+    {
+      "name": "Pufflepuff",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Draenor",
+      "itemLevel": 321
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Yuqi": 317779,
+      "Thrallspark": 280621,
+      "Dékota": 276702,
+      "Radiodesk": 173448,
+      "Pufflepuff": 47835
+    },
+    "hps": {
+      "Yuqi": 11170,
+      "Thrallspark": 3310,
+      "Dékota": 18917,
+      "Radiodesk": 79933,
+      "Pufflepuff": 159950
+    },
+    "deathsByPlayer": {
+      "Yuqi": 2,
+      "Thrallspark": 4,
+      "Dékota": 1,
+      "Radiodesk": 0,
+      "Pufflepuff": 0
+    },
+    "deathsTotal": 7
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

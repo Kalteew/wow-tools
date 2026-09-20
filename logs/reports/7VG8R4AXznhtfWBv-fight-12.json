@@ -1,0 +1,95 @@
+{
+  "reportCode": "7VG8R4AXznhtfWBv",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7VG8R4AXznhtfWBv?fight=12",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 12,
+  "fight": {
+    "id": 12,
+    "dungeon": "Murder Row",
+    "keyLevel": 10,
+    "durationMs": 1049290,
+    "keystoneTimeMs": 1049290,
+    "completed": true,
+    "keystoneBonus": 3,
+    "rating": 335,
+    "deathsTotal": 1,
+    "enemyForces": {
+      "reached": 664,
+      "required": 655,
+      "percent": 101.37
+    }
+  },
+  "players": [
+    {
+      "name": "Вайперко",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Гордунни",
+      "itemLevel": 313
+    },
+    {
+      "name": "Vandecay",
+      "class": "DeathKnight",
+      "spec": "Unholy",
+      "realm": "Antonidas",
+      "itemLevel": 323
+    },
+    {
+      "name": "Explorhits",
+      "class": "Druid",
+      "spec": "Balance",
+      "realm": "Silvermoon",
+      "itemLevel": 320
+    },
+    {
+      "name": "Увэувэосас",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Гордунни",
+      "itemLevel": 312
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 315
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Вайперко": 234109,
+      "Vandecay": 220437,
+      "Explorhits": 205663,
+      "Увэувэосас": 119935,
+      "Kylse": 55944
+    },
+    "hps": {
+      "Вайперко": 5561,
+      "Vandecay": 8303,
+      "Explorhits": 4774,
+      "Увэувэосас": 44088,
+      "Kylse": 78860
+    },
+    "deathsByPlayer": {
+      "Вайперко": 0,
+      "Vandecay": 1,
+      "Explorhits": 0,
+      "Увэувэосас": 0,
+      "Kylse": 0
+    },
+    "deathsTotal": 1
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

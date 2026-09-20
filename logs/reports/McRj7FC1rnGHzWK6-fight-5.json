@@ -1,0 +1,95 @@
+{
+  "reportCode": "McRj7FC1rnGHzWK6",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/McRj7FC1rnGHzWK6?fight=5",
+  "capturedAt": "2026-09-17",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 5,
+  "fight": {
+    "id": 5,
+    "dungeon": "Kings' Rest",
+    "keyLevel": 16,
+    "durationMs": 1855948,
+    "keystoneTimeMs": 1855948,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 427.3500061035156,
+    "deathsTotal": 5,
+    "enemyForces": {
+      "reached": 587,
+      "required": 608,
+      "percent": 96.55
+    }
+  },
+  "players": [
+    {
+      "name": "Fulgurshaman",
+      "class": "Shaman",
+      "spec": "Elemental",
+      "realm": "Antonidas",
+      "itemLevel": 320
+    },
+    {
+      "name": "Tiemyss",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Drak'thul",
+      "itemLevel": 323
+    },
+    {
+      "name": "Unknowndemon",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Sylvanas",
+      "itemLevel": 321
+    },
+    {
+      "name": "Polyxx",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Drak'thul",
+      "itemLevel": 322
+    },
+    {
+      "name": "Temu",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Arathi",
+      "itemLevel": 322
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Fulgurshaman": 200923,
+      "Tiemyss": 192698,
+      "Unknowndemon": 173766,
+      "Polyxx": 108737,
+      "Temu": 16716
+    },
+    "hps": {
+      "Fulgurshaman": 6596,
+      "Tiemyss": 12688,
+      "Unknowndemon": 13206,
+      "Polyxx": 60707,
+      "Temu": 103171
+    },
+    "deathsByPlayer": {
+      "Fulgurshaman": 1,
+      "Tiemyss": 1,
+      "Unknowndemon": 3,
+      "Polyxx": 0,
+      "Temu": 0
+    },
+    "deathsTotal": 5
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "reportCode": "xmHX6kdKQyvJgW4h",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/xmHX6kdKQyvJgW4h?fight=10",
+  "capturedAt": "2026-09-12",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 10,
+  "fight": {
+    "id": 10,
+    "dungeon": "Kings' Rest",
+    "keyLevel": 10,
+    "durationMs": 1596084,
+    "keystoneTimeMs": 1596084,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 327.2699890136719,
+    "deathsTotal": 2,
+    "enemyForces": {
+      "reached": 587,
+      "required": 608,
+      "percent": 96.55
+    }
+  },
+  "players": [
+    {
+      "name": "Krupta",
+      "class": "Druid",
+      "spec": "Guardian",
+      "realm": "Blackrock",
+      "itemLevel": 311
+    },
+    {
+      "name": "Fslk",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Stormscale",
+      "itemLevel": 315
+    },
+    {
+      "name": "Vedøx",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Blackrock",
+      "itemLevel": 300
+    },
+    {
+      "name": "Thalárd",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Blackrock",
+      "itemLevel": 0
+    },
+    {
+      "name": "Holyhelga",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Lothar",
+      "itemLevel": 296
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Krupta": 158947,
+      "Fslk": 142652,
+      "Vedøx": 93714,
+      "Thalárd": 70321,
+      "Holyhelga": 7509
+    },
+    "hps": {
+      "Krupta": 6004,
+      "Fslk": 9302,
+      "Vedøx": 9169,
+      "Thalárd": 37782,
+      "Holyhelga": 82803
+    },
+    "deathsByPlayer": {
+      "Krupta": 0,
+      "Fslk": 1,
+      "Vedøx": 1,
+      "Thalárd": 0,
+      "Holyhelga": 0
+    },
+    "deathsTotal": 2
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

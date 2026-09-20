@@ -1,0 +1,95 @@
+{
+  "reportCode": "McRj7FC1rnGHzWK6",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/McRj7FC1rnGHzWK6?fight=2",
+  "capturedAt": "2026-09-17",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "Murder Row",
+    "keyLevel": 13,
+    "durationMs": 1731064,
+    "keystoneTimeMs": 1731064,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 385.67999267578125,
+    "deathsTotal": 4,
+    "enemyForces": {
+      "reached": 674,
+      "required": 655,
+      "percent": 102.9
+    }
+  },
+  "players": [
+    {
+      "name": "Haegan",
+      "class": "Mage",
+      "spec": "Frost",
+      "realm": "Hyjal",
+      "itemLevel": 317
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 311
+    },
+    {
+      "name": "Seaspray",
+      "class": "Druid",
+      "spec": "Feral",
+      "realm": "Kazzak",
+      "itemLevel": 319
+    },
+    {
+      "name": "Polyxx",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Drak'thul",
+      "itemLevel": 322
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 321
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Haegan": 221205,
+      "Azåelle": 184533,
+      "Seaspray": 174838,
+      "Polyxx": 152657,
+      "Kylse": 63860
+    },
+    "hps": {
+      "Haegan": 5863,
+      "Azåelle": 16033,
+      "Seaspray": 4859,
+      "Polyxx": 71810,
+      "Kylse": 115106
+    },
+    "deathsByPlayer": {
+      "Haegan": 2,
+      "Azåelle": 0,
+      "Seaspray": 2,
+      "Polyxx": 0,
+      "Kylse": 0
+    },
+    "deathsTotal": 4
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

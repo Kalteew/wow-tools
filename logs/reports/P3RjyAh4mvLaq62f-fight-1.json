@@ -1,0 +1,95 @@
+{
+  "reportCode": "P3RjyAh4mvLaq62f",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/P3RjyAh4mvLaq62f?fight=1",
+  "capturedAt": "2026-09-10",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Kings' Rest",
+    "keyLevel": 14,
+    "durationMs": 1734120,
+    "keystoneTimeMs": 1734120,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 399.6600036621094,
+    "deathsTotal": 4,
+    "enemyForces": {
+      "reached": 587,
+      "required": 608,
+      "percent": 96.55
+    }
+  },
+  "players": [
+    {
+      "name": "Tëmñíÿpríñçé",
+      "class": "Warlock",
+      "spec": "Affliction",
+      "realm": "Ravencrest",
+      "itemLevel": 318
+    },
+    {
+      "name": "Wizzlike",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Drak'thul",
+      "itemLevel": 320
+    },
+    {
+      "name": "Erytheisx",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Sanguino",
+      "itemLevel": 312
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 315
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Tëmñíÿpríñçé": 168453,
+      "Wizzlike": 161338,
+      "Erytheisx": 155209,
+      "Kalteew": 111248,
+      "Kylse": 40596
+    },
+    "hps": {
+      "Tëmñíÿpríñçé": 15858,
+      "Wizzlike": 3701,
+      "Erytheisx": 9750,
+      "Kalteew": 36842,
+      "Kylse": 110024
+    },
+    "deathsByPlayer": {
+      "Tëmñíÿpríñçé": 1,
+      "Wizzlike": 1,
+      "Erytheisx": 1,
+      "Kalteew": 0,
+      "Kylse": 1
+    },
+    "deathsTotal": 4
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

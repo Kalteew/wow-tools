@@ -1,0 +1,95 @@
+{
+  "reportCode": "qAj4XyVLfRGHhr3P",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/qAj4XyVLfRGHhr3P?fight=3",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 3,
+  "fight": {
+    "id": 3,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 12,
+    "durationMs": 1518291,
+    "keystoneTimeMs": 1518291,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 372.8500061035156,
+    "deathsTotal": 7,
+    "enemyForces": {
+      "reached": 650,
+      "required": 687,
+      "percent": 94.61
+    }
+  },
+  "players": [
+    {
+      "name": "Dagul",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Blackhand",
+      "itemLevel": 314
+    },
+    {
+      "name": "Notaris",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Eredar",
+      "itemLevel": 319
+    },
+    {
+      "name": "Vanbubble",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Blackhand",
+      "itemLevel": 309
+    },
+    {
+      "name": "Tamboür",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Hyjal",
+      "itemLevel": 304
+    },
+    {
+      "name": "Zureks",
+      "class": "Evoker",
+      "spec": "Preservation",
+      "realm": "AeriePeak",
+      "itemLevel": 309
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Dagul": 230226,
+      "Notaris": 187788,
+      "Vanbubble": 183465,
+      "Tamboür": 94995,
+      "Zureks": 37581
+    },
+    "hps": {
+      "Dagul": 9346,
+      "Notaris": 9207,
+      "Vanbubble": 6551,
+      "Tamboür": 67999,
+      "Zureks": 107327
+    },
+    "deathsByPlayer": {
+      "Dagul": 0,
+      "Notaris": 3,
+      "Vanbubble": 2,
+      "Tamboür": 0,
+      "Zureks": 2
+    },
+    "deathsTotal": 7
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "reportCode": "tfHDw6WmcnZJdFL4",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/tfHDw6WmcnZJdFL4?fight=3",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 3,
+  "fight": {
+    "id": 3,
+    "dungeon": "Voidscar Arena",
+    "keyLevel": 10,
+    "durationMs": 930822,
+    "keystoneTimeMs": 930822,
+    "completed": true,
+    "keystoneBonus": 3,
+    "rating": 335,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 786,
+      "required": 738,
+      "percent": 106.5
+    }
+  },
+  "players": [
+    {
+      "name": "Кошкаф",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Гордунни",
+      "itemLevel": 322
+    },
+    {
+      "name": "Suena",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Alexstrasza",
+      "itemLevel": 319
+    },
+    {
+      "name": "Вайперко",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Гордунни",
+      "itemLevel": 312
+    },
+    {
+      "name": "Увэувэосас",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Гордунни",
+      "itemLevel": 312
+    },
+    {
+      "name": "Smilforfun",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "TarrenMill",
+      "itemLevel": 296
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Кошкаф": 255265,
+      "Suena": 246544,
+      "Вайперко": 214672,
+      "Увэувэосас": 122548,
+      "Smilforfun": 36467
+    },
+    "hps": {
+      "Кошкаф": 6223,
+      "Suena": 7230,
+      "Вайперко": 3573,
+      "Увэувэосас": 44506,
+      "Smilforfun": 89316
+    },
+    "deathsByPlayer": {
+      "Кошкаф": 0,
+      "Suena": 0,
+      "Вайперко": 0,
+      "Увэувэосас": 0,
+      "Smilforfun": 0
+    },
+    "deathsTotal": 0
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

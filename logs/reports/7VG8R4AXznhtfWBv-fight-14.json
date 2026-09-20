@@ -1,0 +1,95 @@
+{
+  "reportCode": "7VG8R4AXznhtfWBv",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7VG8R4AXznhtfWBv?fight=14",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 14,
+  "fight": {
+    "id": 14,
+    "dungeon": "Ruby Life Pools",
+    "keyLevel": 16,
+    "durationMs": 1838628,
+    "keystoneTimeMs": 1838628,
+    "completed": true,
+    "keystoneBonus": 0,
+    "rating": 316.4599914550781,
+    "deathsTotal": 10,
+    "enemyForces": {
+      "reached": 571,
+      "required": 553,
+      "percent": 103.25
+    }
+  },
+  "players": [
+    {
+      "name": "Vandecay",
+      "class": "DeathKnight",
+      "spec": "Unholy",
+      "realm": "Antonidas",
+      "itemLevel": 323
+    },
+    {
+      "name": "Nilasia",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Hyjal",
+      "itemLevel": 320
+    },
+    {
+      "name": "Sceptrum",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Vol'jin",
+      "itemLevel": 312
+    },
+    {
+      "name": "Dagiardino",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Kazzak",
+      "itemLevel": 321
+    },
+    {
+      "name": "Emri",
+      "class": "Shaman",
+      "spec": "Restoration",
+      "realm": "Hyjal",
+      "itemLevel": 321
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Vandecay": 263994,
+      "Nilasia": 253747,
+      "Sceptrum": 186560,
+      "Dagiardino": 176689,
+      "Emri": 38056
+    },
+    "hps": {
+      "Vandecay": 11780,
+      "Nilasia": 15617,
+      "Sceptrum": 17020,
+      "Dagiardino": 118739,
+      "Emri": 144872
+    },
+    "deathsByPlayer": {
+      "Vandecay": 0,
+      "Nilasia": 5,
+      "Sceptrum": 4,
+      "Dagiardino": 0,
+      "Emri": 1
+    },
+    "deathsTotal": 10
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

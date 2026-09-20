@@ -1,0 +1,95 @@
+{
+  "reportCode": "7VG8R4AXznhtfWBv",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7VG8R4AXznhtfWBv?fight=2",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "Voidscar Arena",
+    "keyLevel": 12,
+    "durationMs": 1165299,
+    "keystoneTimeMs": 1165299,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 378.2200012207031,
+    "deathsTotal": 1,
+    "enemyForces": {
+      "reached": 792,
+      "required": 738,
+      "percent": 107.32
+    }
+  },
+  "players": [
+    {
+      "name": "Zerí",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Blackrock",
+      "itemLevel": 321
+    },
+    {
+      "name": "Apklock",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "TarrenMill",
+      "itemLevel": 318
+    },
+    {
+      "name": "Vanbubble",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Blackhand",
+      "itemLevel": 309
+    },
+    {
+      "name": "Dkloko",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "TwistingNether",
+      "itemLevel": 318
+    },
+    {
+      "name": "Shalamdoon",
+      "class": "Shaman",
+      "spec": "Restoration",
+      "realm": "TarrenMill",
+      "itemLevel": 317
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Zerí": 255401,
+      "Apklock": 213586,
+      "Vanbubble": 182445,
+      "Dkloko": 133696,
+      "Shalamdoon": 24372
+    },
+    "hps": {
+      "Zerí": 12663,
+      "Apklock": 10732,
+      "Vanbubble": 8485,
+      "Dkloko": 60852,
+      "Shalamdoon": 124075
+    },
+    "deathsByPlayer": {
+      "Zerí": 0,
+      "Apklock": 1,
+      "Vanbubble": 0,
+      "Dkloko": 0,
+      "Shalamdoon": 0
+    },
+    "deathsTotal": 1
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

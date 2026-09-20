@@ -1,0 +1,95 @@
+{
+  "reportCode": "tfHDw6WmcnZJdFL4",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/tfHDw6WmcnZJdFL4?fight=2",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "Murder Row",
+    "keyLevel": 12,
+    "durationMs": 1482585,
+    "keystoneTimeMs": 1482585,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 375.25,
+    "deathsTotal": 3,
+    "enemyForces": {
+      "reached": 661,
+      "required": 655,
+      "percent": 100.92
+    }
+  },
+  "players": [
+    {
+      "name": "Ламинатка",
+      "class": "Warrior",
+      "spec": "Fury",
+      "realm": "Гордунни",
+      "itemLevel": 321
+    },
+    {
+      "name": "Вайперко",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Гордунни",
+      "itemLevel": 312
+    },
+    {
+      "name": "Шляпастрел",
+      "class": "Hunter",
+      "spec": "Survival",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 311
+    },
+    {
+      "name": "Увэувэосас",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Гордунни",
+      "itemLevel": 312
+    },
+    {
+      "name": "Madomonk",
+      "class": "Monk",
+      "spec": "Mistweaver",
+      "realm": "Archimonde",
+      "itemLevel": 312
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Ламинатка": 218592,
+      "Вайперко": 200199,
+      "Шляпастрел": 163601,
+      "Увэувэосас": 110269,
+      "Madomonk": 44902
+    },
+    "hps": {
+      "Ламинатка": 11084,
+      "Вайперко": 5984,
+      "Шляпастрел": 7673,
+      "Увэувэосас": 46382,
+      "Madomonk": 106528
+    },
+    "deathsByPlayer": {
+      "Ламинатка": 0,
+      "Вайперко": 1,
+      "Шляпастрел": 2,
+      "Увэувэосас": 0,
+      "Madomonk": 0
+    },
+    "deathsTotal": 3
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

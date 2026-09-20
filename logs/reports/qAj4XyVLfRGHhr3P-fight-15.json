@@ -1,0 +1,95 @@
+{
+  "reportCode": "qAj4XyVLfRGHhr3P",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/qAj4XyVLfRGHhr3P?fight=15",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 15,
+  "fight": {
+    "id": 15,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 15,
+    "durationMs": 1676395,
+    "keystoneTimeMs": 1676395,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 414.760009765625,
+    "deathsTotal": 5,
+    "enemyForces": {
+      "reached": 645,
+      "required": 687,
+      "percent": 93.89
+    }
+  },
+  "players": [
+    {
+      "name": "Sluffywl",
+      "class": "Warlock",
+      "spec": "Affliction",
+      "realm": "Blackhand",
+      "itemLevel": 308
+    },
+    {
+      "name": "Jäggeer",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Ravencrest",
+      "itemLevel": 319
+    },
+    {
+      "name": "Vandecay",
+      "class": "DeathKnight",
+      "spec": "Unholy",
+      "realm": "Antonidas",
+      "itemLevel": 323
+    },
+    {
+      "name": "Shìnzo",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Thrall",
+      "itemLevel": 303
+    },
+    {
+      "name": "Holÿshait",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "TwistingNether",
+      "itemLevel": 319
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Sluffywl": 244696,
+      "Jäggeer": 232668,
+      "Vandecay": 231537,
+      "Shìnzo": 143409,
+      "Holÿshait": 25403
+    },
+    "hps": {
+      "Sluffywl": 13014,
+      "Jäggeer": 5598,
+      "Vandecay": 7250,
+      "Shìnzo": 95753,
+      "Holÿshait": 142617
+    },
+    "deathsByPlayer": {
+      "Sluffywl": 1,
+      "Jäggeer": 2,
+      "Vandecay": 0,
+      "Shìnzo": 0,
+      "Holÿshait": 2
+    },
+    "deathsTotal": 5
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}
