@@ -1,0 +1,102 @@
+{
+  "reportCode": "gJGHDN36TnFr1pV9",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/gJGHDN36TnFr1pV9?fight=3",
+  "capturedAt": "2026-09-07",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 3,
+  "fight": {
+    "id": 3,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 10,
+    "durationMs": 1078893,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 3,
+    "rating": 335,
+    "deathsTotal": 1,
+    "enemyForces": {
+      "reached": 656,
+      "required": 687,
+      "percent": 95.49
+    }
+  },
+  "players": [
+    {
+      "name": "Reitschuh",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "TwistingNether",
+      "itemLevel": 312
+    },
+    {
+      "name": "Knor",
+      "class": "Mage",
+      "spec": "Frost",
+      "realm": "Stormrage",
+      "itemLevel": 314
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 313
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 300
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 311
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Reitschuh": 225040,
+      "Knor": 211703,
+      "Kalteew": 162351,
+      "Azåelle": 155339,
+      "Kylse": 54965
+    },
+    "hps": {
+      "Reitschuh": 8365,
+      "Knor": 9942,
+      "Kalteew": 36249,
+      "Azåelle": 11168,
+      "Kylse": 104744
+    },
+    "deathsByPlayer": {
+      "Reitschuh": 0,
+      "Knor": 0,
+      "Kalteew": 0,
+      "Azåelle": 1,
+      "Kylse": 0
+    },
+    "deathsTotal": 1,
+    "interrupts": {
+      "Reitschuh": 11,
+      "Knor": 14,
+      "Kalteew": 27,
+      "Azåelle": 2,
+      "Kylse": 4
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

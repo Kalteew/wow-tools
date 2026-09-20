@@ -1,0 +1,102 @@
+{
+  "reportCode": "rdGpR3DVJ7FX2ZqB",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/rdGpR3DVJ7FX2ZqB?fight=3",
+  "capturedAt": "2026-09-05",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 3,
+  "fight": {
+    "id": 3,
+    "dungeon": "Altar of Fangs",
+    "keyLevel": 11,
+    "durationMs": 1500918,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 341.2300109863281,
+    "deathsTotal": 11,
+    "enemyForces": {
+      "reached": 825,
+      "required": 817,
+      "percent": 100.98
+    }
+  },
+  "players": [
+    {
+      "name": "Drunkimonkey",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Silvermoon",
+      "itemLevel": 312
+    },
+    {
+      "name": "Tulledp",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Silvermoon",
+      "itemLevel": 310
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 293
+    },
+    {
+      "name": "Yayaladin",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 303
+    },
+    {
+      "name": "Lenkâ",
+      "class": "Monk",
+      "spec": "Mistweaver",
+      "realm": "Hyjal",
+      "itemLevel": 292
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Drunkimonkey": 271408,
+      "Tulledp": 234609,
+      "Azåelle": 144994,
+      "Yayaladin": 131508,
+      "Lenkâ": 47141
+    },
+    "hps": {
+      "Drunkimonkey": 13303,
+      "Tulledp": 14604,
+      "Azåelle": 13160,
+      "Yayaladin": 61529,
+      "Lenkâ": 111654
+    },
+    "deathsByPlayer": {
+      "Drunkimonkey": 1,
+      "Tulledp": 2,
+      "Azåelle": 4,
+      "Yayaladin": 1,
+      "Lenkâ": 3
+    },
+    "deathsTotal": 11,
+    "interrupts": {
+      "Drunkimonkey": 31,
+      "Tulledp": 6,
+      "Azåelle": 20,
+      "Yayaladin": 40,
+      "Lenkâ": 10
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

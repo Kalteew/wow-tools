@@ -1,0 +1,102 @@
+{
+  "reportCode": "nAgNbzGcBM9rXT4a",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/nAgNbzGcBM9rXT4a?fight=3",
+  "capturedAt": "2026-08-20",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 3,
+  "fight": {
+    "id": 3,
+    "dungeon": "Ruby Life Pools",
+    "keyLevel": 9,
+    "durationMs": 1547988,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 292.95001220703125,
+    "deathsTotal": 26,
+    "enemyForces": {
+      "reached": 712,
+      "required": 660,
+      "percent": 107.88
+    }
+  },
+  "players": [
+    {
+      "name": "Younghurn",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Frostwolf",
+      "itemLevel": 290
+    },
+    {
+      "name": "Ohneswiebel",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Eredar",
+      "itemLevel": 290
+    },
+    {
+      "name": "Sabertoo",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Thrall",
+      "itemLevel": 294
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 298
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 297
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Younghurn": 150380,
+      "Ohneswiebel": 132365,
+      "Sabertoo": 110143,
+      "Kalteew": 85415,
+      "Kylse": 28042
+    },
+    "hps": {
+      "Younghurn": 12051,
+      "Ohneswiebel": 9073,
+      "Sabertoo": 5195,
+      "Kalteew": 39593,
+      "Kylse": 71978
+    },
+    "deathsByPlayer": {
+      "Younghurn": 4,
+      "Ohneswiebel": 6,
+      "Sabertoo": 6,
+      "Kalteew": 4,
+      "Kylse": 6
+    },
+    "deathsTotal": 26,
+    "interrupts": {
+      "Younghurn": 38,
+      "Ohneswiebel": 1,
+      "Sabertoo": 9,
+      "Kalteew": 34,
+      "Kylse": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

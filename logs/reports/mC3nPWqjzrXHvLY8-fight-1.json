@@ -1,0 +1,102 @@
+{
+  "reportCode": "mC3nPWqjzrXHvLY8",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/mC3nPWqjzrXHvLY8?fight=1",
+  "capturedAt": "2026-08-25",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Altar of Fangs",
+    "keyLevel": 9,
+    "durationMs": 1288578,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 300.6499938964844,
+    "deathsTotal": 10,
+    "enemyForces": {
+      "reached": 769,
+      "required": 1000,
+      "percent": 76.9
+    }
+  },
+  "players": [
+    {
+      "name": "Клубничкапро",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "СвежевательДуш",
+      "itemLevel": 298
+    },
+    {
+      "name": "Психман",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Гордунни",
+      "itemLevel": 296
+    },
+    {
+      "name": "Normabel",
+      "class": "Shaman",
+      "spec": "Enhancement",
+      "realm": "Magtheridon",
+      "itemLevel": 296
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 301
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 302
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Клубничкапро": 190957,
+      "Психман": 188043,
+      "Normabel": 167127,
+      "Kalteew": 136807,
+      "Kylse": 30182
+    },
+    "hps": {
+      "Клубничкапро": 8761,
+      "Психман": 15928,
+      "Normabel": 10878,
+      "Kalteew": 55104,
+      "Kylse": 89188
+    },
+    "deathsByPlayer": {
+      "Клубничкапро": 1,
+      "Психман": 3,
+      "Normabel": 3,
+      "Kalteew": 0,
+      "Kylse": 3
+    },
+    "deathsTotal": 10,
+    "interrupts": {
+      "Клубничкапро": 3,
+      "Психман": 43,
+      "Normabel": 17,
+      "Kalteew": 39,
+      "Kylse": 4
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

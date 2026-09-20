@@ -1,0 +1,102 @@
+{
+  "reportCode": "FTL17HXYDctWj9bx",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/FTL17HXYDctWj9bx?fight=3",
+  "capturedAt": "2026-09-18",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 3,
+  "fight": {
+    "id": 3,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 12,
+    "durationMs": 1829761,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 366.760009765625,
+    "deathsTotal": 15,
+    "enemyForces": {
+      "reached": 656,
+      "required": 687,
+      "percent": 95.49
+    }
+  },
+  "players": [
+    {
+      "name": "Piffpif",
+      "class": "Evoker",
+      "spec": "Devastation",
+      "realm": "Draenor",
+      "itemLevel": 306
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 310
+    },
+    {
+      "name": "Wandsolo",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Draenor",
+      "itemLevel": 314
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 321
+    },
+    {
+      "name": "Сквознякик",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "СвежевательДуш",
+      "itemLevel": 315
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Piffpif": 193613,
+      "Azåelle": 162977,
+      "Wandsolo": 151202,
+      "Kalteew": 131414,
+      "Сквознякик": 8210
+    },
+    "hps": {
+      "Piffpif": 8849,
+      "Azåelle": 11721,
+      "Wandsolo": 6571,
+      "Kalteew": 43109,
+      "Сквознякик": 96129
+    },
+    "deathsByPlayer": {
+      "Piffpif": 1,
+      "Azåelle": 3,
+      "Wandsolo": 7,
+      "Kalteew": 1,
+      "Сквознякик": 3
+    },
+    "deathsTotal": 15,
+    "interrupts": {
+      "Piffpif": 20,
+      "Azåelle": 11,
+      "Wandsolo": 17,
+      "Kalteew": 24,
+      "Сквознякик": 6
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

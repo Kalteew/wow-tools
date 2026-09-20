@@ -1,0 +1,102 @@
+{
+  "reportCode": "KctxqyC9RYHDabJX",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/KctxqyC9RYHDabJX?fight=2",
+  "capturedAt": "2026-08-25",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "Ruby Life Pools",
+    "keyLevel": 10,
+    "durationMs": 1595777,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 321.8800048828125,
+    "deathsTotal": 8,
+    "enemyForces": {
+      "reached": 719,
+      "required": 660,
+      "percent": 108.94
+    }
+  },
+  "players": [
+    {
+      "name": "Veilblade",
+      "class": "Rogue",
+      "spec": "Assassination",
+      "realm": "Antonidas",
+      "itemLevel": 290
+    },
+    {
+      "name": "Dalimâ",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Blackhand",
+      "itemLevel": 296
+    },
+    {
+      "name": "Глецирин",
+      "class": "DeathKnight",
+      "spec": "Unholy",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 299
+    },
+    {
+      "name": "Лиргания",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 294
+    },
+    {
+      "name": "Fletcherp",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Ravencrest",
+      "itemLevel": 294
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Veilblade": 163349,
+      "Dalimâ": 139970,
+      "Глецирин": 133129,
+      "Лиргания": 95066,
+      "Fletcherp": 12629
+    },
+    "hps": {
+      "Veilblade": 11687,
+      "Dalimâ": 6449,
+      "Глецирин": 8064,
+      "Лиргания": 93060,
+      "Fletcherp": 102637
+    },
+    "deathsByPlayer": {
+      "Veilblade": 1,
+      "Dalimâ": 2,
+      "Глецирин": 2,
+      "Лиргания": 1,
+      "Fletcherp": 2
+    },
+    "deathsTotal": 8,
+    "interrupts": {
+      "Veilblade": 31,
+      "Dalimâ": 12,
+      "Глецирин": 11,
+      "Лиргания": 20,
+      "Fletcherp": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

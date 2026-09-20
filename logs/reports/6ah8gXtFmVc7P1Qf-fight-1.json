@@ -1,0 +1,102 @@
+{
+  "reportCode": "6ah8gXtFmVc7P1Qf",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/6ah8gXtFmVc7P1Qf?fight=1",
+  "capturedAt": "2026-09-06",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Murder Row",
+    "keyLevel": 10,
+    "durationMs": 1574837,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 328.54998779296875,
+    "deathsTotal": 4,
+    "enemyForces": {
+      "reached": 702,
+      "required": 655,
+      "percent": 107.18
+    }
+  },
+  "players": [
+    {
+      "name": "Asthyra",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Blackhand",
+      "itemLevel": 315
+    },
+    {
+      "name": "Акайрин",
+      "class": "DeathKnight",
+      "spec": "Unholy",
+      "realm": "Гордунни",
+      "itemLevel": 311
+    },
+    {
+      "name": "Торнадовна",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Гордунни",
+      "itemLevel": 312
+    },
+    {
+      "name": "Durïïn",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "DunModr",
+      "itemLevel": 304
+    },
+    {
+      "name": "Yansÿ",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Zul'jin",
+      "itemLevel": 300
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Asthyra": 220215,
+      "Акайрин": 181272,
+      "Торнадовна": 159807,
+      "Durïïn": 62999,
+      "Yansÿ": 2012
+    },
+    "hps": {
+      "Asthyra": 9508,
+      "Акайрин": 7967,
+      "Торнадовна": 14413,
+      "Durïïn": 52114,
+      "Yansÿ": 82226
+    },
+    "deathsByPlayer": {
+      "Asthyra": 0,
+      "Акайрин": 0,
+      "Торнадовна": 1,
+      "Durïïn": 1,
+      "Yansÿ": 2
+    },
+    "deathsTotal": 4,
+    "interrupts": {
+      "Asthyra": 11,
+      "Акайрин": 12,
+      "Торнадовна": 18,
+      "Durïïn": 33,
+      "Yansÿ": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

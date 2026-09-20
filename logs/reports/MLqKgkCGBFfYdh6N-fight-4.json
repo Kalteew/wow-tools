@@ -1,0 +1,102 @@
+{
+  "reportCode": "MLqKgkCGBFfYdh6N",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/MLqKgkCGBFfYdh6N?fight=4",
+  "capturedAt": "2026-08-27",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 4,
+  "fight": {
+    "id": 4,
+    "dungeon": "Ruby Life Pools",
+    "keyLevel": 12,
+    "durationMs": 1223470,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 375.19000244140625,
+    "deathsTotal": 1,
+    "enemyForces": {
+      "reached": 603,
+      "required": 553,
+      "percent": 109.04
+    }
+  },
+  "players": [
+    {
+      "name": "Brystan",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Thrall",
+      "itemLevel": 313
+    },
+    {
+      "name": "Grëed",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Silvermoon",
+      "itemLevel": 302
+    },
+    {
+      "name": "Malleolus",
+      "class": "Hunter",
+      "spec": "Marksmanship",
+      "realm": "Aegwynn",
+      "itemLevel": 312
+    },
+    {
+      "name": "Raidex",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Aegwynn",
+      "itemLevel": 313
+    },
+    {
+      "name": "Tyrrek",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Archimonde",
+      "itemLevel": 311
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Brystan": 257336,
+      "Grëed": 213166,
+      "Malleolus": 211440,
+      "Raidex": 125278,
+      "Tyrrek": 18954
+    },
+    "hps": {
+      "Brystan": 10993,
+      "Grëed": 9883,
+      "Malleolus": 5164,
+      "Raidex": 56529,
+      "Tyrrek": 128840
+    },
+    "deathsByPlayer": {
+      "Brystan": 0,
+      "Grëed": 1,
+      "Malleolus": 0,
+      "Raidex": 0,
+      "Tyrrek": 0
+    },
+    "deathsTotal": 1,
+    "interrupts": {
+      "Brystan": 16,
+      "Grëed": 18,
+      "Malleolus": 6,
+      "Raidex": 55,
+      "Tyrrek": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "reportCode": "6ah8gXtFmVc7P1Qf",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/6ah8gXtFmVc7P1Qf?fight=6",
+  "capturedAt": "2026-09-06",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 6,
+  "fight": {
+    "id": 6,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 10,
+    "durationMs": 1611445,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 326.0299987792969,
+    "deathsTotal": 9,
+    "enemyForces": {
+      "reached": 664,
+      "required": 687,
+      "percent": 96.65
+    }
+  },
+  "players": [
+    {
+      "name": "Islav",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Uldum",
+      "itemLevel": 318
+    },
+    {
+      "name": "Violinist",
+      "class": "Mage",
+      "spec": "Fire",
+      "realm": "TwistingNether",
+      "itemLevel": 295
+    },
+    {
+      "name": "Narkotics",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Draenor",
+      "itemLevel": 302
+    },
+    {
+      "name": "Шодзик",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 309
+    },
+    {
+      "name": "Yansÿ",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Zul'jin",
+      "itemLevel": 300
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Islav": 205975,
+      "Violinist": 164972,
+      "Narkotics": 125305,
+      "Шодзик": 84949,
+      "Yansÿ": 4248
+    },
+    "hps": {
+      "Islav": 8956,
+      "Violinist": 4556,
+      "Narkotics": 6617,
+      "Шодзик": 45047,
+      "Yansÿ": 108679
+    },
+    "deathsByPlayer": {
+      "Islav": 2,
+      "Violinist": 2,
+      "Narkotics": 2,
+      "Шодзик": 0,
+      "Yansÿ": 3
+    },
+    "deathsTotal": 9,
+    "interrupts": {
+      "Islav": 13,
+      "Violinist": 14,
+      "Narkotics": 6,
+      "Шодзик": 40,
+      "Yansÿ": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

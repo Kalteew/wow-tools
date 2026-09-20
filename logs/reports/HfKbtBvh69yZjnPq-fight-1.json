@@ -1,0 +1,102 @@
+{
+  "reportCode": "HfKbtBvh69yZjnPq",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/HfKbtBvh69yZjnPq?fight=1",
+  "capturedAt": "2026-08-24",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Voidscar Arena",
+    "keyLevel": 9,
+    "durationMs": 1406035,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 298.2099914550781,
+    "deathsTotal": 5,
+    "enemyForces": {
+      "reached": 798,
+      "required": 608,
+      "percent": 131.25
+    }
+  },
+  "players": [
+    {
+      "name": "Ilonius",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Kilrogg",
+      "itemLevel": 295
+    },
+    {
+      "name": "Freewey",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Destromath",
+      "itemLevel": 294
+    },
+    {
+      "name": "Tbøne",
+      "class": "Rogue",
+      "spec": "Subtlety",
+      "realm": "Draenor",
+      "itemLevel": 303
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 301
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 301
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Ilonius": 149564,
+      "Freewey": 144367,
+      "Tbøne": 113180,
+      "Kalteew": 102609,
+      "Kylse": 30355
+    },
+    "hps": {
+      "Ilonius": 13212,
+      "Freewey": 9202,
+      "Tbøne": 9506,
+      "Kalteew": 41725,
+      "Kylse": 86354
+    },
+    "deathsByPlayer": {
+      "Ilonius": 0,
+      "Freewey": 2,
+      "Tbøne": 2,
+      "Kalteew": 0,
+      "Kylse": 1
+    },
+    "deathsTotal": 5,
+    "interrupts": {
+      "Ilonius": 14,
+      "Freewey": 3,
+      "Tbøne": 16,
+      "Kalteew": 27,
+      "Kylse": 1
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

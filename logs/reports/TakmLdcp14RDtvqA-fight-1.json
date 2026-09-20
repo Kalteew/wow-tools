@@ -1,0 +1,102 @@
+{
+  "reportCode": "TakmLdcp14RDtvqA",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/TakmLdcp14RDtvqA?fight=1",
+  "capturedAt": "2026-08-26",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Den of Nalorakk",
+    "keyLevel": 11,
+    "durationMs": 1616242,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 340.92999267578125,
+    "deathsTotal": 12,
+    "enemyForces": {
+      "reached": 612,
+      "required": 709,
+      "percent": 86.32
+    }
+  },
+  "players": [
+    {
+      "name": "Hey",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Frostmane",
+      "itemLevel": 304
+    },
+    {
+      "name": "Frozenbabe",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Frostmane",
+      "itemLevel": 304
+    },
+    {
+      "name": "Jincho",
+      "class": "Shaman",
+      "spec": "Elemental",
+      "realm": "Frostmane",
+      "itemLevel": 304
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 306
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 306
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Hey": 187124,
+      "Frozenbabe": 150941,
+      "Jincho": 134164,
+      "Kalteew": 107099,
+      "Kylse": 35579
+    },
+    "hps": {
+      "Hey": 9760,
+      "Frozenbabe": 8108,
+      "Jincho": 6137,
+      "Kalteew": 47088,
+      "Kylse": 84244
+    },
+    "deathsByPlayer": {
+      "Hey": 2,
+      "Frozenbabe": 3,
+      "Jincho": 3,
+      "Kalteew": 1,
+      "Kylse": 3
+    },
+    "deathsTotal": 12,
+    "interrupts": {
+      "Hey": 16,
+      "Frozenbabe": 15,
+      "Jincho": 23,
+      "Kalteew": 33,
+      "Kylse": 2
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

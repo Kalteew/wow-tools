@@ -1,0 +1,102 @@
+{
+  "reportCode": "NALy4ZJ3Wg1kfvCa",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/NALy4ZJ3Wg1kfvCa?fight=33",
+  "capturedAt": "2026-09-07",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 33,
+  "fight": {
+    "id": 33,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 10,
+    "durationMs": 1169173,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 334.6600036621094,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 650,
+      "required": 687,
+      "percent": 94.61
+    }
+  },
+  "players": [
+    {
+      "name": "Weemageyfan",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "TarrenMill",
+      "itemLevel": 307
+    },
+    {
+      "name": "Reitschuh",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "TwistingNether",
+      "itemLevel": 313
+    },
+    {
+      "name": "Залупоческин",
+      "class": "Druid",
+      "spec": "Balance",
+      "realm": "Гордунни",
+      "itemLevel": 308
+    },
+    {
+      "name": "Deathpudz",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "TarrenMill",
+      "itemLevel": 314
+    },
+    {
+      "name": "Bouzuki",
+      "class": "Shaman",
+      "spec": "Restoration",
+      "realm": "Ravencrest",
+      "itemLevel": 314
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Weemageyfan": 244904,
+      "Reitschuh": 209929,
+      "Залупоческин": 160512,
+      "Deathpudz": 127114,
+      "Bouzuki": 24691
+    },
+    "hps": {
+      "Weemageyfan": 8127,
+      "Reitschuh": 9790,
+      "Залупоческин": 3874,
+      "Deathpudz": 65483,
+      "Bouzuki": 92883
+    },
+    "deathsByPlayer": {
+      "Weemageyfan": 0,
+      "Reitschuh": 0,
+      "Залупоческин": 0,
+      "Deathpudz": 0,
+      "Bouzuki": 0
+    },
+    "deathsTotal": 0,
+    "interrupts": {
+      "Weemageyfan": 3,
+      "Reitschuh": 7,
+      "Залупоческин": 7,
+      "Deathpudz": 20,
+      "Bouzuki": 12
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

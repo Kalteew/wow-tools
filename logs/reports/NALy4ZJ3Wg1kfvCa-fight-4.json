@@ -1,0 +1,102 @@
+{
+  "reportCode": "NALy4ZJ3Wg1kfvCa",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/NALy4ZJ3Wg1kfvCa?fight=4",
+  "capturedAt": "2026-09-07",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 4,
+  "fight": {
+    "id": 4,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 10,
+    "durationMs": 1396144,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 330.2300109863281,
+    "deathsTotal": 2,
+    "enemyForces": {
+      "reached": 664,
+      "required": 687,
+      "percent": 96.65
+    }
+  },
+  "players": [
+    {
+      "name": "Reitschuh",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "TwistingNether",
+      "itemLevel": 313
+    },
+    {
+      "name": "Proces",
+      "class": "DemonHunter",
+      "spec": "Devourer",
+      "realm": "Kazzak",
+      "itemLevel": 312
+    },
+    {
+      "name": "Skársnik",
+      "class": "Shaman",
+      "spec": "Elemental",
+      "realm": "Stormreaver",
+      "itemLevel": 291
+    },
+    {
+      "name": "Shadéè",
+      "class": "Monk",
+      "spec": "Brewmaster",
+      "realm": "BurningLegion",
+      "itemLevel": 302
+    },
+    {
+      "name": "Polozer",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 303
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Reitschuh": 213668,
+      "Proces": 199877,
+      "Skársnik": 147740,
+      "Shadéè": 75587,
+      "Polozer": 28321
+    },
+    "hps": {
+      "Reitschuh": 10864,
+      "Proces": 14187,
+      "Skársnik": 3530,
+      "Shadéè": 51542,
+      "Polozer": 107499
+    },
+    "deathsByPlayer": {
+      "Reitschuh": 0,
+      "Proces": 1,
+      "Skársnik": 1,
+      "Shadéè": 0,
+      "Polozer": 0
+    },
+    "deathsTotal": 2,
+    "interrupts": {
+      "Reitschuh": 9,
+      "Proces": 13,
+      "Skársnik": 23,
+      "Shadéè": 20,
+      "Polozer": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

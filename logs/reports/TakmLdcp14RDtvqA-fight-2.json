@@ -1,0 +1,102 @@
+{
+  "reportCode": "TakmLdcp14RDtvqA",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/TakmLdcp14RDtvqA?fight=2",
+  "capturedAt": "2026-08-26",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "Altar of Fangs",
+    "keyLevel": 11,
+    "durationMs": 1465305,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 341.9700012207031,
+    "deathsTotal": 13,
+    "enemyForces": {
+      "reached": 753,
+      "required": 1000,
+      "percent": 75.3
+    }
+  },
+  "players": [
+    {
+      "name": "Dkaiizen",
+      "class": "DeathKnight",
+      "spec": "Unholy",
+      "realm": "Sargeras",
+      "itemLevel": 305
+    },
+    {
+      "name": "Sowny",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Hyjal",
+      "itemLevel": 303
+    },
+    {
+      "name": "Cawl",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Antonidas",
+      "itemLevel": 309
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 306
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 306
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Dkaiizen": 224110,
+      "Sowny": 223147,
+      "Cawl": 178274,
+      "Kalteew": 132953,
+      "Kylse": 35534
+    },
+    "hps": {
+      "Dkaiizen": 8639,
+      "Sowny": 11951,
+      "Cawl": 6646,
+      "Kalteew": 49055,
+      "Kylse": 96469
+    },
+    "deathsByPlayer": {
+      "Dkaiizen": 2,
+      "Sowny": 4,
+      "Cawl": 3,
+      "Kalteew": 1,
+      "Kylse": 3
+    },
+    "deathsTotal": 13,
+    "interrupts": {
+      "Dkaiizen": 24,
+      "Sowny": 18,
+      "Cawl": 9,
+      "Kalteew": 38,
+      "Kylse": 6
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

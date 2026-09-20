@@ -1,0 +1,102 @@
+{
+  "reportCode": "gJGHDN36TnFr1pV9",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/gJGHDN36TnFr1pV9?fight=5",
+  "capturedAt": "2026-09-07",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 5,
+  "fight": {
+    "id": 5,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 10,
+    "durationMs": 1257607,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 332.94000244140625,
+    "deathsTotal": 6,
+    "enemyForces": {
+      "reached": 650,
+      "required": 687,
+      "percent": 94.61
+    }
+  },
+  "players": [
+    {
+      "name": "Akasya",
+      "class": "Monk",
+      "spec": "Windwalker",
+      "realm": "Alleria",
+      "itemLevel": 310
+    },
+    {
+      "name": "Eshelia",
+      "class": "Rogue",
+      "spec": "Assassination",
+      "realm": "Blackmoore",
+      "itemLevel": 315
+    },
+    {
+      "name": "Reitschuh",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "TwistingNether",
+      "itemLevel": 312
+    },
+    {
+      "name": "Hystericall",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Ragnaros",
+      "itemLevel": 304
+    },
+    {
+      "name": "Jord",
+      "class": "Shaman",
+      "spec": "Restoration",
+      "realm": "Malygos",
+      "itemLevel": 317
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Akasya": 205478,
+      "Eshelia": 203356,
+      "Reitschuh": 185378,
+      "Hystericall": 76914,
+      "Jord": 27419
+    },
+    "hps": {
+      "Akasya": 4952,
+      "Eshelia": 7203,
+      "Reitschuh": 7781,
+      "Hystericall": 51308,
+      "Jord": 99721
+    },
+    "deathsByPlayer": {
+      "Akasya": 2,
+      "Eshelia": 1,
+      "Reitschuh": 2,
+      "Hystericall": 0,
+      "Jord": 1
+    },
+    "deathsTotal": 6,
+    "interrupts": {
+      "Akasya": 10,
+      "Eshelia": 10,
+      "Reitschuh": 6,
+      "Hystericall": 17,
+      "Jord": 7
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "reportCode": "NALy4ZJ3Wg1kfvCa",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/NALy4ZJ3Wg1kfvCa?fight=32",
+  "capturedAt": "2026-09-07",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 32,
+  "fight": {
+    "id": 32,
+    "dungeon": "Murder Row",
+    "keyLevel": 12,
+    "durationMs": 1825451,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 368.94000244140625,
+    "deathsTotal": 12,
+    "enemyForces": {
+      "reached": 672,
+      "required": 655,
+      "percent": 102.6
+    }
+  },
+  "players": [
+    {
+      "name": "Tropf",
+      "class": "Druid",
+      "spec": "Balance",
+      "realm": "Aman'thul",
+      "itemLevel": 317
+    },
+    {
+      "name": "Bollywoot",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "TwistingNether",
+      "itemLevel": 313
+    },
+    {
+      "name": "Katamage",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "TwistingNether",
+      "itemLevel": 311
+    },
+    {
+      "name": "Reitschuh",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "TwistingNether",
+      "itemLevel": 313
+    },
+    {
+      "name": "Kimjungboom",
+      "class": "Druid",
+      "spec": "Restoration",
+      "realm": "TwistingNether",
+      "itemLevel": 318
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Tropf": 189643,
+      "Bollywoot": 177984,
+      "Katamage": 176312,
+      "Reitschuh": 92151,
+      "Kimjungboom": 8968
+    },
+    "hps": {
+      "Tropf": 3301,
+      "Bollywoot": 13741,
+      "Katamage": 5025,
+      "Reitschuh": 45658,
+      "Kimjungboom": 122909
+    },
+    "deathsByPlayer": {
+      "Tropf": 3,
+      "Bollywoot": 1,
+      "Katamage": 4,
+      "Reitschuh": 1,
+      "Kimjungboom": 3
+    },
+    "deathsTotal": 12,
+    "interrupts": {
+      "Tropf": 2,
+      "Bollywoot": 48,
+      "Katamage": 14,
+      "Reitschuh": 25,
+      "Kimjungboom": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "reportCode": "rn8jpW91b4yLamYV",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/rn8jpW91b4yLamYV?fight=15",
+  "capturedAt": "2026-08-25",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 15,
+  "fight": {
+    "id": 15,
+    "dungeon": "Voidscar Arena",
+    "keyLevel": 10,
+    "durationMs": 1436097,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 327.5799865722656,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 793,
+      "required": 608,
+      "percent": 130.43
+    }
+  },
+  "players": [
+    {
+      "name": "Zurgock",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Outland",
+      "itemLevel": 307
+    },
+    {
+      "name": "Veilblade",
+      "class": "Rogue",
+      "spec": "Assassination",
+      "realm": "Antonidas",
+      "itemLevel": 290
+    },
+    {
+      "name": "Dalimâ",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Blackhand",
+      "itemLevel": 298
+    },
+    {
+      "name": "Carpet",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "TarrenMill",
+      "itemLevel": 295
+    },
+    {
+      "name": "Lightswizzle",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Silvermoon",
+      "itemLevel": 305
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Zurgock": 191120,
+      "Veilblade": 156211,
+      "Dalimâ": 147905,
+      "Carpet": 73501,
+      "Lightswizzle": 10469
+    },
+    "hps": {
+      "Zurgock": 8853,
+      "Veilblade": 8457,
+      "Dalimâ": 5684,
+      "Carpet": 65081,
+      "Lightswizzle": 110394
+    },
+    "deathsByPlayer": {
+      "Zurgock": 0,
+      "Veilblade": 0,
+      "Dalimâ": 0,
+      "Carpet": 0,
+      "Lightswizzle": 0
+    },
+    "deathsTotal": 0,
+    "interrupts": {
+      "Zurgock": 5,
+      "Veilblade": 20,
+      "Dalimâ": 8,
+      "Carpet": 18,
+      "Lightswizzle": 5
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

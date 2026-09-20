@@ -1,0 +1,102 @@
+{
+  "reportCode": "HfKbtBvh69yZjnPq",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/HfKbtBvh69yZjnPq?fight=2",
+  "capturedAt": "2026-08-24",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "Murder Row",
+    "keyLevel": 11,
+    "durationMs": 1587513,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 343.32000732421875,
+    "deathsTotal": 1,
+    "enemyForces": {
+      "reached": 670,
+      "required": 619,
+      "percent": 108.24
+    }
+  },
+  "players": [
+    {
+      "name": "Beàrr",
+      "class": "Rogue",
+      "spec": "Outlaw",
+      "realm": "Draenor",
+      "itemLevel": 306
+    },
+    {
+      "name": "Айскуд",
+      "class": "Shaman",
+      "spec": "Enhancement",
+      "realm": "Гордунни",
+      "itemLevel": 305
+    },
+    {
+      "name": "Adehunter",
+      "class": "Hunter",
+      "spec": "Survival",
+      "realm": "TarrenMill",
+      "itemLevel": 300
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 301
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 301
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Beàrr": 186465,
+      "Айскуд": 180894,
+      "Adehunter": 146945,
+      "Kalteew": 111821,
+      "Kylse": 30472
+    },
+    "hps": {
+      "Beàrr": 13150,
+      "Айскуд": 14288,
+      "Adehunter": 5844,
+      "Kalteew": 52104,
+      "Kylse": 81504
+    },
+    "deathsByPlayer": {
+      "Beàrr": 1,
+      "Айскуд": 0,
+      "Adehunter": 0,
+      "Kalteew": 0,
+      "Kylse": 0
+    },
+    "deathsTotal": 1,
+    "interrupts": {
+      "Beàrr": 16,
+      "Айскуд": 49,
+      "Adehunter": 11,
+      "Kalteew": 18,
+      "Kylse": 17
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

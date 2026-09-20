@@ -1,0 +1,102 @@
+{
+  "reportCode": "kdCxXzaR7GDgLJq3",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/kdCxXzaR7GDgLJq3?fight=1",
+  "capturedAt": "2026-08-20",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Altar of Fangs",
+    "keyLevel": 6,
+    "durationMs": 1132931,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 243.89999389648438,
+    "deathsTotal": 3,
+    "enemyForces": {
+      "reached": 787,
+      "required": 1000,
+      "percent": 78.7
+    }
+  },
+  "players": [
+    {
+      "name": "Haniwada",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Frostwolf",
+      "itemLevel": 298
+    },
+    {
+      "name": "Mertorias",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "DunMorogh",
+      "itemLevel": 290
+    },
+    {
+      "name": "Ironko",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Blackrock",
+      "itemLevel": 295
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 299
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 296
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Haniwada": 160801,
+      "Mertorias": 144316,
+      "Ironko": 141183,
+      "Kalteew": 113743,
+      "Kylse": 35543
+    },
+    "hps": {
+      "Haniwada": 9252,
+      "Mertorias": 5573,
+      "Ironko": 11420,
+      "Kalteew": 41171,
+      "Kylse": 72358
+    },
+    "deathsByPlayer": {
+      "Haniwada": 0,
+      "Mertorias": 1,
+      "Ironko": 2,
+      "Kalteew": 0,
+      "Kylse": 0
+    },
+    "deathsTotal": 3,
+    "interrupts": {
+      "Haniwada": 14,
+      "Mertorias": 11,
+      "Ironko": 15,
+      "Kalteew": 26,
+      "Kylse": 3
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

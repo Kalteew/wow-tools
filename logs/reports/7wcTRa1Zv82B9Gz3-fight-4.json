@@ -1,0 +1,102 @@
+{
+  "reportCode": "7wcTRa1Zv82B9Gz3",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7wcTRa1Zv82B9Gz3?fight=4",
+  "capturedAt": "2026-09-06",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 4,
+  "fight": {
+    "id": 4,
+    "dungeon": "Murder Row",
+    "keyLevel": 10,
+    "durationMs": 1312699,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 333.3699951171875,
+    "deathsTotal": 2,
+    "enemyForces": {
+      "reached": 747,
+      "required": 655,
+      "percent": 114.05
+    }
+  },
+  "players": [
+    {
+      "name": "Marlock",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Silvermoon",
+      "itemLevel": 318
+    },
+    {
+      "name": "Islav",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Uldum",
+      "itemLevel": 318
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 295
+    },
+    {
+      "name": "Yayaladin",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 307
+    },
+    {
+      "name": "Yansÿ",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Zul'jin",
+      "itemLevel": 298
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Marlock": 264706,
+      "Islav": 240138,
+      "Azåelle": 134603,
+      "Yayaladin": 108471,
+      "Yansÿ": 1785
+    },
+    "hps": {
+      "Marlock": 12758,
+      "Islav": 7685,
+      "Azåelle": 14982,
+      "Yayaladin": 53558,
+      "Yansÿ": 95049
+    },
+    "deathsByPlayer": {
+      "Marlock": 0,
+      "Islav": 1,
+      "Azåelle": 1,
+      "Yayaladin": 0,
+      "Yansÿ": 0
+    },
+    "deathsTotal": 2,
+    "interrupts": {
+      "Marlock": 19,
+      "Islav": 9,
+      "Azåelle": 13,
+      "Yayaladin": 54,
+      "Yansÿ": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "reportCode": "zPaMRFnZXTrkqALY",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/zPaMRFnZXTrkqALY?fight=1",
+  "capturedAt": "2026-09-13",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 14,
+    "durationMs": 1377345,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 405.6000061035156,
+    "deathsTotal": 4,
+    "enemyForces": {
+      "reached": 656,
+      "required": 687,
+      "percent": 95.49
+    }
+  },
+  "players": [
+    {
+      "name": "Haemos",
+      "class": "DeathKnight",
+      "spec": "Unholy",
+      "realm": "Hyjal",
+      "itemLevel": 321
+    },
+    {
+      "name": "Boupro",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Sanguino",
+      "itemLevel": 317
+    },
+    {
+      "name": "Gíngergamer",
+      "class": "Rogue",
+      "spec": "Assassination",
+      "realm": "TwistingNether",
+      "itemLevel": 320
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 319
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Haemos": 260034,
+      "Boupro": 258945,
+      "Gíngergamer": 240904,
+      "Kalteew": 146086,
+      "Kylse": 43781
+    },
+    "hps": {
+      "Haemos": 10568,
+      "Boupro": 6655,
+      "Gíngergamer": 10664,
+      "Kalteew": 51282,
+      "Kylse": 139015
+    },
+    "deathsByPlayer": {
+      "Haemos": 1,
+      "Boupro": 0,
+      "Gíngergamer": 0,
+      "Kalteew": 2,
+      "Kylse": 1
+    },
+    "deathsTotal": 4,
+    "interrupts": {
+      "Haemos": 25,
+      "Boupro": 14,
+      "Gíngergamer": 7,
+      "Kalteew": 20,
+      "Kylse": 1
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

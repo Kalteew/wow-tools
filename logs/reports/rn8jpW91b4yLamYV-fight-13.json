@@ -1,0 +1,102 @@
+{
+  "reportCode": "rn8jpW91b4yLamYV",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/rn8jpW91b4yLamYV?fight=13",
+  "capturedAt": "2026-08-25",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 13,
+  "fight": {
+    "id": 13,
+    "dungeon": "Altar of Fangs",
+    "keyLevel": 11,
+    "durationMs": 1615704,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 338.8399963378906,
+    "deathsTotal": 7,
+    "enemyForces": {
+      "reached": 742,
+      "required": 1000,
+      "percent": 74.2
+    }
+  },
+  "players": [
+    {
+      "name": "Divii",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Stormscale",
+      "itemLevel": 304
+    },
+    {
+      "name": "Veilblade",
+      "class": "Rogue",
+      "spec": "Assassination",
+      "realm": "Antonidas",
+      "itemLevel": 290
+    },
+    {
+      "name": "Dalimâ",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Blackhand",
+      "itemLevel": 298
+    },
+    {
+      "name": "Crueldrool",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Stormscale",
+      "itemLevel": 306
+    },
+    {
+      "name": "Lillyfloof",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Stormscale",
+      "itemLevel": 310
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Divii": 209098,
+      "Veilblade": 189662,
+      "Dalimâ": 150345,
+      "Crueldrool": 123289,
+      "Lillyfloof": 17512
+    },
+    "hps": {
+      "Divii": 9952,
+      "Veilblade": 11174,
+      "Dalimâ": 5028,
+      "Crueldrool": 45391,
+      "Lillyfloof": 93828
+    },
+    "deathsByPlayer": {
+      "Divii": 1,
+      "Veilblade": 1,
+      "Dalimâ": 4,
+      "Crueldrool": 0,
+      "Lillyfloof": 1
+    },
+    "deathsTotal": 7,
+    "interrupts": {
+      "Divii": 29,
+      "Veilblade": 21,
+      "Dalimâ": 7,
+      "Crueldrool": 29,
+      "Lillyfloof": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

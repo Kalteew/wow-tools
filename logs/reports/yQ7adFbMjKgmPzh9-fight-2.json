@@ -1,0 +1,102 @@
+{
+  "reportCode": "yQ7adFbMjKgmPzh9",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/yQ7adFbMjKgmPzh9?fight=2",
+  "capturedAt": "2026-09-08",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "The Blinding Vale",
+    "keyLevel": 10,
+    "durationMs": 1284853,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 330.7300109863281,
+    "deathsTotal": 1,
+    "enemyForces": {
+      "reached": 715,
+      "required": 655,
+      "percent": 109.16
+    }
+  },
+  "players": [
+    {
+      "name": "Skythe",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Draenor",
+      "itemLevel": 313
+    },
+    {
+      "name": "Felgriim",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Draenor",
+      "itemLevel": 290
+    },
+    {
+      "name": "Speculations",
+      "class": "Shaman",
+      "spec": "Elemental",
+      "realm": "Draenor",
+      "itemLevel": 292
+    },
+    {
+      "name": "Lûxês",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Draenor",
+      "itemLevel": 294
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 312
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Skythe": 232906,
+      "Felgriim": 213424,
+      "Speculations": 153990,
+      "Lûxês": 72942,
+      "Kylse": 49828
+    },
+    "hps": {
+      "Skythe": 9424,
+      "Felgriim": 9648,
+      "Speculations": 3110,
+      "Lûxês": 63986,
+      "Kylse": 119365
+    },
+    "deathsByPlayer": {
+      "Skythe": 0,
+      "Felgriim": 0,
+      "Speculations": 1,
+      "Lûxês": 0,
+      "Kylse": 0
+    },
+    "deathsTotal": 1,
+    "interrupts": {
+      "Skythe": 12,
+      "Felgriim": 14,
+      "Speculations": 24,
+      "Lûxês": 12,
+      "Kylse": 2
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

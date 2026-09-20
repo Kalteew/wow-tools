@@ -1,0 +1,102 @@
+{
+  "reportCode": "YNwa48rZhRjkGVM7",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/YNwa48rZhRjkGVM7?fight=3",
+  "capturedAt": "2026-09-09",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 3,
+  "fight": {
+    "id": 3,
+    "dungeon": "The Blinding Vale",
+    "keyLevel": 12,
+    "durationMs": 1371786,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 373.9200134277344,
+    "deathsTotal": 3,
+    "enemyForces": {
+      "reached": 788,
+      "required": 655,
+      "percent": 120.31
+    }
+  },
+  "players": [
+    {
+      "name": "Wilheimer",
+      "class": "Shaman",
+      "spec": "Elemental",
+      "realm": "Dalaran",
+      "itemLevel": 314
+    },
+    {
+      "name": "Bifrøst",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "DieAldor",
+      "itemLevel": 309
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 306
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 314
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Wilheimer": 271354,
+      "Bifrøst": 226834,
+      "Kalteew": 181758,
+      "Azåelle": 180605,
+      "Kylse": 49331
+    },
+    "hps": {
+      "Wilheimer": 6275,
+      "Bifrøst": 11915,
+      "Kalteew": 57934,
+      "Azåelle": 16812,
+      "Kylse": 128347
+    },
+    "deathsByPlayer": {
+      "Wilheimer": 0,
+      "Bifrøst": 1,
+      "Kalteew": 0,
+      "Azåelle": 1,
+      "Kylse": 1
+    },
+    "deathsTotal": 3,
+    "interrupts": {
+      "Wilheimer": 44,
+      "Bifrøst": 14,
+      "Kalteew": 45,
+      "Azåelle": 12,
+      "Kylse": 5
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

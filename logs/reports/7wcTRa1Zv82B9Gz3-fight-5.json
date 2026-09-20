@@ -1,0 +1,102 @@
+{
+  "reportCode": "7wcTRa1Zv82B9Gz3",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/7wcTRa1Zv82B9Gz3?fight=5",
+  "capturedAt": "2026-09-06",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 5,
+  "fight": {
+    "id": 5,
+    "dungeon": "Ruby Life Pools",
+    "keyLevel": 10,
+    "durationMs": 1219033,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 330.2900085449219,
+    "deathsTotal": 2,
+    "enemyForces": {
+      "reached": 597,
+      "required": 553,
+      "percent": 107.96
+    }
+  },
+  "players": [
+    {
+      "name": "Islav",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Uldum",
+      "itemLevel": 318
+    },
+    {
+      "name": "Santwar",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Draenor",
+      "itemLevel": 293
+    },
+    {
+      "name": "Aryaa",
+      "class": "Hunter",
+      "spec": "Marksmanship",
+      "realm": "Zul'jin",
+      "itemLevel": 310
+    },
+    {
+      "name": "Ромкодк",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "Гордунни",
+      "itemLevel": 305
+    },
+    {
+      "name": "Yansÿ",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Zul'jin",
+      "itemLevel": 298
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Islav": 242590,
+      "Santwar": 182309,
+      "Aryaa": 172924,
+      "Ромкодк": 101990,
+      "Yansÿ": 6091
+    },
+    "hps": {
+      "Islav": 7507,
+      "Santwar": 10304,
+      "Aryaa": 7544,
+      "Ромкодк": 93730,
+      "Yansÿ": 115206
+    },
+    "deathsByPlayer": {
+      "Islav": 0,
+      "Santwar": 1,
+      "Aryaa": 1,
+      "Ромкодк": 0,
+      "Yansÿ": 0
+    },
+    "deathsTotal": 2,
+    "interrupts": {
+      "Islav": 10,
+      "Santwar": 19,
+      "Aryaa": 8,
+      "Ромкодк": 31,
+      "Yansÿ": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

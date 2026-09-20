@@ -1,0 +1,102 @@
+{
+  "reportCode": "NALy4ZJ3Wg1kfvCa",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/NALy4ZJ3Wg1kfvCa?fight=30",
+  "capturedAt": "2026-09-07",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 30,
+  "fight": {
+    "id": 30,
+    "dungeon": "Kings' Rest",
+    "keyLevel": 10,
+    "durationMs": 1406425,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 330.8599853515625,
+    "deathsTotal": 12,
+    "enemyForces": {
+      "reached": 609,
+      "required": 608,
+      "percent": 100.16
+    }
+  },
+  "players": [
+    {
+      "name": "Bollywoot",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "TwistingNether",
+      "itemLevel": 313
+    },
+    {
+      "name": "Грязныйзая",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 315
+    },
+    {
+      "name": "Katamage",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "TwistingNether",
+      "itemLevel": 311
+    },
+    {
+      "name": "Reitschuh",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "TwistingNether",
+      "itemLevel": 313
+    },
+    {
+      "name": "Kimjungboom",
+      "class": "Druid",
+      "spec": "Restoration",
+      "realm": "TwistingNether",
+      "itemLevel": 318
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Bollywoot": 162685,
+      "Грязныйзая": 138443,
+      "Katamage": 133133,
+      "Reitschuh": 85488,
+      "Kimjungboom": 10746
+    },
+    "hps": {
+      "Bollywoot": 10683,
+      "Грязныйзая": 7452,
+      "Katamage": 5806,
+      "Reitschuh": 30647,
+      "Kimjungboom": 96242
+    },
+    "deathsByPlayer": {
+      "Bollywoot": 4,
+      "Грязныйзая": 3,
+      "Katamage": 2,
+      "Reitschuh": 1,
+      "Kimjungboom": 2
+    },
+    "deathsTotal": 12,
+    "interrupts": {
+      "Bollywoot": 11,
+      "Грязныйзая": 8,
+      "Katamage": 6,
+      "Reitschuh": 9,
+      "Kimjungboom": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

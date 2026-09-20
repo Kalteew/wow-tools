@@ -1,0 +1,102 @@
+{
+  "reportCode": "3RpBHWjFVy9YLqXa",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/3RpBHWjFVy9YLqXa?fight=1",
+  "capturedAt": "2026-08-27",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "The Blinding Vale",
+    "keyLevel": 10,
+    "durationMs": 1217881,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 332.1300048828125,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 718,
+      "required": 655,
+      "percent": 109.62
+    }
+  },
+  "players": [
+    {
+      "name": "Seekérs",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Draenor",
+      "itemLevel": 311
+    },
+    {
+      "name": "Bobbysmalls",
+      "class": "Rogue",
+      "spec": "Outlaw",
+      "realm": "ArgentDawn",
+      "itemLevel": 309
+    },
+    {
+      "name": "Carmylla",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "ArgentDawn",
+      "itemLevel": 304
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 310
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 306
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Seekérs": 255319,
+      "Bobbysmalls": 207276,
+      "Carmylla": 158178,
+      "Kalteew": 139305,
+      "Kylse": 50050
+    },
+    "hps": {
+      "Seekérs": 14029,
+      "Bobbysmalls": 9053,
+      "Carmylla": 9983,
+      "Kalteew": 41867,
+      "Kylse": 104301
+    },
+    "deathsByPlayer": {
+      "Seekérs": 0,
+      "Bobbysmalls": 0,
+      "Carmylla": 0,
+      "Kalteew": 0,
+      "Kylse": 0
+    },
+    "deathsTotal": 0,
+    "interrupts": {
+      "Seekérs": 14,
+      "Bobbysmalls": 21,
+      "Carmylla": 6,
+      "Kalteew": 41,
+      "Kylse": 1
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

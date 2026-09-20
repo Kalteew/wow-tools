@@ -1,0 +1,102 @@
+{
+  "reportCode": "6ah8gXtFmVc7P1Qf",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/6ah8gXtFmVc7P1Qf?fight=2",
+  "capturedAt": "2026-09-06",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "Murder Row",
+    "keyLevel": 10,
+    "durationMs": 1435700,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 331.1099853515625,
+    "deathsTotal": 11,
+    "enemyForces": {
+      "reached": 662,
+      "required": 655,
+      "percent": 101.07
+    }
+  },
+  "players": [
+    {
+      "name": "Islav",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Uldum",
+      "itemLevel": 318
+    },
+    {
+      "name": "Gloomydýo",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "TarrenMill",
+      "itemLevel": 315
+    },
+    {
+      "name": "Ruxem",
+      "class": "Rogue",
+      "spec": "Assassination",
+      "realm": "Blackmoore",
+      "itemLevel": 305
+    },
+    {
+      "name": "Ayy",
+      "class": "Druid",
+      "spec": "Guardian",
+      "realm": "Alexstrasza",
+      "itemLevel": 291
+    },
+    {
+      "name": "Yansÿ",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Zul'jin",
+      "itemLevel": 300
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Islav": 222300,
+      "Gloomydýo": 186022,
+      "Ruxem": 154932,
+      "Ayy": 71903,
+      "Yansÿ": 2341
+    },
+    "hps": {
+      "Islav": 5705,
+      "Gloomydýo": 16690,
+      "Ruxem": 9293,
+      "Ayy": 56988,
+      "Yansÿ": 83587
+    },
+    "deathsByPlayer": {
+      "Islav": 1,
+      "Gloomydýo": 5,
+      "Ruxem": 3,
+      "Ayy": 2,
+      "Yansÿ": 0
+    },
+    "deathsTotal": 11,
+    "interrupts": {
+      "Islav": 9,
+      "Gloomydýo": 16,
+      "Ruxem": 17,
+      "Ayy": 41,
+      "Yansÿ": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "reportCode": "rn8jpW91b4yLamYV",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/rn8jpW91b4yLamYV?fight=11",
+  "capturedAt": "2026-08-25",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 11,
+  "fight": {
+    "id": 11,
+    "dungeon": "Kings' Rest",
+    "keyLevel": 11,
+    "durationMs": 1649443,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 341.260009765625,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 588,
+      "required": 699,
+      "percent": 84.12
+    }
+  },
+  "players": [
+    {
+      "name": "Klingbeil",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Forscherliga",
+      "itemLevel": 309
+    },
+    {
+      "name": "Veilblade",
+      "class": "Rogue",
+      "spec": "Assassination",
+      "realm": "Antonidas",
+      "itemLevel": 290
+    },
+    {
+      "name": "Caldred",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Silvermoon",
+      "itemLevel": 297
+    },
+    {
+      "name": "Confuelnegro",
+      "class": "Monk",
+      "spec": "Brewmaster",
+      "realm": "Tyrande",
+      "itemLevel": 298
+    },
+    {
+      "name": "Yørie",
+      "class": "Priest",
+      "spec": "Discipline",
+      "realm": "Silvermoon",
+      "itemLevel": 294
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Klingbeil": 200275,
+      "Veilblade": 126007,
+      "Caldred": 118630,
+      "Confuelnegro": 59416,
+      "Yørie": 21887
+    },
+    "hps": {
+      "Klingbeil": 7426,
+      "Veilblade": 7858,
+      "Caldred": 9821,
+      "Confuelnegro": 48046,
+      "Yørie": 70407
+    },
+    "deathsByPlayer": {
+      "Klingbeil": 0,
+      "Veilblade": 0,
+      "Caldred": 0,
+      "Confuelnegro": 0,
+      "Yørie": 0
+    },
+    "deathsTotal": 0,
+    "interrupts": {
+      "Klingbeil": 7,
+      "Veilblade": 15,
+      "Caldred": 12,
+      "Confuelnegro": 11,
+      "Yørie": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

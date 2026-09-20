@@ -1,0 +1,102 @@
+{
+  "reportCode": "cK9tT6xDZJYvAN1B",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/cK9tT6xDZJYvAN1B?fight=1",
+  "capturedAt": "2026-08-19",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Voidscar Arena",
+    "keyLevel": 5,
+    "durationMs": 1005952,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 3,
+    "rating": 230,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 797,
+      "required": 608,
+      "percent": 131.09
+    }
+  },
+  "players": [
+    {
+      "name": "Jing",
+      "class": "Monk",
+      "spec": "Windwalker",
+      "realm": "GrimBatol",
+      "itemLevel": 290
+    },
+    {
+      "name": "Mashó",
+      "class": "DeathKnight",
+      "spec": "Unholy",
+      "realm": "DunModr",
+      "itemLevel": 295
+    },
+    {
+      "name": "Вальшира",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "СвежевательДуш",
+      "itemLevel": 290
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 296
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 292
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Jing": 132442,
+      "Mashó": 116575,
+      "Вальшира": 100348,
+      "Kalteew": 80541,
+      "Kylse": 30741
+    },
+    "hps": {
+      "Jing": 6898,
+      "Mashó": 6680,
+      "Вальшира": 9446,
+      "Kalteew": 29381,
+      "Kylse": 65060
+    },
+    "deathsByPlayer": {
+      "Jing": 0,
+      "Mashó": 0,
+      "Вальшира": 0,
+      "Kalteew": 0,
+      "Kylse": 0
+    },
+    "deathsTotal": 0,
+    "interrupts": {
+      "Jing": 9,
+      "Mashó": 5,
+      "Вальшира": 7,
+      "Kalteew": 19,
+      "Kylse": 1
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

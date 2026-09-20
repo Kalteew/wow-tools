@@ -1,0 +1,102 @@
+{
+  "reportCode": "rdGpR3DVJ7FX2ZqB",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/rdGpR3DVJ7FX2ZqB?fight=1",
+  "capturedAt": "2026-09-05",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Den of Nalorakk",
+    "keyLevel": 2,
+    "durationMs": 976451,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 3,
+    "rating": 170,
+    "deathsTotal": 2,
+    "enemyForces": {
+      "reached": 783,
+      "required": 729,
+      "percent": 107.41
+    }
+  },
+  "players": [
+    {
+      "name": "Vulzarak",
+      "class": "Shaman",
+      "spec": "Elemental",
+      "realm": "ArgentDawn",
+      "itemLevel": 303
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 293
+    },
+    {
+      "name": "Yayaladin",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 303
+    },
+    {
+      "name": "Oshent",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Hyjal",
+      "itemLevel": 274
+    },
+    {
+      "name": "Lenkâ",
+      "class": "Monk",
+      "spec": "Mistweaver",
+      "realm": "Hyjal",
+      "itemLevel": 292
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Vulzarak": 161549,
+      "Azåelle": 81536,
+      "Yayaladin": 77955,
+      "Oshent": 72022,
+      "Lenkâ": 38559
+    },
+    "hps": {
+      "Vulzarak": 4827,
+      "Azåelle": 4306,
+      "Yayaladin": 21791,
+      "Oshent": 3287,
+      "Lenkâ": 53290
+    },
+    "deathsByPlayer": {
+      "Vulzarak": 1,
+      "Azåelle": 0,
+      "Yayaladin": 0,
+      "Oshent": 1,
+      "Lenkâ": 0
+    },
+    "deathsTotal": 2,
+    "interrupts": {
+      "Vulzarak": 12,
+      "Azåelle": 2,
+      "Yayaladin": 26,
+      "Oshent": 10,
+      "Lenkâ": 6
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

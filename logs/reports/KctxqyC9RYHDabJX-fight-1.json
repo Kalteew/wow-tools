@@ -1,0 +1,102 @@
+{
+  "reportCode": "KctxqyC9RYHDabJX",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/KctxqyC9RYHDabJX?fight=1",
+  "capturedAt": "2026-08-25",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Den of Nalorakk",
+    "keyLevel": 11,
+    "durationMs": 1846170,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 336.44000244140625,
+    "deathsTotal": 5,
+    "enemyForces": {
+      "reached": 597,
+      "required": 709,
+      "percent": 84.2
+    }
+  },
+  "players": [
+    {
+      "name": "Lumoava",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Bloodfeather",
+      "itemLevel": 301
+    },
+    {
+      "name": "Veilblade",
+      "class": "Rogue",
+      "spec": "Assassination",
+      "realm": "Antonidas",
+      "itemLevel": 290
+    },
+    {
+      "name": "Akainu",
+      "class": "DeathKnight",
+      "spec": "Frost",
+      "realm": "Azuremyst",
+      "itemLevel": 299
+    },
+    {
+      "name": "Quelybella",
+      "class": "Paladin",
+      "spec": "Protection",
+      "realm": "Garrosh",
+      "itemLevel": 306
+    },
+    {
+      "name": "Zippett",
+      "class": "Evoker",
+      "spec": "Preservation",
+      "realm": "Hyjal",
+      "itemLevel": 300
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Lumoava": 151216,
+      "Veilblade": 119737,
+      "Akainu": 112339,
+      "Quelybella": 74317,
+      "Zippett": 32219
+    },
+    "hps": {
+      "Lumoava": 10133,
+      "Veilblade": 7548,
+      "Akainu": 8853,
+      "Quelybella": 36504,
+      "Zippett": 71943
+    },
+    "deathsByPlayer": {
+      "Lumoava": 0,
+      "Veilblade": 1,
+      "Akainu": 2,
+      "Quelybella": 0,
+      "Zippett": 2
+    },
+    "deathsTotal": 5,
+    "interrupts": {
+      "Lumoava": 8,
+      "Veilblade": 17,
+      "Akainu": 8,
+      "Quelybella": 34,
+      "Zippett": 7
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

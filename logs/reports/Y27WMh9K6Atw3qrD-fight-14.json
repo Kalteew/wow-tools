@@ -1,0 +1,102 @@
+{
+  "reportCode": "Y27WMh9K6Atw3qrD",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/Y27WMh9K6Atw3qrD?fight=14",
+  "capturedAt": "2026-09-08",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 14,
+  "fight": {
+    "id": 14,
+    "dungeon": "Murder Row",
+    "keyLevel": 11,
+    "durationMs": 1574679,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 343.54998779296875,
+    "deathsTotal": 8,
+    "enemyForces": {
+      "reached": 681,
+      "required": 655,
+      "percent": 103.97
+    }
+  },
+  "players": [
+    {
+      "name": "Czn",
+      "class": "Rogue",
+      "spec": "Subtlety",
+      "realm": "TwistingNether",
+      "itemLevel": 316
+    },
+    {
+      "name": "Bøødy",
+      "class": "Rogue",
+      "spec": "Assassination",
+      "realm": "Hyjal",
+      "itemLevel": 305
+    },
+    {
+      "name": "Fairen",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Uldaman",
+      "itemLevel": 314
+    },
+    {
+      "name": "Jmkens",
+      "class": "Druid",
+      "spec": "Guardian",
+      "realm": "Hyjal",
+      "itemLevel": 305
+    },
+    {
+      "name": "Skòg",
+      "class": "Druid",
+      "spec": "Restoration",
+      "realm": "TarrenMill",
+      "itemLevel": 300
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Czn": 261317,
+      "Bøødy": 185540,
+      "Fairen": 166334,
+      "Jmkens": 83053,
+      "Skòg": 5636
+    },
+    "hps": {
+      "Czn": 15668,
+      "Bøødy": 9715,
+      "Fairen": 8734,
+      "Jmkens": 61880,
+      "Skòg": 105508
+    },
+    "deathsByPlayer": {
+      "Czn": 1,
+      "Bøødy": 3,
+      "Fairen": 1,
+      "Jmkens": 1,
+      "Skòg": 2
+    },
+    "deathsTotal": 8,
+    "interrupts": {
+      "Czn": 14,
+      "Bøødy": 16,
+      "Fairen": 11,
+      "Jmkens": 38,
+      "Skòg": 27
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

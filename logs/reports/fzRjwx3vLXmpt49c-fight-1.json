@@ -1,0 +1,102 @@
+{
+  "reportCode": "fzRjwx3vLXmpt49c",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/fzRjwx3vLXmpt49c?fight=1",
+  "capturedAt": "2026-09-08",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Murder Row",
+    "keyLevel": 10,
+    "durationMs": 1320124,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 333.2300109863281,
+    "deathsTotal": 0,
+    "enemyForces": {
+      "reached": 664,
+      "required": 655,
+      "percent": 101.37
+    }
+  },
+  "players": [
+    {
+      "name": "Mightypala",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "GrimBatol",
+      "itemLevel": 315
+    },
+    {
+      "name": "Fairen",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Uldaman",
+      "itemLevel": 314
+    },
+    {
+      "name": "Smorcs",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "GrimBatol",
+      "itemLevel": 317
+    },
+    {
+      "name": "Duduxisdê",
+      "class": "Druid",
+      "spec": "Feral",
+      "realm": "GrimBatol",
+      "itemLevel": 297
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 311
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Mightypala": 215905,
+      "Fairen": 194674,
+      "Smorcs": 130296,
+      "Duduxisdê": 108338,
+      "Kylse": 53114
+    },
+    "hps": {
+      "Mightypala": 3436,
+      "Fairen": 5726,
+      "Smorcs": 33592,
+      "Duduxisdê": 4982,
+      "Kylse": 97305
+    },
+    "deathsByPlayer": {
+      "Mightypala": 0,
+      "Fairen": 0,
+      "Smorcs": 0,
+      "Duduxisdê": 0,
+      "Kylse": 0
+    },
+    "deathsTotal": 0,
+    "interrupts": {
+      "Mightypala": 17,
+      "Fairen": 5,
+      "Smorcs": 39,
+      "Duduxisdê": 19,
+      "Kylse": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

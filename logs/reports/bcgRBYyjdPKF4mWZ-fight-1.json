@@ -1,0 +1,102 @@
+{
+  "reportCode": "bcgRBYyjdPKF4mWZ",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/bcgRBYyjdPKF4mWZ?fight=1",
+  "capturedAt": "2026-08-25",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Ruby Life Pools",
+    "keyLevel": 11,
+    "durationMs": 1439998,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 340.3599853515625,
+    "deathsTotal": 16,
+    "enemyForces": {
+      "reached": 736,
+      "required": 660,
+      "percent": 111.52
+    }
+  },
+  "players": [
+    {
+      "name": "Dezea",
+      "class": "Shaman",
+      "spec": "Elemental",
+      "realm": "Kazzak",
+      "itemLevel": 309
+    },
+    {
+      "name": "Veilblade",
+      "class": "Rogue",
+      "spec": "Assassination",
+      "realm": "Antonidas",
+      "itemLevel": 290
+    },
+    {
+      "name": "Dalimâ",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Blackhand",
+      "itemLevel": 296
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 301
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 303
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Dezea": 241449,
+      "Veilblade": 175375,
+      "Dalimâ": 135557,
+      "Kalteew": 111930,
+      "Kylse": 26079
+    },
+    "hps": {
+      "Dezea": 7525,
+      "Veilblade": 13968,
+      "Dalimâ": 5909,
+      "Kalteew": 47349,
+      "Kylse": 91601
+    },
+    "deathsByPlayer": {
+      "Dezea": 2,
+      "Veilblade": 4,
+      "Dalimâ": 4,
+      "Kalteew": 2,
+      "Kylse": 4
+    },
+    "deathsTotal": 16,
+    "interrupts": {
+      "Dezea": 45,
+      "Veilblade": 25,
+      "Dalimâ": 12,
+      "Kalteew": 33,
+      "Kylse": 0
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

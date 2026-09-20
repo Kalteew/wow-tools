@@ -1,0 +1,102 @@
+{
+  "reportCode": "MLqKgkCGBFfYdh6N",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/MLqKgkCGBFfYdh6N?fight=5",
+  "capturedAt": "2026-08-27",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 5,
+  "fight": {
+    "id": 5,
+    "dungeon": "Den of Nalorakk",
+    "keyLevel": 13,
+    "durationMs": 1970872,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 0,
+    "rating": 319.010009765625,
+    "deathsTotal": 13,
+    "enemyForces": {
+      "reached": 732,
+      "required": 729,
+      "percent": 100.41
+    }
+  },
+  "players": [
+    {
+      "name": "Brystan",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Thrall",
+      "itemLevel": 313
+    },
+    {
+      "name": "Schwexi",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Antonidas",
+      "itemLevel": 311
+    },
+    {
+      "name": "Humanoyak",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "TwistingNether",
+      "itemLevel": 302
+    },
+    {
+      "name": "Мэлеан",
+      "class": "DeathKnight",
+      "spec": "Blood",
+      "realm": "СвежевательДуш",
+      "itemLevel": 305
+    },
+    {
+      "name": "Skýmonk",
+      "class": "Monk",
+      "spec": "Mistweaver",
+      "realm": "Antonidas",
+      "itemLevel": 308
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Brystan": 187906,
+      "Schwexi": 149551,
+      "Humanoyak": 118674,
+      "Мэлеан": 85686,
+      "Skýmonk": 36031
+    },
+    "hps": {
+      "Brystan": 11975,
+      "Schwexi": 3657,
+      "Humanoyak": 8850,
+      "Мэлеан": 94553,
+      "Skýmonk": 104617
+    },
+    "deathsByPlayer": {
+      "Brystan": 1,
+      "Schwexi": 1,
+      "Humanoyak": 7,
+      "Мэлеан": 1,
+      "Skýmonk": 3
+    },
+    "deathsTotal": 13,
+    "interrupts": {
+      "Brystan": 17,
+      "Schwexi": 14,
+      "Humanoyak": 4,
+      "Мэлеан": 32,
+      "Skýmonk": 9
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}

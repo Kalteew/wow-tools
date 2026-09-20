@@ -1,0 +1,102 @@
+{
+  "reportCode": "1rVXFQ2BGJ9gDpny",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/1rVXFQ2BGJ9gDpny?fight=1",
+  "capturedAt": "2026-09-07",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Den of Nalorakk",
+    "keyLevel": 12,
+    "durationMs": 1552427,
+    "keystoneTimeMs": null,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 372.17999267578125,
+    "deathsTotal": 5,
+    "enemyForces": {
+      "reached": 772,
+      "required": 729,
+      "percent": 105.9
+    }
+  },
+  "players": [
+    {
+      "name": "Arthàs",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Archimonde",
+      "itemLevel": 318
+    },
+    {
+      "name": "Vvtechyzzvv",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Draenor",
+      "itemLevel": 313
+    },
+    {
+      "name": "Fruitduchêne",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "KhazModan",
+      "itemLevel": 309
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 313
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 311
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Arthàs": 196925,
+      "Vvtechyzzvv": 165334,
+      "Fruitduchêne": 158323,
+      "Kalteew": 126067,
+      "Kylse": 45998
+    },
+    "hps": {
+      "Arthàs": 5435,
+      "Vvtechyzzvv": 9052,
+      "Fruitduchêne": 7476,
+      "Kalteew": 37762,
+      "Kylse": 102919
+    },
+    "deathsByPlayer": {
+      "Arthàs": 0,
+      "Vvtechyzzvv": 2,
+      "Fruitduchêne": 2,
+      "Kalteew": 0,
+      "Kylse": 1
+    },
+    "deathsTotal": 5,
+    "interrupts": {
+      "Arthàs": 23,
+      "Vvtechyzzvv": 5,
+      "Fruitduchêne": 4,
+      "Kalteew": 31,
+      "Kylse": 4
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "mcp",
+    "capturedAt": "2026-09-20",
+    "values": {},
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  }
+}
