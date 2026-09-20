@@ -2,6 +2,18 @@ local _, ns = ...
 
 ns.AddLocale("enUS", {
 	ADDON_TITLE = "YayaCraftingOrders",
+	SEEN_RECIPES_TITLE = "Patron recipes seen",
+	SEEN_RECIPES_SUMMARY_FORMAT = "%d recipes - %d distinct orders observed",
+	SEEN_RECIPES_COLUMN_RECIPE = "Recipe",
+	SEEN_RECIPES_COLUMN_PROFESSION = "Profession(s)",
+	SEEN_RECIPES_COLUMN_LAST_SEEN = "Last seen",
+	SEEN_RECIPES_COLUMN_ORDERS = "Orders",
+	SEEN_RECIPES_PROFESSION_FORMAT = "Profession %s",
+	SEEN_RECIPES_UNKNOWN_PROFESSION = "Unknown profession",
+	SEEN_RECIPES_UNKNOWN_SOURCE = "Unknown source",
+	SEEN_RECIPES_RECIPE_FORMAT = "Recipe %d",
+	SEEN_RECIPES_TOOLTIP_FORMAT = "Recipe ID: %d\nDistinct orders: %d\nSources: %s",
+	SEEN_RECIPES_UNAVAILABLE = "The seen-recipes list could not be opened.",
 	OPTION_VERSION_FORMAT = "Version %s",
 	OPTION_DESCRIPTION = "Adds a patron crafting-orders pane with TSM pricing and direct YayaQueue queueing.",
 	OPTION_PRICING_ADDON_HEADER = "Pricing",

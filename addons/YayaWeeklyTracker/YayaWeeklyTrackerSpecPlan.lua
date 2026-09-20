@@ -119,6 +119,195 @@ local SPEC_PLANS = {
         },
     },
 
+    -- Midnight Tailoring. Le reroll vise le craft de concentration Arcanoweave
+    -- (la meilleure base du snapshot EU local), mais ses points de Skill ne
+    -- sont pas la priorite. On prend d'abord les trois stats qui augmentent
+    -- directement son rendement : Multicraft, Resourcefulness et Ingenuity.
+    --
+    -- Apres ce coeur economique, on ouvre le maximum de recettes utiles aux
+    -- commandes de patrons : les deux familles de bolts, puis les neuf slots
+    -- d'armure Sin'dorei. Les feuilles d'armure sont des apprentissages a
+    -- zero point : le moteur remonte les troncs et ne depense que le minimum.
+    -- Seulement ensuite viennent les points de Skill de la concentration,
+    -- puis le reliquat de Fiber Arts deja engage par les prerequis. Les
+    -- branches Fabric Specialist et Embroidery restent pour le remplissage
+    -- libre : elles ne sont pas interessantes pour ce profil.
+    [2918] = {
+        steps = {
+            -- Stats economiques, dans l'ordre Multicraft -> Resourcefulness
+            -- -> Ingenuity. Fiber Arts est remonte automatiquement au minimum
+            -- necessaire pour ouvrir ces trois sous-specialisations.
+            { path = 104389, rank = 30, name = "Creative Efficiency" },
+            { path = 104386, rank = 30, name = "Textile Utilization" },
+            { path = 104388, rank = 30, name = "Fashion Genius" },
+
+            -- Recettes de bolts restantes : Sunfire est ouvert pour elargir
+            -- les commandes et non pour remplacer la concentration Arcanoweave.
+            { path = 104327, rank = 30, name = "Sunfire Silk Weaving" },
+            { path = 104326, rank = 20, name = "Sunfire Expertise" },
+
+            -- Maximum de recettes d'armure patron : les trois groupes de slots.
+            { path = 104216, rank = 30, name = "Sin'dorei Finery" },
+            { path = 104207, rank = 30, name = "Outfit Essentials" },
+            { path = 104211, rank = 30, name = "Elegant Accessories" },
+            { path = 104215, rank = 30, name = "Head-to-Toes" },
+            { path = 104206, rank = 0, name = "Robes" },
+            { path = 104205, rank = 0, name = "Trousers" },
+            { path = 104204, rank = 0, name = "Cloaks" },
+            { path = 104209, rank = 0, name = "Bracers" },
+            { path = 104210, rank = 0, name = "Belts" },
+            { path = 104208, rank = 0, name = "Shoulders" },
+            { path = 104214, rank = 0, name = "Boots" },
+            { path = 104213, rank = 0, name = "Gloves" },
+            { path = 104212, rank = 0, name = "Hats" },
+
+            -- Maintenant seulement, les points de Skill de la concentration.
+            { path = 104328, rank = 30, name = "Nimble Needlework" },
+            { path = 104325, rank = 30, name = "Arcanoweaving" },
+            { path = 104324, rank = 20, name = "Arcanoweave Expertise" },
+
+            -- Puis le Skill global dont le prerequis a deja ete commence pour
+            -- ouvrir Creative Efficiency, Textile Utilization et Fashion Genius.
+            { path = 104390, rank = 30, name = "Fiber Arts" },
+        },
+    },
+
+    -- Midnight Engineering. Le reroll vise les outils d'ingenieurie : les
+    -- outils et accessoires ne profitent pas du Multicraft, donc seules
+    -- Resourcefulness et Ingenuity sont financees avant le reste.
+    --
+    -- Ensuite on ouvre les recettes de materiel de profession et d'equipement
+    -- de combat pour les commandes de patrons. Recycling est seulement amene
+    -- a 10 pour activer la decouverte de recettes ; ses points de Skill et le
+    -- Skill global de Market Mobility/Combat Analytics viennent apres l'outil
+    -- de concentration. Bits and Bots reste un remplissage libre : ses recettes
+    -- viennent surtout du recyclage, pas d'un chemin de patrons stable.
+    [2910] = {
+        steps = {
+            -- Stats utiles aux outils : pas de Multicraft sur cet objet.
+            { path = 106752, rank = 21, name = "Resourcefulness" },
+            { path = 106754, rank = 21, name = "Concentrated Effort" },
+
+            -- Decouverte et couverture des recettes de patrons.
+            { path = 106755, rank = 10, name = "Recycling" },
+            { path = 106712, rank = 0, name = "Tailoring Tools" },
+            { path = 106713, rank = 0, name = "Jewelcrafting Tools" },
+            { path = 106715, rank = 0, name = "Fishing Rods" },
+            { path = 106716, rank = 0, name = "Mining Accessories" },
+            { path = 106717, rank = 0, name = "Engineering Accessories" },
+            { path = 109138, rank = 0, name = "Boots" },
+            { path = 109139, rank = 0, name = "Bracers" },
+            { path = 109140, rank = 0, name = "Goggles" },
+            { path = 110352, rank = 0, name = "Guns" },
+
+            -- Maintenant seulement, le Skill de l'outil de concentration.
+            { path = 106711, rank = 31, name = "Engineering Tools" },
+
+            -- Puis les troncs deja entames par les prerequis.
+            { path = 106719, rank = 26, name = "Market Mobility" },
+            { path = 109141, rank = 26, name = "Combat Analytics" },
+            { path = 106755, rank = 31, name = "Recycling" },
+        },
+    },
+
+    -- Midnight Jewelcrafting. Les bijoux ne Multicraftent pas, mais les gemmes
+    -- oui : la concentration est donc placee sur une gemme, avec Multicraft,
+    -- Resourcefulness et Ingenuity en tete. Versatile Garnet est le choix de
+    -- reference ; la couleur est la seule partie a reevaluer si le marche
+    -- local change.
+    --
+    -- Les douze feuilles de gemmes et les deux familles de bijoux sont d'abord
+    -- apprises pour maximiser la couverture des patrons. La branche Garnet et
+    -- la feuille Versatile Garnet ne sont maxees qu'apres cette couverture.
+    [2914] = {
+        steps = {
+            -- Stats utiles aux gemmes : les gemmes sont des commodities.
+            { path = 107013, rank = 31, name = "Outrageous Output" },
+            { path = 107014, rank = 31, name = "Skilled Savings" },
+            { path = 107012, rank = 31, name = "Calculated Concentration" },
+
+            -- Recettes de patrons : bijoux et les quatre couleurs de gemmes.
+            { path = 107057, rank = 0, name = "Luxurious Lockets" },
+            { path = 107058, rank = 0, name = "Regal Rings" },
+            { path = 106884, rank = 0, name = "Versatile Garnet" },
+            { path = 106885, rank = 0, name = "Masterful Garnet" },
+            { path = 106886, rank = 0, name = "Quick Garnet" },
+            { path = 106888, rank = 0, name = "Versatile Amethyst" },
+            { path = 106889, rank = 0, name = "Quick Amethyst" },
+            { path = 106890, rank = 0, name = "Deadly Amethyst" },
+            { path = 106893, rank = 0, name = "Masterful Lapis" },
+            { path = 106894, rank = 0, name = "Quick Lapis" },
+            { path = 106895, rank = 0, name = "Deadly Lapis" },
+            { path = 106897, rank = 0, name = "Versatile Peridot" },
+            { path = 106898, rank = 0, name = "Masterful Peridot" },
+            { path = 106899, rank = 0, name = "Deadly Peridot" },
+
+            -- Skill de la concentration : une couleur, une coupe prioritaire.
+            { path = 106887, rank = 26, name = "Glorious Garnet" },
+            { path = 106884, rank = 16, name = "Versatile Garnet" },
+
+            -- Puis les racines qui ont ete commencees pour ouvrir les recettes.
+            { path = 106901, rank = 31, name = "Glamorous Gems" },
+            { path = 106891, rank = 26, name = "Austere Amethyst" },
+            { path = 106896, rank = 26, name = "Lustrous Lapis" },
+            { path = 106900, rank = 26, name = "Powerful Peridot" },
+            { path = 107059, rank = 31, name = "Alluring Accessories" },
+            { path = 107015, rank = 31, name = "Thoughtful Throughput" },
+        },
+    },
+
+    -- Midnight Leatherworking. La concentration est mise sur les reagents de
+    -- base (Scalewoven Hide / Infused Scalewoven Hide selon le marche) : ce
+    -- sont des commodities, donc Multicraft est pertinent, en plus de
+    -- Resourcefulness et Ingenuity. Le cuir reste le pire profil de
+    -- concentration ; les commandes de patrons et les recettes disponibles
+    -- sont donc la vraie valeur du reroll.
+    --
+    -- On ouvre les trois familles de consommables, les huit slots cuir et les
+    -- huit slots mail. Les troncs sont ensuite finis, mais pas les branches
+    -- d'equipement de profession qui n'ajoutent pas de recette patron ici.
+    [2915] = {
+        steps = {
+            -- Stats utiles aux commodities.
+            { path = 107918, rank = 31, name = "Mastering Multicraft" },
+            { path = 107920, rank = 31, name = "Waning Waste" },
+            { path = 107919, rank = 31, name = "Concentrated Crafter" },
+
+            -- Couverture des recettes de patrons.
+            { path = 107812, rank = 0, name = "Crucial Consumables" },
+            { path = 107814, rank = 0, name = "Overwhelming Optionals" },
+            { path = 107879, rank = 0, name = "Tasteful Treads" },
+            { path = 107880, rank = 0, name = "Sturdy Sashes" },
+            { path = 107881, rank = 0, name = "Grand Gloves" },
+            { path = 107882, rank = 0, name = "Toughened Tassets" },
+            { path = 107884, rank = 0, name = "Wonderful Wristguards" },
+            { path = 107885, rank = 0, name = "Mighty Mantles" },
+            { path = 107886, rank = 0, name = "Capable Caps" },
+            { path = 107887, rank = 0, name = "Terrific Tunics" },
+            { path = 107983, rank = 0, name = "Talented Talons" },
+            { path = 107984, rank = 0, name = "Bettering Bands" },
+            { path = 107985, rank = 0, name = "Cutting Claws" },
+            { path = 107986, rank = 0, name = "Fantastic Faulds" },
+            { path = 107988, rank = 0, name = "Balanced Bracers" },
+            { path = 107989, rank = 0, name = "Powerful Plumes" },
+            { path = 107990, rank = 0, name = "Versatile Visages" },
+            { path = 107991, rank = 0, name = "Valuable Vests" },
+
+            -- Maintenant seulement, le Skill du reagent de concentration.
+            { path = 107813, rank = 21, name = "Brimming Basics" },
+
+            -- Puis les troncs deja entames par les recettes ouvertes.
+            { path = 107817, rank = 31, name = "Flawless Fortes" },
+            { path = 107815, rank = 31, name = "Commanding Commodities" },
+            { path = 107889, rank = 31, name = "Lasting Leather" },
+            { path = 107888, rank = 31, name = "Securely Shaped" },
+            { path = 107883, rank = 31, name = "Embroidered Ensembles" },
+            { path = 107993, rank = 31, name = "Safeguarding Scales" },
+            { path = 107987, rank = 31, name = "Advanced Armor" },
+            { path = 107992, rank = 31, name = "Bolstered Bulwarks" },
+        },
+    },
+
     -- Midnight Enchanting. La page « Spellbound Shatterer » est saturee en premier,
     -- puis la branche Haranir de « Elevating Equipment » remonte des feuilles vers
     -- sa racine, puis « Reputable Rods » est seulement apprise, et « Crystal

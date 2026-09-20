@@ -331,8 +331,14 @@ local function HandleSlashCommand(input)
 			ns.BrowsePane:DebugState("manual-status")
 			ns.debugEnabled = wasEnabled
 		end
+	elseif command == "seen" then
+		if ns.SeenRecipes and ns.SeenRecipes.Toggle then
+			ns.SeenRecipes:Toggle()
+		else
+			Print("La liste des recettes vues n'est pas encore disponible.")
+		end
 	else
-		Print("Commandes : /ypo debug, /ypo debug on, /ypo debug off, /ypo debug status")
+		Print("Commandes : /ypo seen, /ypo debug, /ypo debug on, /ypo debug off, /ypo debug status")
 	end
 end
 

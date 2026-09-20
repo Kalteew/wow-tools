@@ -27,6 +27,7 @@ Fonctions:
   - recettes connues
   - recettes rentables
   - recettes avec les materiaux disponibles
+- `/ypo seen` ouvre la liste persistante des recettes de mécènes déjà vues ; elle est initialisée depuis les snapshots CraftSim puis enrichie par les commandes NPC observées en jeu
 
 Notes:
 

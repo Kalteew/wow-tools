@@ -3058,7 +3058,7 @@ YQQuality.RefreshIngenuityBuffState = function(reason)
 
     if not active and AuraUtil and type(AuraUtil.FindAuraBySpellID) == "function" then
         for spellID in pairs(signals.spellIDs) do
-            if AuraUtil.FindAuraBySpellID(spellID, "player", "HELPFUL") then
+            if SafeCall(AuraUtil.FindAuraBySpellID, spellID, "player", "HELPFUL") then
                 active, matched = true, "aurautil:" .. tostring(spellID)
                 break
             end
@@ -3067,7 +3067,7 @@ YQQuality.RefreshIngenuityBuffState = function(reason)
 
     if not active and AuraUtil and type(AuraUtil.FindAuraByName) == "function" then
         for name in pairs(signals.names) do
-            if AuraUtil.FindAuraByName(name, "player", "HELPFUL") then
+            if SafeCall(AuraUtil.FindAuraByName, name, "player", "HELPFUL") then
                 active, matched = true, "name"
                 break
             end
@@ -5287,6 +5287,24 @@ alchemyAuto.GetCooldownKey = function(recipeID, craftSim)
         return "shared:" .. tostring(sharedCooldown)
     end
     return "recipe:" .. tostring(recipeID)
+end
+
+alchemyAuto.SortFirstCraftRecipeIDs = function(recipeIDs)
+    table.sort(recipeIDs, function(left, right)
+        local leftID = tonumber(left) or 0
+        local rightID = tonumber(right) or 0
+        local leftPriority = leftID == CONFIG.ALCHEMY_BOUQUET_RECIPE_ID and 1
+            or CONFIG.ALCHEMY_BOUQUET_SHARED_COOLDOWN_RECIPE_IDS[leftID] and 2
+            or 100
+        local rightPriority = rightID == CONFIG.ALCHEMY_BOUQUET_RECIPE_ID and 1
+            or CONFIG.ALCHEMY_BOUQUET_SHARED_COOLDOWN_RECIPE_IDS[rightID] and 2
+            or 100
+        if leftPriority ~= rightPriority then
+            return leftPriority < rightPriority
+        end
+        return leftID < rightID
+    end)
+    return recipeIDs
 end
 
 alchemyAuto.GetQueuedCooldownReservations = function(craftSim)
@@ -9515,6 +9533,9 @@ local function SelectKnownCraftSimReagents(recipeData, reserved)
 end
 
 local function GetCraftSimCooldownKey(craftSim, recipeID, cooldownData)
+    if CONFIG.ALCHEMY_BOUQUET_SHARED_COOLDOWN_RECIPE_IDS[recipeID] then
+        return "shared:" .. CONFIG.ALCHEMY_BOUQUET_SHARED_COOLDOWN_KEY
+    end
     local sharedCooldown = cooldownData and cooldownData.sharedCD
     local sharedMap = craftSim and craftSim.CONST and craftSim.CONST.SHARED_PROFESSION_COOLDOWNS_RECIPE_ID_MAP
     sharedCooldown = sharedCooldown or (sharedMap and sharedMap[recipeID])
@@ -9530,12 +9551,10 @@ end
 local function BuildQueuedCooldownReservations(craftSim)
     state.EnsureDB()
     local reservations = {}
-    local sharedMap = craftSim and craftSim.CONST and craftSim.CONST.SHARED_PROFESSION_COOLDOWNS_RECIPE_ID_MAP
     for _, entry in ipairs(db.queue) do
         local recipeID = tonumber(entry.recipeID)
         if recipeID and not entry.pendingSubmit then
-            local sharedCooldown = sharedMap and sharedMap[recipeID]
-            local key = sharedCooldown and ("shared:" .. tostring(sharedCooldown)) or ("recipe:" .. recipeID)
+            local key = GetCraftSimCooldownKey(craftSim, recipeID, { isCooldownRecipe = true })
             local craftsRemaining = GetEntryCraftsRemaining(entry)
             reservations[key] = (reservations[key] or 0) + craftsRemaining
         end
@@ -9703,7 +9722,7 @@ local function HasAddableFirstCraft()
             recipeIDs[#recipeIDs + 1] = recipeID
         end
     end
-    table.sort(recipeIDs)
+    alchemyAuto.SortFirstCraftRecipeIDs(recipeIDs)
 
     local craftSim
     if type(_G.CraftSimAPI) == "table" and type(_G.CraftSimAPI.GetCraftSim) == "function" then
@@ -9787,7 +9806,7 @@ local function QueueAllAffordableFirstCrafts(button, source)
             recipeIDs[#recipeIDs + 1] = recipeID
         end
     end
-    table.sort(recipeIDs)
+    alchemyAuto.SortFirstCraftRecipeIDs(recipeIDs)
 
     local stats = { added = 0, expensive = 0, unknown = 0, cooldown = 0, queued = 0, incompatible = 0 }
     local professionID = state.GetCurrentProfessionID()

@@ -1,0 +1,93 @@
+{
+  "reportCode": "FTL17HXYDctWj9bx",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/FTL17HXYDctWj9bx?fight=3",
+  "capturedAt": "2026-09-19",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fight": {
+    "id": 3,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 12,
+    "durationMs": 1829761,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 366.760009765625,
+    "enemyForces": {"reached": 656, "required": 687, "percent": 95.49}
+  },
+  "players": [
+    {"name": "Piffpif", "class": "Evoker", "spec": "Devastation", "realm": "Draenor", "itemLevel": 306},
+    {"name": "Kalteew", "class": "Warrior", "spec": "Protection", "realm": "Hyjal", "itemLevel": 321},
+    {"name": "Azåelle", "class": "DemonHunter", "spec": "Havoc", "realm": "Hyjal", "itemLevel": 310},
+    {"name": "Wandsolo", "class": "Mage", "spec": "Arcane", "realm": "Draenor", "itemLevel": 313},
+    {"name": "Сквознякик", "class": "Paladin", "spec": "Holy", "realm": "СвежевательДуш", "itemLevel": 315}
+  ],
+  "metrics": {
+    "deathsTotal": 15,
+    "dps": {"Piffpif": 193613, "Azåelle": 162977, "Wandsolo": 151202, "Kalteew": 131414, "Сквознякик": 8210},
+    "hps": {"Сквознякик": 96129, "Kalteew": 43109, "Azåelle": 11721},
+    "deathsByPlayer": {"Wandsolo": 7, "Azåelle": 3, "Сквознякик": 3, "Kalteew": 1, "Piffpif": 1}
+  },
+  "focus": {
+    "primary": {
+      "name": "Kalteew",
+      "actorID": 21,
+      "matched": true,
+      "dps": 131414,
+      "deaths": 1,
+      "deathWindows": [{"atSeconds": 131.04, "cause": "Melee"}],
+      "damageHighlights": [
+        {"ability": "Thunder Clap", "total": 75011928},
+        {"ability": "Shield Slam", "total": 45641688},
+        {"ability": "Rend", "total": 16088687},
+        {"ability": "Tough as Nails", "total": 11828686}
+      ]
+    },
+    "secondary": {
+      "name": "Azåelle",
+      "aliases": ["Azaelle", "Azael"],
+      "actorID": 23,
+      "matched": true,
+      "dps": 162977,
+      "deaths": 3,
+      "deathWindows": [
+        {"atSeconds": 20.12, "cause": "Serrated Charge"},
+        {"atSeconds": 132.67, "cause": "Slither Strike"},
+        {"atSeconds": 429.11, "cause": "Volley"}
+      ],
+      "damageHighlights": [
+        {"ability": "Immolation Aura", "total": 76117829},
+        {"ability": "Eye Beam", "total": 29087108},
+        {"ability": "Death Sweep", "total": 23676646},
+        {"ability": "Essence Break", "total": 22644132},
+        {"ability": "Glaive Tempest", "total": 19644868}
+      ]
+    }
+  },
+  "rankings": {
+    "queried": false,
+    "source": "user_attached_image",
+    "capturedAt": "2026-09-19",
+    "values": {
+      "Piffpif": {"parsePercent": 80, "keyPercent": 70},
+      "Azåelle": {"parsePercent": 69, "keyPercent": 34},
+      "Wandsolo": {"parsePercent": 59, "keyPercent": 16},
+      "Kalteew": {"parsePercent": 80, "keyPercent": 93},
+      "Сквознякик": {"parsePercent": 59, "keyPercent": 16}
+    },
+    "mcpZoneContext": {
+      "scope": "zone_history_not_current_report",
+      "Kalteew": {"templeRankPercent": 92.5041, "templeMedianPercent": 80.018, "allStarsRankPercent": 93.5947},
+      "Azåelle": {"templeRankPercent": 69.9983, "templeMedianPercent": 50.271, "allStarsRankPercent": 68.1262}
+    },
+    "note": "Valeurs lues sur la capture WCL fournie par l'utilisateur ; elles ne proviennent pas du résumé MCP."
+  },
+  "notes": [
+    "La dernière clé du report est une autre équipe; la dernière clé contenant Kalteew et Azåelle est le fight 3.",
+    "Les données de performance sont celles du résumé M+; les recommandations détaillées doivent tenir compte des talents et du contexte de chaque pull.",
+    "Le ressenti utilisateur reste à demander pour confirmer ou infirmer les causes perçues.",
+    "Le Parse % d'Azåelle à 69 et son Key % à 34 doivent être traités séparément : les trois morts expliquent une partie de la perte de clé et d'uptime, mais pas automatiquement tout l'écart de DPS.",
+    "Le prochain focus Havoc doit analyser les fenêtres où Azåelle est vivante : uptime, ciblage, cooldowns et burst, en plus des morts."
+  ]
+}

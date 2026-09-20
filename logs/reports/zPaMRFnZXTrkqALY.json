@@ -1,0 +1,71 @@
+{
+  "reportCode": "zPaMRFnZXTrkqALY",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/zPaMRFnZXTrkqALY?fight=1&type=damage-done",
+  "capturedAt": "2026-09-19",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "fightID": 1,
+  "buildContext": "mythic_plus",
+  "fight": {
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 14,
+    "durationMs": 1377345,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 405.6000061035156,
+    "deathsTotal": 4,
+    "enemyForces": {"reached": 656, "required": 687, "percent": 95.49}
+  },
+  "players": [
+    {"name": "Haemos", "class": "DeathKnight", "spec": "Unholy", "realm": "Hyjal", "itemLevel": 321},
+    {"name": "Boupro", "class": "Hunter", "spec": "BeastMastery", "realm": "Sanguino", "itemLevel": 317},
+    {"name": "Gíngergamer", "class": "Rogue", "spec": "Assassination", "realm": "TwistingNether", "itemLevel": 320},
+    {"name": "Kalteew", "class": "Warrior", "spec": "Protection", "realm": "Hyjal", "itemLevel": 318},
+    {"name": "Kylse", "class": "Paladin", "spec": "Holy", "realm": "Hyjal", "itemLevel": 316}
+  ],
+  "metrics": {
+    "dps": {"Haemos": 260034, "Boupro": 258945, "Gíngergamer": 240904, "Kalteew": 146086, "Kylse": 43781},
+    "activeDps": {"Haemos": 270133.4, "Boupro": 269001.6, "Gíngergamer": 250259.9, "Kalteew": 151760.3, "Kylse": 45481.5},
+    "activePercent": {"Haemos": 92.84, "Boupro": 96.84, "Gíngergamer": 91.40, "Kalteew": 96.72, "Kylse": 94.00},
+    "hps": {"Kylse": 139015, "Kalteew": 51282},
+    "deathsByPlayer": {"Haemos": 1, "Boupro": 0, "Gíngergamer": 0, "Kalteew": 2, "Kylse": 1},
+    "deathWindows": {
+      "Kalteew": [{"atSeconds": 1153.31, "cause": "Melee"}, {"atSeconds": 1261.22, "cause": "Melee"}],
+      "Kylse": [{"atSeconds": 1254.35, "cause": "Unstable Corruption"}]
+    }
+  },
+  "focus": {
+    "primary": {"name": "Kalteew", "actorID": 2, "matched": true},
+    "healerReference": {"name": "Kylse", "actorID": 3, "aliases": ["Soso"], "matched": true},
+    "secondary": {
+      "name": "Azaelle",
+      "aliases": ["Blouboue", "Anaïs"],
+      "matched": false,
+      "candidateNamesInFight": ["Haemos", "Boupro", "Gíngergamer"],
+      "note": "Aucun de ces personnages n'est identifié comme Azaelle sans confirmation utilisateur."
+    }
+  },
+  "rankings": {
+    "reportSpecific": {
+      "source": "user_attached_image",
+      "capturedAt": "2026-09-19",
+      "values": {
+        "Haemos": {"parsePercent": 90, "keyPercent": 92},
+        "Boupro": {"parsePercent": 90, "keyPercent": 81},
+        "Gíngergamer": {"parsePercent": 79, "keyPercent": 75},
+        "Kalteew": {"parsePercent": 92, "keyPercent": 91},
+        "Kylse": {"parsePercent": 80, "keyPercent": 92}
+      }
+    },
+    "mcpZoneContext": {
+      "scope": "zone_history_not_current_report",
+      "KalteewDPS": {"templeRankPercent": 92.5041, "templeMedianPercent": 80.018, "allStarsRankPercent": 93.5947},
+      "KylseHPS": {"templeRankPercent": 80.0015, "templeMedianPercent": 62.3255, "allStarsRankPercent": 78.5393}
+    }
+  },
+  "userSentiment": {
+    "overall": "Une des meilleures clés faites avec Soso/Kylse.",
+    "recordedAs": "user_benchmark_reference"
+  }
+}

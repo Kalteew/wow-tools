@@ -1,0 +1,139 @@
+{
+  "reportCode": "tP6zcWdB9QLCRahb",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/tP6zcWdB9QLCRahb?fight=2&type=damage-done",
+  "capturedAt": "2026-09-20",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fight": {
+    "id": 2,
+    "dungeon": "Altar of Fangs",
+    "keyLevel": 20,
+    "durationMs": 1697155,
+    "keystoneTimeMs": 1703279,
+    "completed": true,
+    "affixIDs": [9, 10, 147]
+  },
+  "player": {
+    "actorID": 83,
+    "name": "浩劫是对的",
+    "class": "DemonHunter",
+    "spec": "Havoc",
+    "itemLevel": 323,
+    "heroTalentInferred": "Fel-Scarred",
+    "heroTalentEvidence": "Demonsurge damage and Fel-Scarred ability package present"
+  },
+  "metrics": {
+    "reportDPS": 424172.39,
+    "totalDamage": 719886292,
+    "activeTimeMs": 1536169,
+    "activePercent": 90.51,
+    "deaths": 0,
+    "groupDeaths": 1
+  },
+  "rankings": {
+    "source": "fallback_graphql_rankings",
+    "capturedAt": "2026-09-20",
+    "values": {
+      "浩劫是对的": {
+        "parsePercent": 43,
+        "keyPercent": 99,
+        "rank": "~269",
+        "totalParses": 26937,
+        "bracketData": 20,
+        "displayedSampleSize": 5,
+        "sampleSizeSource": "user_message",
+        "parseConfidence": "low"
+      }
+    },
+    "note": "Report-specific ranking data. Parse and key percent are stored separately; no value was inferred from DPS. The displayed 43 parse is based on only 5 parses, so it is a weak statistical signal. The API totalParses value is broader context and must not be treated as the displayed bracket sample size."
+  },
+  "abilityDamage": {
+    "Immolation Aura": 181761502,
+    "Demonsurge": 92717860,
+    "Essence Break": 90618980,
+    "Eye Beam": 54941605,
+    "Glaive Tempest": 43923493
+  },
+  "aggregateCasts": {
+    "Immolation Aura": 46,
+    "Essence Break": 45,
+    "Eye Beam": 51,
+    "Metamorphosis": 12,
+    "The Hunt": 23,
+    "Death Sweep": 170,
+    "Annihilation": 246,
+    "Vengeful Retreat": 62,
+    "Fel Rush": 17,
+    "Felblade": 60,
+    "Throw Glaive": 94,
+    "Blade Dance": 53,
+    "Abyssal Gaze": 20,
+    "Consuming Fire": 35,
+    "Blur": 19
+  },
+  "firstOpenerEvidence": {
+    "source": "fallback_graphql_probe",
+    "fightRelativeSequence": [
+      "Felblade +23.61s",
+      "Throw Glaive +24.16s",
+      "Throw Glaive +25.56s",
+      "Immolation Aura +25.75s",
+      "Vengeful Retreat +26.35s",
+      "Eye Beam +29.62s",
+      "The Hunt +32.15s",
+      "Annihilation +32.43s",
+      "Essence Break +33.27s",
+      "Death Sweep +34.10s",
+      "Death Sweep +34.94s",
+      "Metamorphosis +35.78s",
+      "Death Sweep +36.94s",
+      "Consuming Fire +37.78s",
+      "Consuming Fire +38.62s",
+      "Annihilation +39.46s",
+      "Abyssal Gaze +40.28s"
+    ],
+    "burningWoundCheck": "Deux Throw Glaive sont lancés juste avant la première Immolation Aura ; c'est compatible avec le pré-marquage Burning Wound de trois cibles, même si les applications d'aura ne sont pas exposées dans cette requête.",
+    "rotationObservation": "Le joueur place un Annihilation avant Essence Break, puis Death Sweep x2 avant Metamorphosis. Cela montre une variante haut niveau qui priorise la consommation d'un spender démonisé avant la fenêtre Essence Break ; ne pas imposer la liste théorique sans vérifier les procs et les talents exacts."
+  },
+  "interpretation": {
+    "facts": [
+      "Le DH meurt zéro fois et maintient 90.51% d'activité sur une clé de 28:17.",
+      "Immolation Aura est sa première source de dégâts à 25.25% du total.",
+      "Demonsurge, Essence Break et Glaive Tempest représentent ensemble une part majeure de son AoE.",
+      "Le report est keyPercent 99 mais parsePercent 43 : excellente performance de clé, pas un parse DPS top de son bracket +20."
+      ,"Le parse 43 est peu fiable comme mesure stable car l'interface affiche seulement 5 parses dans ce contexte ; les casts, l'uptime, les morts et la séquence de burst sont plus solides pour juger ce joueur."
+    ],
+    "comparisonToAzaelle": "Ce report est un benchmark de structure et d'uptime, pas de DPS brut : +20 Altar of Fangs, ilvl323, contre +12 Temple of Sethraliss et ilvl310 pour Azaelle. Les nombres de casts bruts ne doivent pas être comparés sans normalisation par la durée et, si disponible, le temps actif ; la route, les packs et la densité de cibles restent aussi déterminants.",
+    "durationNormalizedComparison": {
+      "method": "casts per dungeon minute",
+      "reference": "crVX6NpgzqaQkJWd / Azaelle",
+      "durationMinutes": {
+        "benchmark": 28.29,
+        "azaelle": 30.50
+      },
+      "castsPerMinute": {
+        "Essence Break": {
+          "benchmark": 1.59,
+          "azaelle": 1.21
+        },
+        "Death Sweep": {
+          "benchmark": 6.01,
+          "azaelle": 4.95
+        },
+        "Felblade": {
+          "benchmark": 2.12,
+          "azaelle": 1.54
+        }
+      },
+      "caveat": "Même normalisés, ces taux ne prouvent pas à eux seuls une meilleure rotation : les donjons, niveaux de clé, routes et fenêtres de cibles sont différents."
+    },
+    "priority": "Reproduire d'abord la préparation Burning Wound/Glaive avant Immolation Aura et la densité de la chaîne Eye Beam/Hunt → spender → Essence Break → Death Sweep/Meta, puis vérifier les dégâts par fenêtre."
+  },
+  "dataLimitations": [
+    "Le MCP Warcraft Logs n'était pas exposé dans ce tour ; les requêtes GraphQL ciblées ont été utilisées comme fallback et journalisées.",
+    "CombatantInfo/talents détaillés n'ont pas été fournis par playerDetails ; Fel-Scarred est inféré de Demonsurge et des capacités observées.",
+    "Les applications Burning Wound ne sont pas visibles dans la réponse Debuffs ; le pré-cast Throw Glaive est confirmé, le nombre exact de cibles marquées ne l'est pas."
+  ]
+}

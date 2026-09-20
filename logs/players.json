@@ -4,7 +4,8 @@
       "name": "Kalteew",
       "class": "Warrior",
       "spec": "Protection",
-      "realm": null,
+      "realm": "Hyjal",
+      "region": "eu",
       "note": "Personnage principal à résoudre exactement dans chaque report."
     }
   ],

@@ -1,0 +1,186 @@
+{
+  "reportCode": "gvaZntRG7rBXLhz6",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/gvaZntRG7rBXLhz6?fight=1",
+  "comparisonUrl": "https://www.warcraftlogs.com/reports/compare/crVX6NpgzqaQkJWd/gvaZntRG7rBXLhz6?fight=1%2C1&type=damage-done&source=5%2CRyenna",
+  "capturedAt": "2026-09-19",
+  "backfilled": true,
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fight": {
+    "id": 1,
+    "dungeon": "Temple of Sethraliss",
+    "keyLevel": 14,
+    "durationMs": 1525845,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 401.12,
+    "averageItemLevel": 315.4,
+    "enemyForces": {
+      "reached": 664,
+      "required": 687,
+      "percent": 96.65
+    },
+    "bossesKilled": [
+      "Adderis and Aspix",
+      "Merektha",
+      "Galvazzt",
+      "Avatar of Sethraliss"
+    ]
+  },
+  "focus": {
+    "name": "Ryenna",
+    "actorID": 4,
+    "class": "DemonHunter",
+    "spec": "Havoc",
+    "realm": "Area52",
+    "itemLevel": 318,
+    "deaths": 1,
+    "death": {
+      "atMs": 1099228,
+      "cause": "Loose Sparks"
+    }
+  },
+  "talentImportCode": "CEkAAAAAAAAAAAAAAAAAAAAAAYmZGzMzyMmZmxYmMmZAAAAAAAzixsNDzMwMWmZmZYmBzyAbzmZMMLMNmZGzYDAAAYAAAAMzgBAAAgB",
+  "aggregateCasts": {
+    "The Hunt": 21,
+    "Eye Beam": 49,
+    "Metamorphosis": 11,
+    "Essence Break": 41,
+    "Death Sweep": 152,
+    "Immolation Aura": 49,
+    "Felblade": 98,
+    "Blade Dance": 46,
+    "Vengeful Retreat": 52,
+    "Blur": 4,
+    "Disrupt": 25
+  },
+  "aggregateDamage": {
+    "Demonsurge": 65118060,
+    "Immolation Aura": 109774839,
+    "Essence Break": 60885530,
+    "Eye Beam": 40751578,
+    "Eye Beam secondary": 11914831,
+    "Death Sweep": 27252834,
+    "Glaive Tempest": 27737774,
+    "The Hunt": 22950109,
+    "Metamorphosis": 626342,
+    "Annihilation": 8754593,
+    "Blade Dance": 7395658,
+    "Felblade": 1284341
+  },
+  "windows": [
+    {
+      "name": "Merektha",
+      "startMs": 594487,
+      "endMs": 785297,
+      "casts": {
+        "The Hunt": 3,
+        "Eye Beam": 5,
+        "Metamorphosis": 2,
+        "Essence Break": 6,
+        "Death Sweep": 21,
+        "Immolation Aura": 6,
+        "Felblade": 13
+      },
+      "damage": {
+        "The Hunt": 2414577,
+        "Eye Beam": 5360768,
+        "Essence Break": 8539564,
+        "Immolation Aura": 14411901,
+        "Demonsurge": 8376627,
+        "Glaive Tempest": 3773440,
+        "Death Sweep": 3985174
+      }
+    },
+    {
+      "name": "Avatar of Sethraliss",
+      "startMs": 1324214,
+      "endMs": 1525487,
+      "casts": {
+        "The Hunt": 4,
+        "Eye Beam": 6,
+        "Metamorphosis": 2,
+        "Essence Break": 6,
+        "Death Sweep": 22,
+        "Immolation Aura": 8,
+        "Felblade": 14
+      },
+      "damage": {
+        "The Hunt": 2499686,
+        "Eye Beam": 2934281,
+        "Essence Break": 3310582,
+        "Immolation Aura": 6052006,
+        "Demonsurge": 6415138,
+        "Glaive Tempest": 1544785,
+        "Death Sweep": 2726719
+      }
+    }
+  ],
+  "eventEvidence": {
+    "window": "Avatar of Sethraliss",
+    "source": "mcp_get_events_Casts",
+    "firstBurstRelativeSequence": [
+      "Blade Dance +6.75s",
+      "Vengeful Retreat +8.56s",
+      "Eye Beam +8.95s",
+      "The Hunt +11.63s",
+      "Annihilation +12.92s",
+      "Fel Rush +14.86s",
+      "Blade Dance +16.09s",
+      "Metamorphosis +18.84s",
+      "Abyssal Gaze +19.86s",
+      "Death Sweep +21.75s",
+      "Death Sweep +22.83s"
+    ],
+    "essenceBreakWindowRelativeSequence": [
+      "Essence Break +43.92s",
+      "Death Sweep +45.00s",
+      "Death Sweep +47.21s",
+      "Annihilation +48.29s",
+      "Annihilation +49.39s"
+    ]
+  },
+  "firstPackEventEvidence": {
+    "source": "fallback_graphql_probe",
+    "reason": "WCL MCP tool was not exposed in this turn; narrow event query preserved for the report history.",
+    "pullWindowMs": {
+      "start": 10379,
+      "end": 137998
+    },
+    "eventCount": 139,
+    "sequenceRelativeToPullStart": [
+      "Eye Beam +14.75s",
+      "The Hunt +17.30s",
+      "Essence Break +17.99s",
+      "Death Sweep +19.05s",
+      "Death Sweep +20.13s",
+      "Annihilation +20.97s",
+      "Vengeful Retreat +21.15s",
+      "Metamorphosis +22.74s",
+      "Death Sweep +22.87s",
+      "Consuming Fire +24.05s",
+      "Abyssal Gaze +25.35s"
+    ],
+    "note": "The first 30 seconds show a clean pre-Meta spend, reset, then post-Meta spend."
+  },
+  "rankings": {
+    "queried": false,
+    "source": "user_attached_image",
+    "capturedAt": "2026-09-19",
+    "values": {
+      "Ryenna": {
+        "parsePercent": 90,
+        "keyPercent": 99,
+        "damageTotal": 456510000,
+        "itemLevel": 318
+      }
+    },
+    "note": "Valeurs report-spécifiques fournies par l'utilisateur depuis l'interface Warcraft Logs."
+  },
+  "warnings": [
+    "list_players a renvoyé une liste vide malgré la présence du fight dans list_fights.",
+    "get_mythic_plus_summary et la fenêtre get_casts d'Azåelle ont renvoyé FIGHT_NOT_FOUND ; les données disponibles ont été conservées et les appels sont journalisés."
+  ]
+}

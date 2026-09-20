@@ -6,6 +6,18 @@ end
 
 ns.AddLocale("frFR", {
 	ADDON_TITLE = "YayaCraftingOrders",
+	SEEN_RECIPES_TITLE = "Recettes de mécènes vues",
+	SEEN_RECIPES_SUMMARY_FORMAT = "%d recettes - %d commandes distinctes observées",
+	SEEN_RECIPES_COLUMN_RECIPE = "Recette",
+	SEEN_RECIPES_COLUMN_PROFESSION = "Métier(s)",
+	SEEN_RECIPES_COLUMN_LAST_SEEN = "Vue récente",
+	SEEN_RECIPES_COLUMN_ORDERS = "Commandes",
+	SEEN_RECIPES_PROFESSION_FORMAT = "Métier %s",
+	SEEN_RECIPES_UNKNOWN_PROFESSION = "Métier inconnu",
+	SEEN_RECIPES_UNKNOWN_SOURCE = "Source inconnue",
+	SEEN_RECIPES_RECIPE_FORMAT = "Recette %d",
+	SEEN_RECIPES_TOOLTIP_FORMAT = "ID recette : %d\nCommandes distinctes : %d\nSources : %s",
+	SEEN_RECIPES_UNAVAILABLE = "La liste des recettes vues ne peut pas être ouverte.",
 	OPTION_VERSION_FORMAT = "Version %s",
 	OPTION_DESCRIPTION = "Ajoute un panneau de commandes de mécènes avec prix TSM et ajout direct dans YayaQueue.",
 	OPTION_PRICING_ADDON_HEADER = "Prix",

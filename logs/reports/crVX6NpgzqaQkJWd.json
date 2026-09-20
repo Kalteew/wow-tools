@@ -41,6 +41,59 @@
     "primary": {"name":"Kalteew","matched":true},
     "secondary": {"name":"Azaelle","matched":true,"spec":"Havoc"}
   },
+  "burstAnalysis": {
+    "player": "Azåelle",
+    "actorID": 5,
+    "talentImportCode": "CEkAAAAAAAAAAAAAAAAAAAAAAYmZGzMz2MmZmxYmMmZAAAAAAAzyDwsNDzM4BmxyMzDMDzMYWGYZ2MjhZjpxMzYGbAAAADAAAgZGMAAAAM",
+    "aggregateCasts": {"The Hunt": 22, "Eye Beam": 51, "Metamorphosis": 12, "Essence Break": 37, "Blur": 4},
+    "windows": [
+      {
+        "pullID": 1,
+        "startSeconds": 69.19,
+        "endSeconds": 121.83,
+        "deathAtSeconds": 80.15,
+        "deathCause": "Serrated Charge",
+        "casts": {"The Hunt": 1, "Eye Beam": 1, "Metamorphosis": 1, "Essence Break": 1, "Death Sweep": 4, "Blur": 0},
+        "damage": {"The Hunt": 1811200, "Eye Beam": 1262522, "Essence Break": 1327241, "Metamorphosis": 44649},
+        "fact": "La fenêtre de burst est bien lancée, mais aucun Blur n'est enregistré avant la mort."
+      },
+      {
+        "pullID": 2,
+        "startSeconds": 126.39,
+        "endSeconds": 193.60,
+        "deathAtSeconds": 192.68,
+        "deathCause": "Slither Strike",
+        "casts": {"The Hunt": 1, "Eye Beam": 3, "Metamorphosis": 0, "Essence Break": 2, "Death Sweep": 6, "Blur": 1},
+        "damage": {"The Hunt": 1823004, "Eye Beam": 1888496, "Essence Break": 2550974},
+        "fact": "Le pull contient plusieurs fenêtres offensives et se termine par une mort très tardive."
+      },
+      {
+        "pullID": 5,
+        "startSeconds": 440.98,
+        "endSeconds": 608.71,
+        "deathAtSeconds": 489.12,
+        "deathCause": "Volley",
+        "casts": {"The Hunt": 3, "Eye Beam": 5, "Metamorphosis": 1, "Essence Break": 3, "Death Sweep": 15, "Blur": 1},
+        "damage": {"The Hunt": 2739109, "Eye Beam": 4853391, "Essence Break": 1965764, "Metamorphosis": 66156},
+        "fact": "Le burst continue d'être utilisé, mais un seul Blur apparaît sur cette longue fenêtre."
+      },
+      {
+        "pullID": 7,
+        "name": "Merektha",
+        "startSeconds": 750.34,
+        "endSeconds": 876.30,
+        "casts": {"The Hunt": 1, "Eye Beam": 4, "Metamorphosis": 1, "Essence Break": 3, "Death Sweep": 14, "Blur": 1},
+        "damage": {"The Hunt": 334978, "Eye Beam": 2365550, "Essence Break": 939842, "Metamorphosis": 49424},
+        "fact": "Fenêtre boss exploitable sans mort ; elle servira de référence interne pour son uptime vivant."
+      }
+    ],
+    "preliminary": [
+      "Le problème n'est pas une absence totale de gros cooldowns : The Hunt, Eye Beam, Metamorphosis et Essence Break sont présents dans les fenêtres étudiées.",
+      "La survie est une piste concrète : aucun Blur sur la première mort et un seul sur le long pull de la troisième mort.",
+      "The Hunt n'apparaît que 22 fois sur environ 30 minutes ; il faut vérifier avec un log Havoc de référence si les casts manquants sont des choix de route ou des cooldowns retardés.",
+      "La qualité du burst, le ciblage et l'uptime pendant les fenêtres vivantes restent à comparer à un DH de référence avant de conclure sur la rotation."
+    ]
+  },
   "deaths": [
     {"player":"Azaelle","atSeconds":20,"cause":"Serrated Charge"},
     {"player":"Сквознякик","atSeconds":119,"cause":"Serrated Charge"},
@@ -59,7 +112,217 @@
   ],
   "rankings": {
     "queried": false,
-    "reason": "Aucun percentile de clé confirmé dans les données déjà récupérées."
+    "source": "user_attached_image",
+    "capturedAt": "2026-09-19",
+    "values": {
+      "Piffpif": {"parsePercent": 80, "keyPercent": 70},
+      "Azåelle": {"parsePercent": 69, "keyPercent": 34},
+      "Wandsolo": {"parsePercent": 59, "keyPercent": 16},
+      "Kalteew": {"parsePercent": 80, "keyPercent": 93},
+      "Сквознякик": {"parsePercent": 59, "keyPercent": 16}
+    }
+  },
+  "benchmarks": [
+    {
+      "reportCode": "gvaZntRG7rBXLhz6",
+      "fightID": 1,
+      "dungeon": "Temple of Sethraliss",
+      "player": "Ryenna",
+      "spec": "Havoc",
+      "source": "user_compare_url",
+      "referenceRankings": {
+        "parsePercent": 90,
+        "keyPercent": 99,
+        "damageTotal": 456510000,
+        "source": "user_attached_image"
+      },
+      "caveat": "Référence en +14, 25:25, ilvl 318 contre +12, 30:29, ilvl 310 pour Azåelle ; comparer surtout les fenêtres vivantes, pas les totaux bruts.",
+      "aggregateCastComparison": {
+        "The Hunt": {"Azåelle": 22, "Ryenna": 21},
+        "Eye Beam": {"Azåelle": 51, "Ryenna": 49},
+        "Metamorphosis": {"Azåelle": 12, "Ryenna": 11},
+        "Essence Break": {"Azåelle": 37, "Ryenna": 41},
+        "Death Sweep": {"Azåelle": 151, "Ryenna": 152},
+        "Felblade": {"Azåelle": 47, "Ryenna": 98}
+      },
+      "avatarWindowComparison": {
+        "window": "Avatar of Sethraliss",
+        "azåelle": {
+          "startMs": 1480164,
+          "endMs": 1672168,
+          "casts": {"The Hunt": 3, "Eye Beam": 7, "Metamorphosis": 2, "Essence Break": 4, "Immolation Aura": 5, "Death Sweep": 17, "Felblade": 2},
+          "damage": {"The Hunt": 1506648, "Eye Beam": 2397421, "Essence Break": 1694182, "Immolation Aura": 3128225, "Demonsurge": 3422775}
+        },
+        "ryenna": {
+          "startMs": 1324214,
+          "endMs": 1525487,
+          "casts": {"The Hunt": 4, "Eye Beam": 6, "Metamorphosis": 2, "Essence Break": 6, "Immolation Aura": 8, "Death Sweep": 22, "Felblade": 14},
+          "damage": {"The Hunt": 2499686, "Eye Beam": 2934281, "Essence Break": 3310582, "Immolation Aura": 6052006, "Demonsurge": 6415138}
+        }
+      },
+      "currentInterpretation": [
+        "Le déficit n'est pas principalement l'absence de gros cooldowns : les nombres de Hunt, Eye Beam, Metamorphosis et Death Sweep sont proches.",
+        "L'écart apparaît dans la qualité des fenêtres vivantes : beaucoup moins d'Essence Break, d'Immolation Aura, de Death Sweep et surtout de Felblade sur Avatar.",
+        "Correction après vérification de l'opener multicible S2 : Metamorphosis intervient volontairement au milieu du burst pour relancer les outils. Le placement d'Essence Break avant Metamorphosis n'est donc pas une erreur automatique ; il faut vérifier la consommation des procs avant le reset puis après le reset.",
+        "Les morts expliquent une partie du keyPercent et de l'uptime, mais le prochain diagnostic doit mesurer la chaîne pré-Meta/post-Meta et les ressources, pas seulement le délai vers Abyssal Gaze."
+      ],
+      "buildComparison": {
+        "sameSpecID": 577,
+        "sameSetID": 2056,
+        "azåelle": {
+          "talentCount": 77,
+          "stats": {"crit": 940, "haste": 254, "mastery": 945, "versatility": 416, "leech": 59},
+          "talentOnlyIDs": [112914, 112936, 117496, 124011, 136502]
+        },
+        "ryenna": {
+          "talentCount": 76,
+          "stats": {"crit": 1482, "haste": 321, "mastery": 1006, "versatility": 120, "leech": 293},
+          "talentOnlyIDs": [112837, 117510, 117755, 124010]
+        },
+        "note": "Les deux builds ne sont pas identiques ; les noms des talents restent à décoder avant d'attribuer tout l'écart à la rotation."
+      },
+      "statSynergy": {
+        "azåelle": {
+          "crit": 940,
+          "mastery": 945,
+          "highestSecondary": "mastery"
+        },
+        "ryenna": {
+          "crit": 1482,
+          "mastery": 1006,
+          "highestSecondary": "crit"
+        },
+        "interpretation": "Azaelle a la Maîtrise légèrement au-dessus du Crit, alors que la référence a nettement plus de Crit. C'est une piste de build importante pour Fel-Scarred et Know Your Enemy, mais pas une preuve isolée : les talents, le niveau d'objet et un sim doivent confirmer la perte réelle.",
+        "source": "report CombatantInfo + Method/Wowhead S2"
+      },
+      "burningWoundPreAuraCheck": {
+        "source": "fallback_graphql_probe",
+        "window": "first pack",
+        "spellChecked": {
+          "throwGlaive": 185123,
+          "immolationAura": 258920,
+          "burningWound": 391191
+        },
+        "azåelle": {
+          "firstImmolationAuraRelative": "+7.66s",
+          "manualThrowGlaiveBeforeAura": false,
+          "burningWoundApplicationsReturned": 0
+        },
+        "ryenna": {
+          "firstImmolationAuraRelative": "+9.62s",
+          "manualThrowGlaiveBeforeAura": false,
+          "burningWoundApplicationsReturned": 0
+        },
+        "interpretation": "Ryenna ne lance pas de Throw Glaive manuel avant sa première Aura dans la timeline des casts. Les événements ne remontent pas les applications de Burning Wound dans cette requête ; Demon Blades ou une interaction automatique peuvent donc déjà avoir posé les DoT. Ne pas conclure que le bonus est absent sans lire les auras privées ou les dégâts de l'Aura par cible."
+      },
+      "eventSequenceComparison": {
+        "source": "mcp_get_events_Casts",
+        "window": "Avatar of Sethraliss",
+        "azåelleFirstBurst": [
+          "Immolation Aura +4.18s",
+          "Felblade +5.51s",
+          "Eye Beam +8.51s",
+          "The Hunt +11.18s",
+          "Essence Break +11.54s",
+          "Death Sweep +12.63s",
+          "Death Sweep +13.70s",
+          "Annihilation +14.79s",
+          "Vengeful Retreat +14.94s",
+          "Metamorphosis +16.75s",
+          "Death Sweep +16.99s",
+          "Abyssal Gaze +21.50s"
+        ],
+        "ryennaFirstBurst": [
+          "Blade Dance +6.75s",
+          "Vengeful Retreat +8.56s",
+          "Eye Beam +8.95s",
+          "The Hunt +11.63s",
+          "Annihilation +12.92s",
+          "Fel Rush +14.86s",
+          "Blade Dance +16.09s",
+          "Metamorphosis +18.84s",
+          "Abyssal Gaze +19.86s",
+          "Death Sweep +21.75s",
+          "Death Sweep +22.83s"
+        ],
+        "observations": [
+          "Azåelle place Essence Break 5.2 secondes avant Metamorphosis ; son premier Abyssal Gaze arrive 4.75 secondes après Metamorphosis.",
+          "Ryenna enchaîne Metamorphosis puis Abyssal Gaze en 1.02 seconde, puis deux Death Sweep rapprochés.",
+          "Ces timestamps ne suffisent pas à condamner le délai post-Meta : l'opener multicible S2 place volontairement Metamorphosis au milieu et demande de consommer les resets avant puis après. La vraie question est la densité et la valeur des casts dans chacune des deux moitiés."
+        ]
+      }
+    }
+  ],
+  "eventProbe": {
+    "fightID": 1,
+    "player": "Azåelle",
+    "actorID": 5,
+    "dataType": "Casts",
+    "startMs": 1480164,
+    "endMs": 1672168,
+    "currentMcp": {
+      "timestamps": true,
+      "readableNames": false,
+      "returnedFields": ["timestamp", "type", "sourceID", "targetID", "abilityGameID"],
+      "nextPageTimestamp": 1588828
+    },
+    "fork": {
+      "timestamps": true,
+      "readableNames": true,
+      "sample": {
+        "timestamp": 1486913,
+        "type": "cast",
+        "ability": "Blade Dance",
+        "source": "Azåelle",
+        "target": "Environment"
+      },
+      "branch": "codex/timestamps",
+      "repository": "https://github.com/Kalteew/warcraftlogs-mcp"
+    },
+    "conclusion": "Le MCP actuel sait déjà récupérer les timestamps avec get_events ; le fork rend la timeline lisible sans mapping manuel des IDs."
+  },
+  "firstPackEventEvidence": {
+    "source": "fallback_graphql_probe",
+    "reason": "WCL MCP tool was not exposed in this turn; narrow event query preserved for the report history.",
+    "pullWindowMs": {
+      "start": 69189,
+      "end": 121827
+    },
+    "eventCount": 43,
+    "deathAtMs": 80150,
+    "deathRelativeToPullStart": "+10.96s",
+    "preDeathSequence": [
+      "Fel Rush +0.50s",
+      "Immolation Aura +7.66s",
+      "Vengeful Retreat +10.55s"
+    ],
+    "sequenceRelativeToPullStart": [
+      "Fel Rush +0.50s",
+      "Immolation Aura +7.66s",
+      "Vengeful Retreat +10.55s",
+      "Felblade +18.11s",
+      "Blade Dance +23.46s",
+      "Eye Beam +26.96s",
+      "The Hunt +29.80s",
+      "Immolation Aura +30.32s",
+      "Death Sweep +31.15s",
+      "Essence Break +32.18s",
+      "Death Sweep +33.16s",
+      "Felblade +35.67s",
+      "Metamorphosis +43.45s",
+      "Abyssal Gaze +43.88s",
+      "Death Sweep +45.55s",
+      "Annihilation +46.48s",
+      "Consuming Fire +47.33s",
+      "Death Sweep +49.15s",
+      "Annihilation +51.20s"
+    ],
+    "comparisonToReference": {
+      "reference": "Ryenna first pack in gvaZntRG7rBXLhz6",
+      "finding": "The first loss is even more basic than the cast order: Azåelle dies at +10.96s, before Eye Beam and The Hunt. After the re-entry, the post-Meta reset itself is present and fast; the remaining rotation issue is the pre-Meta half: Hunt-to-Essence Break is about 2.4s instead of about 0.7s, and no Annihilation is visible between the last pre-Meta Death Sweep and Metamorphosis.",
+      "confidence": "medium",
+      "caveat": "Different key level, route and pack timing; compare opener structure, not raw damage totals."
+    }
   },
   "conclusions": {
     "confirmed": [
@@ -73,5 +336,67 @@
       "La performance Havoc d'Azaelle doit être séparée entre morts, uptime et rotation.",
       "Comparer Kalteew à d'autres Protection Warriors seulement sur demande."
     ]
+  },
+  "protectionWarriorAnalysis": {
+    "capturedAt": "2026-09-20",
+    "source": "fallback_graphql_wcl_api",
+    "deathAnalysis": {
+      "timestampMs": 191084,
+      "relativeSeconds": 131.37,
+      "deathWindowMs": 17315,
+      "killingBlow": "Melee",
+      "damageTotal": 4407175,
+      "damageReduced": 3231804,
+      "blocked": 1069397,
+      "mainSources": [
+        {"name": "Shrouded Fang", "total": 1856559, "totalReduced": 1358039},
+        {"name": "Sandfury Stonefist", "total": 1161554, "totalReduced": 678885},
+        {"name": "Storm Adept", "total": 825568, "totalReduced": 677181}
+      ],
+      "lastRelevantCasts": [
+        "Shield Block +118.71s",
+        "Shield Wall +122.16s",
+        "Ignore Pain +125.65s",
+        "Shield Slam +130.07s",
+        "Mort à +131.37s"
+      ],
+      "interpretation": "La mort vient d'une saturation du pack : plusieurs sources mêlées et magiques frappent dans les 17,3 dernières secondes. Le dernier gros défensif arrive environ 9 secondes avant la mort, puis la fenêtre finale reste peu couverte."
+    },
+    "benchmark": {
+      "reportCode": "1JAaFn4b6RpXVKm7",
+      "fightID": 4,
+      "player": "Targramu",
+      "server": "Emerald Dream",
+      "region": "US",
+      "dungeon": "Temple of Sethraliss",
+      "keyLevel": 12,
+      "durationMs": 1120517,
+      "rating": 380,
+      "deaths": 3,
+      "enemyForces": {"reached": 650, "required": 687},
+      "affixIDs": [9, 10, 147],
+      "wclActiveDPS": 188617.28,
+      "wclRanking": {"metric": "playerscore", "rankPercent": 100, "totalParses": 15204},
+      "itemLevel": 324,
+      "stats": {"haste": 1146, "crit": 1407, "mastery": 467, "versatility": 103, "leech": 0},
+      "cooldowns": {
+        "Avatar": 18,
+        "ShieldBlock": 92,
+        "IgnorePain": 242,
+        "DemoralizingShout": 36,
+        "SpellReflection": 14,
+        "ShieldWall": 4
+      },
+      "interpretation": "La comparaison sert surtout à la structure des pulls et au rythme des outils, pas à copier une rotation brute : la route et la composition diffèrent."
+    },
+    "comparison": {
+      "userWclActiveDPS": 149090.79,
+      "benchmarkWclActiveDPS": 188617.28,
+      "userActiveTimeMs": 1612926,
+      "benchmarkActiveTimeMs": 1084037,
+      "normalizedObservation": "Ton temps actif est d'environ 88,1% contre 96,7% pour Targramu. À durée de combat, il lance Avatar plus souvent (0,96/min contre 0,72/min), Ignore Pain plus souvent (13,0/min contre 10,0/min) et Spell Reflection beaucoup plus souvent (0,75/min contre 0,03/min).",
+      "priority": "Priorité unique : sécuriser les packs physiques dangereux avec Shield Block/Ignore Pain et un cooldown réservé à la fin du pull ; ensuite seulement travailler le DPS et le rythme d'Avatar/Ravager.",
+      "secondaryHypothesis": "Ton équipement est plus orienté maîtrise/versatilité/leech (672/569/331) que le benchmark (467/103/0), qui a beaucoup plus de crit/haste (1407/1146 contre 721/1003). C'est une piste DPS à simuler, pas une correction certaine de survie."
+    }
   }
 }
