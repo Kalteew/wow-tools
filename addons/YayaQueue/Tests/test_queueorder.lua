@@ -65,6 +65,15 @@ local CTX = {
     gearRank = GearRank,
 }
 
+local MATERIAL_CTX = {
+    claimedOrderID = CLAIMED_ORDER,
+    currentProfessionID = OPEN_PROFESSION,
+    gearRank = GearRank,
+    hasMaterials = function(entry)
+        return entry.testHasMaterials ~= false
+    end,
+}
+
 --- Entree de file minimale : `name` sert a lire l'ordre obtenu.
 local function Entry(name, fields)
     local entry = { recipeName = name, queueKind = "recipe", professionID = OPEN_PROFESSION }
@@ -186,6 +195,21 @@ equals("un profit non numerique vaut inconnu", d.hasKnownProfit, false)
 equals("aucune valeur pour un profit inconnu", d.profitValue, nil)
 d = QueueOrder.Describe(Entry("profit", { profitKnown = false, profitValue = 1500 }), 1, CTX)
 equals("profitKnown false vaut inconnu malgre la valeur", d.hasKnownProfit, false)
+
+d = QueueOrder.Describe(Entry("sans materiaux", { testHasMaterials = false }), 1, MATERIAL_CTX)
+equals("materiaux indisponibles exposes", d.hasMaterials, false)
+
+equals("les crafts avec materiaux passent avant ceux bloques",
+    SortedNames({
+        Entry("bloque", { testHasMaterials = false, profitKnown = true, profitValue = 9999 }),
+        Entry("pret", { testHasMaterials = true, profitKnown = true, profitValue = 1 }),
+    }, "standard", MATERIAL_CTX), "pret,bloque")
+
+equals("les fusions gardent leur priorite de dependance",
+    SortedNames({
+        Entry("pret", { testHasMaterials = true }),
+        Entry("fusion", { queueKind = "merge", testHasMaterials = false }),
+    }, "standard", MATERIAL_CTX), "fusion,pret")
 
 d = QueueOrder.Describe(Entry("pierre", {
     outputItemID = PHILOSOPHER_STONE_ITEM_ID,

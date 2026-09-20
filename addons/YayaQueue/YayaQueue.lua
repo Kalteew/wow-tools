@@ -5665,6 +5665,9 @@ state.GetQueueOrderContext = function()
         claimedOrderID = state.GetClaimedPatronOrderID(),
         currentProfessionID = state.GetCurrentProfessionID and state.GetCurrentProfessionID() or nil,
         professionKey = state.GetQueueProfessionKey,
+        hasMaterials = function(entry)
+            return state.GetQueueEntryHasMaterials(entry)
+        end,
         gearRank = function(entry)
             return state.craftGear.GetEntrySortRank(entry)
         end,
@@ -5768,6 +5771,18 @@ local function GetEntryResourceState(entry)
     SortTaskList(auctionTasks)
     SortTaskList(acquireTasks)
     return mailboxTasks, vendorTasks, auctionTasks, acquireTasks
+end
+
+-- Un craft normal sans stock utilisable est garde en bas de la file. Les
+-- objets en banque comptent deja via GetTotalOwnedCount ; le courrier reste
+-- bloque jusqu'a sa recuperation et passe donc dans le bloc des materiaux
+-- indisponibles.
+state.GetQueueEntryHasMaterials = function(entry)
+    local mailboxTasks, vendorTasks, auctionTasks, acquireTasks = GetEntryResourceState(entry)
+    return #mailboxTasks == 0
+        and #vendorTasks == 0
+        and #auctionTasks == 0
+        and #acquireTasks == 0
 end
 
 local function BuildQueueSummary()

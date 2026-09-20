@@ -73,6 +73,7 @@ end
 --   currentProfessionID metier ouvert, nil si aucun
 --   professionKey       fonction(professionID) -> cle de famille du metier
 --   gearRank            fonction(entry) -> rang d'outil a equiper (0 = rien)
+--   hasMaterials        fonction(entry) -> materiaux disponibles pour un craft
 --
 -- Le descripteur fige tout ce que la comparaison lit : la cascade ne relit
 -- jamais l'entree, donc une mutation de la file pendant un tri ne peut pas
@@ -96,6 +97,10 @@ function QueueOrder.Describe(entry, index, ctx)
     local gearRank = 0
     if type(ctx.gearRank) == "function" then
         gearRank = tonumber(ctx.gearRank(entry)) or 0
+    end
+    local hasMaterials = true
+    if isNormalCraft and type(ctx.hasMaterials) == "function" then
+        hasMaterials = ctx.hasMaterials(entry) ~= false
     end
     local hasKnownProfit = entry.profitKnown == true and type(entry.profitValue) == "number"
 
@@ -121,6 +126,7 @@ function QueueOrder.Describe(entry, index, ctx)
         -- Une fusion sans profondeur passe apres toutes celles qui en ont une.
         mergeDepth = isMerge and (tonumber(entry.mergeDepth) or math.huge) or nil,
         gearRank = gearRank,
+        hasMaterials = hasMaterials,
         hasKnownProfit = hasKnownProfit,
         profitValue = hasKnownProfit and entry.profitValue or nil,
     }
@@ -147,6 +153,16 @@ local function CompareMerge(left, right)
     end
     if left.isMerge and left.mergeDepth ~= right.mergeDepth then
         return left.mergeDepth < right.mergeDepth
+    end
+    return nil
+end
+
+-- Un craft sans materiaux ne doit pas bloquer un craft executable. Les
+-- commandes patron, salvage et fusions restent traitees par les invariants
+-- precedents : leurs dependances ont une semantique propre pour Next.
+local function CompareMaterials(left, right)
+    if left.hasMaterials ~= right.hasMaterials then
+        return left.hasMaterials
     end
     return nil
 end
@@ -207,6 +223,10 @@ function QueueOrder.Compare(left, right, mode)
     end
     if left.isSalvage ~= right.isSalvage then
         return left.isSalvage
+    end
+    local materialsResult = CompareMaterials(left, right)
+    if materialsResult ~= nil then
+        return materialsResult
     end
 
     local steps = MODE_STEPS[QueueOrder.NormalizeMode(mode)]
