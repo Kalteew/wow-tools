@@ -93,5 +93,74 @@
       "Kalteew",
       "Spahz"
     ]
+  },
+  "playerMetrics": {
+    "kalteew": {
+      "stats": {
+        "strength": 2590,
+        "agility": 431,
+        "stamina": 63881,
+        "intellect": 423,
+        "crit": 714,
+        "haste": 852,
+        "mastery": 667,
+        "versatility": 569,
+        "armor": 6581
+      },
+      "gear": {
+        "itemLevelAverage": 318.5625,
+        "itemLevelMax": 334,
+        "equippedSlots": 16,
+        "gems": 4,
+        "setPieces": 5
+      },
+      "casts": {
+        "total": 1394,
+        "perMinute": 59.87115246957766,
+        "cooldowns": [
+          {
+            "name": "Avatar",
+            "casts": 19
+          },
+          {
+            "name": "Disrupting Shout",
+            "casts": 4
+          },
+          {
+            "name": "Shield Wall",
+            "casts": 3
+          },
+          {
+            "name": "Demoralizing Shout",
+            "casts": 35
+          },
+          {
+            "name": "Ravager",
+            "casts": 21
+          },
+          {
+            "name": "Spell Reflection",
+            "casts": 1
+          }
+        ],
+        "cooldownTotal": 83,
+        "cooldownsPerMinute": 3.5647816750178953,
+        "trackedCooldownNames": [
+          "Avatar",
+          "Ravager",
+          "Shield Wall",
+          "Last Stand",
+          "Demoralizing Shout",
+          "Disrupting Shout",
+          "Spell Reflection",
+          "Thunderous Roar"
+        ]
+      },
+      "sourceName": "Kalteew",
+      "actorID": 6,
+      "spec": "Protection",
+      "capturedAt": "2026-09-20",
+      "source": "mcp"
+    }
   }
 }

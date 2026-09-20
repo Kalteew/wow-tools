@@ -98,5 +98,74 @@
     "capturedAt": "2026-09-20",
     "values": {},
     "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  },
+  "playerMetrics": {
+    "kalteew": {
+      "stats": {
+        "strength": 2807,
+        "agility": 431,
+        "stamina": 64691,
+        "intellect": 435,
+        "crit": 721,
+        "haste": 1003,
+        "mastery": 672,
+        "versatility": 569,
+        "armor": 6803
+      },
+      "gear": {
+        "itemLevelAverage": 321,
+        "itemLevelMax": 334,
+        "equippedSlots": 16,
+        "gems": 4,
+        "setPieces": 5
+      },
+      "casts": {
+        "total": 1721,
+        "perMinute": 56.42622950819672,
+        "cooldowns": [
+          {
+            "name": "Disrupting Shout",
+            "casts": 3
+          },
+          {
+            "name": "Ravager",
+            "casts": 22
+          },
+          {
+            "name": "Shield Wall",
+            "casts": 10
+          },
+          {
+            "name": "Avatar",
+            "casts": 22
+          },
+          {
+            "name": "Demoralizing Shout",
+            "casts": 44
+          },
+          {
+            "name": "Spell Reflection",
+            "casts": 1
+          }
+        ],
+        "cooldownTotal": 102,
+        "cooldownsPerMinute": 3.3442622950819674,
+        "trackedCooldownNames": [
+          "Avatar",
+          "Ravager",
+          "Shield Wall",
+          "Last Stand",
+          "Demoralizing Shout",
+          "Disrupting Shout",
+          "Spell Reflection",
+          "Thunderous Roar"
+        ]
+      },
+      "sourceName": "Kalteew",
+      "actorID": 21,
+      "spec": "Protection",
+      "capturedAt": "2026-09-18",
+      "source": "mcp"
+    }
   }
 }

@@ -98,5 +98,142 @@
     "capturedAt": "2026-09-20",
     "values": {},
     "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  },
+  "playerMetrics": {
+    "kalteew": {
+      "stats": {
+        "strength": 2121,
+        "agility": 431,
+        "stamina": 54334,
+        "intellect": 435,
+        "crit": 711,
+        "haste": 793,
+        "mastery": 601,
+        "versatility": 780,
+        "armor": 5929
+      },
+      "gear": {
+        "itemLevelAverage": 308.4375,
+        "itemLevelMax": 331,
+        "equippedSlots": 16,
+        "gems": 1,
+        "setPieces": 3
+      },
+      "casts": {
+        "total": 1336,
+        "perMinute": 59.24611973392461,
+        "cooldowns": [
+          {
+            "name": "Demoralizing Shout",
+            "casts": 25
+          },
+          {
+            "name": "Spell Reflection",
+            "casts": 2
+          },
+          {
+            "name": "Shield Wall",
+            "casts": 7
+          },
+          {
+            "name": "Avatar",
+            "casts": 22
+          }
+        ],
+        "cooldownTotal": 56,
+        "cooldownsPerMinute": 2.483370288248337,
+        "trackedCooldownNames": [
+          "Avatar",
+          "Ravager",
+          "Shield Wall",
+          "Last Stand",
+          "Demoralizing Shout",
+          "Disrupting Shout",
+          "Spell Reflection",
+          "Thunderous Roar"
+        ]
+      },
+      "sourceName": "Kalteew",
+      "actorID": 7,
+      "spec": "Protection",
+      "capturedAt": "2026-08-27",
+      "source": "mcp"
+    },
+    "kylse": {
+      "stats": {
+        "strength": 673,
+        "agility": 218,
+        "stamina": 34782,
+        "intellect": 3100,
+        "crit": 565,
+        "haste": 851,
+        "mastery": 1055,
+        "versatility": 216,
+        "armor": 3821
+      },
+      "gear": {
+        "itemLevelAverage": 306.625,
+        "itemLevelMax": 331,
+        "equippedSlots": 16,
+        "gems": 4,
+        "setPieces": 2
+      },
+      "casts": {
+        "total": 861,
+        "perMinute": 38.18181818181818,
+        "cooldowns": [
+          {
+            "name": "Divine Protection",
+            "casts": 9
+          },
+          {
+            "name": "Blessing of Sacrifice",
+            "casts": 6
+          },
+          {
+            "name": "Holy Bulwark",
+            "casts": 20
+          },
+          {
+            "name": "Lay on Hands",
+            "casts": 4
+          },
+          {
+            "name": "Sacred Weapon",
+            "casts": 18
+          },
+          {
+            "name": "Avenging Wrath",
+            "casts": 12
+          },
+          {
+            "name": "Divine Shield",
+            "casts": 1
+          },
+          {
+            "name": "Aura Mastery",
+            "casts": 5
+          }
+        ],
+        "cooldownTotal": 75,
+        "cooldownsPerMinute": 3.325942350332594,
+        "trackedCooldownNames": [
+          "Avenging Wrath",
+          "Divine Toll",
+          "Aura Mastery",
+          "Blessing of Sacrifice",
+          "Lay on Hands",
+          "Divine Protection",
+          "Sacred Weapon",
+          "Holy Bulwark",
+          "Divine Shield"
+        ]
+      },
+      "sourceName": "Kylse",
+      "actorID": 6,
+      "spec": "Holy",
+      "capturedAt": "2026-08-27",
+      "source": "mcp"
+    }
   }
 }

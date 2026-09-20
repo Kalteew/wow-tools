@@ -93,5 +93,74 @@
       "Kalteew",
       "Ahérys"
     ]
+  },
+  "playerMetrics": {
+    "kalteew": {
+      "stats": {
+        "strength": 2590,
+        "agility": 431,
+        "stamina": 63715,
+        "intellect": 435,
+        "crit": 714,
+        "haste": 852,
+        "mastery": 667,
+        "versatility": 569,
+        "armor": 6581
+      },
+      "gear": {
+        "itemLevelAverage": 318.5625,
+        "itemLevelMax": 334,
+        "equippedSlots": 16,
+        "gems": 4,
+        "setPieces": 5
+      },
+      "casts": {
+        "total": 1940,
+        "perMinute": 52.98133818843878,
+        "cooldowns": [
+          {
+            "name": "Shield Wall",
+            "casts": 9
+          },
+          {
+            "name": "Ravager",
+            "casts": 26
+          },
+          {
+            "name": "Avatar",
+            "casts": 25
+          },
+          {
+            "name": "Demoralizing Shout",
+            "casts": 50
+          },
+          {
+            "name": "Disrupting Shout",
+            "casts": 5
+          },
+          {
+            "name": "Spell Reflection",
+            "casts": 4
+          }
+        ],
+        "cooldownTotal": 119,
+        "cooldownsPerMinute": 3.24988620846609,
+        "trackedCooldownNames": [
+          "Avatar",
+          "Ravager",
+          "Shield Wall",
+          "Last Stand",
+          "Demoralizing Shout",
+          "Disrupting Shout",
+          "Spell Reflection",
+          "Thunderous Roar"
+        ]
+      },
+      "sourceName": "Kalteew",
+      "actorID": 1,
+      "spec": "Protection",
+      "capturedAt": "2026-09-20",
+      "source": "mcp"
+    }
   }
 }

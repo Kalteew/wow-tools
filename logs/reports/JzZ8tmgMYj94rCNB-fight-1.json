@@ -93,5 +93,70 @@
       "Kalteew",
       "Paladresh"
     ]
+  },
+  "playerMetrics": {
+    "kalteew": {
+      "stats": {
+        "strength": 2827,
+        "agility": 431,
+        "stamina": 65032,
+        "intellect": 435,
+        "crit": 724,
+        "haste": 1005,
+        "mastery": 690,
+        "versatility": 555,
+        "armor": 6824
+      },
+      "gear": {
+        "itemLevelAverage": 322.25,
+        "itemLevelMax": 334,
+        "equippedSlots": 16,
+        "gems": 4,
+        "setPieces": 5
+      },
+      "casts": {
+        "total": 1338,
+        "perMinute": 64.53376205787781,
+        "cooldowns": [
+          {
+            "name": "Disrupting Shout",
+            "casts": 3
+          },
+          {
+            "name": "Demoralizing Shout",
+            "casts": 28
+          },
+          {
+            "name": "Ravager",
+            "casts": 19
+          },
+          {
+            "name": "Shield Wall",
+            "casts": 2
+          },
+          {
+            "name": "Avatar",
+            "casts": 18
+          }
+        ],
+        "cooldownTotal": 70,
+        "cooldownsPerMinute": 3.3762057877813505,
+        "trackedCooldownNames": [
+          "Avatar",
+          "Ravager",
+          "Shield Wall",
+          "Last Stand",
+          "Demoralizing Shout",
+          "Disrupting Shout",
+          "Spell Reflection",
+          "Thunderous Roar"
+        ]
+      },
+      "sourceName": "Kalteew",
+      "actorID": 3,
+      "spec": "Protection",
+      "capturedAt": "2026-09-20",
+      "source": "mcp"
+    }
   }
 }

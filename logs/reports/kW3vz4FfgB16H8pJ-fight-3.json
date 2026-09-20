@@ -93,5 +93,74 @@
       "Kalteew",
       "Seyyahbey"
     ]
+  },
+  "playerMetrics": {
+    "kalteew": {
+      "stats": {
+        "strength": 2590,
+        "agility": 431,
+        "stamina": 63715,
+        "intellect": 423,
+        "crit": 714,
+        "haste": 852,
+        "mastery": 667,
+        "versatility": 569,
+        "armor": 6581
+      },
+      "gear": {
+        "itemLevelAverage": 318.5625,
+        "itemLevelMax": 334,
+        "equippedSlots": 16,
+        "gems": 4,
+        "setPieces": 5
+      },
+      "casts": {
+        "total": 1206,
+        "perMinute": 60.75566750629722,
+        "cooldowns": [
+          {
+            "name": "Avatar",
+            "casts": 16
+          },
+          {
+            "name": "Disrupting Shout",
+            "casts": 4
+          },
+          {
+            "name": "Shield Wall",
+            "casts": 2
+          },
+          {
+            "name": "Demoralizing Shout",
+            "casts": 29
+          },
+          {
+            "name": "Ravager",
+            "casts": 16
+          },
+          {
+            "name": "Spell Reflection",
+            "casts": 1
+          }
+        ],
+        "cooldownTotal": 68,
+        "cooldownsPerMinute": 3.4256926952141056,
+        "trackedCooldownNames": [
+          "Avatar",
+          "Ravager",
+          "Shield Wall",
+          "Last Stand",
+          "Demoralizing Shout",
+          "Disrupting Shout",
+          "Spell Reflection",
+          "Thunderous Roar"
+        ]
+      },
+      "sourceName": "Kalteew",
+      "actorID": 6,
+      "spec": "Protection",
+      "capturedAt": "2026-09-20",
+      "source": "mcp"
+    }
   }
 }

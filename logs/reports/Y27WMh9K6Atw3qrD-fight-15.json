@@ -98,5 +98,79 @@
     "capturedAt": "2026-09-20",
     "values": {},
     "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+  },
+  "playerMetrics": {
+    "kylse": {
+      "stats": {
+        "strength": 673,
+        "agility": 218,
+        "stamina": 36565,
+        "intellect": 3480,
+        "crit": 459,
+        "haste": 1217,
+        "mastery": 758,
+        "versatility": 230,
+        "armor": 4125
+      },
+      "gear": {
+        "itemLevelAverage": 311.3125,
+        "itemLevelMax": 331,
+        "equippedSlots": 16,
+        "gems": 4,
+        "setPieces": 4
+      },
+      "casts": {
+        "total": 799,
+        "perMinute": 36.31818181818182,
+        "cooldowns": [
+          {
+            "name": "Aura Mastery",
+            "casts": 3
+          },
+          {
+            "name": "Avenging Wrath",
+            "casts": 13
+          },
+          {
+            "name": "Blessing of Sacrifice",
+            "casts": 3
+          },
+          {
+            "name": "Divine Protection",
+            "casts": 2
+          },
+          {
+            "name": "Sacred Weapon",
+            "casts": 20
+          },
+          {
+            "name": "Lay on Hands",
+            "casts": 2
+          },
+          {
+            "name": "Holy Bulwark",
+            "casts": 21
+          }
+        ],
+        "cooldownTotal": 64,
+        "cooldownsPerMinute": 2.909090909090909,
+        "trackedCooldownNames": [
+          "Avenging Wrath",
+          "Divine Toll",
+          "Aura Mastery",
+          "Blessing of Sacrifice",
+          "Lay on Hands",
+          "Divine Protection",
+          "Sacred Weapon",
+          "Holy Bulwark",
+          "Divine Shield"
+        ]
+      },
+      "sourceName": "Kylse",
+      "actorID": 1292,
+      "spec": "Holy",
+      "capturedAt": "2026-09-08",
+      "source": "mcp"
+    }
   }
 }
