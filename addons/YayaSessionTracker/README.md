@@ -7,7 +7,18 @@ Ce que suit le MVP :
 - une session = `login -> logout`
 - nouvelle session a chaque reconnexion
 - frame compacte mise a jour toutes les `15s`
-- `XP/h` affiche si le perso n'est pas au niveau max
+- `XP/h` ou `Niveaux/h` s'affiche selon la vue active, jamais les deux dans le dashboard
+- sessions XP dediees : elles commencent au premier gain d'XP reel, ferment apres
+  3 minutes sans gain, se decoupent lors d'un changement de specialisation et
+  s'arretent au niveau 80 dans le mode `Niveaux 1-80` (aucun recours a `/played`) ;
+  le mode `Niveaux 80-90` utilise un historique XP separe
+- historique XP avec classe, specialisation, role, zone, niveau de depart/fin,
+  tranche de niveau 10 par defaut, XP gagnee, temps actif, XP/h, nombre de gains et plus
+  gros gain
+- repartition XP par source (`Quêtes`, `Combats`, `Donjons`, `Autre / inconnue`) avec XP/h
+  et Niveaux/h ; les anciennes sessions sont conservees dans `Autre / inconnue`
+- statistiques cumulees par classe, specialisation, zone, tranche de niveau et couple
+  zone/tranche ; `/yst xp` les affiche dans le chat
 - `Coin/h` affiche les gains de Corrosive Coin (ID devise `3448`) si la session en contient
 - gold net de session via `PLAYER_MONEY`
 - items recuperes via `CHAT_MSG_LOOT`
@@ -16,6 +27,15 @@ Ce que suit le MVP :
 - utilise aussi la moyenne de `YayaContainerValues` quand l'item est un container suivi
 - les items gris sont valorises au prix vendeur
 - bouton `R` dans le bandeau `Session` pour reinitialiser la session
+- bouton `Stats` dans le bandeau `Session` pour ouvrir le dashboard KPI XP
+- dashboard KPI avec filtres chaines Classe -> Spe -> Zone -> Niveau, graphiques recalcules,
+  barres par classe/spe, zones, tranches de niveau et tendance des sessions
+- graphique KPI dedie aux sources XP, disponible en XP/h ou Niveaux/h
+- lignes de classe et de specialisation colorees selon la classe WoW ; l'agregat de classe
+  indique le nombre de spes couvertes et disparait quand une seule spe le rend redondant
+- boutons persistants du dashboard : jeu de donnees `Niveaux 1-80` ou `Niveaux 80-90`, XP/h ou Niveaux/h, et tranches de 5, 10 ou 20 niveaux
+- zones XP regroupées par zone de carte, pas par sous-zone ; les anciennes salles connues sont fusionnées
+- `/yst stats` ouvre ou ferme aussi le dashboard ; `/yst xp` conserve le resume texte
 - valeurs alignees a droite dans leur propre colonne, ligne `Total` (or + loot), et les cinq meilleurs objets de la session dans l'infobulle de la ligne `Loot`
 - activites stockees pour :
 - `Shadowlands mission table`
@@ -35,6 +55,10 @@ Ce qui est ignore :
 SavedVariables :
 
 - `YayaSessionTrackerDB.sessions`
+- `YayaSessionTrackerDB.xpSessions`
+- `YayaSessionTrackerDB.xpSessions80to90`
+- `YayaSessionTrackerDB.activeXPSession` et `YayaSessionTrackerDB.activeXPSession80to90`
+- `YayaSessionTrackerDB.nextXPSessionID`
 - `YayaSessionTrackerDB.knownCharacters`
 - `YayaSessionTrackerDB.activities`
 - `YayaSessionTrackerDB.shadowlandsMissionHistory`

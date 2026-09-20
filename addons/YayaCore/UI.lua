@@ -1431,6 +1431,20 @@ function UI.CreateDropdown(parent, text, opts)
     end
     container.dropdown = dropdown
 
+    --- Remplace les choix sans recreer le composant.
+    --
+    -- Le callback du menu moderne et celui du menu legacy lisent tous deux
+    -- cette fermeture, ce qui permet aux panneaux de reconstruire leurs
+    -- filtres sans empiler des frames cachees a chaque mise a jour.
+    function container.SetChoices(first, second)
+        local nextChoices = second
+        if type(first) == "table" and first ~= container then
+            nextChoices = first
+        end
+        choices = type(nextChoices) == "table" and nextChoices or {}
+        container.Refresh()
+    end
+
     --- Grise ou reactive la liste.
     function container.SetEnabled(first, second)
         local enabled = ResolveEnabledArg(container, first, second)

@@ -1,4 +1,6 @@
 local addonName = ...
+local XPTracker = YayaSessionTrackerXP
+local trackerUI = {}
 
 local UPDATE_INTERVAL_SECONDS = 15
 local IGNORE_WINDOW_SECONDS = 10
@@ -34,6 +36,8 @@ local trackerFrame
 local trackerCollapsed = false
 local updateTicker
 local activeSession
+local activeXPSession
+local xpCursor
 local lastMoney
 local UpdateFrame
 local lootPatterns = {}
@@ -57,6 +61,11 @@ local missionHistoryByID = {}
 local missionHistoryByMissionID = {}
 local lastMissionReportSeenAt = {}
 local knownInProgressMissions = {}
+
+trackerUI.xpSourceState = trackerUI.xpSourceState or {
+    questUntil = 0,
+    combatUntil = 0,
+}
 
 local function GetNow()
     return time and time() or 0
@@ -162,14 +171,43 @@ local function GetSettings()
     if not db.settings.priceSource or LEGACY_PRICE_SOURCES[db.settings.priceSource] then
         db.settings.priceSource = DEFAULT_PRICE_SOURCE
     end
+    local bandSize = tonumber(db.settings.xpLevelBandSize)
+    if bandSize ~= 5 and bandSize ~= 10 and bandSize ~= 20 then
+        db.settings.xpLevelBandSize = 10
+    else
+        db.settings.xpLevelBandSize = bandSize
+    end
+    if db.settings.xpDashboardMetric ~= "levels" and db.settings.xpDashboardMetric ~= "xph" then
+        db.settings.xpDashboardMetric = "xph"
+    end
+    if db.settings.xpTrackingMode ~= XPTracker.MODE_BELOW_80
+        and db.settings.xpTrackingMode ~= XPTracker.MODE_80_TO_90 then
+        db.settings.xpTrackingMode = XPTracker.MODE_BELOW_80
+    end
     db.settings.position = db.settings.position or {}
     return db.settings
+end
+
+function trackerUI.GetXPTrackingMode()
+    return XPTracker.NormalizeMode(GetSettings().xpTrackingMode)
+end
+
+function trackerUI.GetXPModeConfig()
+    return XPTracker.GetModeConfig(trackerUI.GetXPTrackingMode())
 end
 
 local function GetSessions()
     local db = GetAccountDB()
     db.sessions = db.sessions or {}
     return db.sessions
+end
+
+local function GetXPSessions(mode)
+    local db = GetAccountDB()
+    mode = XPTracker.NormalizeMode(mode or trackerUI.GetXPTrackingMode())
+    local field = XPTracker.GetSessionStoreField(mode)
+    db[field] = db[field] or {}
+    return db[field]
 end
 
 local function GetActivities()
@@ -418,8 +456,30 @@ local function TrimSessions()
     end
 end
 
+local function TrimXPSessions(mode)
+    local sessions = GetXPSessions(mode)
+    while #sessions > XPTracker.MAX_SESSIONS do
+        table.remove(sessions, 1)
+    end
+end
+
 local function GetCurrentZoneName()
-    return GetRealZoneText and GetRealZoneText() or GetZoneText and GetZoneText() or ""
+    local zone = GetZoneText and GetZoneText() or nil
+    if not zone or zone == "" then
+        if C_Map and type(C_Map.GetBestMapForUnit) == "function"
+            and type(C_Map.GetMapInfo) == "function" then
+            local mapID = C_Map.GetBestMapForUnit("player")
+            local mapInfo = mapID and C_Map.GetMapInfo(mapID)
+            zone = mapInfo and mapInfo.name
+        end
+    end
+    if not zone or zone == "" then
+        zone = GetRealZoneText and GetRealZoneText() or ""
+    end
+    if XPTracker and type(XPTracker.GetZoneName) == "function" then
+        zone = XPTracker.GetZoneName(zone)
+    end
+    return zone or ""
 end
 
 local function GetPlayerLevel()
@@ -447,6 +507,78 @@ end
 
 local function GetCurrentXPMax()
     return UnitXPMax and UnitXPMax("player") or 0
+end
+
+local function GetCurrentXPState()
+    return XPTracker.NewCursor(GetPlayerLevel(), GetCurrentXP(), GetCurrentXPMax())
+end
+
+function trackerUI.MarkQuestXPSource()
+    trackerUI.xpSourceState.questUntil = GetNow() + 8
+end
+
+function trackerUI.MarkCombatXPSource()
+    trackerUI.xpSourceState.combatUntil = GetNow() + 12
+end
+
+function trackerUI.IsDungeonContext()
+    if not GetInstanceInfo then
+        return false
+    end
+    local _, instanceType = GetInstanceInfo()
+    return instanceType == "party" or instanceType == "scenario"
+end
+
+function trackerUI.GetXPSource()
+    local state = trackerUI.xpSourceState
+    local now = GetNow()
+    if (state.questUntil or 0) >= now then
+        return XPTracker.SOURCE_QUEST
+    end
+    if trackerUI.IsDungeonContext() then
+        return XPTracker.SOURCE_DUNGEON
+    end
+    if (state.combatUntil or 0) >= now then
+        return XPTracker.SOURCE_COMBAT
+    end
+    return XPTracker.SOURCE_OTHER
+end
+
+function trackerUI.HandleCombatLogXPSource()
+    if not CombatLogGetCurrentEventInfo then
+        return
+    end
+    local _, subevent, _, sourceGUID, _, _, _, destGUID = CombatLogGetCurrentEventInfo()
+    local playerGUID = UnitGUID and UnitGUID("player")
+    local petGUID = UnitGUID and UnitGUID("pet")
+    if subevent == "UNIT_DIED" or subevent == "PARTY_KILL"
+        or subevent == "SWING_DAMAGE" or subevent == "RANGE_DAMAGE"
+        or subevent == "SPELL_DAMAGE" or subevent == "SPELL_PERIODIC_DAMAGE" then
+        if sourceGUID == playerGUID or sourceGUID == petGUID
+            or destGUID == playerGUID or destGUID == petGUID then
+            trackerUI.MarkCombatXPSource()
+        end
+    end
+end
+
+local function GetPlayerSpecSnapshot()
+    local className, classToken, classID = UnitClass and UnitClass("player")
+    local specializationIndex = GetSpecialization and GetSpecialization()
+    local specID, specName, _, _, role
+    if specializationIndex and GetSpecializationInfo then
+        specID, specName, _, _, role = GetSpecializationInfo(specializationIndex)
+    end
+
+    local specKey = tostring(classID or classToken or "unknown") .. ":" .. tostring(specID or "unknown")
+    return {
+        specKey = specKey,
+        specID = specID,
+        specName = specName or "Inconnue",
+        role = role,
+        classID = classID,
+        className = className,
+        classToken = classToken,
+    }
 end
 
 local function NewSession()
@@ -1101,15 +1233,85 @@ local function FinalizeActiveSession(reason)
     activeSession = nil
 end
 
+local function PersistActiveXPSession()
+    local db = GetAccountDB()
+    db.activeXPSession = nil
+    db.activeXPSession80to90 = nil
+    if activeXPSession then
+        activeXPSession.trackingMode = XPTracker.NormalizeMode(activeXPSession.trackingMode)
+        db[XPTracker.GetActiveStoreField(activeXPSession.trackingMode)] = activeXPSession
+    end
+end
+
+local function StoreCompletedXPSession(session, reason, endedAt)
+    if not session or (session.xpGained or 0) <= 0 then
+        return
+    end
+
+    session.id = session.id or GetNextHistoryID("nextXPSessionID")
+    session.trackingMode = XPTracker.NormalizeMode(session.trackingMode)
+    XPTracker.Finalize(session, endedAt or GetNow(), reason)
+
+    local sessions = GetXPSessions(session.trackingMode)
+    sessions[#sessions + 1] = session
+    TrimXPSessions(session.trackingMode)
+end
+
+local function FinalizeActiveXPSession(reason)
+    if not activeXPSession then
+        PersistActiveXPSession()
+        return
+    end
+
+    StoreCompletedXPSession(activeXPSession, reason, GetNow())
+    activeXPSession = nil
+    PersistActiveXPSession()
+end
+
+local function RecoverActiveXPSession()
+    local db = GetAccountDB()
+    local recoveredBelow80 = db.activeXPSession
+    local recovered80to90 = db.activeXPSession80to90
+    db.activeXPSession = nil
+    db.activeXPSession80to90 = nil
+    if recoveredBelow80 and (recoveredBelow80.xpGained or 0) > 0 then
+        StoreCompletedXPSession(recoveredBelow80, "recovered_login", GetNow())
+    end
+    if recovered80to90 and (recovered80to90.xpGained or 0) > 0 then
+        StoreCompletedXPSession(recovered80to90, "recovered_login", GetNow())
+    end
+    activeXPSession = nil
+end
+
+local function MaintainXPTracking()
+    if not activeXPSession then
+        return
+    end
+
+    local modeConfig = XPTracker.GetModeConfig(activeXPSession.trackingMode)
+    if GetPlayerLevel() >= modeConfig.maxLevel then
+        FinalizeActiveXPSession("level_cap")
+        return
+    end
+
+    if GetNow() - (activeXPSession.lastGainAt or GetNow()) > XPTracker.IDLE_TIMEOUT_SECONDS then
+        FinalizeActiveXPSession("idle_timeout")
+    end
+end
+
 local function StartNewSession()
     local db = GetAccountDB()
     db.activeSession = nil
     activeSession = NewSession()
+    activeXPSession = nil
+    xpCursor = GetCurrentXPState()
     PersistActiveSession()
+    PersistActiveXPSession()
 end
 
 local function ResetSession()
     FinalizeActiveSession("manual_reset")
+    FinalizeActiveXPSession("manual_reset")
     ClearPendingState()
     StartNewSession()
     lastMoney = GetMoney and GetMoney() or 0
@@ -1132,8 +1334,16 @@ local function RecordGoldDelta(delta)
     PersistActiveSession()
 end
 
+local function SwitchXPTrackingMode()
+    local trackingMode = trackerUI.GetXPTrackingMode()
+    if activeXPSession and activeXPSession.trackingMode ~= trackingMode then
+        FinalizeActiveXPSession("mode_changed")
+    end
+    xpCursor = GetCurrentXPState()
+end
+
 local function RecordXPUpdate()
-    if not activeSession or IsPlayerAtMaxLevel() then
+    if not activeSession or not XPTracker then
         return
     end
 
@@ -1143,22 +1353,58 @@ local function RecordXPUpdate()
         lastXPMax = GetCurrentXPMax(),
     }
 
-    local currentXP = GetCurrentXP()
-    local currentXPMax = GetCurrentXPMax()
-    local lastXP = activeSession.xp.lastXP or currentXP
-    local lastXPMax = activeSession.xp.lastXPMax or currentXPMax
-    local delta = currentXP - lastXP
-
-    if delta < 0 and lastXPMax and lastXPMax > 0 then
-        delta = (lastXPMax - lastXP) + currentXP
+    local trackingMode = trackerUI.GetXPTrackingMode()
+    local modeConfig = XPTracker.GetModeConfig(trackingMode)
+    local current = GetCurrentXPState()
+    if activeXPSession and activeXPSession.trackingMode ~= trackingMode then
+        FinalizeActiveXPSession("mode_changed")
+        xpCursor = current
     end
+    local previous = xpCursor or current
+    local delta = XPTracker.CalculateDelta(previous, current, trackingMode)
+    xpCursor = current
 
     if delta > 0 then
         activeSession.xp.gained = (activeSession.xp.gained or 0) + delta
+
+        local spec = GetPlayerSpecSnapshot()
+        local context = {
+            now = GetNow(),
+            level = current.level,
+            startLevel = previous.level,
+            zone = GetCurrentZoneName(),
+            playerKey = GetPlayerKey(),
+            playerName = playerInfo.name,
+            playerFullName = playerInfo.fullName,
+            realm = playerInfo.realm,
+            loginSessionID = activeSession.id,
+            trackingMode = trackingMode,
+            specKey = spec.specKey,
+            specID = spec.specID,
+            specName = spec.specName,
+            role = spec.role,
+            classID = spec.classID,
+            className = spec.className,
+            classToken = spec.classToken,
+            source = trackerUI.GetXPSource(),
+        }
+        local nextSession, closedSession = XPTracker.AddGain(activeXPSession, context, delta)
+        if closedSession then
+            StoreCompletedXPSession(closedSession, closedSession.endReason, closedSession.endedAt)
+        end
+        activeXPSession = nextSession
+        if context.source == XPTracker.SOURCE_QUEST then
+            trackerUI.xpSourceState.questUntil = 0
+        end
     end
 
-    activeSession.xp.lastXP = currentXP
-    activeSession.xp.lastXPMax = currentXPMax
+    activeSession.xp.lastXP = current.xp
+    activeSession.xp.lastXPMax = current.xpMax
+    if current.level >= modeConfig.maxLevel then
+        FinalizeActiveXPSession("level_cap")
+    elseif delta > 0 then
+        PersistActiveXPSession()
+    end
 end
 
 local function RecordCurrencyGain(currencyID, quantityChange)
@@ -1744,6 +1990,1071 @@ local function ApplyLootTooltip(row, topItems)
     row.SetTooltip("Meilleurs objets de la session", table.concat(lines, "|n"))
 end
 
+local function BuildActiveXPSnapshot()
+    if not activeXPSession then
+        return
+    end
+    local preview = XPTracker.CopyForPreview(activeXPSession)
+    return XPTracker.Finalize(preview, GetNow(), "active")
+end
+
+function trackerUI.FormatXP(value)
+    value = math.floor(tonumber(value) or 0)
+    return BreakUpLargeNumbers and BreakUpLargeNumbers(value) or tostring(value)
+end
+
+function trackerUI.FormatDashboardXP(value)
+    value = math.max(0, tonumber(value) or 0)
+    if value >= 1000000 then
+        return ("%.1fM"):format(value / 1000000)
+    end
+    if value >= 1000 then
+        return ("%.1fk"):format(value / 1000)
+    end
+    return tostring(math.floor(value + 0.5))
+end
+
+function trackerUI.CreateDashboardLabel(parent, font, justify)
+    local label = parent:CreateFontString(nil, "OVERLAY", font)
+    YayaCore.UI.SetFont(label, font)
+    YayaCore.UI.BoundLabel(label, justify or "LEFT")
+    return label
+end
+
+function trackerUI.CreateDashboardMetricCard(parent, title, width, height)
+    local UI = YayaCore.UI
+    local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    card:SetSize(width, height)
+    UI.ApplyPanelBackdrop(card, { color = UI.COLOR.header })
+
+    card.title = trackerUI.CreateDashboardLabel(card, UI.FONT.muted, "LEFT")
+    card.title:SetPoint("TOPLEFT", card, "TOPLEFT", UI.PAD.md, -UI.PAD.sm)
+    card.title:SetPoint("TOPRIGHT", card, "TOPRIGHT", -UI.PAD.md, -UI.PAD.sm)
+    card.title:SetText(title or "")
+    card.title:SetTextColor(UI.Unpack(UI.COLOR.textMuted))
+
+    card.value = trackerUI.CreateDashboardLabel(card, UI.FONT.heading, "LEFT")
+    card.value:SetPoint("TOPLEFT", card.title, "BOTTOMLEFT", 0, -UI.PAD.xs)
+    card.value:SetPoint("TOPRIGHT", card.title, "BOTTOMRIGHT", 0, -UI.PAD.xs)
+    card.value:SetText("—")
+    card.value:SetTextColor(UI.Unpack(UI.COLOR.accent))
+
+    card.detail = trackerUI.CreateDashboardLabel(card, UI.FONT.muted, "LEFT")
+    card.detail:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", UI.PAD.md, UI.PAD.sm)
+    card.detail:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -UI.PAD.md, UI.PAD.sm)
+    card.detail:SetTextColor(UI.Unpack(UI.COLOR.textMuted))
+
+    function card.SetMetric(value, detail, tone)
+        card.value:SetText(value or "—")
+        card.detail:SetText(detail or "")
+        card.value:SetTextColor(UI.Unpack(UI.COLOR[tone or "accent"] or UI.COLOR.accent))
+    end
+
+    return card
+end
+
+function trackerUI.CreateDashboardChartCard(parent, title, width, height)
+    local UI = YayaCore.UI
+    local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    card:SetSize(width, height)
+    UI.ApplyPanelBackdrop(card, { color = UI.COLOR.panel })
+
+    card.title = trackerUI.CreateDashboardLabel(card, UI.FONT.header, "LEFT")
+    card.title:SetPoint("TOPLEFT", card, "TOPLEFT", UI.PAD.md, -UI.PAD.sm)
+    card.title:SetPoint("TOPRIGHT", card, "TOPRIGHT", -UI.PAD.md, -UI.PAD.sm)
+    card.title:SetText(title or "")
+    card.title:SetTextColor(UI.Unpack(UI.COLOR.category))
+
+    card.rule = UI.CreateDivider(card, { color = UI.COLOR.divider })
+    card.rule:SetPoint("TOPLEFT", card, "TOPLEFT", UI.PAD.md, -UI.SIZE.headerH)
+    card.rule:SetPoint("TOPRIGHT", card, "TOPRIGHT", -UI.PAD.md, -UI.SIZE.headerH)
+    return card
+end
+
+trackerUI.DASHBOARD_ALL = "__all__"
+trackerUI.dashboardFilters = trackerUI.dashboardFilters or {
+    classKey = "__all__",
+    specKey = "__all__",
+    zone = "__all__",
+    levelBand = "__all__",
+}
+
+function trackerUI.GetDashboardMetric()
+    return GetSettings().xpDashboardMetric == "levels" and "levels" or "xph"
+end
+
+function trackerUI.GetDashboardMetricLabel(metric)
+    return metric == "levels" and "Niveaux/h" or "XP/h"
+end
+
+function trackerUI.FormatDashboardMetric(value, metric)
+    if metric == "levels" then
+        return ("%.2f/h"):format(tonumber(value) or 0)
+    end
+    local formatted = trackerUI.FormatDashboardXP(value)
+    return formatted .. "/h"
+end
+
+function trackerUI.GetDashboardClassKey(session)
+    return session.classToken or tostring(session.classID or "unknown")
+end
+
+function trackerUI.GetDashboardSpecKey(session)
+    return session.specKey or "unknown"
+end
+
+function trackerUI.GetDashboardClassColor(classToken)
+    if RAID_CLASS_COLORS and classToken and RAID_CLASS_COLORS[classToken] then
+        return RAID_CLASS_COLORS[classToken]
+    end
+end
+
+function trackerUI.SessionHasDashboardZone(session, zone)
+    if session.zoneXP and (tonumber(session.zoneXP[zone]) or 0) > 0 then
+        return true
+    end
+    return session.startZone == zone or session.endZone == zone
+end
+
+function trackerUI.SessionHasDashboardBand(session, band)
+    if session.levelXP and (tonumber(session.levelXP[band]) or 0) > 0 then
+        return true
+    end
+    return XPTracker.GetLevelBand(session.startLevel, nil, session.trackingMode) == band
+        or XPTracker.GetLevelBand(session.endLevel, nil, session.trackingMode) == band
+end
+
+function trackerUI.SessionMatchesDashboardFilters(session, filters, ignoredKey)
+    if type(session) ~= "table" then
+        return false
+    end
+    if ignoredKey ~= "classKey" and filters.classKey ~= trackerUI.DASHBOARD_ALL
+        and trackerUI.GetDashboardClassKey(session) ~= filters.classKey then
+        return false
+    end
+    if ignoredKey ~= "specKey" and filters.specKey ~= trackerUI.DASHBOARD_ALL
+        and trackerUI.GetDashboardSpecKey(session) ~= filters.specKey then
+        return false
+    end
+    if ignoredKey ~= "zone" and filters.zone ~= trackerUI.DASHBOARD_ALL
+        and not trackerUI.SessionHasDashboardZone(session, filters.zone) then
+        return false
+    end
+    if ignoredKey ~= "levelBand" and filters.levelBand ~= trackerUI.DASHBOARD_ALL
+        and not trackerUI.SessionHasDashboardBand(session, filters.levelBand) then
+        return false
+    end
+    return true
+end
+
+function trackerUI.BuildDashboardFilterChoices(history, key)
+    local values = {}
+    local labels = {}
+    local filters = trackerUI.dashboardFilters
+    local function Add(value, label)
+        if value and value ~= "" and not values[value] then
+            values[value] = true
+            labels[value] = label or value
+        end
+    end
+
+    for _, session in ipairs(history or {}) do
+        if type(session) == "table" and (tonumber(session.xpGained) or 0) > 0 then
+            local candidate = XPTracker.CopyForPreview(session)
+            XPTracker.NormalizeSessionZones(candidate)
+            if trackerUI.SessionMatchesDashboardFilters(candidate, filters, key) then
+                if key == "classKey" then
+                    Add(trackerUI.GetDashboardClassKey(candidate), candidate.className or "Classe inconnue")
+                elseif key == "specKey" then
+                    Add(trackerUI.GetDashboardSpecKey(candidate), candidate.specName or "Spé inconnue")
+                elseif key == "zone" then
+                    for zone, amount in pairs(candidate.zoneXP or {}) do
+                        if (tonumber(amount) or 0) > 0 then
+                            Add(zone, zone)
+                        end
+                    end
+                    Add(candidate.startZone, candidate.startZone)
+                    Add(candidate.endZone, candidate.endZone)
+                elseif key == "levelBand" then
+                    for band, amount in pairs(candidate.levelXP or {}) do
+                        if (tonumber(amount) or 0) > 0 then
+                            Add(band, "Niveaux " .. band)
+                        end
+                    end
+                    Add(XPTracker.GetLevelBand(candidate.startLevel, nil, candidate.trackingMode),
+                        "Niveaux " .. XPTracker.GetLevelBand(candidate.startLevel, nil, candidate.trackingMode))
+                    Add(XPTracker.GetLevelBand(candidate.endLevel, nil, candidate.trackingMode),
+                        "Niveaux " .. XPTracker.GetLevelBand(candidate.endLevel, nil, candidate.trackingMode))
+                end
+            end
+        end
+    end
+
+    local choices = {{ value = trackerUI.DASHBOARD_ALL, label = "Toutes" }}
+    local sorted = {}
+    for value in pairs(values) do
+        sorted[#sorted + 1] = value
+    end
+    table.sort(sorted, function(left, right)
+        return tostring(labels[left]):lower() < tostring(labels[right]):lower()
+    end)
+    for _, value in ipairs(sorted) do
+        choices[#choices + 1] = { value = value, label = labels[value] }
+    end
+    return choices
+end
+
+function trackerUI.RefreshDashboardFilterChoices()
+    local dashboard = trackerUI.dashboard
+    if not dashboard or not dashboard.filterControls then
+        return
+    end
+    local history = GetXPSessions()
+    local order = { "classKey", "specKey", "zone", "levelBand" }
+    local resetFollowing = false
+    for _, key in ipairs(order) do
+        if resetFollowing then
+            trackerUI.dashboardFilters[key] = trackerUI.DASHBOARD_ALL
+        end
+        local choices = trackerUI.BuildDashboardFilterChoices(history, key)
+        local selected = trackerUI.dashboardFilters[key]
+        local valid = selected == trackerUI.DASHBOARD_ALL
+        for _, choice in ipairs(choices) do
+            if choice.value == selected then
+                valid = true
+                break
+            end
+        end
+        if not valid then
+            trackerUI.dashboardFilters[key] = trackerUI.DASHBOARD_ALL
+            resetFollowing = true
+        end
+        dashboard.filterControls[key].SetChoices(choices)
+    end
+end
+
+function trackerUI.GetDashboardFilteredSessions()
+    local filtered = {}
+    local filters = trackerUI.dashboardFilters
+    for _, session in ipairs(GetXPSessions()) do
+        if type(session) == "table" and (tonumber(session.xpGained) or 0) > 0 then
+            local candidate = XPTracker.CopyForPreview(session)
+            XPTracker.NormalizeSessionZones(candidate)
+            if trackerUI.SessionMatchesDashboardFilters(candidate, filters) then
+                filtered[#filtered + 1] = candidate
+            end
+        end
+    end
+    return filtered
+end
+
+function trackerUI.BuildDashboardEntries(map, labeler, limit, ascending, metric)
+    local entries = {}
+    for key, aggregate in pairs(map or {}) do
+        if aggregate and ((metric == "levels" and (tonumber(aggregate.levelsPerHour) or 0) > 0)
+                or (metric ~= "levels" and (tonumber(aggregate.xpPerHour) or 0) > 0)) then
+            local value = metric == "levels" and aggregate.levelsPerHour or aggregate.xpPerHour
+            local tooltipMetric = metric == "levels"
+                and ("%.2f niveaux/h"):format(aggregate.levelsPerHour or 0)
+                or (trackerUI.FormatXP(aggregate.xpPerHour) .. " XP/h")
+            entries[#entries + 1] = {
+                key = key,
+                label = labeler(key, aggregate),
+                value = value or 0,
+                valueLabel = trackerUI.FormatDashboardMetric(value, metric),
+                aggregate = aggregate,
+                tooltip = ("%s · %s actifs"):format(
+                    tooltipMetric,
+                    FormatDurationCompact(aggregate.durationSeconds or 0)),
+            }
+        end
+    end
+    table.sort(entries, function(left, right)
+        if ascending then
+            local leftLevel = tonumber(tostring(left.key):match("^(%d+)")) or 0
+            local rightLevel = tonumber(tostring(right.key):match("^(%d+)")) or 0
+            if leftLevel == rightLevel then
+                return tostring(left.key) < tostring(right.key)
+            end
+            return leftLevel < rightLevel
+        end
+        if left.value == right.value then
+            return tostring(left.key) < tostring(right.key)
+        end
+        return left.value > right.value
+    end)
+    while #entries > (limit or 5) do
+        table.remove(entries)
+    end
+    return entries
+end
+
+function trackerUI.BuildDashboardProfileEntries(stats, metric)
+    local specCountByClass = {}
+    for _, aggregate in pairs(stats.bySpec or {}) do
+        local classKey = aggregate.classToken or aggregate.className or "unknown"
+        specCountByClass[classKey] = (specCountByClass[classKey] or 0) + 1
+    end
+
+    local classEntries = trackerUI.BuildDashboardEntries(stats.byClass, function(_, aggregate)
+        return "Classe · " .. (aggregate.className or "Inconnue")
+    end, 2, nil, metric)
+    local entries = {}
+    for _, entry in ipairs(classEntries) do
+        local aggregate = entry.aggregate
+        local classKey = aggregate.classToken or aggregate.className or "unknown"
+        local specCount = specCountByClass[classKey] or 0
+        if specCount ~= 1 then
+            if specCount > 1 then
+                entry.label = entry.label .. (" · %d spés"):format(specCount)
+            end
+            entry.color = trackerUI.GetDashboardClassColor(aggregate.classToken)
+            entries[#entries + 1] = entry
+        end
+    end
+    for _, entry in ipairs(entries) do
+        entry.tone = "category"
+    end
+
+    local specs = trackerUI.BuildDashboardEntries(stats.bySpec, function(_, aggregate)
+        return "Spé · " .. (aggregate.specName or "Inconnue")
+            .. " · " .. (aggregate.className or "?")
+    end, 3, nil, metric)
+    for _, entry in ipairs(specs) do
+        entry.tone = "success"
+        entry.color = trackerUI.GetDashboardClassColor(entry.aggregate.classToken)
+        entries[#entries + 1] = entry
+    end
+    return entries
+end
+
+function trackerUI.BuildDashboardRecentEntries(history, metric)
+    history = history or GetXPSessions()
+    local entries = {}
+    local first = math.max(1, #history - 7)
+    for index = first, #history do
+        local session = history[index]
+        if session and ((metric == "levels" and (tonumber(session.levelsPerHour) or 0) > 0)
+                or (metric ~= "levels" and (tonumber(session.xpPerHour) or 0) > 0)) then
+            entries[#entries + 1] = {
+                label = date and date("%d/%m", session.endedAt or session.startedAt or GetNow())
+                    or tostring(index),
+                value = metric == "levels" and session.levelsPerHour or session.xpPerHour or 0,
+                valueLabel = trackerUI.FormatDashboardMetric(
+                    metric == "levels" and session.levelsPerHour or session.xpPerHour, metric),
+                tooltip = ("%s · %s actifs|n%s · niveaux %s-%s"):format(
+                    trackerUI.FormatDashboardMetric(
+                        metric == "levels" and session.levelsPerHour or session.xpPerHour, metric),
+                    FormatDurationCompact(session.durationSeconds or 0),
+                    session.specName or "Spé inconnue",
+                    tostring(session.startLevel or "?"),
+                    tostring(session.endLevel or "?")),
+            }
+        end
+    end
+    return entries
+end
+
+function trackerUI.AttachDashboardTooltip(row)
+    if row.dashboardTooltipAttached then
+        return
+    end
+    row.dashboardTooltipAttached = true
+    row:SetScript("OnEnter", function(self)
+        if not self.dashboardEntry or not GameTooltip then
+            return
+        end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(self.dashboardEntry.label or "Session XP")
+        if self.dashboardEntry.tooltip then
+            GameTooltip:AddLine(self.dashboardEntry.tooltip, 1, 1, 1, true)
+        end
+        GameTooltip:Show()
+    end)
+    row:SetScript("OnLeave", function()
+        if GameTooltip then
+            GameTooltip:Hide()
+        end
+    end)
+end
+
+function trackerUI.RenderDashboardBars(card, entries)
+    local UI = YayaCore.UI
+    card.chartRows = card.chartRows or {}
+    local rowHeight = UI.SIZE.rowH
+    local labelWidth = 132
+    local valueWidth = 48
+    local barGap = UI.PAD.sm
+    local chartWidth = math.max(20, card:GetWidth() - (UI.PAD.md * 2)
+        - labelWidth - valueWidth - (barGap * 2))
+    local maximum = 0
+    for _, entry in ipairs(entries or {}) do
+        maximum = math.max(maximum, tonumber(entry.value) or 0)
+    end
+
+    if #entries == 0 then
+        if not card.empty then
+            card.empty = trackerUI.CreateDashboardLabel(card, UI.FONT.muted, "CENTER")
+            card.empty:SetPoint("TOPLEFT", card, "TOPLEFT", UI.PAD.md, -UI.SIZE.headerH - UI.PAD.md)
+            card.empty:SetPoint("TOPRIGHT", card, "TOPRIGHT", -UI.PAD.md, -UI.SIZE.headerH - UI.PAD.md)
+            card.empty:SetTextColor(UI.Unpack(UI.COLOR.textMuted))
+        end
+        card.empty:SetText("Pas encore assez de données XP")
+        card.empty:Show()
+    elseif card.empty then
+        card.empty:Hide()
+    end
+
+    for index = 1, math.max(#entries, #card.chartRows) do
+        local entry = entries[index]
+        local row = card.chartRows[index]
+        if entry then
+            if not row then
+                row = CreateFrame("Button", nil, card)
+                row:SetHeight(rowHeight)
+                row.label = trackerUI.CreateDashboardLabel(row, UI.FONT.muted, "LEFT")
+                row.label:SetWidth(labelWidth)
+                row.label:SetPoint("LEFT", row, "LEFT", 0, 0)
+                row.value = trackerUI.CreateDashboardLabel(row, UI.FONT.body, "RIGHT")
+                row.value:SetWidth(valueWidth)
+                row.value:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+                row.bar = row:CreateTexture(nil, "ARTWORK")
+                row.bar:SetHeight(6)
+                row.barBackground = row:CreateTexture(nil, "BACKGROUND")
+                row.barBackground:SetHeight(6)
+                trackerUI.AttachDashboardTooltip(row)
+                card.chartRows[index] = row
+            end
+            row:ClearAllPoints()
+            row:SetPoint("TOPLEFT", card, "TOPLEFT", UI.PAD.md, -UI.SIZE.headerH - UI.PAD.md
+                - ((index - 1) * rowHeight))
+            row:SetPoint("TOPRIGHT", card, "TOPRIGHT", -UI.PAD.md, -UI.SIZE.headerH - UI.PAD.md
+                - ((index - 1) * rowHeight))
+            row.label:SetText(entry.label or "")
+            row.value:SetText(entry.valueLabel or trackerUI.FormatDashboardXP(entry.value))
+            row.label:SetTextColor(UI.Unpack(UI.COLOR.text))
+            row.value:SetTextColor(UI.Unpack(UI.COLOR[entry.tone or "accent"] or UI.COLOR.accent))
+            row.barBackground:ClearAllPoints()
+            row.barBackground:SetPoint("LEFT", row, "LEFT", labelWidth + barGap, 0)
+            row.barBackground:SetWidth(chartWidth)
+            row.barBackground:SetColorTexture(UI.Unpack(UI.COLOR.rowOdd))
+            row.bar:ClearAllPoints()
+            row.bar:SetPoint("LEFT", row.barBackground, "LEFT", 0, 0)
+            row.bar:SetWidth(math.max(1, chartWidth * (maximum > 0
+                and ((tonumber(entry.value) or 0) / maximum) or 0)))
+            local color = entry.color
+            if color and color.r then
+                row.label:SetTextColor(color.r, color.g, color.b, 1)
+                row.value:SetTextColor(color.r, color.g, color.b, 1)
+                row.bar:SetColorTexture(color.r, color.g, color.b, 1)
+            else
+                row.label:SetTextColor(UI.Unpack(UI.COLOR.text))
+                row.value:SetTextColor(UI.Unpack(UI.COLOR[entry.tone or "accent"] or UI.COLOR.accent))
+                row.bar:SetColorTexture(UI.Unpack(UI.COLOR[entry.tone or "accent"] or UI.COLOR.accent))
+            end
+            row.dashboardEntry = entry
+            row:Show()
+        elseif row then
+            row.dashboardEntry = nil
+            row:Hide()
+        end
+    end
+end
+
+function trackerUI.RenderDashboardTrend(card, entries)
+    local UI = YayaCore.UI
+    card.trendRows = card.trendRows or {}
+    local innerWidth = math.max(20, card:GetWidth() - UI.PAD.md * 2)
+    local chartHeight = math.max(20, card:GetHeight() - UI.SIZE.headerH - UI.PAD.xl * 2)
+    local slotWidth = innerWidth / math.max(1, #entries)
+    local maximum = 0
+    for _, entry in ipairs(entries or {}) do
+        maximum = math.max(maximum, tonumber(entry.value) or 0)
+    end
+
+    for index = 1, math.max(#entries, #card.trendRows) do
+        local entry = entries[index]
+        local row = card.trendRows[index]
+        if entry then
+            if not row then
+                row = CreateFrame("Button", nil, card)
+                row.background = row:CreateTexture(nil, "BACKGROUND")
+                row.fill = row:CreateTexture(nil, "ARTWORK")
+                row.value = trackerUI.CreateDashboardLabel(row, UI.FONT.muted, "CENTER")
+                row.label = trackerUI.CreateDashboardLabel(row, UI.FONT.muted, "CENTER")
+                trackerUI.AttachDashboardTooltip(row)
+                card.trendRows[index] = row
+            end
+            row:ClearAllPoints()
+            row:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", UI.PAD.md + ((index - 1) * slotWidth), UI.PAD.md)
+            row:SetSize(math.max(1, slotWidth - UI.PAD.xs), chartHeight)
+            row.background:ClearAllPoints()
+            row.background:SetPoint("BOTTOM", row, "BOTTOM", 0, UI.PAD.xl)
+            row.background:SetSize(math.max(1, slotWidth - UI.PAD.xs), math.max(1, chartHeight - UI.PAD.xl))
+            row.background:SetColorTexture(UI.Unpack(UI.COLOR.rowOdd))
+            row.fill:ClearAllPoints()
+            row.fill:SetPoint("BOTTOM", row.background, "BOTTOM", 0, 0)
+            row.fill:SetWidth(math.max(1, slotWidth - UI.PAD.xs))
+            row.fill:SetHeight(math.max(1, (chartHeight - UI.PAD.xl)
+                * (maximum > 0 and ((tonumber(entry.value) or 0) / maximum) or 0)))
+            row.fill:SetColorTexture(UI.Unpack(UI.COLOR.accent))
+            row.value:ClearAllPoints()
+            row.value:SetPoint("BOTTOM", row, "TOP", 0, UI.PAD.xs)
+            row.value:SetWidth(math.max(1, slotWidth))
+            row.value:SetText(entry.valueLabel or trackerUI.FormatDashboardXP(entry.value))
+            row.value:SetTextColor(UI.Unpack(UI.COLOR.textMuted))
+            row.label:ClearAllPoints()
+            row.label:SetPoint("BOTTOM", row, "BOTTOM", 0, 0)
+            row.label:SetWidth(math.max(1, slotWidth))
+            row.label:SetText(entry.label or "")
+            row.label:SetTextColor(UI.Unpack(UI.COLOR.textMuted))
+            row.dashboardEntry = entry
+            row:Show()
+        elseif row then
+            row.dashboardEntry = nil
+            row:Hide()
+        end
+    end
+end
+
+function trackerUI.CreateDashboardFilter(parent, key, label, width)
+    local UI = YayaCore.UI
+    local control = UI.CreateDropdown(parent, label, {
+        choices = {{ value = trackerUI.DASHBOARD_ALL, label = "Toutes" }},
+        get = function()
+            return trackerUI.dashboardFilters[key]
+        end,
+        onSelect = function(value)
+            trackerUI.dashboardFilters[key] = value
+            trackerUI.RefreshDashboardFilterChoices()
+            trackerUI.UpdateDashboard()
+        end,
+        width = width - 56,
+        labelWidth = 48,
+    })
+    if control then
+        control:SetSize(width, UI.SIZE.iconButton)
+        control.SetTooltip("Filtre " .. label,
+            "Les filtres suivants se resserrent selon ce choix.")
+    end
+    return control
+end
+
+function trackerUI.CreateDashboardFrame()
+    if trackerUI.dashboard then
+        return trackerUI.dashboard
+    end
+
+    local UI = YayaCore.UI
+    local dashboard = CreateFrame("Frame", addonName .. "Dashboard", UIParent, "BackdropTemplate")
+    trackerUI.dashboard = dashboard
+    dashboard:SetFrameStrata("HIGH")
+    dashboard:SetClampedToScreen(true)
+    dashboard:SetMovable(true)
+    dashboard:SetSize(720, 804)
+    dashboard:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    UI.ApplyPanelBackdrop(dashboard)
+
+    dashboard.header = UI.CreateHeader(dashboard, "Yaya Session Tracker · XP Dashboard", {
+        moveTarget = dashboard,
+    })
+    UI.CreateCloseButton(dashboard.header, dashboard)
+    dashboard.refreshButton = UI.CreateButton(dashboard.header, "Maj", {
+        width = 34,
+        height = UI.SIZE.glyph,
+        small = true,
+    })
+    if dashboard.refreshButton then
+        dashboard.header.AddButton(dashboard.refreshButton)
+        dashboard.refreshButton:SetScript("OnClick", function()
+            trackerUI.UpdateDashboard()
+        end)
+        dashboard.refreshButton.SetTooltip("Actualiser", "Recalcule les KPI et les graphiques.")
+    end
+
+    dashboard.cards = {}
+    local cardWidth = 168
+    local cardHeight = 62
+    local cardGap = UI.PAD.sm
+    local cardTop = UI.SIZE.headerH + UI.PAD.lg
+    local cardTitles = { "Métrique moyenne", "Sessions filtrées", "Temps actif", "Meilleure session" }
+    for index, title in ipairs(cardTitles) do
+        local card = trackerUI.CreateDashboardMetricCard(dashboard, title, cardWidth, cardHeight)
+        card:SetPoint("TOPLEFT", dashboard, "TOPLEFT", UI.PAD.lg + ((index - 1) * (cardWidth + cardGap)), -cardTop)
+        dashboard.cards[index] = card
+    end
+
+    dashboard.filterBar = CreateFrame("Frame", nil, dashboard, "BackdropTemplate")
+    dashboard.filterBar:SetSize(688, UI.SIZE.iconButton + UI.PAD.sm)
+    dashboard.filterBar:SetPoint("TOPLEFT", dashboard, "TOPLEFT", UI.PAD.lg,
+        -(cardTop + cardHeight + UI.PAD.md))
+    UI.ApplyPanelBackdrop(dashboard.filterBar, { color = UI.COLOR.header })
+    dashboard.filterControls = {}
+    local filterWidth = 164
+    local filterGap = UI.PAD.sm
+    for index, key in ipairs({ "classKey", "specKey", "zone", "levelBand" }) do
+        local labels = {
+            classKey = "Classe",
+            specKey = "Spé",
+            zone = "Zone",
+            levelBand = "Niveau",
+        }
+        local control = trackerUI.CreateDashboardFilter(
+            dashboard.filterBar, key, labels[key], filterWidth)
+        if control then
+            control:SetPoint("TOPLEFT", dashboard.filterBar, "TOPLEFT",
+                UI.PAD.sm + ((index - 1) * (filterWidth + filterGap)), -UI.PAD.xs)
+            dashboard.filterControls[key] = control
+        end
+    end
+
+    dashboard.configBar = CreateFrame("Frame", nil, dashboard)
+    dashboard.configBar:SetSize(688, UI.SIZE.iconButton)
+    dashboard.configBar:SetPoint("TOPLEFT", dashboard.filterBar, "BOTTOMLEFT", 0, -UI.PAD.sm)
+    dashboard.metricSwitchButton = UI.CreateButton(dashboard.configBar, "Vue : XP/h", {
+        width = 128,
+        height = UI.SIZE.iconButton,
+        small = true,
+    })
+    if dashboard.metricSwitchButton then
+        dashboard.metricSwitchButton:SetPoint("TOPLEFT", dashboard.configBar, "TOPLEFT", 0, 0)
+        dashboard.metricSwitchButton:SetScript("OnClick", function()
+            GetSettings().xpDashboardMetric = trackerUI.GetDashboardMetric() == "levels"
+                and "xph" or "levels"
+            trackerUI.UpdateDashboard()
+        end)
+        dashboard.metricSwitchButton.SetTooltip("Changer de métrique",
+            "Bascule entre XP/h et Niveaux/h. Une seule métrique est affichée à la fois.")
+    end
+    dashboard.modeControl = UI.CreateDropdown(dashboard.configBar, "Données", {
+        choices = {
+            { value = XPTracker.MODE_BELOW_80, label = "Niveaux 1–80" },
+            { value = XPTracker.MODE_80_TO_90, label = "Niveaux 80–90" },
+        },
+        get = function()
+            return trackerUI.GetXPTrackingMode()
+        end,
+        onSelect = function(value)
+            GetSettings().xpTrackingMode = XPTracker.NormalizeMode(value)
+            SwitchXPTrackingMode()
+            trackerUI.dashboardFilters = {
+                classKey = trackerUI.DASHBOARD_ALL,
+                specKey = trackerUI.DASHBOARD_ALL,
+                zone = trackerUI.DASHBOARD_ALL,
+                levelBand = trackerUI.DASHBOARD_ALL,
+            }
+            trackerUI.UpdateDashboard()
+        end,
+        width = 104,
+        labelWidth = 52,
+    })
+    if dashboard.modeControl then
+        dashboard.modeControl:SetSize(164, UI.SIZE.iconButton)
+        dashboard.modeControl:SetPoint("TOPLEFT", dashboard.configBar, "TOPLEFT", 140, 0)
+        dashboard.modeControl.SetTooltip("Jeu de données XP",
+            "Les sessions 1–80 et 80–90 sont stockées et analysées séparément.")
+    end
+    dashboard.bandControl = UI.CreateDropdown(dashboard.configBar, "Tranches", {
+        choices = {
+            { value = 5, label = "5 niveaux" },
+            { value = 10, label = "10 niveaux" },
+            { value = 20, label = "20 niveaux" },
+        },
+        get = function()
+            return GetSettings().xpLevelBandSize
+        end,
+        onSelect = function(value)
+            GetSettings().xpLevelBandSize = tonumber(value) or 10
+            XPTracker.SetLevelBandSize(GetSettings().xpLevelBandSize)
+            trackerUI.RefreshDashboardFilterChoices()
+            trackerUI.UpdateDashboard()
+        end,
+        width = 108,
+        labelWidth = 54,
+    })
+    if dashboard.bandControl then
+        dashboard.bandControl:SetSize(180, UI.SIZE.iconButton)
+        dashboard.bandControl:SetPoint("TOPLEFT", dashboard.configBar, "TOPLEFT", 316, 0)
+        dashboard.bandControl.SetTooltip("Taille des tranches",
+            "Les nouvelles sessions et le regroupement des données suivent ce réglage.")
+    end
+    dashboard.filterSummary = trackerUI.CreateDashboardLabel(dashboard.configBar, UI.FONT.muted, "LEFT")
+    dashboard.filterSummary:SetPoint("LEFT", dashboard.configBar, "LEFT", 508, 0)
+    dashboard.filterSummary:SetPoint("RIGHT", dashboard.configBar, "RIGHT", 0, 0)
+    dashboard.filterSummary:SetTextColor(UI.Unpack(UI.COLOR.textMuted))
+
+    local chartWidth = 348
+    local chartHeight = 168
+    local chartTop = cardTop + cardHeight + UI.PAD.md
+        + dashboard.filterBar:GetHeight() + UI.PAD.sm + dashboard.configBar:GetHeight() + UI.PAD.md
+    dashboard.profileChart = trackerUI.CreateDashboardChartCard(
+        dashboard, "Classes & spécialisations", chartWidth, chartHeight)
+    dashboard.profileChart:SetPoint("TOPLEFT", dashboard, "TOPLEFT", UI.PAD.lg, -chartTop)
+    dashboard.zoneChart = trackerUI.CreateDashboardChartCard(
+        dashboard, "Zones", chartWidth, chartHeight)
+    dashboard.zoneChart:SetPoint("TOPRIGHT", dashboard, "TOPRIGHT", -UI.PAD.lg, -chartTop)
+
+    local lowerTop = chartTop + chartHeight + UI.PAD.md
+    dashboard.levelChart = trackerUI.CreateDashboardChartCard(
+        dashboard, "Tranches de niveau", chartWidth, chartHeight)
+    dashboard.levelChart:SetPoint("TOPLEFT", dashboard, "TOPLEFT", UI.PAD.lg, -lowerTop)
+    dashboard.trendChart = trackerUI.CreateDashboardChartCard(
+        dashboard, "Tendance des sessions filtrées", chartWidth, chartHeight)
+    dashboard.trendChart:SetPoint("TOPRIGHT", dashboard, "TOPRIGHT", -UI.PAD.lg, -lowerTop)
+    local sourceTop = lowerTop + chartHeight + UI.PAD.md
+    dashboard.sourceChart = trackerUI.CreateDashboardChartCard(
+        dashboard, "Sources XP", chartWidth, chartHeight)
+    dashboard.sourceChart:SetPoint("TOPLEFT", dashboard, "TOPLEFT", UI.PAD.lg, -sourceTop)
+
+    dashboard.footer = trackerUI.CreateDashboardLabel(dashboard, UI.FONT.muted, "LEFT")
+    dashboard.footer:SetPoint("BOTTOMLEFT", dashboard, "BOTTOMLEFT", UI.PAD.lg, UI.PAD.sm)
+    dashboard.footer:SetPoint("BOTTOMRIGHT", dashboard, "BOTTOMRIGHT", -UI.PAD.lg, UI.PAD.sm)
+    dashboard.footer:SetTextColor(UI.Unpack(UI.COLOR.textMuted))
+    dashboard:SetScript("OnShow", function()
+        trackerUI.UpdateDashboard()
+    end)
+    dashboard:Hide()
+    return dashboard
+end
+
+function trackerUI.UpdateDashboard()
+    local dashboard = trackerUI.dashboard
+    if not dashboard or not dashboard:IsShown() then
+        return
+    end
+
+    local settings = GetSettings()
+    XPTracker.SetLevelBandSize(settings.xpLevelBandSize)
+    trackerUI.RefreshDashboardFilterChoices()
+    local history = trackerUI.GetDashboardFilteredSessions()
+    local stats = XPTracker.BuildStats(history, trackerUI.GetXPTrackingMode())
+    local live = BuildActiveXPSnapshot()
+    local UI = YayaCore.UI
+    local metric = trackerUI.GetDashboardMetric()
+    local metricLabel = trackerUI.GetDashboardMetricLabel(metric)
+    dashboard.profileChart.title:SetText("Classes & spécialisations · " .. metricLabel)
+    dashboard.zoneChart.title:SetText("Zones · " .. metricLabel)
+    dashboard.levelChart.title:SetText("Tranches de niveau · " .. metricLabel)
+    dashboard.trendChart.title:SetText("Tendance des sessions filtrées · " .. metricLabel)
+    if dashboard.metricSwitchButton then
+        dashboard.metricSwitchButton:SetText("Vue : " .. metricLabel)
+    end
+    if dashboard.bandControl then
+        dashboard.bandControl.Refresh()
+    end
+    if dashboard.modeControl then
+        dashboard.modeControl.Refresh()
+    end
+    if dashboard.filterSummary then
+        dashboard.filterSummary:SetText(("%d session(s) · filtres appliqués"):format(#history))
+    end
+    local averageMetric = metric == "levels" and stats.levelsPerHour or stats.xpPerHour
+    local bestMetric = metric == "levels" and stats.bestLevelsPerHour or stats.bestXPH
+    dashboard.cards[1].title:SetText(metricLabel .. " moyenne")
+    dashboard.cards[1].SetMetric(
+        trackerUI.FormatDashboardMetric(averageMetric, metric),
+        metric == "levels"
+            and ("%.0f niveau(x) gagné(s)"):format(stats.levelsGained or 0)
+            or (trackerUI.FormatXP(stats.xpGained) .. " XP gagné(e)"),
+        "success")
+    dashboard.cards[2].SetMetric(
+        tostring(stats.sessions or 0),
+        "session(s) XP",
+        "accent")
+    dashboard.cards[3].SetMetric(
+        FormatDurationCompact(stats.durationSeconds or 0),
+        "temps actif cumulé",
+        "accent")
+    dashboard.cards[4].SetMetric(
+        trackerUI.FormatDashboardMetric(bestMetric, metric),
+        "meilleure session filtrée",
+        "accent")
+
+    trackerUI.RenderDashboardBars(dashboard.profileChart,
+        trackerUI.BuildDashboardProfileEntries(stats, metric))
+    trackerUI.RenderDashboardBars(dashboard.zoneChart, trackerUI.BuildDashboardEntries(stats.byZone, function(key)
+        return key
+    end, 5, nil, metric))
+    trackerUI.RenderDashboardBars(dashboard.levelChart, trackerUI.BuildDashboardEntries(stats.byLevelBand, function(key)
+        return "Niveaux " .. key
+    end, 5, true, metric))
+    trackerUI.RenderDashboardBars(dashboard.sourceChart, trackerUI.BuildDashboardEntries(stats.bySource, function(key)
+        return XPTracker.GetSourceLabel(key)
+    end, 4, nil, metric))
+    trackerUI.RenderDashboardTrend(dashboard.trendChart,
+        trackerUI.BuildDashboardRecentEntries(history, metric))
+
+    if live then
+        local liveMetric = metric == "levels" and live.levelsPerHour or live.xpPerHour
+        dashboard.footer:SetText(("En cours · %s · %s · %s"):format(
+            live.specName or "Spé inconnue",
+            live.endZone or live.startZone or "Zone inconnue",
+            trackerUI.FormatDashboardMetric(liveMetric, metric)))
+        dashboard.footer:SetTextColor(UI.Unpack(UI.COLOR.success))
+    else
+        dashboard.footer:SetText(("Historique %s · temps actif"):format(
+            XPTracker.GetXPModeConfig().label))
+        dashboard.footer:SetTextColor(UI.Unpack(UI.COLOR.textMuted))
+    end
+end
+
+function trackerUI.MetricTooltip(title, aggregate)
+    return {
+        title = title,
+        body = ("%s XP|n%s XP/h · %.2f niveaux/h · %s|n%d session(s) · %d niveau(x)|nMeilleur : %s XP/h"):format(
+            trackerUI.FormatXP(aggregate.xpGained),
+            trackerUI.FormatXP(aggregate.xpPerHour),
+            aggregate.levelsPerHour or 0,
+            FormatDurationCompact(aggregate.durationSeconds),
+            aggregate.sessions or 0,
+            aggregate.levelsGained or 0,
+            trackerUI.FormatXP(aggregate.bestXPH)),
+    }
+end
+
+function trackerUI.BuildStatsRows()
+    local history = GetXPSessions()
+    local stats = XPTracker.BuildStats(history, trackerUI.GetXPTrackingMode())
+    local live = BuildActiveXPSnapshot()
+    local rows = {}
+    local signature = ("%d:%s:%s:%d"):format(
+        stats.sessions,
+        tostring(stats.xpGained),
+        live and tostring(live.xpGained) or "0",
+        #history)
+
+    local function AddRow(label, value, tone, tooltip)
+        rows[#rows + 1] = {
+            label = label,
+            value = value,
+            tone = tone,
+            tooltip = tooltip,
+        }
+    end
+
+    local function AddHeading(label)
+        rows[#rows + 1] = {
+            label = label,
+            value = "",
+            tone = "category",
+            heading = true,
+        }
+    end
+
+    local function AddMap(title, map, labeler, descending)
+        local entries = {}
+        for key, aggregate in pairs(map or {}) do
+            entries[#entries + 1] = { key = key, aggregate = aggregate }
+        end
+        table.sort(entries, function(left, right)
+            if descending then
+                if left.aggregate.xpGained == right.aggregate.xpGained then
+                    return tostring(left.key) < tostring(right.key)
+                end
+                return left.aggregate.xpGained > right.aggregate.xpGained
+            end
+            local leftLevel = tonumber(tostring(left.key):match("^(%d+)")) or 0
+            local rightLevel = tonumber(tostring(right.key):match("^(%d+)")) or 0
+            if leftLevel == rightLevel then
+                return tostring(left.key) < tostring(right.key)
+            end
+            return leftLevel < rightLevel
+        end)
+        if #entries == 0 then
+            return
+        end
+
+        AddHeading(title)
+        for _, entry in ipairs(entries) do
+            local label = labeler(entry.key, entry.aggregate)
+            AddRow(
+                label,
+                trackerUI.FormatXP(entry.aggregate.xpPerHour) .. "/h",
+                nil,
+                trackerUI.MetricTooltip(label, entry.aggregate)
+            )
+        end
+    end
+
+    AddHeading("Résumé")
+    AddRow("XP totale", trackerUI.FormatXP(stats.xpGained), "accent")
+    AddRow("XP/h moyen", trackerUI.FormatXP(stats.xpPerHour), "success")
+    AddRow("Niveaux/h", ("%.2f"):format(stats.levelsPerHour or 0), "success")
+    AddRow("Temps actif", FormatDurationCompact(stats.durationSeconds))
+    AddRow("Sessions / niveaux", ("%d / %d"):format(stats.sessions, stats.levelsGained))
+
+    AddMap("Sources XP", stats.bySource, function(key)
+        return XPTracker.GetSourceLabel(key)
+    end, true)
+
+    if live then
+        AddRow(
+            "En cours · " .. (live.specName or "Spé inconnue"),
+            trackerUI.FormatXP(live.xpPerHour) .. "/h",
+            "success",
+            trackerUI.MetricTooltip("Session XP en cours", {
+                xpGained = live.xpGained,
+                xpPerHour = live.xpPerHour,
+                levelsPerHour = live.levelsPerHour,
+                durationSeconds = live.durationSeconds,
+                sessions = 1,
+                levelsGained = live.levelsGained,
+                bestXPH = live.xpPerHour,
+            })
+        )
+    end
+
+    AddMap("Classes", stats.byClass, function(_, aggregate)
+        return aggregate.className or "Classe inconnue"
+    end, true)
+    AddMap("Spécialisations", stats.bySpec, function(_, aggregate)
+        return (aggregate.specName or "Spé inconnue") .. " · " .. (aggregate.className or "?")
+    end, true)
+    AddMap("Zones", stats.byZone, function(key)
+        return key
+    end, true)
+    AddMap("Tranches de niveau", stats.byLevelBand, function(key)
+        return "Niveaux " .. key
+    end, false)
+    AddMap("Zone · tranche", stats.byZoneLevelBand, function(key)
+        local separator = string.find(key, "\31", 1, true)
+        if not separator then
+            return key
+        end
+        return string.sub(key, 1, separator - 1) .. " · " .. string.sub(key, separator + 1)
+    end, true)
+
+    if #history > 0 then
+        AddHeading("Sessions récentes")
+        local first = math.max(1, #history - 19)
+        for index = #history, first, -1 do
+            local session = history[index]
+            local label = ("%s · %s"):format(
+                FormatTimestamp(session.endedAt),
+                session.specName or "Spé inconnue")
+            local zone = session.startZone or "Zone inconnue"
+            AddRow(
+                label,
+                trackerUI.FormatXP(session.xpPerHour) .. "/h",
+                nil,
+                {
+                    title = "Session XP",
+                    body = ("%s XP · %s|n%s · niveaux %s-%s|n%s → %s"):format(
+                        trackerUI.FormatXP(session.xpGained),
+                        FormatDurationCompact(session.durationSeconds or 0),
+                        zone,
+                        tostring(session.startLevel or "?"),
+                        tostring(session.endLevel or "?"),
+                        session.startZone or "?",
+                        session.endZone or "?"),
+                }
+            )
+        end
+    end
+
+    if stats.sessions == 0 and not live then
+        AddRow("Aucune session XP enregistrée", "", "textMuted")
+    end
+    return rows, signature
+end
+
+function trackerUI.InitStatsRow(row, item)
+    local UI = YayaCore.UI
+    UI.DecorateRow(row, {
+        height = UI.SIZE.rowHCompact,
+        labelFont = item.heading and UI.FONT.header or UI.FONT.muted,
+        valueFont = UI.FONT.body,
+        tooltipAnchor = "ANCHOR_RIGHT",
+    })
+    row.Reset()
+    UI.SetFont(row.label, item.heading and UI.FONT.header or UI.FONT.muted)
+    row.label:SetText(item.label or "")
+    row.value:SetText(item.value or "")
+    row.SetTone(item.tone)
+    row.SetLabelTone(item.heading and "category" or "text")
+    row.SetStripe(item.index or 1)
+    if item.tooltip then
+        row.SetTooltip(item.tooltip.title, item.tooltip.body)
+    end
+    if type(row.SetMouseClickEnabled) == "function" then
+        row:SetMouseClickEnabled(false)
+        if type(row.SetMouseMotionEnabled) == "function" then
+            row:SetMouseMotionEnabled(true)
+        end
+    end
+end
+
+function trackerUI.UpdateStatsButton()
+    if not trackerFrame or not trackerFrame.statsButton then
+        return
+    end
+    local label = trackerFrame.statsMode and "Live" or "Stats"
+    if type(trackerFrame.statsButton.SetLabel) == "function" then
+        trackerFrame.statsButton.SetLabel(label)
+    else
+        trackerFrame.statsButton:SetText(label)
+    end
+end
+
+function trackerUI.UpdateStatsView()
+    if not trackerFrame or not trackerFrame.statsMode then
+        return
+    end
+
+    local items, signature = trackerUI.BuildStatsRows()
+    for index, item in ipairs(items) do
+        item.index = index
+    end
+
+    local UI = YayaCore.UI
+    local visibleRows = math.max(1, math.min(#items, 8))
+    if trackerFrame.statsList then
+        trackerFrame.statsHost:SetHeight(visibleRows * UI.SIZE.rowHCompact)
+        trackerFrame.statsHost:Show()
+        trackerFrame:SetHeight(trackerFrame.statsHost:GetHeight() + UI.PAD.xs)
+        if signature ~= trackerFrame.statsSignature then
+            trackerFrame.statsList.SetItems(items, trackerFrame.statsSignature == nil)
+            trackerFrame.statsSignature = signature
+        end
+        return
+    end
+
+    trackerFrame.statsHost:Hide()
+    local stack = UI.StackLayout(trackerFrame)
+    for index, item in ipairs(items) do
+        local row = trackerFrame.statsRows[index]
+        if not row then
+            row = UI.CreateRow(trackerFrame, {
+                height = UI.SIZE.rowHCompact,
+                labelFont = UI.FONT.muted,
+                valueFont = UI.FONT.body,
+                tooltipAnchor = "ANCHOR_RIGHT",
+            })
+            trackerFrame.statsRows[index] = row
+        end
+        trackerUI.InitStatsRow(row, item)
+        row:Show()
+        stack.Add(row, 0, { height = UI.SIZE.rowHCompact })
+    end
+    for index = #items + 1, #trackerFrame.statsRows do
+        trackerFrame.statsRows[index]:Hide()
+    end
+    trackerFrame:SetHeight(stack.Finish(UI.PAD.xs))
+end
+
+function trackerUI.ToggleStats()
+    local dashboard = trackerUI.CreateDashboardFrame()
+    if not dashboard then
+        return
+    end
+    if dashboard:IsShown() then
+        dashboard:Hide()
+    else
+        dashboard:Show()
+        trackerUI.UpdateDashboard()
+    end
+end
+
 --- Contenu de la section, une entree par ligne.
 --
 -- Chaque valeur a sa propre colonne alignee a droite. Auparavant le libelle et
@@ -1772,10 +3083,26 @@ local function BuildFrameRows()
         }
     end
 
-    if not IsPlayerAtMaxLevel() then
+    local xpSnapshot = BuildActiveXPSnapshot()
+    local modeConfig = trackerUI.GetXPModeConfig()
+    if xpSnapshot and GetPlayerLevel() < modeConfig.maxLevel then
         rows[#rows + 1] = {
             label = "XP/h",
-            value = BreakUpLargeNumbers(snapshot.xph or 0),
+            value = BreakUpLargeNumbers(xpSnapshot.xpPerHour or 0),
+            tooltip = {
+                title = "Session XP active",
+                body = ("%s XP en %s|n%s · niveau %s-%s"):format(
+                    BreakUpLargeNumbers(xpSnapshot.xpGained or 0),
+                    FormatDurationCompact(xpSnapshot.durationSeconds or 0),
+                    xpSnapshot.specName or "Spé inconnue",
+                    tostring(xpSnapshot.startLevel or "?"),
+                    tostring(xpSnapshot.endLevel or "?"))
+            },
+        }
+        rows[#rows + 1] = {
+            label = "Niveaux/h",
+            value = ("%.2f"):format(xpSnapshot.levelsPerHour or 0),
+            tone = "success",
         }
     end
 
@@ -1807,8 +3134,25 @@ function UpdateFrame()
         for _, row in ipairs(trackerFrame.rows) do
             row:Hide()
         end
+        for _, row in ipairs(trackerFrame.statsRows or {}) do
+            row:Hide()
+        end
+        if trackerFrame.statsHost then
+            trackerFrame.statsHost:Hide()
+        end
         trackerFrame:SetHeight(1)
+    elseif trackerFrame.statsMode then
+        for _, row in ipairs(trackerFrame.rows) do
+            row:Hide()
+        end
+        trackerUI.UpdateStatsView()
     else
+        for _, row in ipairs(trackerFrame.statsRows or {}) do
+            row:Hide()
+        end
+        if trackerFrame.statsHost then
+            trackerFrame.statsHost:Hide()
+        end
         local rows = BuildFrameRows()
         local stack = YayaCore.UI.StackLayout(trackerFrame)
 
@@ -1821,6 +3165,8 @@ function UpdateFrame()
             row.SetStripe(index)
             if data.topItems then
                 ApplyLootTooltip(row, data.topItems)
+            elseif data.tooltip then
+                row.SetTooltip(data.tooltip.title, data.tooltip.body)
             end
             row:Show()
             stack.Add(row, 0, { height = YayaCore.UI.SIZE.rowHCompact })
@@ -1857,6 +3203,21 @@ local function CreateTrackerFrame()
     -- lignes laissait la moitie de la place inutilisee.
     trackerFrame:SetSize(1, 1)
     trackerFrame.rows = {}
+    trackerFrame.statsRows = {}
+    trackerFrame.statsMode = false
+
+    trackerFrame.statsHost = CreateFrame("Frame", nil, trackerFrame)
+    trackerFrame.statsHost:SetPoint("TOPLEFT", trackerFrame, "TOPLEFT", 0, 0)
+    trackerFrame.statsHost:SetPoint("TOPRIGHT", trackerFrame, "TOPRIGHT", 0, 0)
+    trackerFrame.statsHost:SetHeight(YayaCore.UI.SIZE.rowHCompact)
+    trackerFrame.statsHost:Hide()
+    trackerFrame.statsList = YayaCore.UI.CreateScrollList(trackerFrame.statsHost, {
+        rowHeight = YayaCore.UI.SIZE.rowHCompact,
+        initializer = trackerUI.InitStatsRow,
+    })
+    if trackerFrame.statsList then
+        trackerFrame.statsList.container:SetAllPoints(trackerFrame.statsHost)
+    end
 
     YayaFrameAPI:AttachSection(addonName, trackerFrame, 10)
     YayaFrameAPI:SetSectionTitle(addonName, "Session")
@@ -1871,6 +3232,20 @@ local function CreateTrackerFrame()
     local header = type(YayaFrameAPI.EnsureSectionHeader) == "function"
         and YayaFrameAPI:EnsureSectionHeader(addonName)
     if header and type(header.AddButton) == "function" then
+        trackerFrame.statsButton = YayaCore.UI.CreateButton(header, "Stats", {
+            width = 38,
+            height = YayaCore.UI.SIZE.glyph,
+            small = true,
+        })
+        if trackerFrame.statsButton then
+            header.AddButton(trackerFrame.statsButton)
+            trackerFrame.statsButton:SetScript("OnClick", trackerUI.ToggleStats)
+            trackerFrame.statsButton.SetTooltip(
+                "Ouvrir le dashboard XP",
+                "Affiche les KPI et graphiques des sessions XP."
+            )
+        end
+
         trackerFrame.resetButton = YayaCore.UI.CreateGlyphButton(header, "reset")
         if trackerFrame.resetButton then
             header.AddButton(trackerFrame.resetButton)
@@ -2028,25 +3403,135 @@ local function StartTicker()
         CleanupOutgoingMail()
         CleanupPendingMissionRewardClaims()
         CleanupPendingMissionContainers()
+        MaintainXPTracking()
         UpdateFrame()
+        trackerUI.UpdateDashboard()
     end)
+end
+
+local function FormatXPChat(value)
+    value = math.floor(tonumber(value) or 0)
+    return BreakUpLargeNumbers and BreakUpLargeNumbers(value) or tostring(value)
+end
+
+local function PrintXPStats()
+    local trackingMode = trackerUI.GetXPTrackingMode()
+    local modeConfig = XPTracker.GetModeConfig(trackingMode)
+    local stats = XPTracker.BuildStats(GetXPSessions(trackingMode), trackingMode)
+    local live = BuildActiveXPSnapshot()
+    print(("|cff00ff98[YST]|r %s : %d sessions · %s XP · %s actives · %s XP/h · %.2f niveaux/h · %d niveaux"):format(
+        modeConfig.label,
+        stats.sessions,
+        FormatXPChat(stats.xpGained),
+        FormatDurationCompact(stats.durationSeconds),
+        FormatXPChat(stats.xpPerHour),
+        stats.levelsPerHour or 0,
+        stats.levelsGained))
+
+    local classes = {}
+    for _, aggregate in pairs(stats.byClass or {}) do
+        classes[#classes + 1] = aggregate
+    end
+    table.sort(classes, function(left, right) return left.xpGained > right.xpGained end)
+    for index = 1, math.min(5, #classes) do
+        local aggregate = classes[index]
+        print(("  Classe %s: %s XP · %s XP/h · %s"):format(
+            aggregate.className or "Inconnue",
+            FormatXPChat(aggregate.xpGained),
+            FormatXPChat(aggregate.xpPerHour),
+            FormatDurationCompact(aggregate.durationSeconds)))
+    end
+
+    local specs = {}
+    for _, aggregate in pairs(stats.bySpec) do
+        specs[#specs + 1] = aggregate
+    end
+    table.sort(specs, function(left, right) return left.xpGained > right.xpGained end)
+    for index = 1, math.min(5, #specs) do
+        local aggregate = specs[index]
+        print(("  Spé %s (%s): %s XP · %s XP/h · %s"):format(
+            aggregate.specName or "Inconnue",
+            aggregate.className or "classe inconnue",
+            FormatXPChat(aggregate.xpGained),
+            FormatXPChat(aggregate.xpPerHour),
+            FormatDurationCompact(aggregate.durationSeconds)))
+    end
+
+    local zones = {}
+    for zone, aggregate in pairs(stats.byZone or {}) do
+        aggregate.label = zone
+        zones[#zones + 1] = aggregate
+    end
+    table.sort(zones, function(left, right) return left.xpGained > right.xpGained end)
+    for index = 1, math.min(5, #zones) do
+        local aggregate = zones[index]
+        print(("  Zone %s: %s XP · %s XP/h · %s"):format(
+            aggregate.label,
+            FormatXPChat(aggregate.xpGained),
+            FormatXPChat(aggregate.xpPerHour),
+            FormatDurationCompact(aggregate.durationSeconds)))
+    end
+
+    local sources = {}
+    for source, aggregate in pairs(stats.bySource or {}) do
+        sources[#sources + 1] = { label = XPTracker.GetSourceLabel(source), aggregate = aggregate }
+    end
+    table.sort(sources, function(left, right) return left.aggregate.xpGained > right.aggregate.xpGained end)
+    for index = 1, #sources do
+        local entry = sources[index]
+        print(("  Source %s: %s XP · %s XP/h · %.2f niveaux/h"):format(
+            entry.label,
+            FormatXPChat(entry.aggregate.xpGained),
+            FormatXPChat(entry.aggregate.xpPerHour),
+            entry.aggregate.levelsPerHour or 0))
+    end
+
+    local levelBands = {}
+    for band, aggregate in pairs(stats.byLevelBand or {}) do
+        aggregate.label = band
+        levelBands[#levelBands + 1] = aggregate
+    end
+    table.sort(levelBands, function(left, right) return left.label < right.label end)
+    if #levelBands > 0 then
+        local labels = {}
+        for index = 1, math.min(8, #levelBands) do
+            local aggregate = levelBands[index]
+            labels[#labels + 1] = ("%s: %s XP/h"):format(aggregate.label, FormatXPChat(aggregate.xpPerHour))
+        end
+        print("  Tranches: " .. table.concat(labels, " · "))
+    end
+
+    if live then
+        print(("  En cours (%s): %s XP/h · %s"):format(
+            live.specName or "Inconnue",
+            FormatXPChat(live.xpPerHour),
+            FormatDurationCompact(live.durationSeconds)))
+    end
 end
 
 local function HandleSlashCommand(message)
     local command = strtrim((message or ""):lower())
-    if command == "reset" then
+    if command == "xp" then
+        PrintXPStats()
+        return
+    elseif command == "stats" then
+        trackerUI.ToggleStats()
+        return
+    elseif command == "reset" then
         ResetFramePosition()
     end
     UpdateFrame()
 end
 
 local function OnLogin()
+    XPTracker.SetLevelBandSize(GetSettings().xpLevelBandSize)
     playerInfo.name = UnitName and UnitName("player") or nil
     playerInfo.realm = GetRealmName and GetRealmName() or nil
     playerInfo.fullName = GetPlayerFullName()
     RebuildMissionHistoryIndexes()
     RegisterKnownCharacter()
     BuildLootPatterns()
+    RecoverActiveXPSession()
     StartNewSession()
     InstallMailHooks()
     InstallContainerHooks()
@@ -2070,11 +3555,14 @@ eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_MONEY")
 eventFrame:RegisterEvent("PLAYER_XP_UPDATE")
 eventFrame:RegisterEvent("PLAYER_LEVEL_UP")
+eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("CHAT_MSG_LOOT")
 eventFrame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
 eventFrame:RegisterEvent("MAIL_SEND_SUCCESS")
 eventFrame:RegisterEvent("MAIL_FAILED")
 eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
+eventFrame:RegisterEvent("QUEST_COMPLETE")
 eventFrame:RegisterEvent("QUEST_TURNED_IN")
 eventFrame:RegisterEvent("GARRISON_MISSION_STARTED")
 eventFrame:RegisterEvent("GARRISON_MISSION_FINISHED")
@@ -2088,6 +3576,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
     end
 
     if event == "PLAYER_LOGOUT" then
+        FinalizeActiveXPSession("logout")
         FinalizeActiveSession("logout")
         return
     end
@@ -2109,7 +3598,12 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         UpdateFrame()
     elseif event == "PLAYER_XP_UPDATE" or event == "PLAYER_LEVEL_UP" then
         RecordXPUpdate()
+        MaintainXPTracking()
         UpdateFrame()
+    elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
+        trackerUI.HandleCombatLogXPSource()
+    elseif event == "PLAYER_REGEN_DISABLED" then
+        trackerUI.MarkCombatXPSource()
     elseif event == "CHAT_MSG_LOOT" then
         local message = ...
         HandleLootMessage(message)
@@ -2125,7 +3619,10 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         CancelOutgoingMail()
     elseif event == "QUEST_LOG_UPDATE" then
         UpdateReplenishTracking()
+    elseif event == "QUEST_COMPLETE" then
+        trackerUI.MarkQuestXPSource()
     elseif event == "QUEST_TURNED_IN" then
+        trackerUI.MarkQuestXPSource()
         local questID = ...
         local isReplenishQuest = false
         for _, replenishQuestID in ipairs(REPLENISH_THE_RESERVOIR_QUEST_IDS) do
@@ -2151,6 +3648,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             RefreshKnownInProgressMissions()
         end
     elseif event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" then
+        MaintainXPTracking()
         PersistActiveSession()
         UpdateReplenishTracking()
         UpdateFrame()

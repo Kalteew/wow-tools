@@ -127,6 +127,7 @@ Notes:
   - `data/account/account-digest.md`: short human-readable recap
 - `local-summary` reads your local WoW `SavedVariables` plus TSM `AppData.lua` to expose alts, gold, and local TSM sync freshness.
 - Local patching scripts auto-detect the most recent account; set `WOW_RETAIL_ROOT` or `WOW_ACCOUNT_ROOT` to override it.
+- Les watchers auto-patch TSM, AbundanceTracker, RareScanner et WorldQuestTracker partagent le même moteur : journal, notification Windows, rapport d'incident persistant et relance Codex visible après un échec durable. Pour désactiver la relance Codex tout en gardant les alertes, définir `YAYA_ADDON_PATCH_CODEX_REPAIR=off`.
 - `local-items` aggregates observed items across character bags, equipment, auctions, bank, reagent bank, and warband bank if those sections were scanned in-game.
 - `local-items --all --json` dumps the full observed account inventory snapshot across all scanned characters and warband storage.
 - `local-prices` reads the local TSM AppHelper datasets directly from `Interface\AddOns\TradeSkillMaster_AppHelper\AppData.lua`.

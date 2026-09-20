@@ -4492,10 +4492,7 @@ function New-TSMAutoPatchRunTracker {
         retient ceux pour lesquels une notification a deja ete envoyee, afin de
         ne pas repeter la meme alerte a chaque passage.
     #>
-    return [pscustomobject]@{
-        FailureCounts = @{}
-        AlertedPatches = @{}
-    }
+    return New-AddonPatchFailureTracker
 }
 
 function Invoke-TSMAutoPatchRun {
@@ -4528,79 +4525,17 @@ function Invoke-TSMAutoPatchRun {
         [switch]$DryRun
     )
 
-    $notifications = New-Object System.Collections.Generic.List[object]
-    $failureCounts = $Tracker.FailureCounts
-    $alertedPatches = $Tracker.AlertedPatches
-
-    try {
-        $result = Invoke-TSMMailingPatch -AddonPath $AddonPath -Quiet -DryRun:$DryRun
-    } catch {
-        $message = $_.Exception.Message
-        Write-TSMAutoPatchLog -Message ("{0} patch failed: {1}" -f $Origin, $message) -Quiet
-        Write-TSMAutoPatchStatus -Result $null -ConsecutiveFailures $failureCounts -FatalError $message
-        if (-not $alertedPatches.ContainsKey("__fatal__")) {
-            $alertedPatches["__fatal__"] = $true
-            $notifications.Add([pscustomobject]@{ Kind = "fatal"; Name = "__fatal__"; Title = "Patch TSM interrompu"; Message = $message })
-            if ($Notify) {
-                Send-TSMAutoPatchNotification -Title "Patch TSM interrompu" -Message $message | Out-Null
-            }
-        }
-        return [pscustomobject]@{
-            Result = $null
-            FatalError = $message
-            Notifications = $notifications.ToArray()
-        }
-    }
-
-    $alertedPatches.Remove("__fatal__")
-
-    $currentFailures = @{}
-    foreach ($failure in $result.FailedPatches) {
-        $currentFailures[$failure.Name] = $failure.Error
-    }
-
-    # Un patch qui refonctionne remet son compteur a zero et leve son alerte.
-    foreach ($name in @($failureCounts.Keys)) {
-        if (-not $currentFailures.ContainsKey($name)) {
-            $failureCounts.Remove($name)
-            if ($alertedPatches.ContainsKey($name)) {
-                $alertedPatches.Remove($name)
-                Write-TSMAutoPatchLog -Message ("patch recovered [{0}]" -f $name) -Quiet
-                $title = "Patch TSM retabli"
-                $message = "Le patch {0} s'applique a nouveau." -f $name
-                $notifications.Add([pscustomobject]@{ Kind = "recovered"; Name = $name; Title = $title; Message = $message })
-                if ($Notify) {
-                    Send-TSMAutoPatchNotification -Title $title -Message $message | Out-Null
-                }
-            }
-        }
-    }
-
-    foreach ($name in $currentFailures.Keys) {
-        $count = 1
-        if ($failureCounts.ContainsKey($name)) {
-            $count = [int]$failureCounts[$name] + 1
-        }
-        $failureCounts[$name] = $count
-
-        if ($count -ge $AlertThreshold -and -not $alertedPatches.ContainsKey($name)) {
-            $alertedPatches[$name] = $true
-            $title = "Patch TSM en echec"
-            $message = "{0} echoue depuis {1} passages (TSM {2}). Detail : {3}" -f $name, $count, $result.Version, $currentFailures[$name]
-            Write-TSMAutoPatchLog -Message ("ALERT patch [{0}] failed {1} consecutive runs: {2}" -f $name, $count, $currentFailures[$name]) -Quiet
-            $notifications.Add([pscustomobject]@{ Kind = "failed"; Name = $name; Title = $title; Message = $message })
-            if ($Notify) {
-                Send-TSMAutoPatchNotification -Title $title -Message $message | Out-Null
-            }
-        }
-    }
-
-    Write-TSMAutoPatchStatus -Result $result -ConsecutiveFailures $failureCounts
-
-    return [pscustomobject]@{
-        Result = $result
-        FatalError = $null
-        Notifications = $notifications.ToArray()
-    }
+    return Invoke-AddonPatchWatchedRun `
+        -AddonName "TSM" `
+        -AddonPath $AddonPath `
+        -Origin $Origin `
+        -Tracker $Tracker `
+        -PatchAction { param($path) Invoke-TSMMailingPatch -AddonPath $path -Quiet -DryRun:$DryRun } `
+        -LogAction { param($message) Write-TSMAutoPatchLog -Message $message -Quiet } `
+        -StatusAction { param($result, $failureCounts, $fatalError) Write-TSMAutoPatchStatus -Result $result -ConsecutiveFailures $failureCounts -FatalError $fatalError } `
+        -PatchModulePath $PSScriptRoot `
+        -AlertThreshold $AlertThreshold `
+        -Notify $Notify `
+        -LaunchCodexRepair $Notify
 }
 

@@ -7,15 +7,15 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-. (Join-Path $PSScriptRoot "WQTAutoPatch.Common.ps1")
+. (Join-Path $PSScriptRoot "RareScannerAutoPatch.Common.ps1")
 
 Start-AddonPatchWatcher `
-    -AddonName "WorldQuestTracker" `
+    -AddonName "RareScanner" `
     -AddonPath $AddonPath `
     -MutexName $script:WatcherMutexName `
-    -ResolveAddonPathAction { param($path) Resolve-WQTAddonPath -AddonPath $path } `
-    -PatchAction { param($path) Invoke-WQTAutoPatch -AddonPath $path -Quiet } `
-    -LogAction { param($message) Write-WQTAutoPatchLog -Message $message -Quiet } `
+    -ResolveAddonPathAction { param($path) Resolve-RareScannerAddonPath -AddonPath $path } `
+    -PatchAction { param($path) Invoke-RareScannerAutoPatch -AddonPath $path -Quiet } `
+    -LogAction { param($message) Write-RareScannerAutoPatchLog -Message $message -Quiet } `
     -PatchModulePath $PSScriptRoot `
     -AlertThreshold $AlertThreshold `
     -HeartbeatMinutes $HeartbeatMinutes `
