@@ -189,7 +189,7 @@ Trois invariants tiennent dans tous les modes, parce qu'un autre ordre casse le 
 2. le salvage, le recyclage et le broyage viennent ensuite ;
 3. au sein d'un meme bloc de metier, les fusions (`merge`) precedent les crafts, par profondeur croissante : un craft consommateur place devant son producteur bloque `Next` sur « materiaux ». En `standard` et `profession_insertion` ce bloc est celui du metier ouvert (une recette du metier ouvert passe donc avant une fusion d'un autre metier, comme historiquement) ; en `profit` et `insertion` toutes les fusions precedent tout craft.
 
-La `Primal Philosopher's Stone` de Midnight (`itemID 241291`) est ensuite prioritaire sur les autres crafts normaux du meme metier. Cette regle ne s'applique ni aux patron orders, ni aux achats directs, ni aux salvages/fusions, et elle est partagee par le bouton `Next` et la liste.
+La `Primal Philosopher's Stone` de Midnight (`itemID 241291`) est ensuite prioritaire sur les autres crafts normaux du meme metier. Cette regle ne s'applique ni aux patron orders, ni aux achats directs, ni aux salvages/fusions, et elle est partagee par le bouton `Next` et la liste. Le metier ouvert est compare par famille (`Alchemy`/`Midnight Alchemy`, `Inscription`/`Midnight Inscription`) pour ne pas perdre cette priorite quand Blizzard renvoie un identifiant de base.
 
 La suite est choisie par `queueSortMode` (`/yq sort <mode>`, conserve apres `/reload`) :
 

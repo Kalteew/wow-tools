@@ -48,6 +48,17 @@ local function GearRank(entry)
     return entry.testGearRank or 0
 end
 
+local function ProfessionKey(professionID)
+    professionID = tonumber(professionID)
+    if professionID == 3 or professionID == 171 or professionID == 2906 then
+        return "alchemy"
+    end
+    if professionID == 13 or professionID == 773 or professionID == 2913 then
+        return "inscription"
+    end
+    return professionID
+end
+
 local CTX = {
     claimedOrderID = CLAIMED_ORDER,
     currentProfessionID = OPEN_PROFESSION,
@@ -140,6 +151,13 @@ equals("le broyage (isSalvageRecipe) est salvage", d.isSalvage, true)
 
 d = QueueOrder.Describe(Entry("ouvert", { professionID = "2906" }), 1, CTX)
 equals("metier ouvert reconnu meme si professionID est une chaine", d.matchesOpenProfession, true)
+d = QueueOrder.Describe(Entry("alchimie midnight", { professionID = 2906 }), 1, {
+    claimedOrderID = 0,
+    currentProfessionID = 171,
+    professionKey = ProfessionKey,
+    gearRank = GearRank,
+})
+equals("metier ouvert reconnu entre identifiants de meme famille", d.matchesOpenProfession, true)
 d = QueueOrder.Describe(Entry("ferme", { professionID = 2913 }), 1, CTX)
 equals("autre metier", d.matchesOpenProfession, false)
 d = QueueOrder.Describe(Entry("ouvert"), 1,
@@ -289,6 +307,28 @@ equals("la pierre ne reordonne pas un autre metier",
         Entry("autre metier", { professionID = 2913, outputItemID = 241292 }),
         Entry("pierre", { outputItemID = PHILOSOPHER_STONE_ITEM_ID }),
     }, "insertion"), "autre metier,pierre")
+
+equals("le metier alchimie ouvert passe avant la calligraphie",
+    SortedNames({
+        Entry("calli", { professionID = 2913, profitKnown = true, profitValue = 9999 }),
+        Entry("alchi", { professionID = 2906 }),
+    }, "standard", {
+        claimedOrderID = 0,
+        currentProfessionID = 171,
+        professionKey = ProfessionKey,
+        gearRank = GearRank,
+    }), "alchi,calli")
+
+equals("la priorite pierre reconnait aussi les identifiants alchimie mixtes",
+    SortedNames({
+        Entry("autre alchimie", { professionID = 171 }),
+        Entry("pierre", { professionID = 2906, outputItemID = PHILOSOPHER_STONE_ITEM_ID }),
+    }, "insertion", {
+        claimedOrderID = 0,
+        currentProfessionID = nil,
+        professionKey = ProfessionKey,
+        gearRank = GearRank,
+    }), "pierre,autre alchimie")
 
 for _, mode in ipairs(QueueOrder.MODES) do
     equals("la priorite pierre tient en mode " .. mode,
@@ -562,6 +602,8 @@ equals("le mode de tri est lu dans la base",
     source:find("QueueOrder.NormalizeMode(db.queueSortMode)", 1, true) ~= nil, true)
 equals("le module est expose via state.queueOrder",
     source:find("state.queueOrder = state.addonTable and state.addonTable.QueueOrder", 1, true) ~= nil, true)
+equals("le contexte de tri injecte la famille de metier",
+    source:find("professionKey = state.GetQueueProfessionKey", 1, true) ~= nil, true)
 equals("/yq sort ecrit le mode via SetQueueSortMode",
     source:find("YQQuality.SetQueueSortMode(sortArgument)", 1, true) ~= nil, true)
 

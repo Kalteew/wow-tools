@@ -71,6 +71,7 @@ end
 -- `ctx` porte ce qui depend du jeu :
 --   claimedOrderID      orderID de la commande de patron claim, 0 si aucune
 --   currentProfessionID metier ouvert, nil si aucun
+--   professionKey       fonction(professionID) -> cle de famille du metier
 --   gearRank            fonction(entry) -> rang d'outil a equiper (0 = rien)
 --
 -- Le descripteur fige tout ce que la comparaison lit : la cascade ne relit
@@ -80,6 +81,12 @@ function QueueOrder.Describe(entry, index, ctx)
     ctx = ctx or {}
     local claimedOrderID = tonumber(ctx.claimedOrderID) or 0
     local currentProfessionID = ctx.currentProfessionID
+    local professionKey = tonumber(entry.professionID) or nil
+    local currentProfessionKey = tonumber(currentProfessionID) or nil
+    if type(ctx.professionKey) == "function" then
+        professionKey = ctx.professionKey(entry.professionID)
+        currentProfessionKey = ctx.professionKey(currentProfessionID)
+    end
     local isMerge = entry.queueKind == "merge"
     local isSalvage = entry.queueKind == "recycle" or entry.isSalvageRecipe == true
     local isNormalCraft = entry.queueKind ~= "patron"
@@ -102,10 +109,12 @@ function QueueOrder.Describe(entry, index, ctx)
         -- beneficie de la meme priorite, sinon il reste derriere les crafts
         -- normaux.
         isSalvage = isSalvage,
-        matchesOpenProfession = currentProfessionID ~= nil
-            and (tonumber(entry.professionID) or nil) == currentProfessionID,
+        matchesOpenProfession = currentProfessionKey ~= nil
+            and professionKey ~= nil
+            and professionKey == currentProfessionKey,
         isMerge = isMerge,
         professionID = tonumber(entry.professionID) or nil,
+        professionKey = professionKey,
         isNormalCraft = isNormalCraft,
         isPriorityPhilosopherStone = isNormalCraft
             and tonumber(entry.outputItemID) == QueueOrder.PHILOSOPHER_STONE_ITEM_ID,
@@ -147,7 +156,7 @@ end
 -- devant son producteur Gold Star.
 local function ComparePriorityCraft(left, right)
     if not left.isNormalCraft or not right.isNormalCraft
-        or not left.professionID or left.professionID ~= right.professionID
+        or not left.professionKey or left.professionKey ~= right.professionKey
     then
         return nil
     end

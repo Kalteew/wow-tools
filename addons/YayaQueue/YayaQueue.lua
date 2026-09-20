@@ -5619,6 +5619,21 @@ state.GetClaimedPatronOrderID = function()
     return tonumber(claimedOrder and claimedOrder.orderID) or 0
 end
 
+-- Les API de profession peuvent renvoyer l'identifiant de base (3/171) alors
+-- que les entrees Midnight portent l'identifiant de l'extension (2906). Le tri
+-- doit comparer la famille du metier, sans normaliser l'identifiant conserve
+-- pour les appels Blizzard.
+state.GetQueueProfessionKey = function(professionID)
+    professionID = tonumber(professionID)
+    if CONFIG.ALCHEMY_PROFESSION_IDS[professionID] then
+        return "alchemy"
+    end
+    if CONFIG.INSCRIPTION_PROFESSION_IDS[professionID] then
+        return "inscription"
+    end
+    return professionID
+end
+
 --- Contexte de tri de la file (QueueOrder.lua), construit une fois par appel.
 --
 -- Rend le contexte injecte dans `QueueOrder.Describe` et le mode de tri lu
@@ -5631,6 +5646,7 @@ state.GetQueueOrderContext = function()
     local context = {
         claimedOrderID = state.GetClaimedPatronOrderID(),
         currentProfessionID = state.GetCurrentProfessionID and state.GetCurrentProfessionID() or nil,
+        professionKey = state.GetQueueProfessionKey,
         gearRank = function(entry)
             return state.craftGear.GetEntrySortRank(entry)
         end,
