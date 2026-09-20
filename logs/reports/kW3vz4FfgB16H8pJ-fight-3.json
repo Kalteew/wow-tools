@@ -1,0 +1,97 @@
+{
+  "reportCode": "kW3vz4FfgB16H8pJ",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/kW3vz4FfgB16H8pJ?fight=3",
+  "capturedAt": "2026-09-20",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 3,
+  "fight": {
+    "id": 3,
+    "dungeon": "Ruby Life Pools",
+    "keyLevel": 11,
+    "durationMs": 1191209,
+    "keystoneTimeMs": 1191209,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 345.9100036621094,
+    "deathsTotal": 7,
+    "enemyForces": {
+      "reached": 553,
+      "required": 553,
+      "percent": 100
+    }
+  },
+  "players": [
+    {
+      "name": "Fartfarmer",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "TwistingNether",
+      "itemLevel": 314
+    },
+    {
+      "name": "Worgoos",
+      "class": "Rogue",
+      "spec": "Outlaw",
+      "realm": "TarrenMill",
+      "itemLevel": 311
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 306
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    },
+    {
+      "name": "Seyyahbey",
+      "class": "Shaman",
+      "spec": "Restoration",
+      "realm": "TwistingNether",
+      "itemLevel": 308
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Fartfarmer": 321734,
+      "Worgoos": 170808,
+      "Azåelle": 166787,
+      "Kalteew": 159031,
+      "Seyyahbey": 21440
+    },
+    "hps": {
+      "Fartfarmer": 18172,
+      "Worgoos": 9650,
+      "Azåelle": 18634,
+      "Kalteew": 56047,
+      "Seyyahbey": 95314
+    },
+    "deathsByPlayer": {
+      "Fartfarmer": 1,
+      "Worgoos": 1,
+      "Azåelle": 1,
+      "Kalteew": 2,
+      "Seyyahbey": 2
+    },
+    "deathsTotal": 7
+  },
+  "focus": {
+    "tracked": [
+      "Fartfarmer",
+      "Worgoos",
+      "Azåelle",
+      "Kalteew",
+      "Seyyahbey"
+    ]
+  }
+}

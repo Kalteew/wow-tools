@@ -1,0 +1,97 @@
+{
+  "reportCode": "9DC1R3TLfXAqvYwx",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/9DC1R3TLfXAqvYwx?fight=1",
+  "capturedAt": "2026-09-20",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Voidscar Arena",
+    "keyLevel": 12,
+    "durationMs": 1523216,
+    "keystoneTimeMs": 1523216,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 370.7699890136719,
+    "deathsTotal": 7,
+    "enemyForces": {
+      "reached": 790,
+      "required": 738,
+      "percent": 107.05
+    }
+  },
+  "players": [
+    {
+      "name": "Novalolz",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Ravencrest",
+      "itemLevel": 321
+    },
+    {
+      "name": "Miikepal",
+      "class": "Paladin",
+      "spec": "Retribution",
+      "realm": "Ravencrest",
+      "itemLevel": 304
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 308
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 319
+    },
+    {
+      "name": "Инён",
+      "class": "Priest",
+      "spec": "Holy",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 318
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Novalolz": 221644,
+      "Miikepal": 215134,
+      "Azåelle": 148104,
+      "Kalteew": 143646,
+      "Инён": 13668
+    },
+    "hps": {
+      "Novalolz": 13364,
+      "Miikepal": 8633,
+      "Azåelle": 10605,
+      "Kalteew": 46468,
+      "Инён": 118611
+    },
+    "deathsByPlayer": {
+      "Novalolz": 2,
+      "Miikepal": 1,
+      "Azåelle": 2,
+      "Kalteew": 1,
+      "Инён": 1
+    },
+    "deathsTotal": 7
+  },
+  "focus": {
+    "tracked": [
+      "Novalolz",
+      "Miikepal",
+      "Azåelle",
+      "Kalteew",
+      "Инён"
+    ]
+  }
+}

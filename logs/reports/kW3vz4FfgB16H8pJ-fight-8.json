@@ -1,0 +1,97 @@
+{
+  "reportCode": "kW3vz4FfgB16H8pJ",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/kW3vz4FfgB16H8pJ?fight=8",
+  "capturedAt": "2026-09-20",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 8,
+  "fight": {
+    "id": 8,
+    "dungeon": "Den of Nalorakk",
+    "keyLevel": 11,
+    "durationMs": 1396588,
+    "keystoneTimeMs": 1396588,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 345.2200012207031,
+    "deathsTotal": 3,
+    "enemyForces": {
+      "reached": 795,
+      "required": 729,
+      "percent": 109.05
+    }
+  },
+  "players": [
+    {
+      "name": "Zovi",
+      "class": "Warrior",
+      "spec": "Arms",
+      "realm": "Draenor",
+      "itemLevel": 317
+    },
+    {
+      "name": "Bobbyhunt",
+      "class": "Hunter",
+      "spec": "Marksmanship",
+      "realm": "Draenor",
+      "itemLevel": 295
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 306
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    },
+    {
+      "name": "Spahz",
+      "class": "Shaman",
+      "spec": "Restoration",
+      "realm": "Ravencrest",
+      "itemLevel": 316
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Zovi": 210849,
+      "Bobbyhunt": 152831,
+      "Azåelle": 152355,
+      "Kalteew": 139954,
+      "Spahz": 32557
+    },
+    "hps": {
+      "Zovi": 11902,
+      "Bobbyhunt": 6738,
+      "Azåelle": 10126,
+      "Kalteew": 49140,
+      "Spahz": 90208
+    },
+    "deathsByPlayer": {
+      "Zovi": 1,
+      "Bobbyhunt": 1,
+      "Azåelle": 1,
+      "Kalteew": 0,
+      "Spahz": 0
+    },
+    "deathsTotal": 3
+  },
+  "focus": {
+    "tracked": [
+      "Zovi",
+      "Bobbyhunt",
+      "Azåelle",
+      "Kalteew",
+      "Spahz"
+    ]
+  }
+}

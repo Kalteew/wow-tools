@@ -1,0 +1,97 @@
+{
+  "reportCode": "JzZ8tmgMYj94rCNB",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/JzZ8tmgMYj94rCNB?fight=1",
+  "capturedAt": "2026-09-20",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Voidscar Arena",
+    "keyLevel": 11,
+    "durationMs": 1244399,
+    "keystoneTimeMs": 1244399,
+    "completed": true,
+    "keystoneBonus": 2,
+    "rating": 346.5799865722656,
+    "deathsTotal": 3,
+    "enemyForces": {
+      "reached": 780,
+      "required": 738,
+      "percent": 105.69
+    }
+  },
+  "players": [
+    {
+      "name": "Deathzetha",
+      "class": "DeathKnight",
+      "spec": "Frost",
+      "realm": "Draenor",
+      "itemLevel": 323
+    },
+    {
+      "name": "Reesha",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Kazzak",
+      "itemLevel": 313
+    },
+    {
+      "name": "Kimizz",
+      "class": "Shaman",
+      "spec": "Elemental",
+      "realm": "Kazzak",
+      "itemLevel": 312
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 322
+    },
+    {
+      "name": "Paladresh",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Blackrock",
+      "itemLevel": 319
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Deathzetha": 218564,
+      "Reesha": 193282,
+      "Kimizz": 192355,
+      "Kalteew": 146754,
+      "Paladresh": 9922
+    },
+    "hps": {
+      "Deathzetha": 12914,
+      "Reesha": 6077,
+      "Kimizz": 5044,
+      "Kalteew": 41261,
+      "Paladresh": 108726
+    },
+    "deathsByPlayer": {
+      "Deathzetha": 0,
+      "Reesha": 1,
+      "Kimizz": 1,
+      "Kalteew": 0,
+      "Paladresh": 1
+    },
+    "deathsTotal": 3
+  },
+  "focus": {
+    "tracked": [
+      "Deathzetha",
+      "Reesha",
+      "Kimizz",
+      "Kalteew",
+      "Paladresh"
+    ]
+  }
+}

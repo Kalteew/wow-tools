@@ -1,0 +1,97 @@
+{
+  "reportCode": "CXAjMYk3vZtr8Bzd",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/CXAjMYk3vZtr8Bzd?fight=1",
+  "capturedAt": "2026-09-20",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Murder Row",
+    "keyLevel": 13,
+    "durationMs": 2196876,
+    "keystoneTimeMs": 2196876,
+    "completed": true,
+    "keystoneBonus": 0,
+    "rating": 317.1199951171875,
+    "deathsTotal": 12,
+    "enemyForces": {
+      "reached": 670,
+      "required": 655,
+      "percent": 102.29
+    }
+  },
+  "players": [
+    {
+      "name": "Sololoboo",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "TarrenMill",
+      "itemLevel": 320
+    },
+    {
+      "name": "Ropof",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "TarrenMill",
+      "itemLevel": 309
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 306
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    },
+    {
+      "name": "Ahérys",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "KhazModan",
+      "itemLevel": 313
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Sololoboo": 204203,
+      "Ropof": 171859,
+      "Azåelle": 119288,
+      "Kalteew": 119117,
+      "Ahérys": 8817
+    },
+    "hps": {
+      "Sololoboo": 14272,
+      "Ropof": 7924,
+      "Azåelle": 13221,
+      "Kalteew": 51031,
+      "Ahérys": 105409
+    },
+    "deathsByPlayer": {
+      "Sololoboo": 3,
+      "Ropof": 1,
+      "Azåelle": 4,
+      "Kalteew": 2,
+      "Ahérys": 2
+    },
+    "deathsTotal": 12
+  },
+  "focus": {
+    "tracked": [
+      "Sololoboo",
+      "Ropof",
+      "Azåelle",
+      "Kalteew",
+      "Ahérys"
+    ]
+  }
+}

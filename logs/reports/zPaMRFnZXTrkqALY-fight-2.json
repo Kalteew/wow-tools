@@ -1,0 +1,97 @@
+{
+  "reportCode": "zPaMRFnZXTrkqALY",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/zPaMRFnZXTrkqALY?fight=2",
+  "capturedAt": "2026-09-20",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 2,
+  "fight": {
+    "id": 2,
+    "dungeon": "The Blinding Vale",
+    "keyLevel": 11,
+    "durationMs": 1658539,
+    "keystoneTimeMs": 1658539,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 337.95001220703125,
+    "deathsTotal": 13,
+    "enemyForces": {
+      "reached": 683,
+      "required": 655,
+      "percent": 104.27
+    }
+  },
+  "players": [
+    {
+      "name": "Dreamwyn",
+      "class": "Priest",
+      "spec": "Shadow",
+      "realm": "Silvermoon",
+      "itemLevel": 305
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 318
+    },
+    {
+      "name": "Chesslock",
+      "class": "Warlock",
+      "spec": "Demonology",
+      "realm": "Silvermoon",
+      "itemLevel": 313
+    },
+    {
+      "name": "Adikili",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Draenor",
+      "itemLevel": 308
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 316
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Dreamwyn": 220821,
+      "Kalteew": 190560,
+      "Chesslock": 171928,
+      "Adikili": 114157,
+      "Kylse": 50896
+    },
+    "hps": {
+      "Dreamwyn": 21474,
+      "Kalteew": 63209,
+      "Chesslock": 10553,
+      "Adikili": 7088,
+      "Kylse": 116218
+    },
+    "deathsByPlayer": {
+      "Dreamwyn": 3,
+      "Kalteew": 1,
+      "Chesslock": 4,
+      "Adikili": 1,
+      "Kylse": 4
+    },
+    "deathsTotal": 13
+  },
+  "focus": {
+    "tracked": [
+      "Dreamwyn",
+      "Kalteew",
+      "Chesslock",
+      "Adikili",
+      "Kylse"
+    ]
+  }
+}
