@@ -12,8 +12,8 @@
 --
 -- * des invariants fixes, valables dans tous les modes, parce qu'un autre ordre
 --   casse le bouton Next : la commande de patron claim passe en tete (sinon
---   Next reste sur « relache la commande »), puis le salvage / recyclage /
---   broyage ; et, au sein d'un meme bloc de metier, les fusions precedent les
+--   Next reste sur « relache la commande »), puis le recyclage ; et, au sein
+--   d'un meme bloc de metier, les fusions precedent les
 --   crafts par profondeur croissante (un craft consommateur place devant son
 --   producteur bloque Next sur « materiaux ») ;
 -- * une suite choisie par l'utilisateur (`queueSortMode`) : metier ouvert,
@@ -74,6 +74,7 @@ end
 --   professionKey       fonction(professionID) -> cle de famille du metier
 --   gearRank            fonction(entry) -> rang d'outil a equiper (0 = rien)
 --   hasMaterials        fonction(entry) -> materiaux disponibles pour un craft
+--   isMillingRecipe     fonction(entry) -> true pour le milling Midnight
 --
 -- Le descripteur fige tout ce que la comparaison lit : la cascade ne relit
 -- jamais l'entree, donc une mutation de la file pendant un tri ne peut pas
@@ -89,7 +90,12 @@ function QueueOrder.Describe(entry, index, ctx)
         currentProfessionKey = ctx.professionKey(currentProfessionID)
     end
     local isMerge = entry.queueKind == "merge"
-    local isSalvage = entry.queueKind == "recycle" or entry.isSalvageRecipe == true
+    local isMilling = entry.isMillingRecipe == true
+    if type(ctx.isMillingRecipe) == "function" then
+        isMilling = ctx.isMillingRecipe(entry) == true
+    end
+    local isSalvage = not isMilling
+        and (entry.queueKind == "recycle" or entry.isSalvageRecipe == true)
     local isNormalCraft = entry.queueKind ~= "patron"
         and entry.queueKind ~= "direct_item"
         and not isMerge
@@ -110,9 +116,9 @@ function QueueOrder.Describe(entry, index, ctx)
         isClaimedOrder = claimedOrderID > 0
             and entry.queueKind == "patron"
             and (tonumber(entry.orderID) or 0) == claimedOrderID,
-        -- Le milling est une recette salvage sans queueKind "recycle" : il
-        -- beneficie de la meme priorite, sinon il reste derriere les crafts
-        -- normaux.
+        -- Le milling reste executable via CraftSalvage, mais son tri suit le
+        -- metier de l'entree comme un craft normal.
+        isMilling = isMilling,
         isSalvage = isSalvage,
         matchesOpenProfession = currentProfessionKey ~= nil
             and professionKey ~= nil
@@ -158,7 +164,7 @@ local function CompareMerge(left, right)
 end
 
 -- Un craft sans materiaux ne doit pas bloquer un craft executable. Les
--- commandes patron, salvage et fusions restent traitees par les invariants
+-- commandes patron, recyclages et fusions restent traitees par les invariants
 -- precedents : leurs dependances ont une semantique propre pour Next.
 local function CompareMaterials(left, right)
     if left.hasMaterials ~= right.hasMaterials then

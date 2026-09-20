@@ -5665,6 +5665,9 @@ state.GetQueueOrderContext = function()
         claimedOrderID = state.GetClaimedPatronOrderID(),
         currentProfessionID = state.GetCurrentProfessionID and state.GetCurrentProfessionID() or nil,
         professionKey = state.GetQueueProfessionKey,
+        isMillingRecipe = function(entry)
+            return IsMidnightMillingRecipe(entry and entry.recipeID)
+        end,
         hasMaterials = function(entry)
             return state.GetQueueEntryHasMaterials(entry)
         end,

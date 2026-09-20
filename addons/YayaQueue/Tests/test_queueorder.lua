@@ -42,6 +42,7 @@ local QueueOrder = assert(ns.QueueOrder, "ns.QueueOrder non exporte")
 local OPEN_PROFESSION = 2906
 local CLAIMED_ORDER = 777
 local PHILOSOPHER_STONE_ITEM_ID = 241291
+local MIDNIGHT_MILLING_RECIPE_ID = 1269575
 
 -- Rang d'outil injecte : lu sur l'entree elle-meme pour le test.
 local function GearRank(entry)
@@ -71,6 +72,16 @@ local MATERIAL_CTX = {
     gearRank = GearRank,
     hasMaterials = function(entry)
         return entry.testHasMaterials ~= false
+    end,
+}
+
+local MILLING_CTX = {
+    claimedOrderID = CLAIMED_ORDER,
+    currentProfessionID = OPEN_PROFESSION,
+    professionKey = ProfessionKey,
+    gearRank = GearRank,
+    isMillingRecipe = function(entry)
+        return tonumber(entry.recipeID) == MIDNIGHT_MILLING_RECIPE_ID
     end,
 }
 
@@ -157,6 +168,27 @@ d = QueueOrder.Describe(Entry("recycle", { queueKind = "recycle" }), 1, CTX)
 equals("recycle est salvage", d.isSalvage, true)
 d = QueueOrder.Describe(Entry("milling", { isSalvageRecipe = true }), 1, CTX)
 equals("le broyage (isSalvageRecipe) est salvage", d.isSalvage, true)
+
+d = QueueOrder.Describe(Entry("milling Midnight", {
+    recipeID = MIDNIGHT_MILLING_RECIPE_ID,
+    queueKind = "recycle",
+    isSalvageRecipe = true,
+    professionID = 2913,
+}), 1, MILLING_CTX)
+equals("le milling est identifie", d.isMilling, true)
+equals("le milling suit le tri des crafts", d.isSalvage, false)
+equals("le milling est un craft pour le tri", d.isNormalCraft, true)
+
+equals("l'alchimie ouverte passe avant le milling d'inscription",
+    SortedNames({
+        Entry("milling Midnight", {
+            recipeID = MIDNIGHT_MILLING_RECIPE_ID,
+            queueKind = "recycle",
+            isSalvageRecipe = true,
+            professionID = 2913,
+        }),
+        Entry("craft alchimie", { professionID = 2906 }),
+    }, "standard", MILLING_CTX), "craft alchimie,milling Midnight")
 
 d = QueueOrder.Describe(Entry("ouvert", { professionID = "2906" }), 1, CTX)
 equals("metier ouvert reconnu meme si professionID est une chaine", d.matchesOpenProfession, true)
