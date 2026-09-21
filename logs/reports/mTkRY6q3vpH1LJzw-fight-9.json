@@ -1,0 +1,5056 @@
+{
+  "reportCode": "mTkRY6q3vpH1LJzw",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/mTkRY6q3vpH1LJzw?fight=9",
+  "capturedAt": "2026-09-21T19:47:43.854Z",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 9,
+  "fight": {
+    "id": 9,
+    "dungeon": "Ruby Life Pools",
+    "keyLevel": 14,
+    "durationMs": 1555745,
+    "keystoneTimeMs": 1555745,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 397.7699890136719,
+    "deathsTotal": 5,
+    "enemyForces": {
+      "reached": 553,
+      "required": 553,
+      "percent": 100
+    }
+  },
+  "players": [
+    {
+      "name": "Nítrí",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "TarrenMill",
+      "itemLevel": 322,
+      "roleMetrics": {
+        "dps": 244683,
+        "hps": 12274,
+        "deaths": 0,
+        "interrupts": 23
+      }
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 322,
+      "aliases": [
+        "Kalteew",
+        "Kaltou"
+      ],
+      "roleMetrics": {
+        "dps": 158790,
+        "hps": 60986,
+        "deaths": 1,
+        "interrupts": 38
+      }
+    },
+    {
+      "name": "Xabuu",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "ArgentDawn",
+      "itemLevel": 318,
+      "roleMetrics": {
+        "dps": 9217,
+        "hps": 134191,
+        "deaths": 1,
+        "interrupts": 6
+      }
+    },
+    {
+      "name": "Таргорот",
+      "class": "DeathKnight",
+      "spec": "Unholy",
+      "realm": "Ревущийфьорд",
+      "itemLevel": 321,
+      "roleMetrics": {
+        "dps": 240858,
+        "hps": 12071,
+        "deaths": 1,
+        "interrupts": 15
+      }
+    },
+    {
+      "name": "Azåelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 310,
+      "aliases": [
+        "Azaelle",
+        "Azåelle",
+        "Azael"
+      ],
+      "roleMetrics": {
+        "dps": 174537,
+        "hps": 13573,
+        "deaths": 2,
+        "interrupts": 3
+      }
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Nítrí": 244683,
+      "Таргорот": 240858,
+      "Azåelle": 174537,
+      "Kalteew": 158790,
+      "Xabuu": 9217
+    },
+    "hps": {
+      "Nítrí": 12274,
+      "Таргорот": 12071,
+      "Azåelle": 13573,
+      "Kalteew": 60986,
+      "Xabuu": 134191
+    },
+    "deathsByPlayer": {
+      "Nítrí": 0,
+      "Таргорот": 1,
+      "Azåelle": 2,
+      "Kalteew": 1,
+      "Xabuu": 1
+    },
+    "deathsTotal": 5,
+    "interrupts": {
+      "Nítrí": 23,
+      "Таргорот": 15,
+      "Azåelle": 3,
+      "Kalteew": 38,
+      "Xabuu": 6
+    }
+  },
+  "focus": {
+    "tracked": [
+      "Kalteew",
+      "Azåelle"
+    ]
+  },
+  "playerMetrics": {
+    "kalteew": {
+      "stats": {
+        "strength": 2827,
+        "agility": 431,
+        "stamina": 65032,
+        "intellect": 435,
+        "crit": 724,
+        "haste": 1005,
+        "mastery": 690,
+        "versatility": 555,
+        "armor": 6824
+      },
+      "gear": {
+        "itemLevelAverage": 322.25,
+        "itemLevelMax": 334,
+        "equippedSlots": 16,
+        "gems": 4,
+        "setPieces": 5
+      },
+      "casts": {
+        "total": 1652,
+        "perMinute": 63.712240759250385,
+        "abilities": [
+          {
+            "name": "Avatar",
+            "casts": 21
+          },
+          {
+            "name": "Ravager",
+            "casts": 21
+          },
+          {
+            "name": "Shield Wall",
+            "casts": 12
+          },
+          {
+            "name": "Demoralizing Shout",
+            "casts": 45
+          },
+          {
+            "name": "Disrupting Shout",
+            "casts": 8
+          },
+          {
+            "name": "Spell Reflection",
+            "casts": 4
+          },
+          {
+            "name": "Shield Block",
+            "casts": 130
+          },
+          {
+            "name": "Ignore Pain",
+            "casts": 328
+          },
+          {
+            "name": "Shield Slam",
+            "casts": 380
+          },
+          {
+            "name": "Revenge",
+            "casts": 308
+          },
+          {
+            "name": "Thunder Clap",
+            "casts": 254
+          },
+          {
+            "name": "Execute",
+            "casts": 6
+          }
+        ],
+        "cooldowns": [
+          {
+            "name": "Avatar",
+            "casts": 21
+          },
+          {
+            "name": "Ravager",
+            "casts": 21
+          },
+          {
+            "name": "Shield Wall",
+            "casts": 12
+          },
+          {
+            "name": "Demoralizing Shout",
+            "casts": 45
+          },
+          {
+            "name": "Disrupting Shout",
+            "casts": 8
+          },
+          {
+            "name": "Spell Reflection",
+            "casts": 4
+          }
+        ],
+        "cooldownTotal": 111,
+        "cooldownsPerMinute": 4.2809072180852255,
+        "trackedCooldownNames": [
+          "Avatar",
+          "Ravager",
+          "Shield Wall",
+          "Last Stand",
+          "Demoralizing Shout",
+          "Disrupting Shout",
+          "Spell Reflection",
+          "Thunderous Roar"
+        ],
+        "trackedAbilityNames": [
+          "Avatar",
+          "Ravager",
+          "Shield Wall",
+          "Last Stand",
+          "Demoralizing Shout",
+          "Disrupting Shout",
+          "Spell Reflection",
+          "Thunderous Roar",
+          "Shield Block",
+          "Ignore Pain",
+          "Shield Slam",
+          "Revenge",
+          "Thunder Clap",
+          "Execute"
+        ]
+      },
+      "build": {
+        "specID": 73,
+        "talentTree": [
+          {
+            "id": 112115,
+            "rank": 1,
+            "nodeID": 90264
+          },
+          {
+            "id": 112116,
+            "rank": 1,
+            "nodeID": 90265
+          },
+          {
+            "id": 112149,
+            "rank": 1,
+            "nodeID": 90295
+          },
+          {
+            "id": 112151,
+            "rank": 1,
+            "nodeID": 90297
+          },
+          {
+            "id": 112152,
+            "rank": 1,
+            "nodeID": 90298
+          },
+          {
+            "id": 112155,
+            "rank": 1,
+            "nodeID": 90301
+          },
+          {
+            "id": 112156,
+            "rank": 1,
+            "nodeID": 90302
+          },
+          {
+            "id": 112157,
+            "rank": 1,
+            "nodeID": 90303
+          },
+          {
+            "id": 112158,
+            "rank": 1,
+            "nodeID": 90304
+          },
+          {
+            "id": 112159,
+            "rank": 1,
+            "nodeID": 90305
+          },
+          {
+            "id": 112160,
+            "rank": 1,
+            "nodeID": 90306
+          },
+          {
+            "id": 112162,
+            "rank": 1,
+            "nodeID": 90308
+          },
+          {
+            "id": 112163,
+            "rank": 1,
+            "nodeID": 90309
+          },
+          {
+            "id": 112166,
+            "rank": 2,
+            "nodeID": 90311
+          },
+          {
+            "id": 112170,
+            "rank": 1,
+            "nodeID": 90314
+          },
+          {
+            "id": 112173,
+            "rank": 1,
+            "nodeID": 90317
+          },
+          {
+            "id": 112174,
+            "rank": 1,
+            "nodeID": 90318
+          },
+          {
+            "id": 112176,
+            "rank": 1,
+            "nodeID": 90319
+          },
+          {
+            "id": 112177,
+            "rank": 1,
+            "nodeID": 90320
+          },
+          {
+            "id": 112181,
+            "rank": 2,
+            "nodeID": 90324
+          },
+          {
+            "id": 112183,
+            "rank": 1,
+            "nodeID": 90326
+          },
+          {
+            "id": 112185,
+            "rank": 1,
+            "nodeID": 90328
+          },
+          {
+            "id": 112198,
+            "rank": 1,
+            "nodeID": 90337
+          },
+          {
+            "id": 112205,
+            "rank": 1,
+            "nodeID": 90343
+          },
+          {
+            "id": 112208,
+            "rank": 1,
+            "nodeID": 90346
+          },
+          {
+            "id": 112215,
+            "rank": 1,
+            "nodeID": 90351
+          },
+          {
+            "id": 112216,
+            "rank": 1,
+            "nodeID": 90352
+          },
+          {
+            "id": 112217,
+            "rank": 1,
+            "nodeID": 90353
+          },
+          {
+            "id": 112219,
+            "rank": 1,
+            "nodeID": 90355
+          },
+          {
+            "id": 112224,
+            "rank": 2,
+            "nodeID": 90360
+          },
+          {
+            "id": 112233,
+            "rank": 2,
+            "nodeID": 90366
+          },
+          {
+            "id": 112235,
+            "rank": 2,
+            "nodeID": 90368
+          },
+          {
+            "id": 112238,
+            "rank": 1,
+            "nodeID": 90371
+          },
+          {
+            "id": 112241,
+            "rank": 1,
+            "nodeID": 90374
+          },
+          {
+            "id": 112242,
+            "rank": 1,
+            "nodeID": 90375
+          },
+          {
+            "id": 112248,
+            "rank": 2,
+            "nodeID": 90381
+          },
+          {
+            "id": 112249,
+            "rank": 1,
+            "nodeID": 90382
+          },
+          {
+            "id": 112253,
+            "rank": 1,
+            "nodeID": 90385
+          },
+          {
+            "id": 112305,
+            "rank": 1,
+            "nodeID": 90433
+          },
+          {
+            "id": 112307,
+            "rank": 1,
+            "nodeID": 90435
+          },
+          {
+            "id": 112321,
+            "rank": 1,
+            "nodeID": 90448
+          },
+          {
+            "id": 112323,
+            "rank": 1,
+            "nodeID": 90449
+          },
+          {
+            "id": 112325,
+            "rank": 1,
+            "nodeID": 90451
+          },
+          {
+            "id": 117382,
+            "rank": 1,
+            "nodeID": 94785
+          },
+          {
+            "id": 117394,
+            "rank": 1,
+            "nodeID": 94797
+          },
+          {
+            "id": 117395,
+            "rank": 1,
+            "nodeID": 94798
+          },
+          {
+            "id": 117397,
+            "rank": 1,
+            "nodeID": 94800
+          },
+          {
+            "id": 117402,
+            "rank": 1,
+            "nodeID": 94805
+          },
+          {
+            "id": 117404,
+            "rank": 1,
+            "nodeID": 94807
+          },
+          {
+            "id": 117405,
+            "rank": 1,
+            "nodeID": 94808
+          },
+          {
+            "id": 117413,
+            "rank": 1,
+            "nodeID": 94816
+          },
+          {
+            "id": 117414,
+            "rank": 1,
+            "nodeID": 94817
+          },
+          {
+            "id": 118834,
+            "rank": 1,
+            "nodeID": 94792
+          },
+          {
+            "id": 118850,
+            "rank": 1,
+            "nodeID": 95956
+          },
+          {
+            "id": 118853,
+            "rank": 1,
+            "nodeID": 95959
+          },
+          {
+            "id": 123388,
+            "rank": 1,
+            "nodeID": 99851
+          },
+          {
+            "id": 132880,
+            "rank": 1,
+            "nodeID": 90432
+          },
+          {
+            "id": 132882,
+            "rank": 1,
+            "nodeID": 107577
+          },
+          {
+            "id": 132883,
+            "rank": 1,
+            "nodeID": 107578
+          },
+          {
+            "id": 132885,
+            "rank": 1,
+            "nodeID": 90312
+          },
+          {
+            "id": 132886,
+            "rank": 1,
+            "nodeID": 107579
+          },
+          {
+            "id": 134031,
+            "rank": 1,
+            "nodeID": 108542
+          },
+          {
+            "id": 134032,
+            "rank": 1,
+            "nodeID": 108543
+          },
+          {
+            "id": 134033,
+            "rank": 1,
+            "nodeID": 108544
+          },
+          {
+            "id": 134226,
+            "rank": 1,
+            "nodeID": 108686
+          },
+          {
+            "id": 134254,
+            "rank": 1,
+            "nodeID": 108705
+          },
+          {
+            "id": 136068,
+            "rank": 1,
+            "nodeID": 109809
+          },
+          {
+            "id": 136069,
+            "rank": 1,
+            "nodeID": 109810
+          },
+          {
+            "id": 136070,
+            "rank": 1,
+            "nodeID": 109811
+          },
+          {
+            "id": 136625,
+            "rank": 1,
+            "nodeID": 110118
+          },
+          {
+            "id": 136626,
+            "rank": 1,
+            "nodeID": 110119
+          },
+          {
+            "id": 136999,
+            "rank": 1,
+            "nodeID": 110411
+          },
+          {
+            "id": 137000,
+            "rank": 2,
+            "nodeID": 110411
+          },
+          {
+            "id": 137001,
+            "rank": 1,
+            "nodeID": 110411
+          },
+          {
+            "id": 137471,
+            "rank": 1,
+            "nodeID": 110653
+          },
+          {
+            "id": 117400,
+            "rank": 1,
+            "nodeID": 94803
+          },
+          {
+            "id": 112187,
+            "rank": 1,
+            "nodeID": 90330
+          },
+          {
+            "id": 112112,
+            "rank": 1,
+            "nodeID": 90261
+          }
+        ],
+        "talents": [],
+        "pvpTalents": [
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 199045,
+            "icon": "warrior_talent_icon_bloodandthunder.jpg"
+          },
+          {
+            "id": 199023,
+            "icon": "ability_warrior_warcry.jpg"
+          },
+          {
+            "id": 205800,
+            "icon": "spell_nature_reincarnation.jpg"
+          }
+        ]
+      },
+      "sourceName": "Kalteew",
+      "actorID": 519,
+      "spec": "Protection",
+      "capturedAt": "2026-09-21T19:47:43.854Z",
+      "source": "mcp",
+      "analysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T19:47:43.854Z",
+        "damageDone": [
+          {
+            "name": "Execute",
+            "guid": 5308,
+            "total": 243863,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 6,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Ravager",
+            "guid": 156287,
+            "total": 8257376,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 593,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Charge",
+            "guid": 126664,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Storm Bolt",
+            "guid": 132169,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shockwave",
+            "guid": 132168,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Thunder Clap",
+            "guid": 435203,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Revenge",
+            "guid": 6572,
+            "total": 26203196,
+            "totalReduced": null,
+            "uses": 308,
+            "hitCount": 1064,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Wrecking Throw",
+            "guid": 394354,
+            "total": 1356789,
+            "totalReduced": null,
+            "uses": 13,
+            "hitCount": 15,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Impending Victory",
+            "guid": 202168,
+            "total": 30023,
+            "totalReduced": null,
+            "uses": 9,
+            "hitCount": 9,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shield Slam",
+            "guid": 23922,
+            "total": 48967600,
+            "totalReduced": null,
+            "uses": 380,
+            "hitCount": 1571,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Ravager",
+            "guid": 228920,
+            "total": 126089,
+            "totalReduced": null,
+            "uses": 21,
+            "hitCount": 21,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Devastator",
+            "guid": 236282,
+            "total": 10244653,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 985,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Charge",
+            "guid": 100,
+            "total": 21899,
+            "totalReduced": null,
+            "uses": 18,
+            "hitCount": 18,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Rend",
+            "guid": 772,
+            "total": 15415197,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 2545,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Intimidating Shout",
+            "guid": 5246,
+            "total": 0,
+            "totalReduced": null,
+            "uses": 1,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Tough as Nails",
+            "guid": 385890,
+            "total": 9170832,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 974,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Lightning Strike",
+            "guid": 435791,
+            "total": 20328614,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 1571,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 5922012,
+            "totalReduced": null,
+            "uses": 986,
+            "hitCount": 986,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Storm Bolt",
+            "guid": 107570,
+            "total": 17486,
+            "totalReduced": null,
+            "uses": 3,
+            "hitCount": 9,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Heroic Leap",
+            "guid": 52174,
+            "total": 18216,
+            "totalReduced": null,
+            "uses": 9,
+            "hitCount": 14,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shield Charge",
+            "guid": 385954,
+            "total": 447550,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 20,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Heroic Throw",
+            "guid": 57755,
+            "total": 27480,
+            "totalReduced": null,
+            "uses": 13,
+            "hitCount": 13,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Thunder Clap",
+            "guid": 6343,
+            "total": 82809843,
+            "totalReduced": null,
+            "uses": 254,
+            "hitCount": 1703,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Fire Shot",
+            "guid": 389839,
+            "total": 228059,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Bloody Rebuke",
+            "guid": 1300690,
+            "total": 14967908,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 1147,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Omnium Folio",
+            "guid": 1302265,
+            "total": 1758580,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 229,
+            "tickCount": 1318,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Lobbing Fire Nova",
+            "guid": 390234,
+            "total": 360304,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 6,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shockwave",
+            "guid": 46968,
+            "total": 112730,
+            "totalReduced": null,
+            "uses": 11,
+            "hitCount": 75,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "healing": [],
+        "damageTaken": [
+          {
+            "name": "Stormslam",
+            "guid": 381513,
+            "total": 2269468,
+            "totalReduced": 1393152,
+            "uses": null,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 422380,
+            "count": null
+          },
+          {
+            "name": "Chillstorm",
+            "guid": 383925,
+            "total": 585030,
+            "totalReduced": 377612,
+            "uses": null,
+            "hitCount": 4,
+            "tickCount": 0,
+            "overheal": 152208,
+            "count": null
+          },
+          {
+            "name": "Fiery Blast",
+            "guid": 1305955,
+            "total": 970758,
+            "totalReduced": 581978,
+            "uses": 1,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 187561,
+            "count": null
+          },
+          {
+            "name": "Steel Barrage",
+            "guid": 372794,
+            "total": 2599990,
+            "totalReduced": 1918867,
+            "uses": 5,
+            "hitCount": 22,
+            "tickCount": 0,
+            "overheal": 12136613,
+            "count": null
+          },
+          {
+            "name": "Inferno",
+            "guid": 373692,
+            "total": 5500550,
+            "totalReduced": 3200833,
+            "uses": 9,
+            "hitCount": 9,
+            "tickCount": 45,
+            "overheal": 1827528,
+            "count": null
+          },
+          {
+            "name": "Thunderous Stomp",
+            "guid": 392406,
+            "total": 4176664,
+            "totalReduced": 2518428,
+            "uses": 35,
+            "hitCount": 35,
+            "tickCount": 0,
+            "overheal": 1302999,
+            "count": null
+          },
+          {
+            "name": "Searing Wounds",
+            "guid": 372860,
+            "total": 5007029,
+            "totalReduced": 4111934,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 75,
+            "overheal": 3830998,
+            "count": null
+          },
+          {
+            "name": "Frost Overload",
+            "guid": 373688,
+            "total": 2086243,
+            "totalReduced": 1324822,
+            "uses": 2,
+            "hitCount": 19,
+            "tickCount": 0,
+            "overheal": 435402,
+            "count": null
+          },
+          {
+            "name": "Tectonic Strike",
+            "guid": 1305225,
+            "total": 1753502,
+            "totalReduced": 1318056,
+            "uses": 25,
+            "hitCount": 17,
+            "tickCount": 0,
+            "overheal": 7972251,
+            "count": null
+          },
+          {
+            "name": "Tempest Stormshield",
+            "guid": 1310363,
+            "total": 1182915,
+            "totalReduced": 784350,
+            "uses": 2,
+            "hitCount": 21,
+            "tickCount": 0,
+            "overheal": 586271,
+            "count": null
+          },
+          {
+            "name": "Frostbolt",
+            "guid": 371984,
+            "total": 651029,
+            "totalReduced": 468624,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 59398,
+            "count": null
+          },
+          {
+            "name": "Excavating Blast",
+            "guid": 1305201,
+            "total": 3990506,
+            "totalReduced": 2952230,
+            "uses": 5,
+            "hitCount": 5,
+            "tickCount": 40,
+            "overheal": 1599362,
+            "count": null
+          },
+          {
+            "name": "Fiery Demise",
+            "guid": 1307372,
+            "total": 241771,
+            "totalReduced": 120886,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 1,
+            "overheal": 71286,
+            "count": null
+          },
+          {
+            "name": "Interrupting Cloudburst",
+            "guid": 381516,
+            "total": 1017084,
+            "totalReduced": 508542,
+            "uses": 5,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 294332,
+            "count": null
+          },
+          {
+            "name": "Hailburst",
+            "guid": 396044,
+            "total": 1665292,
+            "totalReduced": 885794,
+            "uses": 7,
+            "hitCount": 7,
+            "tickCount": 0,
+            "overheal": 621781,
+            "count": null
+          },
+          {
+            "name": "Molten Blood",
+            "guid": 392570,
+            "total": 2159556,
+            "totalReduced": 1660303,
+            "uses": null,
+            "hitCount": 11,
+            "tickCount": 0,
+            "overheal": 651806,
+            "count": null
+          },
+          {
+            "name": "Winds of Change",
+            "guid": 381518,
+            "total": 928169,
+            "totalReduced": 432990,
+            "uses": 6,
+            "hitCount": 0,
+            "tickCount": 47,
+            "overheal": 295308,
+            "count": null
+          },
+          {
+            "name": "Stormslam",
+            "guid": 381512,
+            "total": 0,
+            "totalReduced": null,
+            "uses": 5,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Chillstorm",
+            "guid": 397077,
+            "total": 1297161,
+            "totalReduced": 598338,
+            "uses": 20,
+            "hitCount": 0,
+            "tickCount": 16,
+            "overheal": 440716,
+            "count": null
+          },
+          {
+            "name": "Steel Barrage",
+            "guid": 1309705,
+            "total": 1866574,
+            "totalReduced": 1391386,
+            "uses": 5,
+            "hitCount": 35,
+            "tickCount": 0,
+            "overheal": 505187,
+            "count": null
+          },
+          {
+            "name": "Inferno",
+            "guid": 384823,
+            "total": 5722655,
+            "totalReduced": 3394285,
+            "uses": 9,
+            "hitCount": 9,
+            "tickCount": 64,
+            "overheal": 2758838,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 68337605,
+            "totalReduced": 37823519,
+            "uses": 1972,
+            "hitCount": 1169,
+            "tickCount": 0,
+            "overheal": 355135172,
+            "count": null
+          },
+          {
+            "name": "Flaming Barrage",
+            "guid": 1305865,
+            "total": 1313315,
+            "totalReduced": 708950,
+            "uses": 15,
+            "hitCount": 20,
+            "tickCount": 0,
+            "overheal": 13060012,
+            "count": null
+          },
+          {
+            "name": "Hailbombs",
+            "guid": 384024,
+            "total": 515623,
+            "totalReduced": 257812,
+            "uses": null,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 131729,
+            "count": null
+          },
+          {
+            "name": "Cinderbolt",
+            "guid": 384194,
+            "total": 2264904,
+            "totalReduced": 1028213,
+            "uses": 9,
+            "hitCount": 9,
+            "tickCount": 0,
+            "overheal": 716045,
+            "count": null
+          },
+          {
+            "name": "Stormslam",
+            "guid": 381514,
+            "total": 1068887,
+            "totalReduced": 935375,
+            "uses": null,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 4314796,
+            "count": null
+          },
+          {
+            "name": "Crushing Smash",
+            "guid": 372730,
+            "total": 1867350,
+            "totalReduced": 1589357,
+            "uses": 6,
+            "hitCount": 6,
+            "tickCount": 0,
+            "overheal": 7477850,
+            "count": null
+          },
+          {
+            "name": "Inferno Spit",
+            "guid": 381862,
+            "total": 1669413,
+            "totalReduced": 869223,
+            "uses": 9,
+            "hitCount": 0,
+            "tickCount": 17,
+            "overheal": 402210,
+            "count": null
+          },
+          {
+            "name": "Frigid Shard",
+            "guid": 372808,
+            "total": 1019463,
+            "totalReduced": 490339,
+            "uses": 4,
+            "hitCount": 4,
+            "tickCount": 0,
+            "overheal": 7073135,
+            "count": null
+          },
+          {
+            "name": "Fire Maw",
+            "guid": 392394,
+            "total": 381250,
+            "totalReduced": 78995,
+            "uses": 3,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 4484558,
+            "count": null
+          },
+          {
+            "name": "Stormcloud Detonation",
+            "guid": 392399,
+            "total": 496684,
+            "totalReduced": 378517,
+            "uses": null,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 75885,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": -8,
+            "total": 11904328,
+            "totalReduced": 6326208,
+            "uses": 480,
+            "hitCount": 324,
+            "tickCount": 0,
+            "overheal": 3617702,
+            "count": null
+          },
+          {
+            "name": "Searing Blows",
+            "guid": 372859,
+            "total": 2350025,
+            "totalReduced": 1484153,
+            "uses": 5,
+            "hitCount": 13,
+            "tickCount": 0,
+            "overheal": 14026146,
+            "count": null
+          },
+          {
+            "name": "Fire Maw",
+            "guid": 395292,
+            "total": 3380019,
+            "totalReduced": 2286761,
+            "uses": null,
+            "hitCount": 3,
+            "tickCount": 18,
+            "overheal": 1284552,
+            "count": null
+          },
+          {
+            "name": "Crushing Smash",
+            "guid": 1305213,
+            "total": 2070539,
+            "totalReduced": 1304850,
+            "uses": null,
+            "hitCount": 6,
+            "tickCount": 0,
+            "overheal": 478141,
+            "count": null
+          },
+          {
+            "name": "Flaming Barrage",
+            "guid": 385567,
+            "total": 4230340,
+            "totalReduced": 2325855,
+            "uses": 15,
+            "hitCount": 26,
+            "tickCount": 0,
+            "overheal": 3211224,
+            "count": null
+          },
+          {
+            "name": "Inferno Spit",
+            "guid": 381864,
+            "total": 208354,
+            "totalReduced": 104178,
+            "uses": 9,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 47016,
+            "count": null
+          },
+          {
+            "name": "Ritual of Blazebinding",
+            "guid": 1309540,
+            "total": 279134,
+            "totalReduced": 131469,
+            "uses": null,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 134885,
+            "count": null
+          },
+          {
+            "name": "Blaze of Glory",
+            "guid": 373973,
+            "total": 249247,
+            "totalReduced": 124624,
+            "uses": 7,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 38766,
+            "count": null
+          }
+        ],
+        "interrupts": [
+          {
+            "name": null,
+            "guid": null,
+            "total": null,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": null,
+            "tickCount": null,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "resources": []
+      },
+      "deathAnalysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T19:47:43.854Z",
+        "fightID": 9,
+        "deaths": [
+          {
+            "timestamp": 2354593,
+            "overkill": 2364,
+            "deathWindow": 24295,
+            "killingBlow": {
+              "name": "Stormslam",
+              "guid": 381514,
+              "type": 1,
+              "abilityIcon": "ability_shaman_stormstrike.jpg"
+            },
+            "damage": {
+              "total": 3362075,
+              "totalReduced": 2163482,
+              "activeTime": 0,
+              "activeTimeReduced": 0,
+              "overheal": 4753237,
+              "blocked": 323890,
+              "abilities": [
+                {
+                  "guid": 381513,
+                  "name": "Stormslam",
+                  "total": 1000662,
+                  "totalReduced": 727458,
+                  "type": 8,
+                  "icon": "ability_shaman_stormstrike.jpg"
+                },
+                {
+                  "guid": 381514,
+                  "name": "Stormslam",
+                  "total": 781436,
+                  "totalReduced": 696313,
+                  "type": 1,
+                  "icon": "ability_shaman_stormstrike.jpg"
+                },
+                {
+                  "guid": 1,
+                  "name": "Melee",
+                  "total": 607795,
+                  "totalReduced": 253616,
+                  "type": 1,
+                  "icon": "inv_axe_02.jpg"
+                },
+                {
+                  "guid": 381862,
+                  "name": "Inferno Spit",
+                  "total": 542013,
+                  "totalReduced": 271008,
+                  "type": 4,
+                  "icon": "spell_fire_firebolt.jpg"
+                },
+                {
+                  "guid": 381516,
+                  "name": "Interrupting Cloudburst",
+                  "total": 175242,
+                  "totalReduced": 87621,
+                  "type": 8,
+                  "icon": "spell_nature_cyclone.jpg"
+                }
+              ],
+              "damageAbilities": [],
+              "sources": [
+                {
+                  "name": "Erkhart Stormvein",
+                  "total": 2238829,
+                  "totalReduced": 1652139,
+                  "type": "NPC"
+                },
+                {
+                  "name": "Kyrakka",
+                  "total": 1123246,
+                  "totalReduced": 511343,
+                  "type": "NPC"
+                }
+              ]
+            },
+            "healing": {
+              "total": 2059071,
+              "totalReduced": 860478,
+              "activeTime": 0,
+              "activeTimeReduced": 0,
+              "abilities": [
+                {
+                  "guid": 190456,
+                  "name": "Ignore Pain",
+                  "total": 1079424,
+                  "totalReduced": 0,
+                  "type": 1,
+                  "icon": "ability_warrior_renewedvigor.jpg"
+                },
+                {
+                  "guid": 143924,
+                  "name": "Leech",
+                  "total": 320834,
+                  "type": 1,
+                  "icon": "spell_shadow_lifedrain02.jpg"
+                },
+                {
+                  "guid": 156322,
+                  "name": "Eternal Flame",
+                  "total": 191281,
+                  "type": 6,
+                  "icon": "inv_torch_thrown.jpg"
+                },
+                {
+                  "guid": 383104,
+                  "name": "Fueled by Violence",
+                  "total": 150850,
+                  "type": 1,
+                  "icon": "ability_demonhunter_bloodlet.jpg"
+                },
+                {
+                  "guid": 414019,
+                  "name": "Greater Judgment",
+                  "total": 100568,
+                  "totalReduced": 0,
+                  "type": 32,
+                  "icon": "spell_holy_righteousfury.jpg"
+                }
+              ],
+              "damageAbilities": [
+                {
+                  "guid": 1,
+                  "name": "Melee",
+                  "total": 548916,
+                  "totalReduced": 194737,
+                  "type": 1,
+                  "icon": "inv_axe_02.jpg"
+                },
+                {
+                  "guid": 381513,
+                  "name": "Stormslam",
+                  "total": 432177,
+                  "totalReduced": 158973,
+                  "type": 8,
+                  "icon": "ability_shaman_stormstrike.jpg"
+                },
+                {
+                  "guid": 381862,
+                  "name": "Inferno Spit",
+                  "total": 385874,
+                  "totalReduced": 114869,
+                  "type": 4,
+                  "icon": "spell_fire_firebolt.jpg"
+                },
+                {
+                  "guid": 381514,
+                  "name": "Stormslam",
+                  "total": 385283,
+                  "totalReduced": 300160,
+                  "type": 1,
+                  "icon": "ability_shaman_stormstrike.jpg"
+                },
+                {
+                  "guid": 381518,
+                  "name": "Winds of Change",
+                  "total": 123540,
+                  "totalReduced": 49257,
+                  "type": 8,
+                  "icon": "spell_nature_purge.jpg"
+                }
+              ],
+              "sources": [
+                {
+                  "name": "Kalteew",
+                  "total": 1654006,
+                  "totalReduced": 555981,
+                  "type": "Warrior"
+                },
+                {
+                  "name": "Xabuu",
+                  "total": 405065,
+                  "totalReduced": 304497,
+                  "type": "Paladin"
+                }
+              ]
+            },
+            "events": [
+              {
+                "timestamp": 2354576,
+                "type": "damage",
+                "sourceID": 631,
+                "sourceIsFriendly": false,
+                "targetID": 519,
+                "targetIsFriendly": true,
+                "ability": {
+                  "name": "Stormslam",
+                  "guid": 381514,
+                  "type": 1,
+                  "abilityIcon": "ability_shaman_stormstrike.jpg"
+                },
+                "fight": 9,
+                "hitType": 1,
+                "amount": 393789,
+                "mitigated": 707900,
+                "unmitigatedAmount": 1104053,
+                "overkill": 2364,
+                "isAoE": false
+              },
+              {
+                "timestamp": 2354573,
+                "type": "damage",
+                "sourceID": 631,
+                "sourceIsFriendly": false,
+                "targetID": 519,
+                "targetIsFriendly": true,
+                "ability": {
+                  "name": "Stormslam",
+                  "guid": 381513,
+                  "type": 8,
+                  "abilityIcon": "ability_shaman_stormstrike.jpg"
+                },
+                "fight": 9,
+                "hitType": 1,
+                "amount": 481102,
+                "mitigated": 44077,
+                "unmitigatedAmount": 552028,
+                "absorbed": 26849,
+                "isAoE": false
+              },
+              {
+                "timestamp": 2354140,
+                "type": "damage",
+                "sourceID": 632,
+                "sourceIsFriendly": false,
+                "targetID": 519,
+                "targetIsFriendly": true,
+                "ability": {
+                  "name": "Inferno Spit",
+                  "guid": 381864,
+                  "type": 4,
+                  "abilityIcon": "spell_fire_firebolt.jpg"
+                },
+                "fight": 9,
+                "hitType": 1,
+                "amount": 53179,
+                "mitigated": 14007,
+                "unmitigatedAmount": 120364,
+                "absorbed": 53178,
+                "isAoE": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "azaelle": {
+      "stats": {
+        "strength": 512,
+        "agility": 2533,
+        "stamina": 33784,
+        "intellect": 736,
+        "crit": 940,
+        "haste": 254,
+        "mastery": 945,
+        "versatility": 416,
+        "armor": 985
+      },
+      "gear": {
+        "itemLevelAverage": 310.25,
+        "itemLevelMax": 331,
+        "equippedSlots": 16,
+        "gems": 3,
+        "setPieces": 4
+      },
+      "casts": {
+        "total": 996,
+        "perMinute": 38.412464767683645,
+        "abilities": [
+          {
+            "name": "Metamorphosis",
+            "casts": 10
+          },
+          {
+            "name": "The Hunt",
+            "casts": 21
+          },
+          {
+            "name": "Eye Beam",
+            "casts": 46
+          },
+          {
+            "name": "Essence Break",
+            "casts": 33
+          },
+          {
+            "name": "Death Sweep",
+            "casts": 136
+          },
+          {
+            "name": "Annihilation",
+            "casts": 162
+          },
+          {
+            "name": "Immolation Aura",
+            "casts": 48
+          },
+          {
+            "name": "Felblade",
+            "casts": 47
+          },
+          {
+            "name": "Chaos Strike",
+            "casts": 235
+          },
+          {
+            "name": "Throw Glaive",
+            "casts": 39
+          },
+          {
+            "name": "Blur",
+            "casts": 2
+          },
+          {
+            "name": "Darkness",
+            "casts": 1
+          }
+        ],
+        "cooldowns": [
+          {
+            "name": "Metamorphosis",
+            "casts": 10
+          },
+          {
+            "name": "The Hunt",
+            "casts": 21
+          },
+          {
+            "name": "Eye Beam",
+            "casts": 46
+          },
+          {
+            "name": "Essence Break",
+            "casts": 33
+          },
+          {
+            "name": "Blur",
+            "casts": 2
+          },
+          {
+            "name": "Darkness",
+            "casts": 1
+          }
+        ],
+        "cooldownTotal": 113,
+        "cooldownsPerMinute": 4.358040681474149,
+        "trackedCooldownNames": [
+          "Metamorphosis",
+          "The Hunt",
+          "Eye Beam",
+          "Essence Break",
+          "Blur",
+          "Darkness"
+        ],
+        "trackedAbilityNames": [
+          "Metamorphosis",
+          "The Hunt",
+          "Eye Beam",
+          "Essence Break",
+          "Death Sweep",
+          "Annihilation",
+          "Immolation Aura",
+          "Felblade",
+          "Chaos Strike",
+          "Throw Glaive",
+          "Blur",
+          "Darkness"
+        ]
+      },
+      "build": {
+        "specID": 577,
+        "talentTree": [
+          {
+            "id": 112823,
+            "rank": 1,
+            "nodeID": 90914
+          },
+          {
+            "id": 112824,
+            "rank": 1,
+            "nodeID": 90915
+          },
+          {
+            "id": 112825,
+            "rank": 1,
+            "nodeID": 90916
+          },
+          {
+            "id": 112826,
+            "rank": 1,
+            "nodeID": 90917
+          },
+          {
+            "id": 112827,
+            "rank": 1,
+            "nodeID": 90918
+          },
+          {
+            "id": 112830,
+            "rank": 1,
+            "nodeID": 90921
+          },
+          {
+            "id": 112831,
+            "rank": 1,
+            "nodeID": 90922
+          },
+          {
+            "id": 112832,
+            "rank": 1,
+            "nodeID": 90923
+          },
+          {
+            "id": 112834,
+            "rank": 1,
+            "nodeID": 90925
+          },
+          {
+            "id": 112838,
+            "rank": 1,
+            "nodeID": 90928
+          },
+          {
+            "id": 112839,
+            "rank": 1,
+            "nodeID": 90929
+          },
+          {
+            "id": 112841,
+            "rank": 1,
+            "nodeID": 90931
+          },
+          {
+            "id": 112844,
+            "rank": 1,
+            "nodeID": 90933
+          },
+          {
+            "id": 112845,
+            "rank": 1,
+            "nodeID": 90934
+          },
+          {
+            "id": 112846,
+            "rank": 2,
+            "nodeID": 90935
+          },
+          {
+            "id": 112847,
+            "rank": 2,
+            "nodeID": 90936
+          },
+          {
+            "id": 112849,
+            "rank": 1,
+            "nodeID": 90938
+          },
+          {
+            "id": 112851,
+            "rank": 1,
+            "nodeID": 90940
+          },
+          {
+            "id": 112852,
+            "rank": 1,
+            "nodeID": 90941
+          },
+          {
+            "id": 112859,
+            "rank": 1,
+            "nodeID": 90946
+          },
+          {
+            "id": 112861,
+            "rank": 1,
+            "nodeID": 90948
+          },
+          {
+            "id": 112862,
+            "rank": 2,
+            "nodeID": 90949
+          },
+          {
+            "id": 112863,
+            "rank": 1,
+            "nodeID": 90950
+          },
+          {
+            "id": 112911,
+            "rank": 1,
+            "nodeID": 90993
+          },
+          {
+            "id": 112912,
+            "rank": 1,
+            "nodeID": 90994
+          },
+          {
+            "id": 112914,
+            "rank": 1,
+            "nodeID": 90996
+          },
+          {
+            "id": 112918,
+            "rank": 2,
+            "nodeID": 91000
+          },
+          {
+            "id": 112919,
+            "rank": 1,
+            "nodeID": 91001
+          },
+          {
+            "id": 112921,
+            "rank": 1,
+            "nodeID": 91002
+          },
+          {
+            "id": 112923,
+            "rank": 1,
+            "nodeID": 91003
+          },
+          {
+            "id": 112926,
+            "rank": 1,
+            "nodeID": 91006
+          },
+          {
+            "id": 112927,
+            "rank": 1,
+            "nodeID": 91007
+          },
+          {
+            "id": 112928,
+            "rank": 1,
+            "nodeID": 91008
+          },
+          {
+            "id": 112936,
+            "rank": 1,
+            "nodeID": 91015
+          },
+          {
+            "id": 112938,
+            "rank": 1,
+            "nodeID": 91017
+          },
+          {
+            "id": 112939,
+            "rank": 1,
+            "nodeID": 91018
+          },
+          {
+            "id": 112943,
+            "rank": 1,
+            "nodeID": 91021
+          },
+          {
+            "id": 112944,
+            "rank": 1,
+            "nodeID": 91022
+          },
+          {
+            "id": 112947,
+            "rank": 1,
+            "nodeID": 91024
+          },
+          {
+            "id": 112948,
+            "rank": 1,
+            "nodeID": 91025
+          },
+          {
+            "id": 112949,
+            "rank": 1,
+            "nodeID": 91026
+          },
+          {
+            "id": 112950,
+            "rank": 1,
+            "nodeID": 91027
+          },
+          {
+            "id": 112951,
+            "rank": 1,
+            "nodeID": 91028
+          },
+          {
+            "id": 112955,
+            "rank": 1,
+            "nodeID": 91032
+          },
+          {
+            "id": 112956,
+            "rank": 1,
+            "nodeID": 91033
+          },
+          {
+            "id": 112957,
+            "rank": 2,
+            "nodeID": 91034
+          },
+          {
+            "id": 115245,
+            "rank": 1,
+            "nodeID": 93014
+          },
+          {
+            "id": 115246,
+            "rank": 1,
+            "nodeID": 93015
+          },
+          {
+            "id": 115248,
+            "rank": 1,
+            "nodeID": 93016
+          },
+          {
+            "id": 117496,
+            "rank": 1,
+            "nodeID": 94899
+          },
+          {
+            "id": 117498,
+            "rank": 1,
+            "nodeID": 94901
+          },
+          {
+            "id": 117501,
+            "rank": 1,
+            "nodeID": 94904
+          },
+          {
+            "id": 117502,
+            "rank": 1,
+            "nodeID": 94905
+          },
+          {
+            "id": 117506,
+            "rank": 1,
+            "nodeID": 94909
+          },
+          {
+            "id": 117509,
+            "rank": 1,
+            "nodeID": 94912
+          },
+          {
+            "id": 117513,
+            "rank": 1,
+            "nodeID": 94916
+          },
+          {
+            "id": 117515,
+            "rank": 1,
+            "nodeID": 94918
+          },
+          {
+            "id": 117741,
+            "rank": 1,
+            "nodeID": 95143
+          },
+          {
+            "id": 117754,
+            "rank": 2,
+            "nodeID": 95147
+          },
+          {
+            "id": 117758,
+            "rank": 1,
+            "nodeID": 95149
+          },
+          {
+            "id": 117759,
+            "rank": 1,
+            "nodeID": 95150
+          },
+          {
+            "id": 117762,
+            "rank": 1,
+            "nodeID": 95152
+          },
+          {
+            "id": 117767,
+            "rank": 1,
+            "nodeID": 95154
+          },
+          {
+            "id": 123329,
+            "rank": 1,
+            "nodeID": 99824
+          },
+          {
+            "id": 124009,
+            "rank": 1,
+            "nodeID": 94902
+          },
+          {
+            "id": 124011,
+            "rank": 1,
+            "nodeID": 94913
+          },
+          {
+            "id": 134203,
+            "rank": 1,
+            "nodeID": 108669
+          },
+          {
+            "id": 136030,
+            "rank": 1,
+            "nodeID": 109772
+          },
+          {
+            "id": 136031,
+            "rank": 1,
+            "nodeID": 109773
+          },
+          {
+            "id": 136032,
+            "rank": 1,
+            "nodeID": 109774
+          },
+          {
+            "id": 136501,
+            "rank": 1,
+            "nodeID": 110011
+          },
+          {
+            "id": 136502,
+            "rank": 1,
+            "nodeID": 90927
+          },
+          {
+            "id": 137047,
+            "rank": 1,
+            "nodeID": 110427
+          },
+          {
+            "id": 137048,
+            "rank": 2,
+            "nodeID": 110427
+          },
+          {
+            "id": 137049,
+            "rank": 1,
+            "nodeID": 110427
+          },
+          {
+            "id": 117514,
+            "rank": 1,
+            "nodeID": 94917
+          },
+          {
+            "id": 112853,
+            "rank": 1,
+            "nodeID": 90942
+          }
+        ],
+        "talents": [],
+        "pvpTalents": [
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 206803,
+            "icon": "ability_demonhunter_rain-from-above.jpg"
+          },
+          {
+            "id": 213480,
+            "icon": "ability_demonhunter_brandofthehunt.jpg"
+          }
+        ]
+      },
+      "sourceName": "Azåelle",
+      "actorID": 589,
+      "spec": "Havoc",
+      "capturedAt": "2026-09-21T19:47:43.854Z",
+      "source": "mcp",
+      "analysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T19:47:43.854Z",
+        "damageDone": [
+          {
+            "name": "Fel Rush",
+            "guid": 192611,
+            "total": 180433,
+            "totalReduced": null,
+            "uses": 31,
+            "hitCount": 26,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Immolation Aura",
+            "guid": 258920,
+            "total": 62777775,
+            "totalReduced": null,
+            "uses": 48,
+            "hitCount": 5024,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Burning Blades",
+            "guid": 453177,
+            "total": 18640167,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 750,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Annihilation",
+            "guid": 201427,
+            "total": 5475524,
+            "totalReduced": null,
+            "uses": 162,
+            "hitCount": 320,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Omnium Folio",
+            "guid": 1302265,
+            "total": 886865,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 180,
+            "tickCount": 1032,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Death Sweep",
+            "guid": 210152,
+            "total": 21679116,
+            "totalReduced": null,
+            "uses": 136,
+            "hitCount": 2285,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Eye Beam",
+            "guid": 198013,
+            "total": 27512383,
+            "totalReduced": null,
+            "uses": 46,
+            "hitCount": 2842,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Throw Glaive",
+            "guid": 185123,
+            "total": 216141,
+            "totalReduced": null,
+            "uses": 39,
+            "hitCount": 78,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Sappy Demise",
+            "guid": 1263121,
+            "total": 1728016,
+            "totalReduced": 0,
+            "uses": 53,
+            "hitCount": 184,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Blade Dance",
+            "guid": 188499,
+            "total": 7119134,
+            "totalReduced": null,
+            "uses": 52,
+            "hitCount": 657,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Demonsurge",
+            "guid": 452416,
+            "total": 37237650,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 835,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Eye Beam",
+            "guid": 1287949,
+            "total": 4185670,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 250,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "The Hunt",
+            "guid": 370965,
+            "total": 14257646,
+            "totalReduced": null,
+            "uses": 21,
+            "hitCount": 21,
+            "tickCount": 267,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Trail of Ruin",
+            "guid": 258883,
+            "total": 9362977,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 717,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 5996065,
+            "totalReduced": null,
+            "uses": 968,
+            "hitCount": 804,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Felblade",
+            "guid": 232893,
+            "total": 642407,
+            "totalReduced": null,
+            "uses": 47,
+            "hitCount": 47,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Metamorphosis",
+            "guid": 200166,
+            "total": 393935,
+            "totalReduced": null,
+            "uses": 10,
+            "hitCount": 52,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Vengeful Retreat",
+            "guid": 198793,
+            "total": 136769,
+            "totalReduced": null,
+            "uses": 54,
+            "hitCount": 147,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Demon Blades",
+            "guid": 203796,
+            "total": 3273840,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 802,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Burning Wound",
+            "guid": 391191,
+            "total": 1469620,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 564,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Essence Break",
+            "guid": 258860,
+            "total": 25958513,
+            "totalReduced": null,
+            "uses": 33,
+            "hitCount": 328,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Glaive Tempest",
+            "guid": 342857,
+            "total": 15345712,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 6823,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Chaos Nova",
+            "guid": 179057,
+            "total": 70049,
+            "totalReduced": null,
+            "uses": 1,
+            "hitCount": 11,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Chaos Strike",
+            "guid": 162794,
+            "total": 6988087,
+            "totalReduced": null,
+            "uses": 235,
+            "hitCount": 464,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Master of the Glaive",
+            "guid": 213405,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "healing": [],
+        "damageTaken": [
+          {
+            "name": "Omnium Folio",
+            "guid": 1302265,
+            "total": 236036,
+            "totalReduced": 147170,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 354,
+            "overheal": 103800,
+            "count": null
+          },
+          {
+            "name": "Chillstorm",
+            "guid": 383925,
+            "total": 564888,
+            "totalReduced": 444882,
+            "uses": 1,
+            "hitCount": 4,
+            "tickCount": 0,
+            "overheal": 275156,
+            "count": null
+          },
+          {
+            "name": "Inferno",
+            "guid": 373692,
+            "total": 4964199,
+            "totalReduced": 4259909,
+            "uses": 9,
+            "hitCount": 9,
+            "tickCount": 45,
+            "overheal": 3488349,
+            "count": null
+          },
+          {
+            "name": "Thunderous Stomp",
+            "guid": 392406,
+            "total": 3873010,
+            "totalReduced": 2906463,
+            "uses": 35,
+            "hitCount": 35,
+            "tickCount": 0,
+            "overheal": 2153325,
+            "count": null
+          },
+          {
+            "name": "Living Bomb",
+            "guid": 373693,
+            "total": 2411677,
+            "totalReduced": 2290936,
+            "uses": 5,
+            "hitCount": 0,
+            "tickCount": 24,
+            "overheal": 1645523,
+            "count": null
+          },
+          {
+            "name": "Frost Overload",
+            "guid": 373688,
+            "total": 2160549,
+            "totalReduced": 1777079,
+            "uses": 2,
+            "hitCount": 19,
+            "tickCount": 0,
+            "overheal": 523463,
+            "count": null
+          },
+          {
+            "name": "Living Bomb",
+            "guid": 1305923,
+            "total": 560015,
+            "totalReduced": 547424,
+            "uses": null,
+            "hitCount": 4,
+            "tickCount": 0,
+            "overheal": 341589,
+            "count": null
+          },
+          {
+            "name": "Storm Bolt",
+            "guid": 385310,
+            "total": 813406,
+            "totalReduced": 785833,
+            "uses": 3,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 313607,
+            "count": null
+          },
+          {
+            "name": "Wall of Flames",
+            "guid": 374927,
+            "total": 491143,
+            "totalReduced": 475043,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 2,
+            "overheal": 291501,
+            "count": null
+          },
+          {
+            "name": "Tempest Stormshield",
+            "guid": 1310363,
+            "total": 1231372,
+            "totalReduced": 868534,
+            "uses": 2,
+            "hitCount": 20,
+            "tickCount": 0,
+            "overheal": 646988,
+            "count": null
+          },
+          {
+            "name": "Frostbolt",
+            "guid": 371984,
+            "total": 2330617,
+            "totalReduced": 2116543,
+            "uses": 9,
+            "hitCount": 9,
+            "tickCount": 0,
+            "overheal": 1050422,
+            "count": null
+          },
+          {
+            "name": "Excavating Blast",
+            "guid": 1305201,
+            "total": 2634159,
+            "totalReduced": 2411670,
+            "uses": 5,
+            "hitCount": 4,
+            "tickCount": 25,
+            "overheal": 1482580,
+            "count": null
+          },
+          {
+            "name": "Fiery Demise",
+            "guid": 1307372,
+            "total": 206797,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 1,
+            "overheal": 106260,
+            "count": null
+          },
+          {
+            "name": "Interrupting Cloudburst",
+            "guid": 381516,
+            "total": 1024239,
+            "totalReduced": 960356,
+            "uses": 5,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 475826,
+            "count": null
+          },
+          {
+            "name": "Hailburst",
+            "guid": 396044,
+            "total": 1676045,
+            "totalReduced": 1599015,
+            "uses": 7,
+            "hitCount": 7,
+            "tickCount": 0,
+            "overheal": 949081,
+            "count": null
+          },
+          {
+            "name": "Lightning Torrent",
+            "guid": 1307488,
+            "total": 435052,
+            "totalReduced": 419325,
+            "uses": 1,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 198890,
+            "count": null
+          },
+          {
+            "name": "Molten Blood",
+            "guid": 392570,
+            "total": 1745867,
+            "totalReduced": 1473362,
+            "uses": null,
+            "hitCount": 11,
+            "tickCount": 0,
+            "overheal": 1455145,
+            "count": null
+          },
+          {
+            "name": "Winds of Change",
+            "guid": 381518,
+            "total": 1040756,
+            "totalReduced": 882007,
+            "uses": 6,
+            "hitCount": 0,
+            "tickCount": 48,
+            "overheal": 399244,
+            "count": null
+          },
+          {
+            "name": "Flaming Embers",
+            "guid": 1312669,
+            "total": 202825,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 97188,
+            "count": null
+          },
+          {
+            "name": "Chillstorm",
+            "guid": 397077,
+            "total": 1278451,
+            "totalReduced": 1068554,
+            "uses": 20,
+            "hitCount": 0,
+            "tickCount": 16,
+            "overheal": 761613,
+            "count": null
+          },
+          {
+            "name": "Steel Barrage",
+            "guid": 1309705,
+            "total": 1751492,
+            "totalReduced": 1352345,
+            "uses": null,
+            "hitCount": 35,
+            "tickCount": 0,
+            "overheal": 987818,
+            "count": null
+          },
+          {
+            "name": "Inferno",
+            "guid": 384823,
+            "total": 5979723,
+            "totalReduced": 5418124,
+            "uses": 9,
+            "hitCount": 9,
+            "tickCount": 64,
+            "overheal": 3710750,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 1013024,
+            "totalReduced": 796173,
+            "uses": 9,
+            "hitCount": 9,
+            "tickCount": 0,
+            "overheal": 499602,
+            "count": null
+          },
+          {
+            "name": "Lightning Rod",
+            "guid": 385316,
+            "total": 275729,
+            "totalReduced": null,
+            "uses": 1,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 99939,
+            "count": null
+          },
+          {
+            "name": "Hailbombs",
+            "guid": 384024,
+            "total": 477801,
+            "totalReduced": 452615,
+            "uses": null,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 272236,
+            "count": null
+          },
+          {
+            "name": "Cinderbolt",
+            "guid": 384194,
+            "total": 1701123,
+            "totalReduced": 1357614,
+            "uses": 7,
+            "hitCount": 7,
+            "tickCount": 0,
+            "overheal": 928574,
+            "count": null
+          },
+          {
+            "name": "Inferno Spit",
+            "guid": 381862,
+            "total": 2755879,
+            "totalReduced": 2496336,
+            "uses": 9,
+            "hitCount": 0,
+            "tickCount": 30,
+            "overheal": 1294301,
+            "count": null
+          },
+          {
+            "name": "Thunderstorm",
+            "guid": 385311,
+            "total": 215914,
+            "totalReduced": 199424,
+            "uses": null,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 97143,
+            "count": null
+          },
+          {
+            "name": "Stormcloud Detonation",
+            "guid": 392399,
+            "total": 1092528,
+            "totalReduced": 941811,
+            "uses": null,
+            "hitCount": 13,
+            "tickCount": 0,
+            "overheal": 535371,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": -8,
+            "total": 71760,
+            "totalReduced": 37522,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 33920,
+            "count": null
+          },
+          {
+            "name": "Set Fire to the Pain",
+            "guid": 453286,
+            "total": 819493,
+            "totalReduced": 535765,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 810,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Earthbound's Imprint",
+            "guid": 1307205,
+            "total": 2835963,
+            "totalReduced": 2509582,
+            "uses": 4,
+            "hitCount": 4,
+            "tickCount": 27,
+            "overheal": 1210270,
+            "count": null
+          },
+          {
+            "name": "Inferno Spit",
+            "guid": 381864,
+            "total": 514038,
+            "totalReduced": 425825,
+            "uses": 9,
+            "hitCount": 6,
+            "tickCount": 0,
+            "overheal": 295998,
+            "count": null
+          },
+          {
+            "name": "Ritual of Blazebinding",
+            "guid": 1309540,
+            "total": 294040,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 155980,
+            "count": null
+          }
+        ],
+        "interrupts": [
+          {
+            "name": null,
+            "guid": null,
+            "total": null,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": null,
+            "tickCount": null,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "resources": []
+      },
+      "deathAnalysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T19:47:43.854Z",
+        "fightID": 9,
+        "deaths": [
+          {
+            "timestamp": 957319,
+            "overkill": 55894,
+            "deathWindow": 5746,
+            "killingBlow": {
+              "name": "Frostbolt",
+              "guid": 371984,
+              "type": 16,
+              "abilityIcon": "spell_frost_frostbolt02.jpg"
+            },
+            "damage": {
+              "total": 1250194,
+              "totalReduced": 1145906,
+              "activeTime": 0,
+              "activeTimeReduced": 0,
+              "overheal": 543649,
+              "abilities": [
+                {
+                  "guid": 371984,
+                  "name": "Frostbolt",
+                  "total": 524578,
+                  "totalReduced": 473159,
+                  "type": 16,
+                  "icon": "spell_frost_frostbolt02.jpg"
+                },
+                {
+                  "guid": 1307205,
+                  "name": "Earthbound's Imprint",
+                  "total": 410936,
+                  "totalReduced": 381535,
+                  "type": 8,
+                  "icon": "inv_ore_blackrock_ore.jpg"
+                },
+                {
+                  "guid": 1305201,
+                  "name": "Excavating Blast",
+                  "total": 298889,
+                  "totalReduced": 282624,
+                  "type": 8,
+                  "icon": "spell_nature_earthquake.jpg"
+                },
+                {
+                  "guid": 453286,
+                  "name": "Set Fire to the Pain",
+                  "total": 12437,
+                  "totalReduced": 6605,
+                  "type": 4,
+                  "icon": "spell_fire_felhellfire.jpg"
+                },
+                {
+                  "guid": 1287955,
+                  "name": "Rune of Void-Tainted Shell",
+                  "total": 3354,
+                  "totalReduced": 1983,
+                  "type": 106,
+                  "icon": "ability_rhyolith_magmaflow_wave.jpg"
+                }
+              ],
+              "damageAbilities": [],
+              "sources": [
+                {
+                  "name": "Flashfrost Chillweaver",
+                  "total": 524578,
+                  "totalReduced": 473159,
+                  "type": "NPC"
+                },
+                {
+                  "name": "Earthbound Guardian",
+                  "total": 410936,
+                  "totalReduced": 381535,
+                  "type": "NPC"
+                },
+                {
+                  "name": "Primal Juggernaut",
+                  "total": 298889,
+                  "totalReduced": 282624,
+                  "type": "NPC"
+                },
+                {
+                  "name": "Azåelle",
+                  "total": 15791,
+                  "totalReduced": 8588,
+                  "type": "DemonHunter"
+                }
+              ]
+            },
+            "healing": {
+              "total": 477955,
+              "totalReduced": 373667,
+              "activeTime": 0,
+              "activeTimeReduced": 0,
+              "abilities": [
+                {
+                  "guid": 25914,
+                  "name": "Holy Shock",
+                  "total": 211714,
+                  "type": 2,
+                  "icon": "spell_holy_searinglight.jpg"
+                },
+                {
+                  "guid": 1264293,
+                  "name": "Mycolic Medicine",
+                  "total": 56062,
+                  "type": 8,
+                  "icon": "ability_druid_replenish.jpg"
+                },
+                {
+                  "guid": 1232617,
+                  "name": "Pillar of Lights",
+                  "total": 49138,
+                  "type": 2,
+                  "icon": "inv_helm_plate_raidpaladindragon_d_01.jpg"
+                },
+                {
+                  "guid": 205411,
+                  "name": "Desperate Instincts",
+                  "total": 42289,
+                  "totalReduced": 0,
+                  "type": 1,
+                  "icon": "spell_shadow_manafeed.jpg"
+                },
+                {
+                  "guid": 1266619,
+                  "name": "First In, Last Out",
+                  "total": 26535,
+                  "totalReduced": 0,
+                  "type": 1,
+                  "icon": "ability_demonhunter_demonictrample.jpg"
+                }
+              ],
+              "damageAbilities": [
+                {
+                  "guid": 1307205,
+                  "name": "Earthbound's Imprint",
+                  "total": 308849,
+                  "totalReduced": 279448,
+                  "type": 8,
+                  "icon": "inv_ore_blackrock_ore.jpg"
+                },
+                {
+                  "guid": 371984,
+                  "name": "Frostbolt",
+                  "total": 137050,
+                  "totalReduced": 85631,
+                  "type": 16,
+                  "icon": "spell_frost_frostbolt02.jpg"
+                },
+                {
+                  "guid": 1305201,
+                  "name": "Excavating Blast",
+                  "total": 16265,
+                  "totalReduced": 0,
+                  "type": 8,
+                  "icon": "spell_nature_earthquake.jpg"
+                },
+                {
+                  "guid": 453286,
+                  "name": "Set Fire to the Pain",
+                  "total": 12437,
+                  "totalReduced": 6605,
+                  "type": 4,
+                  "icon": "spell_fire_felhellfire.jpg"
+                },
+                {
+                  "guid": 1287955,
+                  "name": "Rune of Void-Tainted Shell",
+                  "total": 3354,
+                  "totalReduced": 1983,
+                  "type": 106,
+                  "icon": "ability_rhyolith_magmaflow_wave.jpg"
+                }
+              ],
+              "sources": [
+                {
+                  "name": "Xabuu",
+                  "total": 357302,
+                  "totalReduced": 341101,
+                  "type": "Paladin"
+                },
+                {
+                  "name": "Azåelle",
+                  "total": 120653,
+                  "totalReduced": 32566,
+                  "type": "DemonHunter"
+                }
+              ]
+            },
+            "events": [
+              {
+                "timestamp": 957307,
+                "type": "damage",
+                "sourceID": 595,
+                "sourceInstance": 2,
+                "sourceIsFriendly": false,
+                "targetID": 589,
+                "targetIsFriendly": true,
+                "ability": {
+                  "name": "Frostbolt",
+                  "guid": 371984,
+                  "type": 16,
+                  "abilityIcon": "spell_frost_frostbolt02.jpg"
+                },
+                "fight": 9,
+                "hitType": 1,
+                "amount": 168069,
+                "mitigated": 126824,
+                "unmitigatedAmount": 375671,
+                "overkill": 55894,
+                "absorbed": 24884,
+                "isAoE": false
+              },
+              {
+                "timestamp": 956577,
+                "type": "damage",
+                "sourceID": 589,
+                "sourceIsFriendly": true,
+                "targetID": 589,
+                "targetIsFriendly": true,
+                "ability": {
+                  "name": "Set Fire to the Pain",
+                  "guid": 453286,
+                  "type": 4,
+                  "abilityIcon": "spell_fire_felhellfire.jpg"
+                },
+                "fight": 9,
+                "hitType": 1,
+                "amount": 3453,
+                "unmitigatedAmount": 3836,
+                "absorbed": 383,
+                "isAoE": false,
+                "tick": true
+              },
+              {
+                "timestamp": 956577,
+                "type": "damage",
+                "sourceID": 589,
+                "sourceIsFriendly": true,
+                "targetID": 589,
+                "targetIsFriendly": true,
+                "ability": {
+                  "name": "Rune of Void-Tainted Shell",
+                  "guid": 1287955,
+                  "type": 106,
+                  "abilityIcon": "ability_rhyolith_magmaflow_wave.jpg"
+                },
+                "fight": 9,
+                "hitType": 1,
+                "amount": 573,
+                "mitigated": 324,
+                "unmitigatedAmount": 960,
+                "absorbed": 63,
+                "isAoE": false,
+                "tick": true
+              }
+            ]
+          },
+          {
+            "timestamp": 1695573,
+            "overkill": 114582,
+            "deathWindow": 6070,
+            "killingBlow": {
+              "name": "Storm Bolt",
+              "guid": 385310,
+              "type": 8,
+              "abilityIcon": "spell_lightning_lightningbolt01.jpg"
+            },
+            "damage": {
+              "total": 1100914,
+              "totalReduced": 1043148,
+              "activeTime": 0,
+              "activeTimeReduced": 0,
+              "overheal": 414271,
+              "abilities": [
+                {
+                  "guid": 385310,
+                  "name": "Storm Bolt",
+                  "total": 551462,
+                  "totalReduced": 523889,
+                  "type": 8,
+                  "icon": "spell_lightning_lightningbolt01.jpg"
+                },
+                {
+                  "guid": 385316,
+                  "name": "Lightning Rod",
+                  "total": 275729,
+                  "type": 8,
+                  "icon": "spell_nature_unrelentingstorm.jpg"
+                },
+                {
+                  "guid": 384194,
+                  "name": "Cinderbolt",
+                  "total": 261219,
+                  "totalReduced": 233110,
+                  "type": 4,
+                  "icon": "spell_fire_firebolt.jpg"
+                },
+                {
+                  "guid": 453286,
+                  "name": "Set Fire to the Pain",
+                  "total": 12504,
+                  "totalReduced": 10420,
+                  "type": 4,
+                  "icon": "spell_fire_felhellfire.jpg"
+                }
+              ],
+              "damageAbilities": [],
+              "sources": [
+                {
+                  "name": "Ruinous Stormbringer",
+                  "total": 827191,
+                  "totalReduced": 799618,
+                  "type": "NPC"
+                },
+                {
+                  "name": "Primalist Cinderweaver",
+                  "total": 261219,
+                  "totalReduced": 233110,
+                  "type": "NPC"
+                },
+                {
+                  "name": "Azåelle",
+                  "total": 12504,
+                  "totalReduced": 10420,
+                  "type": "DemonHunter"
+                }
+              ]
+            },
+            "healing": {
+              "total": 268568,
+              "totalReduced": 210802,
+              "activeTime": 0,
+              "activeTimeReduced": 0,
+              "abilities": [
+                {
+                  "guid": 143924,
+                  "name": "Leech",
+                  "total": 115187,
+                  "type": 1,
+                  "icon": "spell_shadow_lifedrain02.jpg"
+                },
+                {
+                  "guid": 228532,
+                  "name": "Consume Soul",
+                  "total": 46420,
+                  "type": 32,
+                  "icon": "ability_warlock_improvedsoulleech.jpg"
+                },
+                {
+                  "guid": 205411,
+                  "name": "Desperate Instincts",
+                  "total": 42649,
+                  "totalReduced": 0,
+                  "type": 1,
+                  "icon": "spell_shadow_manafeed.jpg"
+                },
+                {
+                  "guid": 213011,
+                  "name": "Charred Warblades",
+                  "total": 37604,
+                  "type": 4,
+                  "icon": "ability_demonhunter_fierybrand.jpg"
+                },
+                {
+                  "guid": 1245369,
+                  "name": "Beacon of the Savior",
+                  "total": 15117,
+                  "totalReduced": 0,
+                  "type": 2,
+                  "icon": "inv12_apextalent_paladin_beaconofthesavior.jpg"
+                }
+              ],
+              "damageAbilities": [
+                {
+                  "guid": 385310,
+                  "name": "Storm Bolt",
+                  "total": 140488,
+                  "totalReduced": 112915,
+                  "type": 8,
+                  "icon": "spell_lightning_lightningbolt01.jpg"
+                },
+                {
+                  "guid": 385316,
+                  "name": "Lightning Rod",
+                  "total": 86085,
+                  "type": 8,
+                  "icon": "spell_nature_unrelentingstorm.jpg"
+                },
+                {
+                  "guid": 384194,
+                  "name": "Cinderbolt",
+                  "total": 33659,
+                  "totalReduced": 5550,
+                  "type": 4,
+                  "icon": "spell_fire_firebolt.jpg"
+                },
+                {
+                  "guid": 453286,
+                  "name": "Set Fire to the Pain",
+                  "total": 8336,
+                  "totalReduced": 6252,
+                  "type": 4,
+                  "icon": "spell_fire_felhellfire.jpg"
+                }
+              ],
+              "sources": [
+                {
+                  "name": "Azåelle",
+                  "total": 241860,
+                  "totalReduced": 199211,
+                  "type": "DemonHunter"
+                },
+                {
+                  "name": "Xabuu",
+                  "total": 26708,
+                  "totalReduced": 11591,
+                  "type": "Paladin"
+                }
+              ]
+            },
+            "events": [
+              {
+                "timestamp": 1695540,
+                "type": "damage",
+                "sourceID": 624,
+                "sourceIsFriendly": false,
+                "targetID": 589,
+                "targetIsFriendly": true,
+                "ability": {
+                  "name": "Storm Bolt",
+                  "guid": 385310,
+                  "type": 8,
+                  "abilityIcon": "spell_lightning_lightningbolt01.jpg"
+                },
+                "fight": 9,
+                "hitType": 1,
+                "amount": 133576,
+                "mitigated": 99940,
+                "unmitigatedAmount": 375671,
+                "overkill": 114582,
+                "absorbed": 27573,
+                "isAoE": false
+              },
+              {
+                "timestamp": 1695056,
+                "type": "damage",
+                "sourceID": 618,
+                "sourceInstance": 5,
+                "sourceIsFriendly": false,
+                "targetID": 589,
+                "targetIsFriendly": true,
+                "ability": {
+                  "name": "Cinderbolt",
+                  "guid": 384194,
+                  "type": 4,
+                  "abilityIcon": "spell_fire_firebolt.jpg"
+                },
+                "fight": 9,
+                "hitType": 1,
+                "amount": 233110,
+                "mitigated": 114452,
+                "unmitigatedAmount": 375671,
+                "absorbed": 28109,
+                "isAoE": false
+              },
+              {
+                "timestamp": 1694867,
+                "type": "damage",
+                "sourceID": 589,
+                "sourceIsFriendly": true,
+                "targetID": 589,
+                "targetIsFriendly": true,
+                "ability": {
+                  "name": "Set Fire to the Pain",
+                  "guid": 453286,
+                  "type": 4,
+                  "abilityIcon": "spell_fire_felhellfire.jpg"
+                },
+                "fight": 9,
+                "hitType": 1,
+                "amount": 0,
+                "unmitigatedAmount": 2084,
+                "absorbed": 2084,
+                "isAoE": false,
+                "tick": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "rankings": {
+    "queried": true,
+    "source": "mcp",
+    "capturedAt": "2026-09-21T19:47:43.854Z",
+    "values": {
+      "Kalteew": {
+        "parsePercent": null,
+        "keyPercent": null,
+        "totalParses": 0,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 14,
+        "metric": "dps",
+        "source": "mcp",
+        "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+      },
+      "Azåelle": {
+        "parsePercent": null,
+        "keyPercent": null,
+        "totalParses": 0,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 14,
+        "metric": "dps",
+        "source": "mcp",
+        "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+      }
+    },
+    "reportSpecific": {
+      "source": "mcp",
+      "capturedAt": "2026-09-21T19:47:43.854Z",
+      "values": {
+        "Kalteew": {
+          "parsePercent": null,
+          "keyPercent": null,
+          "totalParses": 0,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 14,
+          "metric": "dps",
+          "source": "mcp",
+          "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+        },
+        "Azåelle": {
+          "parsePercent": null,
+          "keyPercent": null,
+          "totalParses": 0,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 14,
+          "metric": "dps",
+          "source": "mcp",
+          "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+        }
+      },
+      "byMetric": {
+        "dps": {
+          "source": "mcp",
+          "capturedAt": "2026-09-21T19:47:43.854Z",
+          "values": {
+            "Kalteew": {
+              "parsePercent": null,
+              "keyPercent": null,
+              "totalParses": 0,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 14,
+              "metric": "dps",
+              "source": "mcp",
+              "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+            },
+            "Azåelle": {
+              "parsePercent": null,
+              "keyPercent": null,
+              "totalParses": 0,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 14,
+              "metric": "dps",
+              "source": "mcp",
+              "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+            }
+          }
+        },
+        "hps": {
+          "source": "mcp",
+          "capturedAt": "2026-09-21T19:47:43.854Z",
+          "values": {
+            "Kalteew": {
+              "parsePercent": null,
+              "keyPercent": null,
+              "totalParses": 0,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 14,
+              "metric": "hps",
+              "source": "mcp",
+              "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+            },
+            "Azåelle": {
+              "parsePercent": null,
+              "keyPercent": null,
+              "totalParses": 0,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 14,
+              "metric": "hps",
+              "source": "mcp",
+              "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+            }
+          }
+        }
+      }
+    }
+  },
+  "combatantInfo": {
+    "kalteew": {
+      "source": "mcp",
+      "capturedAt": "2026-09-21T19:47:43.854Z",
+      "player": "Kalteew",
+      "actorID": 519,
+      "fightID": 9,
+      "event": {
+        "timestamp": 933025,
+        "type": "combatantinfo",
+        "fight": 9,
+        "sourceID": 519,
+        "gear": [
+          {
+            "id": 271456,
+            "quality": 4,
+            "icon": "inv_helm_plate_raidwarriorulatek_d_01.jpg",
+            "itemLevel": 321,
+            "permanentEnchant": 7961,
+            "bonusIDs": [
+              41,
+              13695,
+              13692,
+              13698,
+              12846
+            ],
+            "gems": [
+              {
+                "id": 240890,
+                "itemLevel": 295,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_fire_green.jpg"
+              }
+            ],
+            "setID": 2067
+          },
+          {
+            "id": 273781,
+            "quality": 3,
+            "icon": "inv_121_jewelry_neck03_teal.jpg",
+            "itemLevel": 311,
+            "bonusIDs": [
+              12843,
+              13440,
+              6652,
+              13668,
+              12699
+            ],
+            "gems": [
+              {
+                "id": 240983,
+                "itemLevel": 295,
+                "icon": "inv_12_profession_jewelcrafting_epic_gem_cut_green.jpg"
+              }
+            ]
+          },
+          {
+            "id": 271454,
+            "quality": 4,
+            "icon": "inv_shoulder_plate_raidwarriorulatek_d_01.jpg",
+            "itemLevel": 334,
+            "permanentEnchant": 8031,
+            "bonusIDs": [
+              13694,
+              13440,
+              42,
+              13697,
+              12854
+            ],
+            "setID": 2067
+          },
+          {
+            "id": 0,
+            "quality": 1,
+            "icon": "inv_axe_02.jpg",
+            "itemLevel": 0
+          },
+          {
+            "id": 271459,
+            "quality": 4,
+            "icon": "inv_chest_plate_raidwarriorulatek_d_01.jpg",
+            "itemLevel": 321,
+            "permanentEnchant": 7987,
+            "bonusIDs": [
+              12846,
+              6652,
+              13440,
+              13690,
+              13698,
+              1574
+            ],
+            "setID": 2067
+          },
+          {
+            "id": 271453,
+            "quality": 4,
+            "icon": "inv_belt_plate_raidwarriorulatek_d_01.jpg",
+            "itemLevel": 321,
+            "bonusIDs": [
+              12846,
+              42,
+              13696,
+              13440,
+              1574
+            ]
+          },
+          {
+            "id": 271455,
+            "quality": 4,
+            "icon": "inv_pant_plate_raidwarriorulatek_d_01.jpg",
+            "itemLevel": 321,
+            "permanentEnchant": 8159,
+            "bonusIDs": [
+              13693,
+              6652,
+              13698,
+              12846
+            ],
+            "setID": 2067
+          },
+          {
+            "id": 271458,
+            "quality": 4,
+            "icon": "inv_boot_plate_raidwarriorulatek_d_01.jpg",
+            "itemLevel": 321,
+            "permanentEnchant": 7993,
+            "bonusIDs": [
+              12846,
+              6652,
+              13440,
+              1574
+            ]
+          },
+          {
+            "id": 237834,
+            "quality": 4,
+            "icon": "inv_plate_questbloodelf_b_01_bracer.jpg",
+            "itemLevel": 331,
+            "bonusIDs": [
+              12214,
+              13667,
+              12497,
+              13751,
+              14001,
+              8790,
+              13836,
+              13696
+            ]
+          },
+          {
+            "id": 271457,
+            "quality": 4,
+            "icon": "inv_glove_plate_raidwarriorulatek_d_01.jpg",
+            "itemLevel": 321,
+            "bonusIDs": [
+              12846,
+              6652,
+              13440,
+              13691,
+              13697,
+              1574
+            ],
+            "setID": 2067
+          },
+          {
+            "id": 158366,
+            "quality": 3,
+            "icon": "inv_ring_80_03d.jpg",
+            "itemLevel": 311,
+            "permanentEnchant": 8021,
+            "bonusIDs": [
+              12843,
+              13440,
+              6652,
+              13668,
+              12699
+            ],
+            "gems": [
+              {
+                "id": 240890,
+                "itemLevel": 295,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_fire_green.jpg"
+              }
+            ]
+          },
+          {
+            "id": 159459,
+            "quality": 3,
+            "icon": "inv_ring_80_03e.jpg",
+            "itemLevel": 308,
+            "permanentEnchant": 8021,
+            "bonusIDs": [
+              6652,
+              13668,
+              12699,
+              11215,
+              12838
+            ],
+            "gems": [
+              {
+                "id": 240888,
+                "itemLevel": 295,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_nature_green.jpg"
+              }
+            ]
+          },
+          {
+            "id": 265657,
+            "quality": 2,
+            "icon": "ability_rogue_sanguinaryvein.jpg",
+            "itemLevel": 321,
+            "bonusIDs": [
+              6652,
+              12846
+            ]
+          },
+          {
+            "id": 193757,
+            "quality": 3,
+            "icon": "inv_item_dragonegg_redbroken01.jpg",
+            "itemLevel": 334,
+            "bonusIDs": [
+              13440,
+              6652,
+              12699,
+              12854
+            ]
+          },
+          {
+            "id": 271451,
+            "quality": 4,
+            "icon": "inv_cape_plate_raidwarriorulatek_d_01.jpg",
+            "itemLevel": 318,
+            "bonusIDs": [
+              6652,
+              13440,
+              12845
+            ]
+          },
+          {
+            "id": 237839,
+            "quality": 4,
+            "icon": "inv_sword_1h_questbloodelf_b_01.jpg",
+            "itemLevel": 331,
+            "permanentEnchant": 7983,
+            "temporaryEnchant": 8051,
+            "bonusIDs": [
+              12214,
+              12497,
+              13751,
+              14001,
+              12693,
+              8960,
+              8792,
+              13836
+            ]
+          },
+          {
+            "id": 237831,
+            "quality": 4,
+            "icon": "inv_shield_1h_questbloodelf_b_01.jpg",
+            "itemLevel": 331,
+            "bonusIDs": [
+              12214,
+              12497,
+              13751,
+              14001,
+              8960,
+              12384,
+              8792,
+              13836
+            ]
+          },
+          {
+            "id": 0,
+            "quality": 1,
+            "icon": "inv_axe_02.jpg",
+            "itemLevel": 0
+          }
+        ],
+        "auras": [
+          {
+            "source": 519,
+            "ability": 386208,
+            "stacks": 1,
+            "icon": "ability_warrior_defensivestance.jpg",
+            "name": "Defensive Stance"
+          },
+          {
+            "source": 519,
+            "ability": 6673,
+            "stacks": 1,
+            "icon": "ability_warrior_battleshout.jpg",
+            "name": "Battle Shout"
+          },
+          {
+            "source": 519,
+            "ability": 1284617,
+            "stacks": 1,
+            "icon": "spell_misc_food.jpg",
+            "name": "Well Fed"
+          },
+          {
+            "source": 14,
+            "ability": 1459,
+            "stacks": 1,
+            "icon": "spell_holy_magicalsentry.jpg",
+            "name": "Arcane Intellect"
+          },
+          {
+            "source": 519,
+            "ability": 1235110,
+            "stacks": 1,
+            "icon": "inv_12_profession_alchemy_flask_sindoreipotion_white-.jpg",
+            "name": "Flask of the Blood Knights"
+          },
+          {
+            "source": 519,
+            "ability": 385840,
+            "stacks": 1,
+            "icon": "ability_vehicle_electrocharge.jpg",
+            "name": "Thunderlord"
+          },
+          {
+            "source": 519,
+            "ability": 202602,
+            "stacks": 4,
+            "icon": "ability_warrior_bloodfrenzy.jpg",
+            "name": "Into the Fray"
+          },
+          {
+            "source": 520,
+            "ability": 465,
+            "stacks": 1,
+            "icon": "spell_holy_devotionaura.jpg",
+            "name": "Devotion Aura"
+          }
+        ],
+        "expansion": "dragonflight",
+        "faction": 0,
+        "specID": 73,
+        "strength": 2827,
+        "agility": 431,
+        "stamina": 65032,
+        "intellect": 435,
+        "dodge": 0,
+        "parry": 724,
+        "block": 0,
+        "armor": 6824,
+        "critMelee": 724,
+        "critRanged": 724,
+        "critSpell": 724,
+        "hasteMelee": 1005,
+        "hasteRanged": 1005,
+        "hasteSpell": 1005,
+        "speed": 126,
+        "leech": 331,
+        "avoidance": 0,
+        "mastery": 690,
+        "versatilityDamageDone": 555,
+        "versatilityHealingDone": 555,
+        "versatilityDamageReduction": 555,
+        "talentTree": [
+          {
+            "id": 112115,
+            "rank": 1,
+            "nodeID": 90264
+          },
+          {
+            "id": 112116,
+            "rank": 1,
+            "nodeID": 90265
+          },
+          {
+            "id": 112149,
+            "rank": 1,
+            "nodeID": 90295
+          },
+          {
+            "id": 112151,
+            "rank": 1,
+            "nodeID": 90297
+          },
+          {
+            "id": 112152,
+            "rank": 1,
+            "nodeID": 90298
+          },
+          {
+            "id": 112155,
+            "rank": 1,
+            "nodeID": 90301
+          },
+          {
+            "id": 112156,
+            "rank": 1,
+            "nodeID": 90302
+          },
+          {
+            "id": 112157,
+            "rank": 1,
+            "nodeID": 90303
+          },
+          {
+            "id": 112158,
+            "rank": 1,
+            "nodeID": 90304
+          },
+          {
+            "id": 112159,
+            "rank": 1,
+            "nodeID": 90305
+          },
+          {
+            "id": 112160,
+            "rank": 1,
+            "nodeID": 90306
+          },
+          {
+            "id": 112162,
+            "rank": 1,
+            "nodeID": 90308
+          },
+          {
+            "id": 112163,
+            "rank": 1,
+            "nodeID": 90309
+          },
+          {
+            "id": 112166,
+            "rank": 2,
+            "nodeID": 90311
+          },
+          {
+            "id": 112170,
+            "rank": 1,
+            "nodeID": 90314
+          },
+          {
+            "id": 112173,
+            "rank": 1,
+            "nodeID": 90317
+          },
+          {
+            "id": 112174,
+            "rank": 1,
+            "nodeID": 90318
+          },
+          {
+            "id": 112176,
+            "rank": 1,
+            "nodeID": 90319
+          },
+          {
+            "id": 112177,
+            "rank": 1,
+            "nodeID": 90320
+          },
+          {
+            "id": 112181,
+            "rank": 2,
+            "nodeID": 90324
+          },
+          {
+            "id": 112183,
+            "rank": 1,
+            "nodeID": 90326
+          },
+          {
+            "id": 112185,
+            "rank": 1,
+            "nodeID": 90328
+          },
+          {
+            "id": 112198,
+            "rank": 1,
+            "nodeID": 90337
+          },
+          {
+            "id": 112205,
+            "rank": 1,
+            "nodeID": 90343
+          },
+          {
+            "id": 112208,
+            "rank": 1,
+            "nodeID": 90346
+          },
+          {
+            "id": 112215,
+            "rank": 1,
+            "nodeID": 90351
+          },
+          {
+            "id": 112216,
+            "rank": 1,
+            "nodeID": 90352
+          },
+          {
+            "id": 112217,
+            "rank": 1,
+            "nodeID": 90353
+          },
+          {
+            "id": 112219,
+            "rank": 1,
+            "nodeID": 90355
+          },
+          {
+            "id": 112224,
+            "rank": 2,
+            "nodeID": 90360
+          },
+          {
+            "id": 112233,
+            "rank": 2,
+            "nodeID": 90366
+          },
+          {
+            "id": 112235,
+            "rank": 2,
+            "nodeID": 90368
+          },
+          {
+            "id": 112238,
+            "rank": 1,
+            "nodeID": 90371
+          },
+          {
+            "id": 112241,
+            "rank": 1,
+            "nodeID": 90374
+          },
+          {
+            "id": 112242,
+            "rank": 1,
+            "nodeID": 90375
+          },
+          {
+            "id": 112248,
+            "rank": 2,
+            "nodeID": 90381
+          },
+          {
+            "id": 112249,
+            "rank": 1,
+            "nodeID": 90382
+          },
+          {
+            "id": 112253,
+            "rank": 1,
+            "nodeID": 90385
+          },
+          {
+            "id": 112305,
+            "rank": 1,
+            "nodeID": 90433
+          },
+          {
+            "id": 112307,
+            "rank": 1,
+            "nodeID": 90435
+          },
+          {
+            "id": 112321,
+            "rank": 1,
+            "nodeID": 90448
+          },
+          {
+            "id": 112323,
+            "rank": 1,
+            "nodeID": 90449
+          },
+          {
+            "id": 112325,
+            "rank": 1,
+            "nodeID": 90451
+          },
+          {
+            "id": 117382,
+            "rank": 1,
+            "nodeID": 94785
+          },
+          {
+            "id": 117394,
+            "rank": 1,
+            "nodeID": 94797
+          },
+          {
+            "id": 117395,
+            "rank": 1,
+            "nodeID": 94798
+          },
+          {
+            "id": 117397,
+            "rank": 1,
+            "nodeID": 94800
+          },
+          {
+            "id": 117402,
+            "rank": 1,
+            "nodeID": 94805
+          },
+          {
+            "id": 117404,
+            "rank": 1,
+            "nodeID": 94807
+          },
+          {
+            "id": 117405,
+            "rank": 1,
+            "nodeID": 94808
+          },
+          {
+            "id": 117413,
+            "rank": 1,
+            "nodeID": 94816
+          },
+          {
+            "id": 117414,
+            "rank": 1,
+            "nodeID": 94817
+          },
+          {
+            "id": 118834,
+            "rank": 1,
+            "nodeID": 94792
+          },
+          {
+            "id": 118850,
+            "rank": 1,
+            "nodeID": 95956
+          },
+          {
+            "id": 118853,
+            "rank": 1,
+            "nodeID": 95959
+          },
+          {
+            "id": 123388,
+            "rank": 1,
+            "nodeID": 99851
+          },
+          {
+            "id": 132880,
+            "rank": 1,
+            "nodeID": 90432
+          },
+          {
+            "id": 132882,
+            "rank": 1,
+            "nodeID": 107577
+          },
+          {
+            "id": 132883,
+            "rank": 1,
+            "nodeID": 107578
+          },
+          {
+            "id": 132885,
+            "rank": 1,
+            "nodeID": 90312
+          },
+          {
+            "id": 132886,
+            "rank": 1,
+            "nodeID": 107579
+          },
+          {
+            "id": 134031,
+            "rank": 1,
+            "nodeID": 108542
+          },
+          {
+            "id": 134032,
+            "rank": 1,
+            "nodeID": 108543
+          },
+          {
+            "id": 134033,
+            "rank": 1,
+            "nodeID": 108544
+          },
+          {
+            "id": 134226,
+            "rank": 1,
+            "nodeID": 108686
+          },
+          {
+            "id": 134254,
+            "rank": 1,
+            "nodeID": 108705
+          },
+          {
+            "id": 136068,
+            "rank": 1,
+            "nodeID": 109809
+          },
+          {
+            "id": 136069,
+            "rank": 1,
+            "nodeID": 109810
+          },
+          {
+            "id": 136070,
+            "rank": 1,
+            "nodeID": 109811
+          },
+          {
+            "id": 136625,
+            "rank": 1,
+            "nodeID": 110118
+          },
+          {
+            "id": 136626,
+            "rank": 1,
+            "nodeID": 110119
+          },
+          {
+            "id": 136999,
+            "rank": 1,
+            "nodeID": 110411
+          },
+          {
+            "id": 137000,
+            "rank": 2,
+            "nodeID": 110411
+          },
+          {
+            "id": 137001,
+            "rank": 1,
+            "nodeID": 110411
+          },
+          {
+            "id": 137471,
+            "rank": 1,
+            "nodeID": 110653
+          },
+          {
+            "id": 117400,
+            "rank": 1,
+            "nodeID": 94803
+          },
+          {
+            "id": 112187,
+            "rank": 1,
+            "nodeID": 90330
+          },
+          {
+            "id": 112112,
+            "rank": 1,
+            "nodeID": 90261
+          }
+        ],
+        "talents": [],
+        "pvpTalents": [
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 199045,
+            "icon": "warrior_talent_icon_bloodandthunder.jpg"
+          },
+          {
+            "id": 199023,
+            "icon": "ability_warrior_warcry.jpg"
+          },
+          {
+            "id": 205800,
+            "icon": "spell_nature_reincarnation.jpg"
+          }
+        ],
+        "customPowerSet": [],
+        "secondaryCustomPowerSet": [],
+        "tertiaryCustomPowerSet": []
+      }
+    },
+    "azaelle": {
+      "source": "mcp",
+      "capturedAt": "2026-09-21T19:47:43.854Z",
+      "player": "Azåelle",
+      "actorID": 589,
+      "fightID": 9,
+      "event": {
+        "timestamp": 933025,
+        "type": "combatantinfo",
+        "fight": 9,
+        "sourceID": 589,
+        "gear": [
+          {
+            "id": 271537,
+            "quality": 4,
+            "icon": "inv_helm_leather_raiddemonhunterulatek_d_01.jpg",
+            "itemLevel": 318,
+            "permanentEnchant": 8016,
+            "bonusIDs": [
+              40,
+              12849,
+              13696,
+              13440,
+              13692,
+              13698,
+              1571
+            ],
+            "setID": 2056
+          },
+          {
+            "id": 251234,
+            "quality": 3,
+            "icon": "inv_12_jewelry_devouringhost_necklace_silver2.jpg",
+            "itemLevel": 311,
+            "bonusIDs": [
+              12843,
+              13440,
+              6652,
+              13668,
+              12699
+            ],
+            "gems": [
+              {
+                "id": 240897,
+                "itemLevel": 278,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_fire_purple.jpg"
+              }
+            ]
+          },
+          {
+            "id": 271535,
+            "quality": 4,
+            "icon": "inv_shoulder_leather_raiddemonhunterulatek_d_01.jpg",
+            "itemLevel": 311,
+            "permanentEnchant": 8001,
+            "bonusIDs": [
+              12843,
+              41,
+              13440,
+              13694,
+              13697,
+              1564
+            ],
+            "setID": 2056
+          },
+          {
+            "id": 0,
+            "quality": 1,
+            "icon": "inv_axe_02.jpg",
+            "itemLevel": 0
+          },
+          {
+            "id": 272239,
+            "quality": 4,
+            "icon": "inv_chest_leather_outdooramaniloa_c_01.jpg",
+            "itemLevel": 295,
+            "permanentEnchant": 7986,
+            "bonusIDs": [
+              12834,
+              6652,
+              13662
+            ]
+          },
+          {
+            "id": 251189,
+            "quality": 3,
+            "icon": "inv_belt_leather_dungeonharronir_c_01.jpg",
+            "itemLevel": 308,
+            "bonusIDs": [
+              12842,
+              13440,
+              6652,
+              13696,
+              13662,
+              12699
+            ]
+          },
+          {
+            "id": 271536,
+            "quality": 4,
+            "icon": "inv_pant_leather_raiddemonhunterulatek_d_01.jpg",
+            "itemLevel": 318,
+            "bonusIDs": [
+              6652,
+              12849,
+              13440,
+              13693,
+              13698,
+              1571
+            ],
+            "setID": 2056
+          },
+          {
+            "id": 256975,
+            "quality": 2,
+            "icon": "inv_boot_leather_dungeonharronir_c_01.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              6652,
+              13662,
+              12830
+            ]
+          },
+          {
+            "id": 244576,
+            "quality": 4,
+            "icon": "inv_bracer_leather_questbloodelf_b_01.jpg",
+            "itemLevel": 331,
+            "bonusIDs": [
+              12214,
+              13667,
+              12497,
+              13751,
+              14001,
+              8791,
+              13836,
+              13696
+            ]
+          },
+          {
+            "id": 271538,
+            "quality": 4,
+            "icon": "inv_glove_leather_raiddemonhunterulatek_d_01.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              13691,
+              13438,
+              6652,
+              13697,
+              12830
+            ],
+            "setID": 2056
+          },
+          {
+            "id": 272149,
+            "quality": 4,
+            "icon": "inv_121_jewelry_ring02_purple.jpg",
+            "itemLevel": 295,
+            "permanentEnchant": 7966,
+            "bonusIDs": [
+              12834,
+              6652,
+              13668
+            ],
+            "gems": [
+              {
+                "id": 240907,
+                "itemLevel": 278,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_void_red.jpg"
+              }
+            ]
+          },
+          {
+            "id": 162544,
+            "quality": 3,
+            "icon": "inv_ring_80_04c.jpg",
+            "itemLevel": 308,
+            "permanentEnchant": 7966,
+            "bonusIDs": [
+              12842,
+              13440,
+              6652,
+              13668,
+              12699
+            ],
+            "gems": [
+              {
+                "id": 240907,
+                "itemLevel": 278,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_void_red.jpg"
+              }
+            ]
+          },
+          {
+            "id": 250228,
+            "quality": 3,
+            "icon": "inv_alchemy_90_stone_green.jpg",
+            "itemLevel": 311,
+            "bonusIDs": [
+              12843,
+              13440,
+              6652,
+              12699
+            ]
+          },
+          {
+            "id": 250259,
+            "quality": 3,
+            "icon": "inv_misc_herb_nightmarevine.jpg",
+            "itemLevel": 311,
+            "bonusIDs": [
+              12843,
+              13440,
+              6652,
+              12699
+            ]
+          },
+          {
+            "id": 272226,
+            "quality": 4,
+            "icon": "inv_cape_leather_outdooramaniloa_c_01.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              12834,
+              6652,
+              13662
+            ]
+          },
+          {
+            "id": 237840,
+            "quality": 4,
+            "icon": "inv_glaive_1h_questbloodelf_b_01.jpg",
+            "itemLevel": 331,
+            "permanentEnchant": 8689,
+            "bonusIDs": [
+              12214,
+              13667,
+              12497,
+              13751,
+              14001,
+              12693,
+              8960,
+              8791,
+              13836
+            ]
+          },
+          {
+            "id": 237840,
+            "quality": 4,
+            "icon": "inv_glaive_1h_questbloodelf_b_01.jpg",
+            "itemLevel": 331,
+            "permanentEnchant": 8689,
+            "bonusIDs": [
+              12214,
+              13667,
+              12497,
+              13751,
+              14001,
+              12693,
+              8960,
+              8791,
+              13836
+            ]
+          },
+          {
+            "id": 0,
+            "quality": 1,
+            "icon": "inv_axe_02.jpg",
+            "itemLevel": 0
+          }
+        ],
+        "auras": [
+          {
+            "source": 14,
+            "ability": 1459,
+            "stacks": 1,
+            "icon": "spell_holy_magicalsentry.jpg",
+            "name": "Arcane Intellect"
+          },
+          {
+            "source": 520,
+            "ability": 465,
+            "stacks": 1,
+            "icon": "spell_holy_devotionaura.jpg",
+            "name": "Devotion Aura"
+          },
+          {
+            "source": 589,
+            "ability": 1294727,
+            "stacks": 1,
+            "icon": "spell_misc_food.jpg",
+            "name": "Well Fed"
+          },
+          {
+            "source": 519,
+            "ability": 6673,
+            "stacks": 1,
+            "icon": "ability_warrior_battleshout.jpg",
+            "name": "Battle Shout"
+          }
+        ],
+        "expansion": "dragonflight",
+        "faction": 0,
+        "specID": 577,
+        "strength": 512,
+        "agility": 2533,
+        "stamina": 33784,
+        "intellect": 736,
+        "dodge": 0,
+        "parry": 0,
+        "block": 0,
+        "armor": 985,
+        "critMelee": 940,
+        "critRanged": 940,
+        "critSpell": 940,
+        "hasteMelee": 254,
+        "hasteRanged": 254,
+        "hasteSpell": 254,
+        "speed": 0,
+        "leech": 59,
+        "avoidance": 222,
+        "mastery": 945,
+        "versatilityDamageDone": 416,
+        "versatilityHealingDone": 416,
+        "versatilityDamageReduction": 416,
+        "talentTree": [
+          {
+            "id": 112823,
+            "rank": 1,
+            "nodeID": 90914
+          },
+          {
+            "id": 112824,
+            "rank": 1,
+            "nodeID": 90915
+          },
+          {
+            "id": 112825,
+            "rank": 1,
+            "nodeID": 90916
+          },
+          {
+            "id": 112826,
+            "rank": 1,
+            "nodeID": 90917
+          },
+          {
+            "id": 112827,
+            "rank": 1,
+            "nodeID": 90918
+          },
+          {
+            "id": 112830,
+            "rank": 1,
+            "nodeID": 90921
+          },
+          {
+            "id": 112831,
+            "rank": 1,
+            "nodeID": 90922
+          },
+          {
+            "id": 112832,
+            "rank": 1,
+            "nodeID": 90923
+          },
+          {
+            "id": 112834,
+            "rank": 1,
+            "nodeID": 90925
+          },
+          {
+            "id": 112838,
+            "rank": 1,
+            "nodeID": 90928
+          },
+          {
+            "id": 112839,
+            "rank": 1,
+            "nodeID": 90929
+          },
+          {
+            "id": 112841,
+            "rank": 1,
+            "nodeID": 90931
+          },
+          {
+            "id": 112844,
+            "rank": 1,
+            "nodeID": 90933
+          },
+          {
+            "id": 112845,
+            "rank": 1,
+            "nodeID": 90934
+          },
+          {
+            "id": 112846,
+            "rank": 2,
+            "nodeID": 90935
+          },
+          {
+            "id": 112847,
+            "rank": 2,
+            "nodeID": 90936
+          },
+          {
+            "id": 112849,
+            "rank": 1,
+            "nodeID": 90938
+          },
+          {
+            "id": 112851,
+            "rank": 1,
+            "nodeID": 90940
+          },
+          {
+            "id": 112852,
+            "rank": 1,
+            "nodeID": 90941
+          },
+          {
+            "id": 112859,
+            "rank": 1,
+            "nodeID": 90946
+          },
+          {
+            "id": 112861,
+            "rank": 1,
+            "nodeID": 90948
+          },
+          {
+            "id": 112862,
+            "rank": 2,
+            "nodeID": 90949
+          },
+          {
+            "id": 112863,
+            "rank": 1,
+            "nodeID": 90950
+          },
+          {
+            "id": 112911,
+            "rank": 1,
+            "nodeID": 90993
+          },
+          {
+            "id": 112912,
+            "rank": 1,
+            "nodeID": 90994
+          },
+          {
+            "id": 112914,
+            "rank": 1,
+            "nodeID": 90996
+          },
+          {
+            "id": 112918,
+            "rank": 2,
+            "nodeID": 91000
+          },
+          {
+            "id": 112919,
+            "rank": 1,
+            "nodeID": 91001
+          },
+          {
+            "id": 112921,
+            "rank": 1,
+            "nodeID": 91002
+          },
+          {
+            "id": 112923,
+            "rank": 1,
+            "nodeID": 91003
+          },
+          {
+            "id": 112926,
+            "rank": 1,
+            "nodeID": 91006
+          },
+          {
+            "id": 112927,
+            "rank": 1,
+            "nodeID": 91007
+          },
+          {
+            "id": 112928,
+            "rank": 1,
+            "nodeID": 91008
+          },
+          {
+            "id": 112936,
+            "rank": 1,
+            "nodeID": 91015
+          },
+          {
+            "id": 112938,
+            "rank": 1,
+            "nodeID": 91017
+          },
+          {
+            "id": 112939,
+            "rank": 1,
+            "nodeID": 91018
+          },
+          {
+            "id": 112943,
+            "rank": 1,
+            "nodeID": 91021
+          },
+          {
+            "id": 112944,
+            "rank": 1,
+            "nodeID": 91022
+          },
+          {
+            "id": 112947,
+            "rank": 1,
+            "nodeID": 91024
+          },
+          {
+            "id": 112948,
+            "rank": 1,
+            "nodeID": 91025
+          },
+          {
+            "id": 112949,
+            "rank": 1,
+            "nodeID": 91026
+          },
+          {
+            "id": 112950,
+            "rank": 1,
+            "nodeID": 91027
+          },
+          {
+            "id": 112951,
+            "rank": 1,
+            "nodeID": 91028
+          },
+          {
+            "id": 112955,
+            "rank": 1,
+            "nodeID": 91032
+          },
+          {
+            "id": 112956,
+            "rank": 1,
+            "nodeID": 91033
+          },
+          {
+            "id": 112957,
+            "rank": 2,
+            "nodeID": 91034
+          },
+          {
+            "id": 115245,
+            "rank": 1,
+            "nodeID": 93014
+          },
+          {
+            "id": 115246,
+            "rank": 1,
+            "nodeID": 93015
+          },
+          {
+            "id": 115248,
+            "rank": 1,
+            "nodeID": 93016
+          },
+          {
+            "id": 117496,
+            "rank": 1,
+            "nodeID": 94899
+          },
+          {
+            "id": 117498,
+            "rank": 1,
+            "nodeID": 94901
+          },
+          {
+            "id": 117501,
+            "rank": 1,
+            "nodeID": 94904
+          },
+          {
+            "id": 117502,
+            "rank": 1,
+            "nodeID": 94905
+          },
+          {
+            "id": 117506,
+            "rank": 1,
+            "nodeID": 94909
+          },
+          {
+            "id": 117509,
+            "rank": 1,
+            "nodeID": 94912
+          },
+          {
+            "id": 117513,
+            "rank": 1,
+            "nodeID": 94916
+          },
+          {
+            "id": 117515,
+            "rank": 1,
+            "nodeID": 94918
+          },
+          {
+            "id": 117741,
+            "rank": 1,
+            "nodeID": 95143
+          },
+          {
+            "id": 117754,
+            "rank": 2,
+            "nodeID": 95147
+          },
+          {
+            "id": 117758,
+            "rank": 1,
+            "nodeID": 95149
+          },
+          {
+            "id": 117759,
+            "rank": 1,
+            "nodeID": 95150
+          },
+          {
+            "id": 117762,
+            "rank": 1,
+            "nodeID": 95152
+          },
+          {
+            "id": 117767,
+            "rank": 1,
+            "nodeID": 95154
+          },
+          {
+            "id": 123329,
+            "rank": 1,
+            "nodeID": 99824
+          },
+          {
+            "id": 124009,
+            "rank": 1,
+            "nodeID": 94902
+          },
+          {
+            "id": 124011,
+            "rank": 1,
+            "nodeID": 94913
+          },
+          {
+            "id": 134203,
+            "rank": 1,
+            "nodeID": 108669
+          },
+          {
+            "id": 136030,
+            "rank": 1,
+            "nodeID": 109772
+          },
+          {
+            "id": 136031,
+            "rank": 1,
+            "nodeID": 109773
+          },
+          {
+            "id": 136032,
+            "rank": 1,
+            "nodeID": 109774
+          },
+          {
+            "id": 136501,
+            "rank": 1,
+            "nodeID": 110011
+          },
+          {
+            "id": 136502,
+            "rank": 1,
+            "nodeID": 90927
+          },
+          {
+            "id": 137047,
+            "rank": 1,
+            "nodeID": 110427
+          },
+          {
+            "id": 137048,
+            "rank": 2,
+            "nodeID": 110427
+          },
+          {
+            "id": 137049,
+            "rank": 1,
+            "nodeID": 110427
+          },
+          {
+            "id": 117514,
+            "rank": 1,
+            "nodeID": 94917
+          },
+          {
+            "id": 112853,
+            "rank": 1,
+            "nodeID": 90942
+          }
+        ],
+        "talents": [],
+        "pvpTalents": [
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 206803,
+            "icon": "ability_demonhunter_rain-from-above.jpg"
+          },
+          {
+            "id": 213480,
+            "icon": "ability_demonhunter_brandofthehunt.jpg"
+          }
+        ],
+        "customPowerSet": [],
+        "secondaryCustomPowerSet": [],
+        "tertiaryCustomPowerSet": []
+      }
+    }
+  },
+  "sourceReport": {
+    "title": "XDDD",
+    "startTime": 1790017441696,
+    "visibility": "public",
+    "fightCount": 9,
+    "source": "mcp"
+  },
+  "importEvidence": {
+    "source": "mcp",
+    "capturedAt": "2026-09-21T19:47:43.854Z",
+    "reportCode": "mTkRY6q3vpH1LJzw",
+    "trackedPlayers": [
+      "Kalteew",
+      "Azåelle"
+    ],
+    "rankingNotes": "Parse/key percent conservés séparément ; les populations vides WCL restent null."
+  }
+}
