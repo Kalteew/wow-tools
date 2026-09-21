@@ -86,10 +86,58 @@
     "deathsTotal": 0
   },
   "rankings": {
-    "queried": false,
+    "queried": true,
     "source": "mcp",
-    "capturedAt": "2026-09-20",
-    "values": {},
-    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+    "capturedAt": "2026-09-21T07:03:22.226Z",
+    "values": {
+      "Azåelle": {
+        "parsePercent": 16,
+        "keyPercent": 75,
+        "totalParses": 25283,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 9,
+        "metric": "dps",
+        "source": "mcp"
+      }
+    },
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur.",
+    "reportSpecific": {
+      "source": "mcp",
+      "capturedAt": "2026-09-21T07:03:22.226Z",
+      "values": {
+        "Azåelle": {
+          "parsePercent": 16,
+          "keyPercent": 75,
+          "totalParses": 25283,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 9,
+          "metric": "dps",
+          "source": "mcp"
+        }
+      },
+      "byMetric": {
+        "dps": {
+          "source": "mcp",
+          "capturedAt": "2026-09-21T07:03:22.226Z",
+          "values": {
+            "Azåelle": {
+              "parsePercent": 16,
+              "keyPercent": 75,
+              "totalParses": 25283,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 9,
+              "metric": "dps",
+              "source": "mcp"
+            }
+          }
+        }
+      }
+    }
   }
 }

@@ -238,5 +238,98 @@
       "capturedAt": "2026-09-20",
       "source": "mcp"
     }
+  },
+  "rankings": {
+    "queried": true,
+    "source": "mcp",
+    "capturedAt": "2026-09-21T07:03:22.208Z",
+    "values": {
+      "Kalteew": {
+        "parsePercent": 70,
+        "keyPercent": 99,
+        "totalParses": 24039,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 11,
+        "metric": "dps",
+        "source": "mcp"
+      },
+      "Kylse": {
+        "parsePercent": 50,
+        "keyPercent": 86,
+        "totalParses": 87251,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 11,
+        "metric": "hps",
+        "source": "mcp"
+      }
+    },
+    "reportSpecific": {
+      "source": "mcp",
+      "capturedAt": "2026-09-21T07:03:22.208Z",
+      "values": {
+        "Kalteew": {
+          "parsePercent": 70,
+          "keyPercent": 99,
+          "totalParses": 24039,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 11,
+          "metric": "dps",
+          "source": "mcp"
+        },
+        "Kylse": {
+          "parsePercent": 50,
+          "keyPercent": 86,
+          "totalParses": 87251,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 11,
+          "metric": "hps",
+          "source": "mcp"
+        }
+      },
+      "byMetric": {
+        "dps": {
+          "source": "mcp",
+          "capturedAt": "2026-09-21T07:03:22.208Z",
+          "values": {
+            "Kalteew": {
+              "parsePercent": 70,
+              "keyPercent": 99,
+              "totalParses": 24039,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 11,
+              "metric": "dps",
+              "source": "mcp"
+            }
+          }
+        },
+        "hps": {
+          "source": "mcp",
+          "capturedAt": "2026-09-21T07:03:22.208Z",
+          "values": {
+            "Kylse": {
+              "parsePercent": 50,
+              "keyPercent": 86,
+              "totalParses": 87251,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 11,
+              "metric": "hps",
+              "source": "mcp"
+            }
+          }
+        }
+      }
+    }
   }
 }

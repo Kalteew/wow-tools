@@ -86,11 +86,98 @@
     "deathsTotal": 4
   },
   "rankings": {
-    "queried": false,
+    "queried": true,
     "source": "mcp",
-    "capturedAt": "2026-09-20",
-    "values": {},
-    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+    "capturedAt": "2026-09-21T07:03:22.212Z",
+    "values": {
+      "Azåelle": {
+        "parsePercent": 84,
+        "keyPercent": 32,
+        "totalParses": 34061,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 13,
+        "metric": "dps",
+        "source": "mcp"
+      },
+      "Kylse": {
+        "parsePercent": 74,
+        "keyPercent": 41,
+        "totalParses": 123272,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 13,
+        "metric": "hps",
+        "source": "mcp"
+      }
+    },
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur.",
+    "reportSpecific": {
+      "source": "mcp",
+      "capturedAt": "2026-09-21T07:03:22.212Z",
+      "values": {
+        "Azåelle": {
+          "parsePercent": 84,
+          "keyPercent": 32,
+          "totalParses": 34061,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "dps",
+          "source": "mcp"
+        },
+        "Kylse": {
+          "parsePercent": 74,
+          "keyPercent": 41,
+          "totalParses": 123272,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "hps",
+          "source": "mcp"
+        }
+      },
+      "byMetric": {
+        "dps": {
+          "source": "mcp",
+          "capturedAt": "2026-09-21T07:03:22.212Z",
+          "values": {
+            "Azåelle": {
+              "parsePercent": 84,
+              "keyPercent": 32,
+              "totalParses": 34061,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 13,
+              "metric": "dps",
+              "source": "mcp"
+            }
+          }
+        },
+        "hps": {
+          "source": "mcp",
+          "capturedAt": "2026-09-21T07:03:22.212Z",
+          "values": {
+            "Kylse": {
+              "parsePercent": 74,
+              "keyPercent": 41,
+              "totalParses": 123272,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 13,
+              "metric": "hps",
+              "source": "mcp"
+            }
+          }
+        }
+      }
+    }
   },
   "playerMetrics": {
     "kylse": {

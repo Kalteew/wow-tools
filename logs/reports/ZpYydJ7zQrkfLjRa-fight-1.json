@@ -86,11 +86,131 @@
     "deathsTotal": 3
   },
   "rankings": {
-    "queried": false,
+    "queried": true,
     "source": "mcp",
-    "capturedAt": "2026-09-20",
-    "values": {},
-    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+    "capturedAt": "2026-09-21T07:03:22.236Z",
+    "values": {
+      "Kalteew": {
+        "parsePercent": 80,
+        "keyPercent": 99,
+        "totalParses": 20650,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 12,
+        "metric": "dps",
+        "source": "mcp"
+      },
+      "Azåelle": {
+        "parsePercent": 73,
+        "keyPercent": 35,
+        "totalParses": 18186,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 12,
+        "metric": "dps",
+        "source": "mcp"
+      },
+      "Kylse": {
+        "parsePercent": 66,
+        "keyPercent": 85,
+        "totalParses": 75462,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 12,
+        "metric": "hps",
+        "source": "mcp"
+      }
+    },
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur.",
+    "reportSpecific": {
+      "source": "mcp",
+      "capturedAt": "2026-09-21T07:03:22.236Z",
+      "values": {
+        "Kalteew": {
+          "parsePercent": 80,
+          "keyPercent": 99,
+          "totalParses": 20650,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 12,
+          "metric": "dps",
+          "source": "mcp"
+        },
+        "Azåelle": {
+          "parsePercent": 73,
+          "keyPercent": 35,
+          "totalParses": 18186,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 12,
+          "metric": "dps",
+          "source": "mcp"
+        },
+        "Kylse": {
+          "parsePercent": 66,
+          "keyPercent": 85,
+          "totalParses": 75462,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 12,
+          "metric": "hps",
+          "source": "mcp"
+        }
+      },
+      "byMetric": {
+        "dps": {
+          "source": "mcp",
+          "capturedAt": "2026-09-21T07:03:22.236Z",
+          "values": {
+            "Kalteew": {
+              "parsePercent": 80,
+              "keyPercent": 99,
+              "totalParses": 20650,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 12,
+              "metric": "dps",
+              "source": "mcp"
+            },
+            "Azåelle": {
+              "parsePercent": 73,
+              "keyPercent": 35,
+              "totalParses": 18186,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 12,
+              "metric": "dps",
+              "source": "mcp"
+            }
+          }
+        },
+        "hps": {
+          "source": "mcp",
+          "capturedAt": "2026-09-21T07:03:22.236Z",
+          "values": {
+            "Kylse": {
+              "parsePercent": 66,
+              "keyPercent": 85,
+              "totalParses": 75462,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 12,
+              "metric": "hps",
+              "source": "mcp"
+            }
+          }
+        }
+      }
+    }
   },
   "playerMetrics": {
     "kalteew": {

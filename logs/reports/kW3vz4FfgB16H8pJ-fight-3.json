@@ -162,5 +162,92 @@
       "capturedAt": "2026-09-20",
       "source": "mcp"
     }
+  },
+  "rankings": {
+    "queried": true,
+    "source": "mcp",
+    "capturedAt": "2026-09-21T07:03:22.205Z",
+    "values": {
+      "Kalteew": {
+        "parsePercent": 70,
+        "keyPercent": 97,
+        "totalParses": 21178,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 11,
+        "metric": "dps",
+        "source": "mcp"
+      },
+      "Azåelle": {
+        "parsePercent": 59,
+        "keyPercent": 40,
+        "totalParses": 17340,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 11,
+        "metric": "dps",
+        "source": "mcp"
+      }
+    },
+    "reportSpecific": {
+      "source": "mcp",
+      "capturedAt": "2026-09-21T07:03:22.205Z",
+      "values": {
+        "Kalteew": {
+          "parsePercent": 70,
+          "keyPercent": 97,
+          "totalParses": 21178,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 11,
+          "metric": "dps",
+          "source": "mcp"
+        },
+        "Azåelle": {
+          "parsePercent": 59,
+          "keyPercent": 40,
+          "totalParses": 17340,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 11,
+          "metric": "dps",
+          "source": "mcp"
+        }
+      },
+      "byMetric": {
+        "dps": {
+          "source": "mcp",
+          "capturedAt": "2026-09-21T07:03:22.205Z",
+          "values": {
+            "Kalteew": {
+              "parsePercent": 70,
+              "keyPercent": 97,
+              "totalParses": 21178,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 11,
+              "metric": "dps",
+              "source": "mcp"
+            },
+            "Azåelle": {
+              "parsePercent": 59,
+              "keyPercent": 40,
+              "totalParses": 17340,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 11,
+              "metric": "dps",
+              "source": "mcp"
+            }
+          }
+        }
+      }
+    }
   }
 }

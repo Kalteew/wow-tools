@@ -93,10 +93,58 @@
     }
   },
   "rankings": {
-    "queried": false,
+    "queried": true,
     "source": "mcp",
-    "capturedAt": "2026-09-20",
-    "values": {},
-    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur."
+    "capturedAt": "2026-09-21T07:03:22.245Z",
+    "values": {
+      "Azåelle": {
+        "parsePercent": 59,
+        "keyPercent": 10,
+        "totalParses": 15482,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 11,
+        "metric": "dps",
+        "source": "mcp"
+      }
+    },
+    "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur.",
+    "reportSpecific": {
+      "source": "mcp",
+      "capturedAt": "2026-09-21T07:03:22.245Z",
+      "values": {
+        "Azåelle": {
+          "parsePercent": 59,
+          "keyPercent": 10,
+          "totalParses": 15482,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 11,
+          "metric": "dps",
+          "source": "mcp"
+        }
+      },
+      "byMetric": {
+        "dps": {
+          "source": "mcp",
+          "capturedAt": "2026-09-21T07:03:22.245Z",
+          "values": {
+            "Azåelle": {
+              "parsePercent": 59,
+              "keyPercent": 10,
+              "totalParses": 15482,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 11,
+              "metric": "dps",
+              "source": "mcp"
+            }
+          }
+        }
+      }
+    }
   }
 }
