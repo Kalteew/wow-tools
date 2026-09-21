@@ -15,21 +15,80 @@
     "completed": true,
     "keystoneBonus": 1,
     "rating": 366.760009765625,
-    "enemyForces": {"reached": 656, "required": 687, "percent": 95.49},
-    "bossesKilled": ["Adderis and Aspix", "Merektha", "Galvazzt", "Avatar of Sethraliss"]
+    "enemyForces": {
+      "reached": 656,
+      "required": 687,
+      "percent": 95.49
+    },
+    "bossesKilled": [
+      "Adderis and Aspix",
+      "Merektha",
+      "Galvazzt",
+      "Avatar of Sethraliss"
+    ]
   },
   "players": [
-    {"name":"Wandsolo","class":"Mage","spec":"Arcane","realm":"Draenor","itemLevel":313},
-    {"name":"Сквознякик","class":"Paladin","spec":"Holy","realm":"СвежевательДуш","itemLevel":315},
-    {"name":"Kalteew","class":"Warrior","spec":"Protection","realm":"Hyjal","itemLevel":321},
-    {"name":"Piffpif","class":"Evoker","spec":"Devastation","realm":"Draenor","itemLevel":306},
-    {"name":"Azaelle","class":"DemonHunter","spec":"Havoc","realm":"Hyjal","itemLevel":310}
+    {
+      "name": "Wandsolo",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Draenor",
+      "itemLevel": 313
+    },
+    {
+      "name": "Сквознякик",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "СвежевательДуш",
+      "itemLevel": 315
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 321
+    },
+    {
+      "name": "Piffpif",
+      "class": "Evoker",
+      "spec": "Devastation",
+      "realm": "Draenor",
+      "itemLevel": 306
+    },
+    {
+      "name": "Azaelle",
+      "class": "DemonHunter",
+      "spec": "Havoc",
+      "realm": "Hyjal",
+      "itemLevel": 310,
+      "aliases": [
+        "Azaelle",
+        "Azåelle",
+        "Azael"
+      ]
+    }
   ],
   "metrics": {
     "deathsTotal": 14,
-    "dps": {"Piffpif":193688,"Azaelle":163078,"Wandsolo":151202,"Kalteew":131423,"Сквознякик":8211},
-    "hps": {"Сквознякик":96127,"Kalteew":43109},
-    "deathsByPlayer": {"Wandsolo":6,"Azaelle":3,"Сквознякик":3,"Kalteew":1,"Piffpif":1}
+    "dps": {
+      "Piffpif": 193688,
+      "Azaelle": 163078,
+      "Wandsolo": 151202,
+      "Kalteew": 131423,
+      "Сквознякик": 8211
+    },
+    "hps": {
+      "Сквознякик": 96127,
+      "Kalteew": 43109
+    },
+    "deathsByPlayer": {
+      "Wandsolo": 6,
+      "Azaelle": 3,
+      "Сквознякик": 3,
+      "Kalteew": 1,
+      "Piffpif": 1
+    }
   },
   "userSentiment": {
     "overall": "La clé était un désastre.",
@@ -38,14 +97,27 @@
     "recordedAs": "user_observation_to_verify"
   },
   "focus": {
-    "primary": {"name":"Kalteew","matched":true},
-    "secondary": {"name":"Azaelle","matched":true,"spec":"Havoc"}
+    "primary": {
+      "name": "Kalteew",
+      "matched": true
+    },
+    "secondary": {
+      "name": "Azaelle",
+      "matched": true,
+      "spec": "Havoc"
+    }
   },
   "burstAnalysis": {
     "player": "Azåelle",
     "actorID": 5,
     "talentImportCode": "CEkAAAAAAAAAAAAAAAAAAAAAAYmZGzMz2MmZmxYmMmZAAAAAAAzyDwsNDzM4BmxyMzDMDzMYWGYZ2MjhZjpxMzYGbAAAADAAAgZGMAAAAM",
-    "aggregateCasts": {"The Hunt": 22, "Eye Beam": 51, "Metamorphosis": 12, "Essence Break": 37, "Blur": 4},
+    "aggregateCasts": {
+      "The Hunt": 22,
+      "Eye Beam": 51,
+      "Metamorphosis": 12,
+      "Essence Break": 37,
+      "Blur": 4
+    },
     "windows": [
       {
         "pullID": 1,
@@ -53,18 +125,41 @@
         "endSeconds": 121.83,
         "deathAtSeconds": 80.15,
         "deathCause": "Serrated Charge",
-        "casts": {"The Hunt": 1, "Eye Beam": 1, "Metamorphosis": 1, "Essence Break": 1, "Death Sweep": 4, "Blur": 0},
-        "damage": {"The Hunt": 1811200, "Eye Beam": 1262522, "Essence Break": 1327241, "Metamorphosis": 44649},
+        "casts": {
+          "The Hunt": 1,
+          "Eye Beam": 1,
+          "Metamorphosis": 1,
+          "Essence Break": 1,
+          "Death Sweep": 4,
+          "Blur": 0
+        },
+        "damage": {
+          "The Hunt": 1811200,
+          "Eye Beam": 1262522,
+          "Essence Break": 1327241,
+          "Metamorphosis": 44649
+        },
         "fact": "La fenêtre de burst est bien lancée, mais aucun Blur n'est enregistré avant la mort."
       },
       {
         "pullID": 2,
         "startSeconds": 126.39,
-        "endSeconds": 193.60,
+        "endSeconds": 193.6,
         "deathAtSeconds": 192.68,
         "deathCause": "Slither Strike",
-        "casts": {"The Hunt": 1, "Eye Beam": 3, "Metamorphosis": 0, "Essence Break": 2, "Death Sweep": 6, "Blur": 1},
-        "damage": {"The Hunt": 1823004, "Eye Beam": 1888496, "Essence Break": 2550974},
+        "casts": {
+          "The Hunt": 1,
+          "Eye Beam": 3,
+          "Metamorphosis": 0,
+          "Essence Break": 2,
+          "Death Sweep": 6,
+          "Blur": 1
+        },
+        "damage": {
+          "The Hunt": 1823004,
+          "Eye Beam": 1888496,
+          "Essence Break": 2550974
+        },
         "fact": "Le pull contient plusieurs fenêtres offensives et se termine par une mort très tardive."
       },
       {
@@ -73,17 +168,41 @@
         "endSeconds": 608.71,
         "deathAtSeconds": 489.12,
         "deathCause": "Volley",
-        "casts": {"The Hunt": 3, "Eye Beam": 5, "Metamorphosis": 1, "Essence Break": 3, "Death Sweep": 15, "Blur": 1},
-        "damage": {"The Hunt": 2739109, "Eye Beam": 4853391, "Essence Break": 1965764, "Metamorphosis": 66156},
+        "casts": {
+          "The Hunt": 3,
+          "Eye Beam": 5,
+          "Metamorphosis": 1,
+          "Essence Break": 3,
+          "Death Sweep": 15,
+          "Blur": 1
+        },
+        "damage": {
+          "The Hunt": 2739109,
+          "Eye Beam": 4853391,
+          "Essence Break": 1965764,
+          "Metamorphosis": 66156
+        },
         "fact": "Le burst continue d'être utilisé, mais un seul Blur apparaît sur cette longue fenêtre."
       },
       {
         "pullID": 7,
         "name": "Merektha",
         "startSeconds": 750.34,
-        "endSeconds": 876.30,
-        "casts": {"The Hunt": 1, "Eye Beam": 4, "Metamorphosis": 1, "Essence Break": 3, "Death Sweep": 14, "Blur": 1},
-        "damage": {"The Hunt": 334978, "Eye Beam": 2365550, "Essence Break": 939842, "Metamorphosis": 49424},
+        "endSeconds": 876.3,
+        "casts": {
+          "The Hunt": 1,
+          "Eye Beam": 4,
+          "Metamorphosis": 1,
+          "Essence Break": 3,
+          "Death Sweep": 14,
+          "Blur": 1
+        },
+        "damage": {
+          "The Hunt": 334978,
+          "Eye Beam": 2365550,
+          "Essence Break": 939842,
+          "Metamorphosis": 49424
+        },
         "fact": "Fenêtre boss exploitable sans mort ; elle servira de référence interne pour son uptime vivant."
       }
     ],
@@ -95,31 +214,102 @@
     ]
   },
   "deaths": [
-    {"player":"Azaelle","atSeconds":20,"cause":"Serrated Charge"},
-    {"player":"Сквознякик","atSeconds":119,"cause":"Serrated Charge"},
-    {"player":"Wandsolo","atSeconds":119,"cause":"Arrow Barrage"},
-    {"player":"Kalteew","atSeconds":131,"cause":"Melee"},
-    {"player":"Azaelle","atSeconds":133,"cause":"Slither Strike"},
-    {"player":"Piffpif","atSeconds":133,"cause":"Melee"},
-    {"player":"Azaelle","atSeconds":429,"cause":"Volley"},
-    {"player":"Wandsolo","atSeconds":508,"cause":"Cytotoxin"},
-    {"player":"Wandsolo","atSeconds":519,"cause":"Volley"},
-    {"player":"Wandsolo","atSeconds":538,"cause":"Volley"},
-    {"player":"Сквознякик","atSeconds":815,"cause":"Electrified Ground"},
-    {"player":"Wandsolo","atSeconds":912,"cause":"Release Charge"},
-    {"player":"Wandsolo","atSeconds":975,"cause":"Imbued Conduction"},
-    {"player":"Сквознякик","atSeconds":1235,"cause":"Loose Sparks"}
+    {
+      "player": "Azaelle",
+      "atSeconds": 20,
+      "cause": "Serrated Charge"
+    },
+    {
+      "player": "Сквознякик",
+      "atSeconds": 119,
+      "cause": "Serrated Charge"
+    },
+    {
+      "player": "Wandsolo",
+      "atSeconds": 119,
+      "cause": "Arrow Barrage"
+    },
+    {
+      "player": "Kalteew",
+      "atSeconds": 131,
+      "cause": "Melee"
+    },
+    {
+      "player": "Azaelle",
+      "atSeconds": 133,
+      "cause": "Slither Strike"
+    },
+    {
+      "player": "Piffpif",
+      "atSeconds": 133,
+      "cause": "Melee"
+    },
+    {
+      "player": "Azaelle",
+      "atSeconds": 429,
+      "cause": "Volley"
+    },
+    {
+      "player": "Wandsolo",
+      "atSeconds": 508,
+      "cause": "Cytotoxin"
+    },
+    {
+      "player": "Wandsolo",
+      "atSeconds": 519,
+      "cause": "Volley"
+    },
+    {
+      "player": "Wandsolo",
+      "atSeconds": 538,
+      "cause": "Volley"
+    },
+    {
+      "player": "Сквознякик",
+      "atSeconds": 815,
+      "cause": "Electrified Ground"
+    },
+    {
+      "player": "Wandsolo",
+      "atSeconds": 912,
+      "cause": "Release Charge"
+    },
+    {
+      "player": "Wandsolo",
+      "atSeconds": 975,
+      "cause": "Imbued Conduction"
+    },
+    {
+      "player": "Сквознякик",
+      "atSeconds": 1235,
+      "cause": "Loose Sparks"
+    }
   ],
   "rankings": {
     "queried": false,
     "source": "user_attached_image",
     "capturedAt": "2026-09-19",
     "values": {
-      "Piffpif": {"parsePercent": 80, "keyPercent": 70},
-      "Azåelle": {"parsePercent": 69, "keyPercent": 34},
-      "Wandsolo": {"parsePercent": 59, "keyPercent": 16},
-      "Kalteew": {"parsePercent": 80, "keyPercent": 93},
-      "Сквознякик": {"parsePercent": 59, "keyPercent": 16}
+      "Piffpif": {
+        "parsePercent": 80,
+        "keyPercent": 70
+      },
+      "Azåelle": {
+        "parsePercent": 69,
+        "keyPercent": 34
+      },
+      "Wandsolo": {
+        "parsePercent": 59,
+        "keyPercent": 16
+      },
+      "Kalteew": {
+        "parsePercent": 80,
+        "keyPercent": 93
+      },
+      "Сквознякик": {
+        "parsePercent": 59,
+        "keyPercent": 16
+      }
     }
   },
   "benchmarks": [
@@ -138,26 +328,72 @@
       },
       "caveat": "Référence en +14, 25:25, ilvl 318 contre +12, 30:29, ilvl 310 pour Azåelle ; comparer surtout les fenêtres vivantes, pas les totaux bruts.",
       "aggregateCastComparison": {
-        "The Hunt": {"Azåelle": 22, "Ryenna": 21},
-        "Eye Beam": {"Azåelle": 51, "Ryenna": 49},
-        "Metamorphosis": {"Azåelle": 12, "Ryenna": 11},
-        "Essence Break": {"Azåelle": 37, "Ryenna": 41},
-        "Death Sweep": {"Azåelle": 151, "Ryenna": 152},
-        "Felblade": {"Azåelle": 47, "Ryenna": 98}
+        "The Hunt": {
+          "Azåelle": 22,
+          "Ryenna": 21
+        },
+        "Eye Beam": {
+          "Azåelle": 51,
+          "Ryenna": 49
+        },
+        "Metamorphosis": {
+          "Azåelle": 12,
+          "Ryenna": 11
+        },
+        "Essence Break": {
+          "Azåelle": 37,
+          "Ryenna": 41
+        },
+        "Death Sweep": {
+          "Azåelle": 151,
+          "Ryenna": 152
+        },
+        "Felblade": {
+          "Azåelle": 47,
+          "Ryenna": 98
+        }
       },
       "avatarWindowComparison": {
         "window": "Avatar of Sethraliss",
         "azåelle": {
           "startMs": 1480164,
           "endMs": 1672168,
-          "casts": {"The Hunt": 3, "Eye Beam": 7, "Metamorphosis": 2, "Essence Break": 4, "Immolation Aura": 5, "Death Sweep": 17, "Felblade": 2},
-          "damage": {"The Hunt": 1506648, "Eye Beam": 2397421, "Essence Break": 1694182, "Immolation Aura": 3128225, "Demonsurge": 3422775}
+          "casts": {
+            "The Hunt": 3,
+            "Eye Beam": 7,
+            "Metamorphosis": 2,
+            "Essence Break": 4,
+            "Immolation Aura": 5,
+            "Death Sweep": 17,
+            "Felblade": 2
+          },
+          "damage": {
+            "The Hunt": 1506648,
+            "Eye Beam": 2397421,
+            "Essence Break": 1694182,
+            "Immolation Aura": 3128225,
+            "Demonsurge": 3422775
+          }
         },
         "ryenna": {
           "startMs": 1324214,
           "endMs": 1525487,
-          "casts": {"The Hunt": 4, "Eye Beam": 6, "Metamorphosis": 2, "Essence Break": 6, "Immolation Aura": 8, "Death Sweep": 22, "Felblade": 14},
-          "damage": {"The Hunt": 2499686, "Eye Beam": 2934281, "Essence Break": 3310582, "Immolation Aura": 6052006, "Demonsurge": 6415138}
+          "casts": {
+            "The Hunt": 4,
+            "Eye Beam": 6,
+            "Metamorphosis": 2,
+            "Essence Break": 6,
+            "Immolation Aura": 8,
+            "Death Sweep": 22,
+            "Felblade": 14
+          },
+          "damage": {
+            "The Hunt": 2499686,
+            "Eye Beam": 2934281,
+            "Essence Break": 3310582,
+            "Immolation Aura": 6052006,
+            "Demonsurge": 6415138
+          }
         }
       },
       "currentInterpretation": [
@@ -171,13 +407,36 @@
         "sameSetID": 2056,
         "azåelle": {
           "talentCount": 77,
-          "stats": {"crit": 940, "haste": 254, "mastery": 945, "versatility": 416, "leech": 59},
-          "talentOnlyIDs": [112914, 112936, 117496, 124011, 136502]
+          "stats": {
+            "crit": 940,
+            "haste": 254,
+            "mastery": 945,
+            "versatility": 416,
+            "leech": 59
+          },
+          "talentOnlyIDs": [
+            112914,
+            112936,
+            117496,
+            124011,
+            136502
+          ]
         },
         "ryenna": {
           "talentCount": 76,
-          "stats": {"crit": 1482, "haste": 321, "mastery": 1006, "versatility": 120, "leech": 293},
-          "talentOnlyIDs": [112837, 117510, 117755, 124010]
+          "stats": {
+            "crit": 1482,
+            "haste": 321,
+            "mastery": 1006,
+            "versatility": 120,
+            "leech": 293
+          },
+          "talentOnlyIDs": [
+            112837,
+            117510,
+            117755,
+            124010
+          ]
         },
         "note": "Les deux builds ne sont pas identiques ; les noms des talents restent à décoder avant d'attribuer tout l'écart à la rotation."
       },
@@ -263,7 +522,13 @@
     "currentMcp": {
       "timestamps": true,
       "readableNames": false,
-      "returnedFields": ["timestamp", "type", "sourceID", "targetID", "abilityGameID"],
+      "returnedFields": [
+        "timestamp",
+        "type",
+        "sourceID",
+        "targetID",
+        "abilityGameID"
+      ],
       "nextPageTimestamp": 1588828
     },
     "fork": {
@@ -349,9 +614,21 @@
       "damageReduced": 3231804,
       "blocked": 1069397,
       "mainSources": [
-        {"name": "Shrouded Fang", "total": 1856559, "totalReduced": 1358039},
-        {"name": "Sandfury Stonefist", "total": 1161554, "totalReduced": 678885},
-        {"name": "Storm Adept", "total": 825568, "totalReduced": 677181}
+        {
+          "name": "Shrouded Fang",
+          "total": 1856559,
+          "totalReduced": 1358039
+        },
+        {
+          "name": "Sandfury Stonefist",
+          "total": 1161554,
+          "totalReduced": 678885
+        },
+        {
+          "name": "Storm Adept",
+          "total": 825568,
+          "totalReduced": 677181
+        }
       ],
       "lastRelevantCasts": [
         "Shield Block +118.71s",
@@ -373,12 +650,29 @@
       "durationMs": 1120517,
       "rating": 380,
       "deaths": 3,
-      "enemyForces": {"reached": 650, "required": 687},
-      "affixIDs": [9, 10, 147],
+      "enemyForces": {
+        "reached": 650,
+        "required": 687
+      },
+      "affixIDs": [
+        9,
+        10,
+        147
+      ],
       "wclActiveDPS": 188617.28,
-      "wclRanking": {"metric": "playerscore", "rankPercent": 100, "totalParses": 15204},
+      "wclRanking": {
+        "metric": "playerscore",
+        "rankPercent": 100,
+        "totalParses": 15204
+      },
       "itemLevel": 324,
-      "stats": {"haste": 1146, "crit": 1407, "mastery": 467, "versatility": 103, "leech": 0},
+      "stats": {
+        "haste": 1146,
+        "crit": 1407,
+        "mastery": 467,
+        "versatility": 103,
+        "leech": 0
+      },
       "cooldowns": {
         "Avatar": 18,
         "ShieldBlock": 92,
@@ -397,6 +691,1233 @@
       "normalizedObservation": "Ton temps actif est d'environ 88,1% contre 96,7% pour Targramu. À durée de combat, il lance Avatar plus souvent (0,96/min contre 0,72/min), Ignore Pain plus souvent (13,0/min contre 10,0/min) et Spell Reflection beaucoup plus souvent (0,75/min contre 0,03/min).",
       "priority": "Priorité unique : sécuriser les packs physiques dangereux avec Shield Block/Ignore Pain et un cooldown réservé à la fin du pull ; ensuite seulement travailler le DPS et le rythme d'Avatar/Ravager.",
       "secondaryHypothesis": "Ton équipement est plus orienté maîtrise/versatilité/leech (672/569/331) que le benchmark (467/103/0), qui a beaucoup plus de crit/haste (1407/1146 contre 721/1003). C'est une piste DPS à simuler, pas une correction certaine de survie."
+    }
+  },
+  "fightID": 1,
+  "playerMetrics": {
+    "azaelle": {
+      "stats": {
+        "strength": 512,
+        "agility": 2345,
+        "stamina": 33784,
+        "intellect": 640,
+        "crit": 940,
+        "haste": 254,
+        "mastery": 945,
+        "versatility": 416,
+        "armor": 985
+      },
+      "gear": {
+        "itemLevelAverage": 310.25,
+        "itemLevelMax": 331,
+        "equippedSlots": 16,
+        "gems": 3,
+        "setPieces": 4
+      },
+      "casts": {
+        "total": 1053,
+        "perMinute": 34.52909970209224,
+        "cooldowns": [
+          {
+            "name": "Metamorphosis",
+            "casts": 12
+          },
+          {
+            "name": "The Hunt",
+            "casts": 22
+          },
+          {
+            "name": "Eye Beam",
+            "casts": 51
+          },
+          {
+            "name": "Essence Break",
+            "casts": 37
+          },
+          {
+            "name": "Death Sweep",
+            "casts": 151
+          },
+          {
+            "name": "Blur",
+            "casts": 4
+          },
+          {
+            "name": "Darkness",
+            "casts": 1
+          }
+        ],
+        "cooldownTotal": 278,
+        "cooldownsPerMinute": 9.115944650694818,
+        "trackedCooldownNames": [
+          "Metamorphosis",
+          "The Hunt",
+          "Eye Beam",
+          "Essence Break",
+          "Death Sweep",
+          "Blur",
+          "Darkness"
+        ]
+      },
+      "build": {
+        "specID": 577,
+        "talentTree": [
+          {
+            "id": 112823,
+            "rank": 1,
+            "nodeID": 90914
+          },
+          {
+            "id": 112824,
+            "rank": 1,
+            "nodeID": 90915
+          },
+          {
+            "id": 112825,
+            "rank": 1,
+            "nodeID": 90916
+          },
+          {
+            "id": 112826,
+            "rank": 1,
+            "nodeID": 90917
+          },
+          {
+            "id": 112827,
+            "rank": 1,
+            "nodeID": 90918
+          },
+          {
+            "id": 112830,
+            "rank": 1,
+            "nodeID": 90921
+          },
+          {
+            "id": 112831,
+            "rank": 1,
+            "nodeID": 90922
+          },
+          {
+            "id": 112832,
+            "rank": 1,
+            "nodeID": 90923
+          },
+          {
+            "id": 112834,
+            "rank": 1,
+            "nodeID": 90925
+          },
+          {
+            "id": 112838,
+            "rank": 1,
+            "nodeID": 90928
+          },
+          {
+            "id": 112839,
+            "rank": 1,
+            "nodeID": 90929
+          },
+          {
+            "id": 112841,
+            "rank": 1,
+            "nodeID": 90931
+          },
+          {
+            "id": 112844,
+            "rank": 1,
+            "nodeID": 90933
+          },
+          {
+            "id": 112845,
+            "rank": 1,
+            "nodeID": 90934
+          },
+          {
+            "id": 112846,
+            "rank": 2,
+            "nodeID": 90935
+          },
+          {
+            "id": 112847,
+            "rank": 2,
+            "nodeID": 90936
+          },
+          {
+            "id": 112849,
+            "rank": 1,
+            "nodeID": 90938
+          },
+          {
+            "id": 112851,
+            "rank": 1,
+            "nodeID": 90940
+          },
+          {
+            "id": 112852,
+            "rank": 1,
+            "nodeID": 90941
+          },
+          {
+            "id": 112859,
+            "rank": 1,
+            "nodeID": 90946
+          },
+          {
+            "id": 112861,
+            "rank": 1,
+            "nodeID": 90948
+          },
+          {
+            "id": 112862,
+            "rank": 2,
+            "nodeID": 90949
+          },
+          {
+            "id": 112863,
+            "rank": 1,
+            "nodeID": 90950
+          },
+          {
+            "id": 112911,
+            "rank": 1,
+            "nodeID": 90993
+          },
+          {
+            "id": 112912,
+            "rank": 1,
+            "nodeID": 90994
+          },
+          {
+            "id": 112914,
+            "rank": 1,
+            "nodeID": 90996
+          },
+          {
+            "id": 112918,
+            "rank": 2,
+            "nodeID": 91000
+          },
+          {
+            "id": 112919,
+            "rank": 1,
+            "nodeID": 91001
+          },
+          {
+            "id": 112921,
+            "rank": 1,
+            "nodeID": 91002
+          },
+          {
+            "id": 112923,
+            "rank": 1,
+            "nodeID": 91003
+          },
+          {
+            "id": 112926,
+            "rank": 1,
+            "nodeID": 91006
+          },
+          {
+            "id": 112927,
+            "rank": 1,
+            "nodeID": 91007
+          },
+          {
+            "id": 112928,
+            "rank": 1,
+            "nodeID": 91008
+          },
+          {
+            "id": 112936,
+            "rank": 1,
+            "nodeID": 91015
+          },
+          {
+            "id": 112938,
+            "rank": 1,
+            "nodeID": 91017
+          },
+          {
+            "id": 112939,
+            "rank": 1,
+            "nodeID": 91018
+          },
+          {
+            "id": 112943,
+            "rank": 1,
+            "nodeID": 91021
+          },
+          {
+            "id": 112944,
+            "rank": 1,
+            "nodeID": 91022
+          },
+          {
+            "id": 112947,
+            "rank": 1,
+            "nodeID": 91024
+          },
+          {
+            "id": 112948,
+            "rank": 1,
+            "nodeID": 91025
+          },
+          {
+            "id": 112949,
+            "rank": 1,
+            "nodeID": 91026
+          },
+          {
+            "id": 112950,
+            "rank": 1,
+            "nodeID": 91027
+          },
+          {
+            "id": 112951,
+            "rank": 1,
+            "nodeID": 91028
+          },
+          {
+            "id": 112955,
+            "rank": 1,
+            "nodeID": 91032
+          },
+          {
+            "id": 112956,
+            "rank": 1,
+            "nodeID": 91033
+          },
+          {
+            "id": 112957,
+            "rank": 2,
+            "nodeID": 91034
+          },
+          {
+            "id": 115245,
+            "rank": 1,
+            "nodeID": 93014
+          },
+          {
+            "id": 115246,
+            "rank": 1,
+            "nodeID": 93015
+          },
+          {
+            "id": 115248,
+            "rank": 1,
+            "nodeID": 93016
+          },
+          {
+            "id": 117496,
+            "rank": 1,
+            "nodeID": 94899
+          },
+          {
+            "id": 117498,
+            "rank": 1,
+            "nodeID": 94901
+          },
+          {
+            "id": 117501,
+            "rank": 1,
+            "nodeID": 94904
+          },
+          {
+            "id": 117502,
+            "rank": 1,
+            "nodeID": 94905
+          },
+          {
+            "id": 117506,
+            "rank": 1,
+            "nodeID": 94909
+          },
+          {
+            "id": 117509,
+            "rank": 1,
+            "nodeID": 94912
+          },
+          {
+            "id": 117513,
+            "rank": 1,
+            "nodeID": 94916
+          },
+          {
+            "id": 117515,
+            "rank": 1,
+            "nodeID": 94918
+          },
+          {
+            "id": 117741,
+            "rank": 1,
+            "nodeID": 95143
+          },
+          {
+            "id": 117754,
+            "rank": 2,
+            "nodeID": 95147
+          },
+          {
+            "id": 117758,
+            "rank": 1,
+            "nodeID": 95149
+          },
+          {
+            "id": 117759,
+            "rank": 1,
+            "nodeID": 95150
+          },
+          {
+            "id": 117762,
+            "rank": 1,
+            "nodeID": 95152
+          },
+          {
+            "id": 117767,
+            "rank": 1,
+            "nodeID": 95154
+          },
+          {
+            "id": 123329,
+            "rank": 1,
+            "nodeID": 99824
+          },
+          {
+            "id": 124009,
+            "rank": 1,
+            "nodeID": 94902
+          },
+          {
+            "id": 124011,
+            "rank": 1,
+            "nodeID": 94913
+          },
+          {
+            "id": 134203,
+            "rank": 1,
+            "nodeID": 108669
+          },
+          {
+            "id": 136030,
+            "rank": 1,
+            "nodeID": 109772
+          },
+          {
+            "id": 136031,
+            "rank": 1,
+            "nodeID": 109773
+          },
+          {
+            "id": 136032,
+            "rank": 1,
+            "nodeID": 109774
+          },
+          {
+            "id": 136501,
+            "rank": 1,
+            "nodeID": 110011
+          },
+          {
+            "id": 136502,
+            "rank": 1,
+            "nodeID": 90927
+          },
+          {
+            "id": 137047,
+            "rank": 1,
+            "nodeID": 110427
+          },
+          {
+            "id": 137048,
+            "rank": 2,
+            "nodeID": 110427
+          },
+          {
+            "id": 137049,
+            "rank": 1,
+            "nodeID": 110427
+          },
+          {
+            "id": 117514,
+            "rank": 1,
+            "nodeID": 94917
+          },
+          {
+            "id": 112853,
+            "rank": 1,
+            "nodeID": 90942
+          }
+        ],
+        "talents": [],
+        "pvpTalents": [
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 206803,
+            "icon": "ability_demonhunter_rain-from-above.jpg"
+          },
+          {
+            "id": 213480,
+            "icon": "ability_demonhunter_brandofthehunt.jpg"
+          }
+        ]
+      },
+      "sourceName": "Azåelle",
+      "actorID": 5,
+      "spec": "Havoc",
+      "capturedAt": "2026-09-18",
+      "source": "mcp"
+    }
+  },
+  "combatantInfo": {
+    "azaelle": {
+      "source": "mcp",
+      "capturedAt": "2026-09-21T08:24:18.553Z",
+      "player": "Azåelle",
+      "actorID": 5,
+      "fightID": 1,
+      "event": {
+        "timestamp": 59715,
+        "type": "combatantinfo",
+        "fight": 1,
+        "sourceID": 5,
+        "gear": [
+          {
+            "id": 271537,
+            "quality": 4,
+            "icon": "inv_helm_leather_raiddemonhunterulatek_d_01.jpg",
+            "itemLevel": 318,
+            "permanentEnchant": 8016,
+            "bonusIDs": [
+              40,
+              12849,
+              13696,
+              13440,
+              13692,
+              13698,
+              1571
+            ],
+            "setID": 2056
+          },
+          {
+            "id": 251234,
+            "quality": 3,
+            "icon": "inv_12_jewelry_devouringhost_necklace_silver2.jpg",
+            "itemLevel": 311,
+            "bonusIDs": [
+              12843,
+              13440,
+              6652,
+              13668,
+              12699
+            ],
+            "gems": [
+              {
+                "id": 240897,
+                "itemLevel": 278,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_fire_purple.jpg"
+              }
+            ]
+          },
+          {
+            "id": 271535,
+            "quality": 4,
+            "icon": "inv_shoulder_leather_raiddemonhunterulatek_d_01.jpg",
+            "itemLevel": 311,
+            "permanentEnchant": 8001,
+            "bonusIDs": [
+              12843,
+              41,
+              13440,
+              13694,
+              13697,
+              1564
+            ],
+            "setID": 2056
+          },
+          {
+            "id": 0,
+            "quality": 1,
+            "icon": "inv_axe_02.jpg",
+            "itemLevel": 0
+          },
+          {
+            "id": 272239,
+            "quality": 4,
+            "icon": "inv_chest_leather_outdooramaniloa_c_01.jpg",
+            "itemLevel": 295,
+            "permanentEnchant": 7986,
+            "bonusIDs": [
+              12834,
+              6652,
+              13662
+            ]
+          },
+          {
+            "id": 251189,
+            "quality": 3,
+            "icon": "inv_belt_leather_dungeonharronir_c_01.jpg",
+            "itemLevel": 308,
+            "bonusIDs": [
+              12842,
+              13440,
+              6652,
+              13696,
+              13662,
+              12699
+            ]
+          },
+          {
+            "id": 271536,
+            "quality": 4,
+            "icon": "inv_pant_leather_raiddemonhunterulatek_d_01.jpg",
+            "itemLevel": 318,
+            "bonusIDs": [
+              6652,
+              12849,
+              13440,
+              13693,
+              13698,
+              1571
+            ],
+            "setID": 2056
+          },
+          {
+            "id": 256975,
+            "quality": 2,
+            "icon": "inv_boot_leather_dungeonharronir_c_01.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              6652,
+              13662,
+              12830
+            ]
+          },
+          {
+            "id": 244576,
+            "quality": 4,
+            "icon": "inv_bracer_leather_questbloodelf_b_01.jpg",
+            "itemLevel": 331,
+            "bonusIDs": [
+              12214,
+              13667,
+              12497,
+              13751,
+              14001,
+              8791,
+              13836,
+              13696
+            ]
+          },
+          {
+            "id": 271538,
+            "quality": 4,
+            "icon": "inv_glove_leather_raiddemonhunterulatek_d_01.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              13691,
+              13438,
+              6652,
+              13697,
+              12830
+            ],
+            "setID": 2056
+          },
+          {
+            "id": 272149,
+            "quality": 4,
+            "icon": "inv_121_jewelry_ring02_purple.jpg",
+            "itemLevel": 295,
+            "permanentEnchant": 7966,
+            "bonusIDs": [
+              12834,
+              6652,
+              13668
+            ],
+            "gems": [
+              {
+                "id": 240907,
+                "itemLevel": 278,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_void_red.jpg"
+              }
+            ]
+          },
+          {
+            "id": 162544,
+            "quality": 3,
+            "icon": "inv_ring_80_04c.jpg",
+            "itemLevel": 308,
+            "permanentEnchant": 7966,
+            "bonusIDs": [
+              12842,
+              13440,
+              6652,
+              13668,
+              12699
+            ],
+            "gems": [
+              {
+                "id": 240907,
+                "itemLevel": 278,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_void_red.jpg"
+              }
+            ]
+          },
+          {
+            "id": 250228,
+            "quality": 3,
+            "icon": "inv_alchemy_90_stone_green.jpg",
+            "itemLevel": 311,
+            "bonusIDs": [
+              12843,
+              13440,
+              6652,
+              12699
+            ]
+          },
+          {
+            "id": 250259,
+            "quality": 3,
+            "icon": "inv_misc_herb_nightmarevine.jpg",
+            "itemLevel": 311,
+            "bonusIDs": [
+              12843,
+              13440,
+              6652,
+              12699
+            ]
+          },
+          {
+            "id": 272226,
+            "quality": 4,
+            "icon": "inv_cape_leather_outdooramaniloa_c_01.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              12834,
+              6652,
+              13662
+            ]
+          },
+          {
+            "id": 237840,
+            "quality": 4,
+            "icon": "inv_glaive_1h_questbloodelf_b_01.jpg",
+            "itemLevel": 331,
+            "permanentEnchant": 8689,
+            "bonusIDs": [
+              12214,
+              13667,
+              12497,
+              13751,
+              14001,
+              12693,
+              8960,
+              8791,
+              13836
+            ]
+          },
+          {
+            "id": 237840,
+            "quality": 4,
+            "icon": "inv_glaive_1h_questbloodelf_b_01.jpg",
+            "itemLevel": 331,
+            "permanentEnchant": 8689,
+            "bonusIDs": [
+              12214,
+              13667,
+              12497,
+              13751,
+              14001,
+              12693,
+              8960,
+              8791,
+              13836
+            ]
+          },
+          {
+            "id": 0,
+            "quality": 1,
+            "icon": "inv_axe_02.jpg",
+            "itemLevel": 0
+          }
+        ],
+        "auras": [
+          {
+            "source": 2,
+            "ability": 465,
+            "stacks": 1,
+            "icon": "spell_holy_devotionaura.jpg",
+            "name": "Devotion Aura"
+          },
+          {
+            "source": 3,
+            "ability": 6673,
+            "stacks": 1,
+            "icon": "ability_warrior_battleshout.jpg",
+            "name": "Battle Shout"
+          },
+          {
+            "source": 5,
+            "ability": 1294727,
+            "stacks": 1,
+            "icon": "spell_misc_food.jpg",
+            "name": "Well Fed"
+          },
+          {
+            "source": 1,
+            "ability": 1459,
+            "stacks": 1,
+            "icon": "spell_holy_magicalsentry.jpg",
+            "name": "Arcane Intellect"
+          },
+          {
+            "source": 4,
+            "ability": 381741,
+            "stacks": 1,
+            "icon": "ability_evoker_blessingofthebronze.jpg",
+            "name": "Blessing of the Bronze"
+          }
+        ],
+        "expansion": "dragonflight",
+        "faction": 0,
+        "specID": 577,
+        "strength": 512,
+        "agility": 2345,
+        "stamina": 33784,
+        "intellect": 640,
+        "dodge": 0,
+        "parry": 0,
+        "block": 0,
+        "armor": 985,
+        "critMelee": 940,
+        "critRanged": 940,
+        "critSpell": 940,
+        "hasteMelee": 254,
+        "hasteRanged": 254,
+        "hasteSpell": 254,
+        "speed": 0,
+        "leech": 59,
+        "avoidance": 222,
+        "mastery": 945,
+        "versatilityDamageDone": 416,
+        "versatilityHealingDone": 416,
+        "versatilityDamageReduction": 416,
+        "talentTree": [
+          {
+            "id": 112823,
+            "rank": 1,
+            "nodeID": 90914
+          },
+          {
+            "id": 112824,
+            "rank": 1,
+            "nodeID": 90915
+          },
+          {
+            "id": 112825,
+            "rank": 1,
+            "nodeID": 90916
+          },
+          {
+            "id": 112826,
+            "rank": 1,
+            "nodeID": 90917
+          },
+          {
+            "id": 112827,
+            "rank": 1,
+            "nodeID": 90918
+          },
+          {
+            "id": 112830,
+            "rank": 1,
+            "nodeID": 90921
+          },
+          {
+            "id": 112831,
+            "rank": 1,
+            "nodeID": 90922
+          },
+          {
+            "id": 112832,
+            "rank": 1,
+            "nodeID": 90923
+          },
+          {
+            "id": 112834,
+            "rank": 1,
+            "nodeID": 90925
+          },
+          {
+            "id": 112838,
+            "rank": 1,
+            "nodeID": 90928
+          },
+          {
+            "id": 112839,
+            "rank": 1,
+            "nodeID": 90929
+          },
+          {
+            "id": 112841,
+            "rank": 1,
+            "nodeID": 90931
+          },
+          {
+            "id": 112844,
+            "rank": 1,
+            "nodeID": 90933
+          },
+          {
+            "id": 112845,
+            "rank": 1,
+            "nodeID": 90934
+          },
+          {
+            "id": 112846,
+            "rank": 2,
+            "nodeID": 90935
+          },
+          {
+            "id": 112847,
+            "rank": 2,
+            "nodeID": 90936
+          },
+          {
+            "id": 112849,
+            "rank": 1,
+            "nodeID": 90938
+          },
+          {
+            "id": 112851,
+            "rank": 1,
+            "nodeID": 90940
+          },
+          {
+            "id": 112852,
+            "rank": 1,
+            "nodeID": 90941
+          },
+          {
+            "id": 112859,
+            "rank": 1,
+            "nodeID": 90946
+          },
+          {
+            "id": 112861,
+            "rank": 1,
+            "nodeID": 90948
+          },
+          {
+            "id": 112862,
+            "rank": 2,
+            "nodeID": 90949
+          },
+          {
+            "id": 112863,
+            "rank": 1,
+            "nodeID": 90950
+          },
+          {
+            "id": 112911,
+            "rank": 1,
+            "nodeID": 90993
+          },
+          {
+            "id": 112912,
+            "rank": 1,
+            "nodeID": 90994
+          },
+          {
+            "id": 112914,
+            "rank": 1,
+            "nodeID": 90996
+          },
+          {
+            "id": 112918,
+            "rank": 2,
+            "nodeID": 91000
+          },
+          {
+            "id": 112919,
+            "rank": 1,
+            "nodeID": 91001
+          },
+          {
+            "id": 112921,
+            "rank": 1,
+            "nodeID": 91002
+          },
+          {
+            "id": 112923,
+            "rank": 1,
+            "nodeID": 91003
+          },
+          {
+            "id": 112926,
+            "rank": 1,
+            "nodeID": 91006
+          },
+          {
+            "id": 112927,
+            "rank": 1,
+            "nodeID": 91007
+          },
+          {
+            "id": 112928,
+            "rank": 1,
+            "nodeID": 91008
+          },
+          {
+            "id": 112936,
+            "rank": 1,
+            "nodeID": 91015
+          },
+          {
+            "id": 112938,
+            "rank": 1,
+            "nodeID": 91017
+          },
+          {
+            "id": 112939,
+            "rank": 1,
+            "nodeID": 91018
+          },
+          {
+            "id": 112943,
+            "rank": 1,
+            "nodeID": 91021
+          },
+          {
+            "id": 112944,
+            "rank": 1,
+            "nodeID": 91022
+          },
+          {
+            "id": 112947,
+            "rank": 1,
+            "nodeID": 91024
+          },
+          {
+            "id": 112948,
+            "rank": 1,
+            "nodeID": 91025
+          },
+          {
+            "id": 112949,
+            "rank": 1,
+            "nodeID": 91026
+          },
+          {
+            "id": 112950,
+            "rank": 1,
+            "nodeID": 91027
+          },
+          {
+            "id": 112951,
+            "rank": 1,
+            "nodeID": 91028
+          },
+          {
+            "id": 112955,
+            "rank": 1,
+            "nodeID": 91032
+          },
+          {
+            "id": 112956,
+            "rank": 1,
+            "nodeID": 91033
+          },
+          {
+            "id": 112957,
+            "rank": 2,
+            "nodeID": 91034
+          },
+          {
+            "id": 115245,
+            "rank": 1,
+            "nodeID": 93014
+          },
+          {
+            "id": 115246,
+            "rank": 1,
+            "nodeID": 93015
+          },
+          {
+            "id": 115248,
+            "rank": 1,
+            "nodeID": 93016
+          },
+          {
+            "id": 117496,
+            "rank": 1,
+            "nodeID": 94899
+          },
+          {
+            "id": 117498,
+            "rank": 1,
+            "nodeID": 94901
+          },
+          {
+            "id": 117501,
+            "rank": 1,
+            "nodeID": 94904
+          },
+          {
+            "id": 117502,
+            "rank": 1,
+            "nodeID": 94905
+          },
+          {
+            "id": 117506,
+            "rank": 1,
+            "nodeID": 94909
+          },
+          {
+            "id": 117509,
+            "rank": 1,
+            "nodeID": 94912
+          },
+          {
+            "id": 117513,
+            "rank": 1,
+            "nodeID": 94916
+          },
+          {
+            "id": 117515,
+            "rank": 1,
+            "nodeID": 94918
+          },
+          {
+            "id": 117741,
+            "rank": 1,
+            "nodeID": 95143
+          },
+          {
+            "id": 117754,
+            "rank": 2,
+            "nodeID": 95147
+          },
+          {
+            "id": 117758,
+            "rank": 1,
+            "nodeID": 95149
+          },
+          {
+            "id": 117759,
+            "rank": 1,
+            "nodeID": 95150
+          },
+          {
+            "id": 117762,
+            "rank": 1,
+            "nodeID": 95152
+          },
+          {
+            "id": 117767,
+            "rank": 1,
+            "nodeID": 95154
+          },
+          {
+            "id": 123329,
+            "rank": 1,
+            "nodeID": 99824
+          },
+          {
+            "id": 124009,
+            "rank": 1,
+            "nodeID": 94902
+          },
+          {
+            "id": 124011,
+            "rank": 1,
+            "nodeID": 94913
+          },
+          {
+            "id": 134203,
+            "rank": 1,
+            "nodeID": 108669
+          },
+          {
+            "id": 136030,
+            "rank": 1,
+            "nodeID": 109772
+          },
+          {
+            "id": 136031,
+            "rank": 1,
+            "nodeID": 109773
+          },
+          {
+            "id": 136032,
+            "rank": 1,
+            "nodeID": 109774
+          },
+          {
+            "id": 136501,
+            "rank": 1,
+            "nodeID": 110011
+          },
+          {
+            "id": 136502,
+            "rank": 1,
+            "nodeID": 90927
+          },
+          {
+            "id": 137047,
+            "rank": 1,
+            "nodeID": 110427
+          },
+          {
+            "id": 137048,
+            "rank": 2,
+            "nodeID": 110427
+          },
+          {
+            "id": 137049,
+            "rank": 1,
+            "nodeID": 110427
+          },
+          {
+            "id": 117514,
+            "rank": 1,
+            "nodeID": 94917
+          },
+          {
+            "id": 112853,
+            "rank": 1,
+            "nodeID": 90942
+          }
+        ],
+        "talents": [],
+        "pvpTalents": [
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 206803,
+            "icon": "ability_demonhunter_rain-from-above.jpg"
+          },
+          {
+            "id": 213480,
+            "icon": "ability_demonhunter_brandofthehunt.jpg"
+          }
+        ],
+        "customPowerSet": [],
+        "secondaryCustomPowerSet": [],
+        "tertiaryCustomPowerSet": []
+      }
     }
   }
 }
