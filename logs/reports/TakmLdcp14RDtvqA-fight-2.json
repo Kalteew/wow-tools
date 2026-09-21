@@ -712,7 +712,796 @@
       "actorID": 4,
       "spec": "Protection",
       "capturedAt": "2026-08-26",
-      "source": "mcp"
+      "source": "mcp",
+      "deathAnalysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T15:14:33.216Z",
+        "fightID": 2,
+        "deaths": [
+          {
+            "timestamp": 7675991,
+            "overkill": 39900,
+            "deathWindow": 4224,
+            "killingBlow": {
+              "name": "Ravenous Claws",
+              "guid": 1306338,
+              "abilityIcon": "ability_xavius_tormentingswipe.jpg"
+            },
+            "damage": {
+              "total": 2014418,
+              "totalReduced": 1490548,
+              "abilities": [
+                {
+                  "name": "Ravenous Claws",
+                  "total": 1011370
+                },
+                {
+                  "name": "Piercing Hiss",
+                  "total": 396114
+                },
+                {
+                  "name": "Melee",
+                  "total": 366195
+                },
+                {
+                  "name": "Unstable Totem",
+                  "total": 86615
+                },
+                {
+                  "name": "Fetid Spit",
+                  "total": 86614
+                }
+              ],
+              "sources": [
+                {
+                  "name": "Ravenous Descendant",
+                  "total": 1011370
+                },
+                {
+                  "name": "Primal Serpent",
+                  "total": 508679
+                },
+                {
+                  "name": "Venom Leech",
+                  "total": 214831
+                },
+                {
+                  "name": "Ritual Chieftain",
+                  "total": 125413
+                },
+                {
+                  "name": "Environment",
+                  "total": 86615
+                }
+              ]
+            },
+            "healing": {
+              "total": 800114,
+              "totalReduced": 276244,
+              "overheal": null,
+              "abilities": [
+                {
+                  "name": "Ignore Pain",
+                  "total": 497919
+                },
+                {
+                  "name": "Leech",
+                  "total": 137317
+                },
+                {
+                  "name": "Fueled by Violence",
+                  "total": 111524
+                },
+                {
+                  "name": "Indomitable",
+                  "total": 27403
+                },
+                {
+                  "name": "Greater Judgment",
+                  "total": 25951
+                }
+              ]
+            },
+            "events": [
+              {
+                "timestamp": 7675969,
+                "type": "damage",
+                "sourceID": 70,
+                "ability": {
+                  "name": "Ravenous Claws",
+                  "guid": 1306338
+                },
+                "amount": 40034,
+                "mitigated": 203710,
+                "unmitigatedAmount": 283644,
+                "absorbed": null,
+                "overkill": 39900,
+                "isAoE": false
+              },
+              {
+                "timestamp": 7675966,
+                "type": "damage",
+                "sourceID": 70,
+                "ability": {
+                  "name": "Ravenous Claws",
+                  "guid": 1306338
+                },
+                "amount": 81219,
+                "mitigated": 206985,
+                "unmitigatedAmount": 288204,
+                "absorbed": null,
+                "overkill": null,
+                "isAoE": false
+              },
+              {
+                "timestamp": 7675857,
+                "type": "damage",
+                "sourceID": 70,
+                "ability": {
+                  "name": "Ravenous Claws",
+                  "guid": 1306338
+                },
+                "amount": 79278,
+                "mitigated": 202040,
+                "unmitigatedAmount": 281318,
+                "absorbed": null,
+                "overkill": null,
+                "isAoE": false
+              }
+            ]
+          }
+        ]
+      },
+      "analysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T15:14:33.216Z",
+        "damageDone": [
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 4229655,
+            "totalReduced": null,
+            "uses": 811,
+            "hitCount": 811,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Lightning Strike",
+            "guid": 435791,
+            "total": 16123643,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 1559,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Rend",
+            "guid": 772,
+            "total": 10328708,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 2605,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Thunder Clap",
+            "guid": 435203,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shockwave",
+            "guid": 132168,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Ravager",
+            "guid": 156287,
+            "total": 6462817,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 602,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Ravager",
+            "guid": 228920,
+            "total": 426498,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 82,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Thunder Clap",
+            "guid": 6343,
+            "total": 77133863,
+            "totalReduced": null,
+            "uses": 219,
+            "hitCount": 1905,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Heroic Throw",
+            "guid": 57755,
+            "total": 21571,
+            "totalReduced": null,
+            "uses": 12,
+            "hitCount": 12,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Charge",
+            "guid": 100,
+            "total": 29091,
+            "totalReduced": null,
+            "uses": 25,
+            "hitCount": 25,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Omnium Folio",
+            "guid": 1302265,
+            "total": 1705060,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 213,
+            "tickCount": 1293,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Impending Victory",
+            "guid": 202168,
+            "total": 8937,
+            "totalReduced": null,
+            "uses": 3,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Revenge",
+            "guid": 6572,
+            "total": 16969490,
+            "totalReduced": null,
+            "uses": 209,
+            "hitCount": 801,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shield Slam",
+            "guid": 23922,
+            "total": 38556742,
+            "totalReduced": null,
+            "uses": 339,
+            "hitCount": 1573,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Devastator",
+            "guid": 236282,
+            "total": 7298766,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 805,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Storm Bolt",
+            "guid": 107570,
+            "total": 45819,
+            "totalReduced": null,
+            "uses": 8,
+            "hitCount": 24,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Wrecking Throw",
+            "guid": 394354,
+            "total": 3677894,
+            "totalReduced": null,
+            "uses": 21,
+            "hitCount": 32,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shockwave",
+            "guid": 46968,
+            "total": 58709,
+            "totalReduced": null,
+            "uses": 5,
+            "hitCount": 41,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shield Charge",
+            "guid": 385954,
+            "total": 226580,
+            "totalReduced": null,
+            "uses": 1,
+            "hitCount": 8,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Charge",
+            "guid": 126664,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Intimidating Shout",
+            "guid": 5246,
+            "total": 0,
+            "totalReduced": null,
+            "uses": 1,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Tough as Nails",
+            "guid": 385890,
+            "total": 11512647,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 1391,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Storm Bolt",
+            "guid": 132169,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "healing": [],
+        "damageTaken": [
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 33013494,
+            "totalReduced": 14561268,
+            "uses": 1706,
+            "hitCount": 910,
+            "tickCount": 0,
+            "overheal": 229463104,
+            "count": null
+          },
+          {
+            "name": "Triple Shot",
+            "guid": 1307573,
+            "total": 1923142,
+            "totalReduced": 1176062,
+            "uses": 6,
+            "hitCount": 38,
+            "tickCount": 0,
+            "overheal": 1338694,
+            "count": null
+          },
+          {
+            "name": "Ravenous Stomp",
+            "guid": 1307894,
+            "total": 575848,
+            "totalReduced": 312304,
+            "uses": 3,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 335606,
+            "count": null
+          },
+          {
+            "name": "Death Rattle",
+            "guid": 1299080,
+            "total": 158207,
+            "totalReduced": 79104,
+            "uses": 2,
+            "hitCount": 0,
+            "tickCount": 4,
+            "overheal": 84737,
+            "count": null
+          },
+          {
+            "name": "Carrion Burst",
+            "guid": 1307700,
+            "total": 157758,
+            "totalReduced": 59141,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 4,
+            "overheal": 137840,
+            "count": null
+          },
+          {
+            "name": "Ravenous Claws",
+            "guid": 1306338,
+            "total": 20614788,
+            "totalReduced": 10842035,
+            "uses": 988,
+            "hitCount": 665,
+            "tickCount": 0,
+            "overheal": 168475095,
+            "count": null
+          },
+          {
+            "name": "Paralyzing Shots",
+            "guid": 1307269,
+            "total": 73519,
+            "totalReduced": 21449,
+            "uses": 10,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 80768,
+            "count": null
+          },
+          {
+            "name": "Dismember",
+            "guid": 1306911,
+            "total": 2062174,
+            "totalReduced": 1026021,
+            "uses": 16,
+            "hitCount": 15,
+            "tickCount": 0,
+            "overheal": 17037092,
+            "count": null
+          },
+          {
+            "name": "Ritual of the Fang",
+            "guid": 1300886,
+            "total": 1257070,
+            "totalReduced": 453775,
+            "uses": 3,
+            "hitCount": 24,
+            "tickCount": 0,
+            "overheal": 1153646,
+            "count": null
+          },
+          {
+            "name": "Boneslicer",
+            "guid": 1301508,
+            "total": 1011014,
+            "totalReduced": 427100,
+            "uses": null,
+            "hitCount": 2,
+            "tickCount": 14,
+            "overheal": 914780,
+            "count": null
+          },
+          {
+            "name": "Triple Shot",
+            "guid": 1297876,
+            "total": 563555,
+            "totalReduced": 267429,
+            "uses": 6,
+            "hitCount": 4,
+            "tickCount": 0,
+            "overheal": 385013,
+            "count": null
+          },
+          {
+            "name": "Paralyzing Shots",
+            "guid": 1294569,
+            "total": 778204,
+            "totalReduced": 420081,
+            "uses": 10,
+            "hitCount": 0,
+            "tickCount": 10,
+            "overheal": 390028,
+            "count": null
+          },
+          {
+            "name": "Toxic Surge",
+            "guid": 1306853,
+            "total": 691379,
+            "totalReduced": 282329,
+            "uses": 2,
+            "hitCount": 20,
+            "tickCount": 0,
+            "overheal": 540258,
+            "count": null
+          },
+          {
+            "name": "Bloodletting",
+            "guid": 1301230,
+            "total": 267375,
+            "totalReduced": 97135,
+            "uses": null,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 182705,
+            "count": null
+          },
+          {
+            "name": "Duostrike",
+            "guid": 1294572,
+            "total": 5097763,
+            "totalReduced": 2743947,
+            "uses": null,
+            "hitCount": 80,
+            "tickCount": 0,
+            "overheal": 32806659,
+            "count": null
+          },
+          {
+            "name": "Chop Down",
+            "guid": 1301353,
+            "total": 1695743,
+            "totalReduced": 764397,
+            "uses": 4,
+            "hitCount": 8,
+            "tickCount": 0,
+            "overheal": 5899145,
+            "count": null
+          },
+          {
+            "name": "Envenom",
+            "guid": 1307571,
+            "total": 1634875,
+            "totalReduced": 852016,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 42,
+            "overheal": 1018368,
+            "count": null
+          },
+          {
+            "name": "Rattle",
+            "guid": 1294859,
+            "total": 2063679,
+            "totalReduced": 1097818,
+            "uses": 4,
+            "hitCount": 23,
+            "tickCount": 0,
+            "overheal": 888495,
+            "count": null
+          },
+          {
+            "name": "Hydrastrike",
+            "guid": 1298683,
+            "total": 3580606,
+            "totalReduced": 1821004,
+            "uses": null,
+            "hitCount": 51,
+            "tickCount": 0,
+            "overheal": 28394400,
+            "count": null
+          },
+          {
+            "name": "Envenom",
+            "guid": 1289416,
+            "total": 607652,
+            "totalReduced": 155517,
+            "uses": 5,
+            "hitCount": 7,
+            "tickCount": 0,
+            "overheal": 307226,
+            "count": null
+          },
+          {
+            "name": "Infest",
+            "guid": 1309398,
+            "total": 85779,
+            "totalReduced": 69853,
+            "uses": 2,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 65125,
+            "count": null
+          },
+          {
+            "name": "Piercing Hiss",
+            "guid": 1294557,
+            "total": 849967,
+            "totalReduced": 741588,
+            "uses": 5,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 671383,
+            "count": null
+          },
+          {
+            "name": "Laced Edge",
+            "guid": 1308518,
+            "total": 1482921,
+            "totalReduced": 723511,
+            "uses": null,
+            "hitCount": 7,
+            "tickCount": 28,
+            "overheal": 1238136,
+            "count": null
+          },
+          {
+            "name": "Noxious Spray",
+            "guid": 1294958,
+            "total": 381990,
+            "totalReduced": 168568,
+            "uses": 1,
+            "hitCount": 0,
+            "tickCount": 5,
+            "overheal": 342211,
+            "count": null
+          },
+          {
+            "name": "Blood Sacrifice",
+            "guid": 1306641,
+            "total": 520906,
+            "totalReduced": 243786,
+            "uses": 13,
+            "hitCount": 12,
+            "tickCount": 0,
+            "overheal": 1771005,
+            "count": null
+          },
+          {
+            "name": "Synchronized Venom",
+            "guid": 1299189,
+            "total": 1481180,
+            "totalReduced": 621521,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 70,
+            "overheal": 1243334,
+            "count": null
+          },
+          {
+            "name": "Infest",
+            "guid": 1309382,
+            "total": 233506,
+            "totalReduced": 116754,
+            "uses": 2,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 143759,
+            "count": null
+          },
+          {
+            "name": "Unstable Totem",
+            "guid": 1306890,
+            "total": 4348004,
+            "totalReduced": 2173234,
+            "uses": null,
+            "hitCount": 124,
+            "tickCount": 0,
+            "overheal": 3068191,
+            "count": null
+          },
+          {
+            "name": "Tail Scythe",
+            "guid": 1298949,
+            "total": 377907,
+            "totalReduced": 146691,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 2389209,
+            "count": null
+          },
+          {
+            "name": "Corrosive Fangs",
+            "guid": 1294845,
+            "total": 1310257,
+            "totalReduced": 613545,
+            "uses": 4,
+            "hitCount": 4,
+            "tickCount": 0,
+            "overheal": 852527,
+            "count": null
+          },
+          {
+            "name": "Uncoil",
+            "guid": 1287811,
+            "total": 375384,
+            "totalReduced": 187693,
+            "uses": null,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 236799,
+            "count": null
+          },
+          {
+            "name": "Messy Eater",
+            "guid": 1306345,
+            "total": 106633,
+            "totalReduced": 39988,
+            "uses": null,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 119330,
+            "count": null
+          },
+          {
+            "name": "Fetid Spit",
+            "guid": 1306381,
+            "total": 1915034,
+            "totalReduced": 1139383,
+            "uses": 26,
+            "hitCount": 26,
+            "tickCount": 0,
+            "overheal": 1496472,
+            "count": null
+          },
+          {
+            "name": "Venom Burst",
+            "guid": 1306230,
+            "total": 442223,
+            "totalReduced": 165837,
+            "uses": null,
+            "hitCount": 6,
+            "tickCount": 0,
+            "overheal": 332480,
+            "count": null
+          }
+        ],
+        "interrupts": [
+          {
+            "name": null,
+            "guid": null,
+            "total": null,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": null,
+            "tickCount": null,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "resources": []
+      }
     },
     "kylse": {
       "stats": {
@@ -1286,7 +2075,745 @@
       "actorID": 3,
       "spec": "Holy",
       "capturedAt": "2026-08-26",
-      "source": "mcp"
+      "source": "mcp",
+      "deathAnalysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T15:14:34.520Z",
+        "fightID": 2,
+        "deaths": [
+          {
+            "timestamp": 7655776,
+            "overkill": 45778,
+            "deathWindow": 341,
+            "killingBlow": {
+              "name": "Dismember",
+              "guid": 1306911,
+              "abilityIcon": "ability_criticalstrike.jpg"
+            },
+            "damage": {
+              "total": 744817,
+              "totalReduced": null,
+              "abilities": [
+                {
+                  "name": "Dismember",
+                  "total": 682774
+                },
+                {
+                  "name": "Unstable Totem",
+                  "total": 62043
+                }
+              ],
+              "sources": [
+                {
+                  "name": "Ritual Chieftain",
+                  "total": 682774
+                },
+                {
+                  "name": "Environment",
+                  "total": 62043
+                }
+              ]
+            },
+            "healing": {
+              "total": 3399,
+              "totalReduced": null,
+              "overheal": null,
+              "abilities": [
+                {
+                  "name": "Sun's Avatar",
+                  "total": 3399
+                }
+              ]
+            },
+            "events": [
+              {
+                "timestamp": 7655727,
+                "type": "damage",
+                "sourceID": 71,
+                "ability": {
+                  "name": "Dismember",
+                  "guid": 1306911
+                },
+                "amount": 636996,
+                "mitigated": 727736,
+                "unmitigatedAmount": 1410510,
+                "absorbed": null,
+                "overkill": 45778,
+                "isAoE": false
+              },
+              {
+                "timestamp": 7655386,
+                "type": "damage",
+                "sourceID": null,
+                "ability": {
+                  "name": "Unstable Totem",
+                  "guid": 1306890
+                },
+                "amount": 62043,
+                "mitigated": 8483,
+                "unmitigatedAmount": 70526,
+                "absorbed": null,
+                "overkill": null,
+                "isAoE": true
+              }
+            ]
+          },
+          {
+            "timestamp": 7674864,
+            "overkill": 194144,
+            "deathWindow": 7804,
+            "killingBlow": {
+              "name": "Piercing Hiss",
+              "guid": 1294557,
+              "abilityIcon": "inv_sonic_wave.jpg"
+            },
+            "damage": {
+              "total": 1344489,
+              "totalReduced": 1242551,
+              "abilities": [
+                {
+                  "name": "Piercing Hiss",
+                  "total": 753919
+                },
+                {
+                  "name": "Paralyzing Shots",
+                  "total": 263477
+                },
+                {
+                  "name": "Unstable Totem",
+                  "total": 196316
+                },
+                {
+                  "name": "Paralyzing Shots",
+                  "total": 130777
+                }
+              ],
+              "sources": [
+                {
+                  "name": "Primal Serpent",
+                  "total": 753919
+                },
+                {
+                  "name": "Twinfang Harrower",
+                  "total": 394254
+                },
+                {
+                  "name": "Environment",
+                  "total": 196316
+                }
+              ]
+            },
+            "healing": {
+              "total": 454705,
+              "totalReduced": 352767,
+              "overheal": null,
+              "abilities": [
+                {
+                  "name": "Holy Shock",
+                  "total": 132682
+                },
+                {
+                  "name": "Armory of Light",
+                  "total": 75280
+                },
+                {
+                  "name": "Pillar of Lights",
+                  "total": 65590
+                },
+                {
+                  "name": "Mycolic Medicine",
+                  "total": 63095
+                },
+                {
+                  "name": "Beacon of the Savior",
+                  "total": 26658
+                }
+              ]
+            },
+            "events": [
+              {
+                "timestamp": 7674825,
+                "type": "damage",
+                "sourceID": 75,
+                "ability": {
+                  "name": "Piercing Hiss",
+                  "guid": 1294557
+                },
+                "amount": 51481,
+                "mitigated": 83493,
+                "unmitigatedAmount": 329118,
+                "absorbed": null,
+                "overkill": 194144,
+                "isAoE": true
+              },
+              {
+                "timestamp": 7674819,
+                "type": "damage",
+                "sourceID": 75,
+                "ability": {
+                  "name": "Piercing Hiss",
+                  "guid": 1294557
+                },
+                "amount": 196500,
+                "mitigated": 83493,
+                "unmitigatedAmount": 329118,
+                "absorbed": 49125,
+                "overkill": null,
+                "isAoE": true
+              },
+              {
+                "timestamp": 7673397,
+                "type": "damage",
+                "sourceID": null,
+                "ability": {
+                  "name": "Unstable Totem",
+                  "guid": 1306890
+                },
+                "amount": 34021,
+                "mitigated": 23155,
+                "unmitigatedAmount": 70526,
+                "absorbed": 13350,
+                "overkill": null,
+                "isAoE": true
+              }
+            ]
+          },
+          {
+            "timestamp": 8975776,
+            "overkill": 495875,
+            "deathWindow": 0,
+            "killingBlow": {
+              "name": "Axegrinder",
+              "guid": 1301114,
+              "abilityIcon": "ability_warrior_bladestorm.jpg"
+            },
+            "damage": {
+              "total": 1252117,
+              "totalReduced": 1191515,
+              "abilities": [
+                {
+                  "name": "Axegrinder",
+                  "total": 1252117
+                }
+              ],
+              "sources": [
+                {
+                  "name": "Zul'jan",
+                  "total": 1252117
+                }
+              ]
+            },
+            "healing": {
+              "total": 0,
+              "totalReduced": null,
+              "overheal": null,
+              "abilities": []
+            },
+            "events": [
+              {
+                "timestamp": 8975722,
+                "type": "damage",
+                "sourceID": 122,
+                "ability": {
+                  "name": "Axegrinder",
+                  "guid": 1301114
+                },
+                "amount": 695640,
+                "mitigated": 155946,
+                "unmitigatedAmount": 1408063,
+                "absorbed": 60602,
+                "overkill": 495875,
+                "isAoE": false
+              }
+            ]
+          }
+        ]
+      },
+      "analysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T15:14:34.520Z",
+        "damageDone": [
+          {
+            "name": "Sun's Avatar",
+            "guid": 431425,
+            "total": 6056950,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 3423,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 390942,
+            "totalReduced": null,
+            "uses": 243,
+            "hitCount": 243,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Blinding Light",
+            "guid": 105421,
+            "total": 0,
+            "totalReduced": null,
+            "uses": 5,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Omnium Folio",
+            "guid": 1302265,
+            "total": 480675,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 57,
+            "tickCount": 391,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shield of the Righteous",
+            "guid": 415091,
+            "total": 16628149,
+            "totalReduced": null,
+            "uses": 199,
+            "hitCount": 718,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Consecration",
+            "guid": 26573,
+            "total": 7191940,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 11946,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Holy Shock",
+            "guid": 20473,
+            "total": 6780935,
+            "totalReduced": null,
+            "uses": 126,
+            "hitCount": 350,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Mindpiercer's Sigil",
+            "guid": 1250546,
+            "total": 2833298,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 79,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Judgment",
+            "guid": 275773,
+            "total": 3622107,
+            "totalReduced": null,
+            "uses": 135,
+            "hitCount": 135,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Hammer of Wrath",
+            "guid": 1241413,
+            "total": 4071041,
+            "totalReduced": null,
+            "uses": 56,
+            "hitCount": 56,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Dawnlight",
+            "guid": 431377,
+            "total": 4011631,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 1306,
+            "tickCount": 284,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "healing": [],
+        "damageTaken": [
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 1222058,
+            "totalReduced": 1148094,
+            "uses": 47,
+            "hitCount": 40,
+            "tickCount": 0,
+            "overheal": 1284642,
+            "count": null
+          },
+          {
+            "name": "Triple Shot",
+            "guid": 1307573,
+            "total": 3147847,
+            "totalReduced": 2925357,
+            "uses": 6,
+            "hitCount": 44,
+            "tickCount": 0,
+            "overheal": 1065021,
+            "count": null
+          },
+          {
+            "name": "Ravenous Stomp",
+            "guid": 1307894,
+            "total": 820515,
+            "totalReduced": 785258,
+            "uses": 3,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 193284,
+            "count": null
+          },
+          {
+            "name": "Death Rattle",
+            "guid": 1299080,
+            "total": 235844,
+            "totalReduced": 197296,
+            "uses": 2,
+            "hitCount": 0,
+            "tickCount": 4,
+            "overheal": 34495,
+            "count": null
+          },
+          {
+            "name": "Axegrinder",
+            "guid": 1301114,
+            "total": 1252117,
+            "totalReduced": 1191515,
+            "uses": 3,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 155946,
+            "count": null
+          },
+          {
+            "name": "Deadly Venom",
+            "guid": 1297422,
+            "total": 362430,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 6,
+            "overheal": 34148,
+            "count": null
+          },
+          {
+            "name": "Carrion Burst",
+            "guid": 1307700,
+            "total": 259744,
+            "totalReduced": 215349,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 4,
+            "overheal": 78192,
+            "count": null
+          },
+          {
+            "name": "Ravenous Claws",
+            "guid": 1306338,
+            "total": 739690,
+            "totalReduced": null,
+            "uses": 6,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 796761,
+            "count": null
+          },
+          {
+            "name": "Paralyzing Shots",
+            "guid": 1307269,
+            "total": 708888,
+            "totalReduced": 529055,
+            "uses": 10,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 113912,
+            "count": null
+          },
+          {
+            "name": "Dismember",
+            "guid": 1306911,
+            "total": 682774,
+            "totalReduced": null,
+            "uses": 1,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 727736,
+            "count": null
+          },
+          {
+            "name": "Ritual of the Fang",
+            "guid": 1300886,
+            "total": 2168719,
+            "totalReduced": 1969531,
+            "uses": 3,
+            "hitCount": 24,
+            "tickCount": 0,
+            "overheal": 664529,
+            "count": null
+          },
+          {
+            "name": "Boneslicer",
+            "guid": 1301508,
+            "total": 1824139,
+            "totalReduced": 1578412,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 14,
+            "overheal": 406223,
+            "count": null
+          },
+          {
+            "name": "Triple Shot",
+            "guid": 1297876,
+            "total": 1159927,
+            "totalReduced": 978955,
+            "uses": 6,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 191813,
+            "count": null
+          },
+          {
+            "name": "Paralyzing Shots",
+            "guid": 1294569,
+            "total": 1359182,
+            "totalReduced": 1337397,
+            "uses": 10,
+            "hitCount": 0,
+            "tickCount": 14,
+            "overheal": 286406,
+            "count": null
+          },
+          {
+            "name": "Toxic Surge",
+            "guid": 1306853,
+            "total": 1049714,
+            "totalReduced": 943956,
+            "uses": 2,
+            "hitCount": 20,
+            "tickCount": 0,
+            "overheal": 360806,
+            "count": null
+          },
+          {
+            "name": "Envenom",
+            "guid": 1307571,
+            "total": 1818120,
+            "totalReduced": 1777895,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 36,
+            "overheal": 297672,
+            "count": null
+          },
+          {
+            "name": "Rattle",
+            "guid": 1294859,
+            "total": 2563877,
+            "totalReduced": 2392787,
+            "uses": 4,
+            "hitCount": 23,
+            "tickCount": 0,
+            "overheal": 680273,
+            "count": null
+          },
+          {
+            "name": "Envenom",
+            "guid": 1289416,
+            "total": 632016,
+            "totalReduced": 577452,
+            "uses": 3,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 73234,
+            "count": null
+          },
+          {
+            "name": "Light of the Martyr",
+            "guid": 448005,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Infest",
+            "guid": 1309398,
+            "total": 127034,
+            "totalReduced": null,
+            "uses": 2,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 42226,
+            "count": null
+          },
+          {
+            "name": "Piercing Hiss",
+            "guid": 1294557,
+            "total": 753919,
+            "totalReduced": 704794,
+            "uses": 5,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 233435,
+            "count": null
+          },
+          {
+            "name": "Laced Edge",
+            "guid": 1308518,
+            "total": 2977811,
+            "totalReduced": 2666958,
+            "uses": null,
+            "hitCount": 9,
+            "tickCount": 36,
+            "overheal": 830575,
+            "count": null
+          },
+          {
+            "name": "Blood Sacrifice",
+            "guid": 1306641,
+            "total": 1080485,
+            "totalReduced": null,
+            "uses": 13,
+            "hitCount": 11,
+            "tickCount": 0,
+            "overheal": 1265265,
+            "count": null
+          },
+          {
+            "name": "Synchronized Venom",
+            "guid": 1299189,
+            "total": 2723988,
+            "totalReduced": 2551447,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 70,
+            "overheal": 441282,
+            "count": null
+          },
+          {
+            "name": "Infest",
+            "guid": 1309382,
+            "total": 366320,
+            "totalReduced": 335597,
+            "uses": 2,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 56835,
+            "count": null
+          },
+          {
+            "name": "Unstable Totem",
+            "guid": 1306890,
+            "total": 6364896,
+            "totalReduced": 5835685,
+            "uses": null,
+            "hitCount": 113,
+            "tickCount": 0,
+            "overheal": 1672872,
+            "count": null
+          },
+          {
+            "name": "Blessing of Sacrifice",
+            "guid": 6940,
+            "total": 513949,
+            "totalReduced": 447146,
+            "uses": null,
+            "hitCount": 35,
+            "tickCount": 0,
+            "overheal": -513949,
+            "count": null
+          },
+          {
+            "name": "Toxic Breath",
+            "guid": 1306669,
+            "total": 0,
+            "totalReduced": null,
+            "uses": 9,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Uncoil",
+            "guid": 1287811,
+            "total": 240257,
+            "totalReduced": 207701,
+            "uses": null,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 97676,
+            "count": null
+          },
+          {
+            "name": "Fetid Spit",
+            "guid": 1306381,
+            "total": 2625670,
+            "totalReduced": 2360708,
+            "uses": 23,
+            "hitCount": 21,
+            "tickCount": 0,
+            "overheal": 336380,
+            "count": null
+          },
+          {
+            "name": "Venom Burst",
+            "guid": 1306230,
+            "total": 650152,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 6,
+            "tickCount": 0,
+            "overheal": 196148,
+            "count": null
+          }
+        ],
+        "interrupts": [
+          {
+            "name": null,
+            "guid": null,
+            "total": null,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": null,
+            "tickCount": null,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "resources": []
+      }
     }
   },
   "combatantInfo": {

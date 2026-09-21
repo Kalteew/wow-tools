@@ -716,7 +716,641 @@
       "actorID": 2,
       "spec": "Protection",
       "capturedAt": "2026-08-19",
-      "source": "mcp"
+      "source": "mcp",
+      "deathAnalysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T15:12:14.069Z",
+        "fightID": 1,
+        "deaths": []
+      },
+      "analysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T15:12:14.069Z",
+        "damageDone": [
+          {
+            "name": "Omnium Folio",
+            "guid": 1302265,
+            "total": 1098836,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 158,
+            "tickCount": 896,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Storm Bolt",
+            "guid": 107570,
+            "total": 25211,
+            "totalReduced": null,
+            "uses": 7,
+            "hitCount": 17,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Ravager",
+            "guid": 156287,
+            "total": 2991838,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 333,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Lightning Strike",
+            "guid": 435791,
+            "total": 2746185,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 301,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Thunder Clap",
+            "guid": 435203,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shield Slam",
+            "guid": 23922,
+            "total": 16499273,
+            "totalReduced": null,
+            "uses": 196,
+            "hitCount": 742,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shockwave",
+            "guid": 132168,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shockwave",
+            "guid": 46968,
+            "total": 27129,
+            "totalReduced": null,
+            "uses": 4,
+            "hitCount": 30,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Storm Bolt",
+            "guid": 132169,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Heroic Throw",
+            "guid": 57755,
+            "total": 43349,
+            "totalReduced": null,
+            "uses": 22,
+            "hitCount": 22,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Charge",
+            "guid": 100,
+            "total": 24683,
+            "totalReduced": null,
+            "uses": 24,
+            "hitCount": 24,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Wrecking Throw",
+            "guid": 394354,
+            "total": 604977,
+            "totalReduced": null,
+            "uses": 10,
+            "hitCount": 11,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Revenge",
+            "guid": 6572,
+            "total": 8552764,
+            "totalReduced": null,
+            "uses": 153,
+            "hitCount": 458,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Ravager",
+            "guid": 228920,
+            "total": 313051,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 68,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Rend",
+            "guid": 772,
+            "total": 5412658,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 1330,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Shield Charge",
+            "guid": 385954,
+            "total": 222206,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 7,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Tough as Nails",
+            "guid": 385890,
+            "total": 4676087,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 648,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Heroic Leap",
+            "guid": 52174,
+            "total": 6890,
+            "totalReduced": null,
+            "uses": 13,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Charge",
+            "guid": 126664,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 2150545,
+            "totalReduced": null,
+            "uses": 495,
+            "hitCount": 495,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Thunder Clap",
+            "guid": 6343,
+            "total": 31549978,
+            "totalReduced": null,
+            "uses": 122,
+            "hitCount": 831,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Devastator",
+            "guid": 236282,
+            "total": 3732759,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 495,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Execute",
+            "guid": 5308,
+            "total": 341537,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 6,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "healing": [],
+        "damageTaken": [
+          {
+            "name": "Insidious Aura",
+            "guid": 1250695,
+            "total": 297222,
+            "totalReduced": 148613,
+            "uses": 1,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 279903,
+            "count": null
+          },
+          {
+            "name": "Hulking Claw",
+            "guid": 1222642,
+            "total": 2168266,
+            "totalReduced": 1040822,
+            "uses": 4,
+            "hitCount": 4,
+            "tickCount": 40,
+            "overheal": 1702220,
+            "count": null
+          },
+          {
+            "name": "Champion's Spear",
+            "guid": 1298917,
+            "total": 101266,
+            "totalReduced": 36970,
+            "uses": 1,
+            "hitCount": 0,
+            "tickCount": 7,
+            "overheal": 70971,
+            "count": null
+          },
+          {
+            "name": "Monstrous Roar",
+            "guid": 1262497,
+            "total": 178991,
+            "totalReduced": 89496,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 115507,
+            "count": null
+          },
+          {
+            "name": "Unstable Singularity",
+            "guid": 1264188,
+            "total": 1021814,
+            "totalReduced": 507393,
+            "uses": 2,
+            "hitCount": 0,
+            "tickCount": 187,
+            "overheal": 759922,
+            "count": null
+          },
+          {
+            "name": "Toxic Aura",
+            "guid": 1222692,
+            "total": 767153,
+            "totalReduced": 437389,
+            "uses": 2,
+            "hitCount": 0,
+            "tickCount": 47,
+            "overheal": 576342,
+            "count": null
+          },
+          {
+            "name": "Nether Dash",
+            "guid": 1222103,
+            "total": 1376900,
+            "totalReduced": 792203,
+            "uses": 3,
+            "hitCount": 3,
+            "tickCount": 48,
+            "overheal": 909940,
+            "count": null
+          },
+          {
+            "name": "Macestorm",
+            "guid": 1228126,
+            "total": 328967,
+            "totalReduced": 151730,
+            "uses": null,
+            "hitCount": 6,
+            "tickCount": 0,
+            "overheal": 187479,
+            "count": null
+          },
+          {
+            "name": "Dark Bloom",
+            "guid": 1300262,
+            "total": 155627,
+            "totalReduced": 103360,
+            "uses": null,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 127544,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 22483235,
+            "totalReduced": 9777451,
+            "uses": 1394,
+            "hitCount": 911,
+            "tickCount": 0,
+            "overheal": 114357648,
+            "count": null
+          },
+          {
+            "name": "Void Cascade",
+            "guid": 1222755,
+            "total": 80349,
+            "totalReduced": 40175,
+            "uses": null,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 238217,
+            "count": null
+          },
+          {
+            "name": "Poison Splash",
+            "guid": 1300351,
+            "total": 351206,
+            "totalReduced": 134718,
+            "uses": 4,
+            "hitCount": 12,
+            "tickCount": 0,
+            "overheal": 302803,
+            "count": null
+          },
+          {
+            "name": "Shred Defense",
+            "guid": 1233535,
+            "total": 380135,
+            "totalReduced": 214038,
+            "uses": 16,
+            "hitCount": 12,
+            "tickCount": 0,
+            "overheal": 1699503,
+            "count": null
+          },
+          {
+            "name": "Poison Pool",
+            "guid": 1222484,
+            "total": 62066,
+            "totalReduced": 37759,
+            "uses": 6,
+            "hitCount": 0,
+            "tickCount": 1,
+            "overheal": 39572,
+            "count": null
+          },
+          {
+            "name": "Aftershock",
+            "guid": 1299210,
+            "total": 190466,
+            "totalReduced": 89166,
+            "uses": 1,
+            "hitCount": 0,
+            "tickCount": 2,
+            "overheal": 142650,
+            "count": null
+          },
+          {
+            "name": "Venomous Spit",
+            "guid": 1249712,
+            "total": 130825,
+            "totalReduced": 80909,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 1,
+            "overheal": 13487,
+            "count": null
+          },
+          {
+            "name": "Fel Steps",
+            "guid": 1269284,
+            "total": 1193648,
+            "totalReduced": 571061,
+            "uses": null,
+            "hitCount": 67,
+            "tickCount": 0,
+            "overheal": 851066,
+            "count": null
+          },
+          {
+            "name": "Brutalize",
+            "guid": 1300244,
+            "total": 1017106,
+            "totalReduced": 531173,
+            "uses": 3,
+            "hitCount": 11,
+            "tickCount": 0,
+            "overheal": 7271461,
+            "count": null
+          },
+          {
+            "name": "Searing Magma",
+            "guid": 1246825,
+            "total": 827229,
+            "totalReduced": 440456,
+            "uses": 12,
+            "hitCount": 25,
+            "tickCount": 0,
+            "overheal": 328076,
+            "count": null
+          },
+          {
+            "name": "Ferocious Leap",
+            "guid": 1299133,
+            "total": 191151,
+            "totalReduced": 60987,
+            "uses": 1,
+            "hitCount": 1,
+            "tickCount": 4,
+            "overheal": 232626,
+            "count": null
+          },
+          {
+            "name": "Void Blast",
+            "guid": 1297017,
+            "total": 657797,
+            "totalReduced": 320554,
+            "uses": 3,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 444806,
+            "count": null
+          },
+          {
+            "name": "Head Bash",
+            "guid": 1245186,
+            "total": 520167,
+            "totalReduced": 248039,
+            "uses": 3,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 609306,
+            "count": null
+          },
+          {
+            "name": "Brutal Slams",
+            "guid": 1298901,
+            "total": 1880370,
+            "totalReduced": 1007277,
+            "uses": 6,
+            "hitCount": 43,
+            "tickCount": 0,
+            "overheal": 1283802,
+            "count": null
+          },
+          {
+            "name": "Void Beam",
+            "guid": 1300156,
+            "total": 59158,
+            "totalReduced": 29580,
+            "uses": null,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 43970,
+            "count": null
+          },
+          {
+            "name": "Cosmic Crash",
+            "guid": 1300372,
+            "total": 557298,
+            "totalReduced": 276008,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 40,
+            "overheal": 424016,
+            "count": null
+          },
+          {
+            "name": "Sky Strike",
+            "guid": 1239855,
+            "total": 319748,
+            "totalReduced": 148793,
+            "uses": 4,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 254878,
+            "count": null
+          },
+          {
+            "name": "Dark Waves",
+            "guid": 1311923,
+            "total": 457577,
+            "totalReduced": 196904,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 424498,
+            "count": null
+          },
+          {
+            "name": "Savage Smash",
+            "guid": 1298933,
+            "total": 146227,
+            "totalReduced": 73115,
+            "uses": 2,
+            "hitCount": 1,
+            "tickCount": 6,
+            "overheal": 220202,
+            "count": null
+          },
+          {
+            "name": "Dark Bloom",
+            "guid": 1300259,
+            "total": 370006,
+            "totalReduced": 232699,
+            "uses": 3,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 248148,
+            "count": null
+          },
+          {
+            "name": "Lava Bolt",
+            "guid": 1228176,
+            "total": 817202,
+            "totalReduced": 383961,
+            "uses": 10,
+            "hitCount": 10,
+            "tickCount": 0,
+            "overheal": 557719,
+            "count": null
+          },
+          {
+            "name": "Dreadbellow",
+            "guid": 1252406,
+            "total": 696185,
+            "totalReduced": 303081,
+            "uses": 3,
+            "hitCount": 0,
+            "tickCount": 39,
+            "overheal": 572641,
+            "count": null
+          },
+          {
+            "name": "Ravenous Swarm",
+            "guid": 1234833,
+            "total": 142160,
+            "totalReduced": 58022,
+            "uses": 2,
+            "hitCount": 0,
+            "tickCount": 2,
+            "overheal": 116004,
+            "count": null
+          }
+        ],
+        "interrupts": [
+          {
+            "name": null,
+            "guid": null,
+            "total": null,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": null,
+            "tickCount": null,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "resources": []
+      }
     },
     "kylse": {
       "stats": {
@@ -1290,7 +1924,432 @@
       "actorID": 3,
       "spec": "Holy",
       "capturedAt": "2026-08-19",
-      "source": "mcp"
+      "source": "mcp",
+      "deathAnalysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T15:12:15.314Z",
+        "fightID": 1,
+        "deaths": []
+      },
+      "analysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T15:12:15.314Z",
+        "damageDone": [
+          {
+            "name": "Shield of the Righteous",
+            "guid": 415091,
+            "total": 12898909,
+            "totalReduced": null,
+            "uses": 211,
+            "hitCount": 693,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Dawnlight",
+            "guid": 431377,
+            "total": 2413530,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 628,
+            "tickCount": 237,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Omnium Folio",
+            "guid": 1302265,
+            "total": 444296,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 60,
+            "tickCount": 388,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Hammer of Wrath",
+            "guid": 1241413,
+            "total": 2021077,
+            "totalReduced": null,
+            "uses": 37,
+            "hitCount": 36,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 288912,
+            "totalReduced": null,
+            "uses": 223,
+            "hitCount": 223,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Holy Shock",
+            "guid": 20473,
+            "total": 3987433,
+            "totalReduced": null,
+            "uses": 103,
+            "hitCount": 261,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Mindpiercer's Sigil",
+            "guid": 1250546,
+            "total": 1505055,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 61,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Judgment",
+            "guid": 275773,
+            "total": 2203796,
+            "totalReduced": null,
+            "uses": 94,
+            "hitCount": 93,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Blinding Light",
+            "guid": 105421,
+            "total": 0,
+            "totalReduced": null,
+            "uses": 1,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Consecration",
+            "guid": 26573,
+            "total": 2303283,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 4790,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Rotmire's Sporeheart",
+            "guid": 1285139,
+            "total": 181989,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 24,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Sun's Avatar",
+            "guid": 431425,
+            "total": 2676012,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 1699,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "healing": [],
+        "damageTaken": [
+          {
+            "name": "Insidious Aura",
+            "guid": 1250695,
+            "total": 492230,
+            "totalReduced": null,
+            "uses": 1,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 159515,
+            "count": null
+          },
+          {
+            "name": "Fel Steps",
+            "guid": 1269284,
+            "total": 1585691,
+            "totalReduced": 1307059,
+            "uses": null,
+            "hitCount": 68,
+            "tickCount": 0,
+            "overheal": 535532,
+            "count": null
+          },
+          {
+            "name": "Searing Magma",
+            "guid": 1246825,
+            "total": 862505,
+            "totalReduced": 813729,
+            "uses": 12,
+            "hitCount": 23,
+            "tickCount": 0,
+            "overheal": 199899,
+            "count": null
+          },
+          {
+            "name": "Savage Smash",
+            "guid": 1298924,
+            "total": 0,
+            "totalReduced": null,
+            "uses": 1,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Champion's Spear",
+            "guid": 1298917,
+            "total": 24899,
+            "totalReduced": 0,
+            "uses": 7,
+            "hitCount": 0,
+            "tickCount": 1,
+            "overheal": 1653,
+            "count": null
+          },
+          {
+            "name": "Monstrous Roar",
+            "guid": 1262497,
+            "total": 275162,
+            "totalReduced": null,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 55158,
+            "count": null
+          },
+          {
+            "name": "Unstable Singularity",
+            "guid": 1264188,
+            "total": 1551594,
+            "totalReduced": 1379923,
+            "uses": 2,
+            "hitCount": 0,
+            "tickCount": 187,
+            "overheal": 230142,
+            "count": null
+          },
+          {
+            "name": "Toxic Aura",
+            "guid": 1222692,
+            "total": 1124484,
+            "totalReduced": 1041741,
+            "uses": 2,
+            "hitCount": 0,
+            "tickCount": 47,
+            "overheal": 219011,
+            "count": null
+          },
+          {
+            "name": "Brutal Slams",
+            "guid": 1298901,
+            "total": 2822775,
+            "totalReduced": 2629249,
+            "uses": 6,
+            "hitCount": 44,
+            "tickCount": 0,
+            "overheal": 707506,
+            "count": null
+          },
+          {
+            "name": "Nether Dash",
+            "guid": 1222103,
+            "total": 1824358,
+            "totalReduced": 1680652,
+            "uses": 3,
+            "hitCount": 3,
+            "tickCount": 48,
+            "overheal": 462482,
+            "count": null
+          },
+          {
+            "name": "Void Beam",
+            "guid": 1300156,
+            "total": 82512,
+            "totalReduced": 33365,
+            "uses": null,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 26112,
+            "count": null
+          },
+          {
+            "name": "Dimensional Shred",
+            "guid": 1227020,
+            "total": 225700,
+            "totalReduced": 209973,
+            "uses": null,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 38367,
+            "count": null
+          },
+          {
+            "name": "Cosmic Crash",
+            "guid": 1300372,
+            "total": 901670,
+            "totalReduced": 701606,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 40,
+            "overheal": 222657,
+            "count": null
+          },
+          {
+            "name": "Sky Strike",
+            "guid": 1239855,
+            "total": 454714,
+            "totalReduced": 391600,
+            "uses": 4,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 197036,
+            "count": null
+          },
+          {
+            "name": "Savage Smash",
+            "guid": 1298933,
+            "total": 0,
+            "totalReduced": null,
+            "uses": 1,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Dark Bloom",
+            "guid": 1300259,
+            "total": 509774,
+            "totalReduced": 384547,
+            "uses": 3,
+            "hitCount": 3,
+            "tickCount": 0,
+            "overheal": 176278,
+            "count": null
+          },
+          {
+            "name": "Lava Bolt",
+            "guid": 1228176,
+            "total": 699675,
+            "totalReduced": 570359,
+            "uses": 5,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 70228,
+            "count": null
+          },
+          {
+            "name": "Dreadbellow",
+            "guid": 1252406,
+            "total": 1103347,
+            "totalReduced": 921714,
+            "uses": 3,
+            "hitCount": 0,
+            "tickCount": 39,
+            "overheal": 312386,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 538415,
+            "totalReduced": 505563,
+            "uses": 5,
+            "hitCount": 4,
+            "tickCount": 0,
+            "overheal": 153195,
+            "count": null
+          },
+          {
+            "name": "Void Cascade",
+            "guid": 1222755,
+            "total": 703743,
+            "totalReduced": 584464,
+            "uses": null,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 58537,
+            "count": null
+          },
+          {
+            "name": "Poison Splash",
+            "guid": 1300351,
+            "total": 606756,
+            "totalReduced": 533913,
+            "uses": 4,
+            "hitCount": 12,
+            "tickCount": 0,
+            "overheal": 130749,
+            "count": null
+          },
+          {
+            "name": "Savage Leap",
+            "guid": 1267894,
+            "total": 2037062,
+            "totalReduced": 1982266,
+            "uses": 8,
+            "hitCount": 8,
+            "tickCount": 40,
+            "overheal": 811297,
+            "count": null
+          },
+          {
+            "name": "Light of the Martyr",
+            "guid": 448005,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Venomous Spit",
+            "guid": 1249712,
+            "total": 127865,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 1,
+            "overheal": 30345,
+            "count": null
+          }
+        ],
+        "interrupts": [
+          {
+            "name": null,
+            "guid": null,
+            "total": null,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": null,
+            "tickCount": null,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "resources": []
+      }
     }
   },
   "combatantInfo": {

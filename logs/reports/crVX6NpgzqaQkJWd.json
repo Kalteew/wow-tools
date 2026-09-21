@@ -1172,7 +1172,971 @@
       "actorID": 5,
       "spec": "Havoc",
       "capturedAt": "2026-09-18",
-      "source": "mcp"
+      "source": "mcp",
+      "deathAnalysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T15:12:20.973Z",
+        "fightID": 1,
+        "deaths": [
+          {
+            "timestamp": 80149,
+            "overkill": 10660,
+            "deathWindow": 2267,
+            "killingBlow": {
+              "name": "Serrated Charge",
+              "guid": 1291399,
+              "abilityIcon": "inv_artifact_bloodoftheassassinated.jpg"
+            },
+            "damage": {
+              "total": 838066,
+              "totalReduced": 748208,
+              "abilities": [
+                {
+                  "name": "Melee",
+                  "total": 701582
+                },
+                {
+                  "name": "Serrated Charge",
+                  "total": 127763
+                },
+                {
+                  "name": "Set Fire to the Pain",
+                  "total": 7311
+                },
+                {
+                  "name": "Rune of Void-Tainted Shell",
+                  "total": 1410
+                }
+              ],
+              "sources": [
+                {
+                  "name": "Shrouded Fang",
+                  "total": 350949
+                },
+                {
+                  "name": "Sandswept Hunter",
+                  "total": 342778
+                },
+                {
+                  "name": "Barbed Krolusk",
+                  "total": 127763
+                },
+                {
+                  "name": "Azåelle",
+                  "total": 8721
+                },
+                {
+                  "name": "Rogue Krolusk",
+                  "total": 7855
+                }
+              ]
+            },
+            "healing": {
+              "total": 111185,
+              "totalReduced": 21327,
+              "overheal": null,
+              "abilities": [
+                {
+                  "name": "First In, Last Out",
+                  "total": 40802
+                },
+                {
+                  "name": "Desperate Instincts",
+                  "total": 29846
+                },
+                {
+                  "name": "Rune of Void-Tainted Shell",
+                  "total": 19210
+                },
+                {
+                  "name": "Leech",
+                  "total": 16644
+                },
+                {
+                  "name": "Charred Warblades",
+                  "total": 4683
+                }
+              ]
+            },
+            "events": [
+              {
+                "timestamp": 80148,
+                "type": "damage",
+                "sourceID": 7,
+                "ability": {
+                  "name": "Serrated Charge",
+                  "guid": 1291399
+                },
+                "amount": 104327,
+                "mitigated": 27252,
+                "unmitigatedAmount": 155015,
+                "absorbed": 12776,
+                "overkill": 10660,
+                "isAoE": false
+              },
+              {
+                "timestamp": 79904,
+                "type": "damage",
+                "sourceID": 5,
+                "ability": {
+                  "name": "Set Fire to the Pain",
+                  "guid": 453286
+                },
+                "amount": 3418,
+                "mitigated": null,
+                "unmitigatedAmount": 3797,
+                "absorbed": 379,
+                "overkill": null,
+                "isAoE": false
+              },
+              {
+                "timestamp": 79904,
+                "type": "damage",
+                "sourceID": 5,
+                "ability": {
+                  "name": "Rune of Void-Tainted Shell",
+                  "guid": 1287955
+                },
+                "amount": 635,
+                "mitigated": 255,
+                "unmitigatedAmount": 960,
+                "absorbed": 70,
+                "overkill": null,
+                "isAoE": false
+              }
+            ]
+          },
+          {
+            "timestamp": 192683,
+            "overkill": 44895,
+            "deathWindow": 1304,
+            "killingBlow": {
+              "name": "Slither Strike",
+              "guid": 1295635,
+              "abilityIcon": "inv_knife_1h_snakeman_c_01.jpg"
+            },
+            "damage": {
+              "total": 847420,
+              "totalReduced": 810136,
+              "abilities": [
+                {
+                  "name": "Melee",
+                  "total": 709593
+                },
+                {
+                  "name": "Slither Strike",
+                  "total": 136846
+                },
+                {
+                  "name": "Set Fire to the Pain",
+                  "total": 981
+                }
+              ],
+              "sources": [
+                {
+                  "name": "Shrouded Fang",
+                  "total": 603240
+                },
+                {
+                  "name": "Sandswept Hunter",
+                  "total": 243199
+                },
+                {
+                  "name": "Azåelle",
+                  "total": 981
+                }
+              ]
+            },
+            "healing": {
+              "total": 86304,
+              "totalReduced": 49020,
+              "overheal": null,
+              "abilities": [
+                {
+                  "name": "Leech",
+                  "total": 39997
+                },
+                {
+                  "name": "Desperate Instincts",
+                  "total": 37284
+                },
+                {
+                  "name": "Charred Warblades",
+                  "total": 9023
+                }
+              ]
+            },
+            "events": [
+              {
+                "timestamp": 192667,
+                "type": "damage",
+                "sourceID": 10,
+                "ability": {
+                  "name": "Slither Strike",
+                  "guid": 1295635
+                },
+                "amount": 78267,
+                "mitigated": 44007,
+                "unmitigatedAmount": 180853,
+                "absorbed": 13684,
+                "overkill": 44895,
+                "isAoE": false
+              },
+              {
+                "timestamp": 192587,
+                "type": "damage",
+                "sourceID": 10,
+                "ability": {
+                  "name": "Melee",
+                  "guid": 1
+                },
+                "amount": 109510,
+                "mitigated": 52655,
+                "unmitigatedAmount": 174332,
+                "absorbed": 12167,
+                "overkill": null,
+                "isAoE": false
+              },
+              {
+                "timestamp": 192372,
+                "type": "damage",
+                "sourceID": 6,
+                "ability": {
+                  "name": "Melee",
+                  "guid": 1
+                },
+                "amount": 109192,
+                "mitigated": 52200,
+                "unmitigatedAmount": 172825,
+                "absorbed": 11433,
+                "overkill": null,
+                "isAoE": false
+              }
+            ]
+          },
+          {
+            "timestamp": 489117,
+            "overkill": 105148,
+            "deathWindow": 0,
+            "killingBlow": {
+              "name": "Volley",
+              "guid": 273225,
+              "abilityIcon": "inv_ammo_arrow_04.jpg"
+            },
+            "damage": {
+              "total": 913351,
+              "totalReduced": 821369,
+              "abilities": [
+                {
+                  "name": "Volley",
+                  "total": 913351
+                }
+              ],
+              "sources": [
+                {
+                  "name": "Sandswept Marksman",
+                  "total": 913351
+                }
+              ]
+            },
+            "healing": {
+              "total": 0,
+              "totalReduced": null,
+              "overheal": null,
+              "abilities": []
+            },
+            "events": [
+              {
+                "timestamp": 489103,
+                "type": "damage",
+                "sourceID": 22,
+                "ability": {
+                  "name": "Volley",
+                  "guid": 273225
+                },
+                "amount": 716221,
+                "mitigated": 522334,
+                "unmitigatedAmount": 1435685,
+                "absorbed": 91982,
+                "overkill": 105148,
+                "isAoE": true
+              }
+            ]
+          }
+        ]
+      },
+      "analysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-21T15:12:20.973Z",
+        "damageDone": [
+          {
+            "name": "Fel Rush",
+            "guid": 192611,
+            "total": 336463,
+            "totalReduced": null,
+            "uses": 40,
+            "hitCount": 47,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Omnium Folio",
+            "guid": 1302265,
+            "total": 784750,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 159,
+            "tickCount": 913,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Burning Wound",
+            "guid": 391191,
+            "total": 1294588,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 525,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Immolation Aura",
+            "guid": 258920,
+            "total": 76302639,
+            "totalReduced": null,
+            "uses": 52,
+            "hitCount": 6500,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Essence Break",
+            "guid": 258860,
+            "total": 22644132,
+            "totalReduced": null,
+            "uses": 37,
+            "hitCount": 299,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Chaos Strike",
+            "guid": 162794,
+            "total": 7178182,
+            "totalReduced": null,
+            "uses": 256,
+            "hitCount": 487,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Eye Beam",
+            "guid": 1287949,
+            "total": 3077973,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 170,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Bombardments",
+            "guid": 434481,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Lightbloom Lashing",
+            "guid": 1263101,
+            "total": 33515,
+            "totalReduced": 0,
+            "uses": null,
+            "hitCount": 7,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 6018142,
+            "totalReduced": null,
+            "uses": 1021,
+            "hitCount": 854,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Felblade",
+            "guid": 232893,
+            "total": 630575,
+            "totalReduced": null,
+            "uses": 47,
+            "hitCount": 45,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Burning Blades",
+            "guid": 453177,
+            "total": 17781604,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 706,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "The Hunt",
+            "guid": 370965,
+            "total": 16426739,
+            "totalReduced": null,
+            "uses": 22,
+            "hitCount": 22,
+            "tickCount": 335,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Glaive Tempest",
+            "guid": 342857,
+            "total": 19644868,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 9576,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Vengeful Retreat",
+            "guid": 198793,
+            "total": 138858,
+            "totalReduced": null,
+            "uses": 60,
+            "hitCount": 152,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Death Sweep",
+            "guid": 210152,
+            "total": 23676646,
+            "totalReduced": null,
+            "uses": 151,
+            "hitCount": 2839,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Sappy Demise",
+            "guid": 1263121,
+            "total": 2117252,
+            "totalReduced": 0,
+            "uses": 63,
+            "hitCount": 264,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Demonsurge",
+            "guid": 452416,
+            "total": 41163951,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 983,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Annihilation",
+            "guid": 201427,
+            "total": 5694161,
+            "totalReduced": null,
+            "uses": 175,
+            "hitCount": 341,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Eye Beam",
+            "guid": 198013,
+            "total": 29087108,
+            "totalReduced": null,
+            "uses": 51,
+            "hitCount": 3276,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Demon Blades",
+            "guid": 203796,
+            "total": 3293806,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 846,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Chaos Nova",
+            "guid": 179057,
+            "total": 50726,
+            "totalReduced": null,
+            "uses": 3,
+            "hitCount": 12,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Metamorphosis",
+            "guid": 200166,
+            "total": 422467,
+            "totalReduced": null,
+            "uses": 12,
+            "hitCount": 60,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Throw Glaive",
+            "guid": 185123,
+            "total": 76724,
+            "totalReduced": null,
+            "uses": 12,
+            "hitCount": 27,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Trail of Ruin",
+            "guid": 258883,
+            "total": 12080570,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 934,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Blade Dance",
+            "guid": 188499,
+            "total": 8436818,
+            "totalReduced": null,
+            "uses": 64,
+            "hitCount": 879,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Master of the Glaive",
+            "guid": 213405,
+            "total": 0,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "healing": [],
+        "damageTaken": [
+          {
+            "name": "Arrow Barrage",
+            "guid": 1308113,
+            "total": 0,
+            "totalReduced": null,
+            "uses": 21,
+            "hitCount": 0,
+            "tickCount": 0,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Burrowquake",
+            "guid": 1300227,
+            "total": 1269003,
+            "totalReduced": 1244912,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 29,
+            "overheal": 604136,
+            "count": null
+          },
+          {
+            "name": "Lingering Storm",
+            "guid": 1293133,
+            "total": 1099844,
+            "totalReduced": 1053229,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 6,
+            "overheal": 450316,
+            "count": null
+          },
+          {
+            "name": "Corruption",
+            "guid": 1312214,
+            "total": 984966,
+            "totalReduced": 927071,
+            "uses": null,
+            "hitCount": 15,
+            "tickCount": 0,
+            "overheal": 500604,
+            "count": null
+          },
+          {
+            "name": "Set Fire to the Pain",
+            "guid": 453286,
+            "total": 1231520,
+            "totalReduced": 928120,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 747,
+            "overheal": null,
+            "count": null
+          },
+          {
+            "name": "Volley",
+            "guid": 273225,
+            "total": 913351,
+            "totalReduced": 821369,
+            "uses": null,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 522334,
+            "count": null
+          },
+          {
+            "name": "Omnium Folio",
+            "guid": 1302265,
+            "total": 193469,
+            "totalReduced": 127587,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 300,
+            "overheal": 85389,
+            "count": null
+          },
+          {
+            "name": "Tempest Winds",
+            "guid": 1311808,
+            "total": 194672,
+            "totalReduced": null,
+            "uses": 3,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 102443,
+            "count": null
+          },
+          {
+            "name": "Thunder and Lightning",
+            "guid": 1288092,
+            "total": 338008,
+            "totalReduced": 289996,
+            "uses": 3,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 157182,
+            "count": null
+          },
+          {
+            "name": "A Knot of Snakes",
+            "guid": 263958,
+            "total": 106312,
+            "totalReduced": 70875,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 3,
+            "overheal": 116525,
+            "count": null
+          },
+          {
+            "name": "Ground Pound",
+            "guid": 265966,
+            "total": 1962696,
+            "totalReduced": 1919146,
+            "uses": 8,
+            "hitCount": 7,
+            "tickCount": 0,
+            "overheal": 958061,
+            "count": null
+          },
+          {
+            "name": "Induction Field",
+            "guid": 1291815,
+            "total": 1878378,
+            "totalReduced": 1582741,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 10,
+            "overheal": 845164,
+            "count": null
+          },
+          {
+            "name": "Caustic Stomp",
+            "guid": 1303486,
+            "total": 4001995,
+            "totalReduced": 3872396,
+            "uses": 5,
+            "hitCount": 5,
+            "tickCount": 50,
+            "overheal": 2004870,
+            "count": null
+          },
+          {
+            "name": "Melee",
+            "guid": 1,
+            "total": 2806747,
+            "totalReduced": 2488130,
+            "uses": 31,
+            "hitCount": 27,
+            "tickCount": 0,
+            "overheal": 1388233,
+            "count": null
+          },
+          {
+            "name": "Gust",
+            "guid": 1288457,
+            "total": 1909288,
+            "totalReduced": 1503190,
+            "uses": 7,
+            "hitCount": 7,
+            "tickCount": 28,
+            "overheal": 863804,
+            "count": null
+          },
+          {
+            "name": "Serpentstorm",
+            "guid": 1293048,
+            "total": 973366,
+            "totalReduced": 814940,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 11,
+            "overheal": 437933,
+            "count": null
+          },
+          {
+            "name": "Arrow Barrage",
+            "guid": 1308116,
+            "total": 4049028,
+            "totalReduced": 3263538,
+            "uses": null,
+            "hitCount": 55,
+            "tickCount": 0,
+            "overheal": 2345382,
+            "count": null
+          },
+          {
+            "name": "Release Charge",
+            "guid": 1293475,
+            "total": 1609642,
+            "totalReduced": 1416142,
+            "uses": 6,
+            "hitCount": 6,
+            "tickCount": 0,
+            "overheal": 840388,
+            "count": null
+          },
+          {
+            "name": "Spark Step",
+            "guid": 264763,
+            "total": 135424,
+            "totalReduced": 15418,
+            "uses": 32,
+            "hitCount": 1,
+            "tickCount": 0,
+            "overheal": 71265,
+            "count": null
+          },
+          {
+            "name": "Slither Strike",
+            "guid": 1295635,
+            "total": 647898,
+            "totalReduced": 559949,
+            "uses": 31,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 256367,
+            "count": null
+          },
+          {
+            "name": "Swarming Sands",
+            "guid": 1292993,
+            "total": 3334431,
+            "totalReduced": 3093195,
+            "uses": null,
+            "hitCount": 12,
+            "tickCount": 24,
+            "overheal": 1161002,
+            "count": null
+          },
+          {
+            "name": "Consume Charge",
+            "guid": 266512,
+            "total": 551570,
+            "totalReduced": 214437,
+            "uses": 2,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 290256,
+            "count": null
+          },
+          {
+            "name": "Serrated Charge",
+            "guid": 1291399,
+            "total": 1874451,
+            "totalReduced": 1470756,
+            "uses": 4,
+            "hitCount": 4,
+            "tickCount": 18,
+            "overheal": 605801,
+            "count": null
+          },
+          {
+            "name": "Siphon Energy",
+            "guid": 1303596,
+            "total": 144118,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": 0,
+            "tickCount": 2,
+            "overheal": 62570,
+            "count": null
+          },
+          {
+            "name": "Gale Force",
+            "guid": 1310712,
+            "total": 560448,
+            "totalReduced": 409688,
+            "uses": 4,
+            "hitCount": 4,
+            "tickCount": 0,
+            "overheal": 231860,
+            "count": null
+          },
+          {
+            "name": "Imbued Conduction",
+            "guid": 1296052,
+            "total": 615112,
+            "totalReduced": 555920,
+            "uses": 10,
+            "hitCount": 0,
+            "tickCount": 8,
+            "overheal": 294312,
+            "count": null
+          },
+          {
+            "name": "Cytotoxin",
+            "guid": 1308148,
+            "total": 1329050,
+            "totalReduced": 952708,
+            "uses": 18,
+            "hitCount": 5,
+            "tickCount": 11,
+            "overheal": 776589,
+            "count": null
+          },
+          {
+            "name": "Induction",
+            "guid": 1290531,
+            "total": 1955357,
+            "totalReduced": 1927017,
+            "uses": 9,
+            "hitCount": 8,
+            "tickCount": 0,
+            "overheal": 1108627,
+            "count": null
+          },
+          {
+            "name": "Agony of Sethraliss",
+            "guid": 1301253,
+            "total": 853824,
+            "totalReduced": 821822,
+            "uses": null,
+            "hitCount": 2,
+            "tickCount": 0,
+            "overheal": 384156,
+            "count": null
+          },
+          {
+            "name": "Lightning Bolt",
+            "guid": 1291262,
+            "total": 1446112,
+            "totalReduced": 1422967,
+            "uses": 7,
+            "hitCount": 7,
+            "tickCount": 0,
+            "overheal": 724119,
+            "count": null
+          },
+          {
+            "name": "Venom Bolt",
+            "guid": 1310683,
+            "total": 987683,
+            "totalReduced": 954555,
+            "uses": 5,
+            "hitCount": 5,
+            "tickCount": 0,
+            "overheal": 562482,
+            "count": null
+          },
+          {
+            "name": "Galvanized",
+            "guid": 266923,
+            "total": 5639760,
+            "totalReduced": 5379867,
+            "uses": null,
+            "hitCount": 134,
+            "tickCount": 0,
+            "overheal": 2654840,
+            "count": null
+          }
+        ],
+        "interrupts": [
+          {
+            "name": null,
+            "guid": null,
+            "total": null,
+            "totalReduced": null,
+            "uses": null,
+            "hitCount": null,
+            "tickCount": null,
+            "overheal": null,
+            "count": null
+          }
+        ],
+        "resources": []
+      }
     }
   },
   "combatantInfo": {
