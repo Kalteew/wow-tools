@@ -168,7 +168,7 @@
       "casts": {
         "total": 963,
         "perMinute": 35.33188614058153,
-        "cooldowns": [
+        "abilities": [
           {
             "name": "Metamorphosis",
             "casts": 10
@@ -190,6 +190,26 @@
             "casts": 124
           },
           {
+            "name": "Annihilation",
+            "casts": 139
+          },
+          {
+            "name": "Immolation Aura",
+            "casts": 43
+          },
+          {
+            "name": "Felblade",
+            "casts": 44
+          },
+          {
+            "name": "Chaos Strike",
+            "casts": 188
+          },
+          {
+            "name": "Throw Glaive",
+            "casts": 19
+          },
+          {
             "name": "Blur",
             "casts": 6
           },
@@ -198,14 +218,53 @@
             "casts": 3
           }
         ],
-        "cooldownTotal": 242,
-        "cooldownsPerMinute": 8.878833277280094,
+        "cooldowns": [
+          {
+            "name": "Metamorphosis",
+            "casts": 10
+          },
+          {
+            "name": "The Hunt",
+            "casts": 19
+          },
+          {
+            "name": "Eye Beam",
+            "casts": 43
+          },
+          {
+            "name": "Essence Break",
+            "casts": 37
+          },
+          {
+            "name": "Blur",
+            "casts": 6
+          },
+          {
+            "name": "Darkness",
+            "casts": 3
+          }
+        ],
+        "cooldownTotal": 118,
+        "cooldownsPerMinute": 4.32934845751674,
         "trackedCooldownNames": [
           "Metamorphosis",
           "The Hunt",
           "Eye Beam",
           "Essence Break",
+          "Blur",
+          "Darkness"
+        ],
+        "trackedAbilityNames": [
+          "Metamorphosis",
+          "The Hunt",
+          "Eye Beam",
+          "Essence Break",
           "Death Sweep",
+          "Annihilation",
+          "Immolation Aura",
+          "Felblade",
+          "Chaos Strike",
+          "Throw Glaive",
           "Blur",
           "Darkness"
         ]
@@ -629,7 +688,7 @@
   "combatantInfo": {
     "azaelle": {
       "source": "mcp",
-      "capturedAt": "2026-09-21T08:24:34.903Z",
+      "capturedAt": "2026-09-21T10:07:52.511Z",
       "player": "Azåelle",
       "actorID": 3,
       "fightID": 1,

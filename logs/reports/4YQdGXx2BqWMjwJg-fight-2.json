@@ -168,7 +168,7 @@
       "casts": {
         "total": 748,
         "perMinute": 38.70714012191714,
-        "cooldowns": [
+        "abilities": [
           {
             "name": "Metamorphosis",
             "casts": 8
@@ -190,18 +190,73 @@
             "casts": 117
           },
           {
+            "name": "Annihilation",
+            "casts": 122
+          },
+          {
+            "name": "Immolation Aura",
+            "casts": 39
+          },
+          {
+            "name": "Felblade",
+            "casts": 33
+          },
+          {
+            "name": "Chaos Strike",
+            "casts": 169
+          },
+          {
+            "name": "Throw Glaive",
+            "casts": 21
+          },
+          {
             "name": "Blur",
             "casts": 1
           }
         ],
-        "cooldownTotal": 215,
-        "cooldownsPerMinute": 11.12571540937458,
+        "cooldowns": [
+          {
+            "name": "Metamorphosis",
+            "casts": 8
+          },
+          {
+            "name": "The Hunt",
+            "casts": 17
+          },
+          {
+            "name": "Eye Beam",
+            "casts": 39
+          },
+          {
+            "name": "Essence Break",
+            "casts": 33
+          },
+          {
+            "name": "Blur",
+            "casts": 1
+          }
+        ],
+        "cooldownTotal": 98,
+        "cooldownsPerMinute": 5.071256326133529,
         "trackedCooldownNames": [
           "Metamorphosis",
           "The Hunt",
           "Eye Beam",
           "Essence Break",
+          "Blur",
+          "Darkness"
+        ],
+        "trackedAbilityNames": [
+          "Metamorphosis",
+          "The Hunt",
+          "Eye Beam",
+          "Essence Break",
           "Death Sweep",
+          "Annihilation",
+          "Immolation Aura",
+          "Felblade",
+          "Chaos Strike",
+          "Throw Glaive",
           "Blur",
           "Darkness"
         ]
@@ -625,7 +680,7 @@
   "combatantInfo": {
     "azaelle": {
       "source": "mcp",
-      "capturedAt": "2026-09-21T08:24:08.428Z",
+      "capturedAt": "2026-09-21T10:06:10.080Z",
       "player": "Azåelle",
       "actorID": 30,
       "fightID": 2,

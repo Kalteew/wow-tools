@@ -51,14 +51,22 @@
       "class": "Warrior",
       "spec": "Protection",
       "realm": "Hyjal",
-      "itemLevel": 298
+      "itemLevel": 298,
+      "aliases": [
+        "Kalteew",
+        "Kaltou"
+      ]
     },
     {
       "name": "Kylse",
       "class": "Paladin",
       "spec": "Holy",
       "realm": "Hyjal",
-      "itemLevel": 297
+      "itemLevel": 297,
+      "aliases": [
+        "Kylse",
+        "Kils"
+      ]
     }
   ],
   "metrics": {
@@ -208,15 +216,11 @@
       },
       "casts": {
         "total": 1251,
-        "perMinute": 51.51681537405628,
-        "cooldowns": [
+        "perMinute": 51.53290835504567,
+        "abilities": [
           {
             "name": "Avatar",
             "casts": 20
-          },
-          {
-            "name": "Spell Reflection",
-            "casts": 2
           },
           {
             "name": "Shield Wall",
@@ -229,10 +233,56 @@
           {
             "name": "Disrupting Shout",
             "casts": 4
+          },
+          {
+            "name": "Spell Reflection",
+            "casts": 2
+          },
+          {
+            "name": "Shield Block",
+            "casts": 106
+          },
+          {
+            "name": "Ignore Pain",
+            "casts": 281
+          },
+          {
+            "name": "Shield Slam",
+            "casts": 238
+          },
+          {
+            "name": "Revenge",
+            "casts": 213
+          },
+          {
+            "name": "Thunder Clap",
+            "casts": 165
+          }
+        ],
+        "cooldowns": [
+          {
+            "name": "Avatar",
+            "casts": 20
+          },
+          {
+            "name": "Shield Wall",
+            "casts": 6
+          },
+          {
+            "name": "Demoralizing Shout",
+            "casts": 37
+          },
+          {
+            "name": "Disrupting Shout",
+            "casts": 4
+          },
+          {
+            "name": "Spell Reflection",
+            "casts": 2
           }
         ],
         "cooldownTotal": 69,
-        "cooldownsPerMinute": 2.841455044612217,
+        "cooldownsPerMinute": 2.842342667064869,
         "trackedCooldownNames": [
           "Avatar",
           "Ravager",
@@ -242,6 +292,436 @@
           "Disrupting Shout",
           "Spell Reflection",
           "Thunderous Roar"
+        ],
+        "trackedAbilityNames": [
+          "Avatar",
+          "Ravager",
+          "Shield Wall",
+          "Last Stand",
+          "Demoralizing Shout",
+          "Disrupting Shout",
+          "Spell Reflection",
+          "Thunderous Roar",
+          "Shield Block",
+          "Ignore Pain",
+          "Shield Slam",
+          "Revenge",
+          "Thunder Clap",
+          "Execute"
+        ]
+      },
+      "build": {
+        "specID": 73,
+        "talentTree": [
+          {
+            "id": 112115,
+            "rank": 1,
+            "nodeID": 90264
+          },
+          {
+            "id": 112116,
+            "rank": 1,
+            "nodeID": 90265
+          },
+          {
+            "id": 112149,
+            "rank": 1,
+            "nodeID": 90295
+          },
+          {
+            "id": 112151,
+            "rank": 1,
+            "nodeID": 90297
+          },
+          {
+            "id": 112152,
+            "rank": 1,
+            "nodeID": 90298
+          },
+          {
+            "id": 112153,
+            "rank": 1,
+            "nodeID": 90299
+          },
+          {
+            "id": 112155,
+            "rank": 1,
+            "nodeID": 90301
+          },
+          {
+            "id": 112156,
+            "rank": 1,
+            "nodeID": 90302
+          },
+          {
+            "id": 112157,
+            "rank": 1,
+            "nodeID": 90303
+          },
+          {
+            "id": 112158,
+            "rank": 1,
+            "nodeID": 90304
+          },
+          {
+            "id": 112159,
+            "rank": 1,
+            "nodeID": 90305
+          },
+          {
+            "id": 112162,
+            "rank": 1,
+            "nodeID": 90308
+          },
+          {
+            "id": 112163,
+            "rank": 1,
+            "nodeID": 90309
+          },
+          {
+            "id": 112166,
+            "rank": 2,
+            "nodeID": 90311
+          },
+          {
+            "id": 112170,
+            "rank": 1,
+            "nodeID": 90314
+          },
+          {
+            "id": 112171,
+            "rank": 1,
+            "nodeID": 90315
+          },
+          {
+            "id": 112173,
+            "rank": 1,
+            "nodeID": 90317
+          },
+          {
+            "id": 112174,
+            "rank": 1,
+            "nodeID": 90318
+          },
+          {
+            "id": 112176,
+            "rank": 1,
+            "nodeID": 90319
+          },
+          {
+            "id": 112177,
+            "rank": 1,
+            "nodeID": 90320
+          },
+          {
+            "id": 112181,
+            "rank": 2,
+            "nodeID": 90324
+          },
+          {
+            "id": 112183,
+            "rank": 1,
+            "nodeID": 90326
+          },
+          {
+            "id": 112185,
+            "rank": 1,
+            "nodeID": 90328
+          },
+          {
+            "id": 112188,
+            "rank": 1,
+            "nodeID": 90331
+          },
+          {
+            "id": 112198,
+            "rank": 1,
+            "nodeID": 90337
+          },
+          {
+            "id": 112205,
+            "rank": 1,
+            "nodeID": 90343
+          },
+          {
+            "id": 112208,
+            "rank": 1,
+            "nodeID": 90346
+          },
+          {
+            "id": 112209,
+            "rank": 1,
+            "nodeID": 90347
+          },
+          {
+            "id": 112215,
+            "rank": 1,
+            "nodeID": 90351
+          },
+          {
+            "id": 112216,
+            "rank": 1,
+            "nodeID": 90352
+          },
+          {
+            "id": 112217,
+            "rank": 1,
+            "nodeID": 90353
+          },
+          {
+            "id": 112219,
+            "rank": 1,
+            "nodeID": 90355
+          },
+          {
+            "id": 112224,
+            "rank": 2,
+            "nodeID": 90360
+          },
+          {
+            "id": 112233,
+            "rank": 2,
+            "nodeID": 90366
+          },
+          {
+            "id": 112235,
+            "rank": 2,
+            "nodeID": 90368
+          },
+          {
+            "id": 112238,
+            "rank": 1,
+            "nodeID": 90371
+          },
+          {
+            "id": 112242,
+            "rank": 1,
+            "nodeID": 90375
+          },
+          {
+            "id": 112245,
+            "rank": 1,
+            "nodeID": 90378
+          },
+          {
+            "id": 112248,
+            "rank": 2,
+            "nodeID": 90381
+          },
+          {
+            "id": 112249,
+            "rank": 1,
+            "nodeID": 90382
+          },
+          {
+            "id": 112253,
+            "rank": 1,
+            "nodeID": 90385
+          },
+          {
+            "id": 112304,
+            "rank": 1,
+            "nodeID": 90432
+          },
+          {
+            "id": 112305,
+            "rank": 1,
+            "nodeID": 90433
+          },
+          {
+            "id": 112321,
+            "rank": 1,
+            "nodeID": 90448
+          },
+          {
+            "id": 112323,
+            "rank": 1,
+            "nodeID": 90449
+          },
+          {
+            "id": 112325,
+            "rank": 1,
+            "nodeID": 90451
+          },
+          {
+            "id": 117382,
+            "rank": 1,
+            "nodeID": 94785
+          },
+          {
+            "id": 117395,
+            "rank": 1,
+            "nodeID": 94798
+          },
+          {
+            "id": 117397,
+            "rank": 1,
+            "nodeID": 94800
+          },
+          {
+            "id": 117402,
+            "rank": 1,
+            "nodeID": 94805
+          },
+          {
+            "id": 117404,
+            "rank": 1,
+            "nodeID": 94807
+          },
+          {
+            "id": 117405,
+            "rank": 1,
+            "nodeID": 94808
+          },
+          {
+            "id": 117413,
+            "rank": 1,
+            "nodeID": 94816
+          },
+          {
+            "id": 117414,
+            "rank": 1,
+            "nodeID": 94817
+          },
+          {
+            "id": 118833,
+            "rank": 1,
+            "nodeID": 94797
+          },
+          {
+            "id": 118834,
+            "rank": 1,
+            "nodeID": 94792
+          },
+          {
+            "id": 118850,
+            "rank": 1,
+            "nodeID": 95956
+          },
+          {
+            "id": 118853,
+            "rank": 1,
+            "nodeID": 95959
+          },
+          {
+            "id": 123388,
+            "rank": 1,
+            "nodeID": 99851
+          },
+          {
+            "id": 132882,
+            "rank": 1,
+            "nodeID": 107577
+          },
+          {
+            "id": 132883,
+            "rank": 1,
+            "nodeID": 107578
+          },
+          {
+            "id": 132885,
+            "rank": 1,
+            "nodeID": 90312
+          },
+          {
+            "id": 132886,
+            "rank": 1,
+            "nodeID": 107579
+          },
+          {
+            "id": 134032,
+            "rank": 1,
+            "nodeID": 108543
+          },
+          {
+            "id": 134033,
+            "rank": 1,
+            "nodeID": 108544
+          },
+          {
+            "id": 134226,
+            "rank": 1,
+            "nodeID": 108686
+          },
+          {
+            "id": 134254,
+            "rank": 1,
+            "nodeID": 108705
+          },
+          {
+            "id": 136068,
+            "rank": 1,
+            "nodeID": 109809
+          },
+          {
+            "id": 136069,
+            "rank": 1,
+            "nodeID": 109810
+          },
+          {
+            "id": 136070,
+            "rank": 1,
+            "nodeID": 109811
+          },
+          {
+            "id": 136625,
+            "rank": 1,
+            "nodeID": 110118
+          },
+          {
+            "id": 136999,
+            "rank": 1,
+            "nodeID": 110411
+          },
+          {
+            "id": 137000,
+            "rank": 2,
+            "nodeID": 110411
+          },
+          {
+            "id": 137001,
+            "rank": 1,
+            "nodeID": 110411
+          },
+          {
+            "id": 137471,
+            "rank": 1,
+            "nodeID": 110653
+          },
+          {
+            "id": 117400,
+            "rank": 1,
+            "nodeID": 94803
+          },
+          {
+            "id": 112187,
+            "rank": 1,
+            "nodeID": 90330
+          },
+          {
+            "id": 112112,
+            "rank": 1,
+            "nodeID": 90261
+          }
+        ],
+        "talents": [],
+        "pvpTalents": [
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 199045,
+            "icon": "warrior_talent_icon_bloodandthunder.jpg"
+          },
+          {
+            "id": 199023,
+            "icon": "ability_warrior_warcry.jpg"
+          },
+          {
+            "id": 205800,
+            "icon": "spell_nature_reincarnation.jpg"
+          }
         ]
       },
       "sourceName": "Kalteew",
@@ -271,23 +751,15 @@
       },
       "casts": {
         "total": 808,
-        "perMinute": 33.27385037748799,
-        "cooldowns": [
+        "perMinute": 33.284244565049484,
+        "abilities": [
           {
-            "name": "Divine Shield",
-            "casts": 2
+            "name": "Avenging Wrath",
+            "casts": 10
           },
           {
             "name": "Divine Toll",
             "casts": 34
-          },
-          {
-            "name": "Divine Protection",
-            "casts": 5
-          },
-          {
-            "name": "Avenging Wrath",
-            "casts": 10
           },
           {
             "name": "Aura Mastery",
@@ -296,10 +768,64 @@
           {
             "name": "Lay on Hands",
             "casts": 1
+          },
+          {
+            "name": "Divine Protection",
+            "casts": 5
+          },
+          {
+            "name": "Divine Shield",
+            "casts": 2
+          },
+          {
+            "name": "Holy Shock",
+            "casts": 146
+          },
+          {
+            "name": "Eternal Flame",
+            "casts": 54
+          },
+          {
+            "name": "Flash of Light",
+            "casts": 20
+          },
+          {
+            "name": "Holy Light",
+            "casts": 28
+          },
+          {
+            "name": "Hammer of Wrath",
+            "casts": 41
+          }
+        ],
+        "cooldowns": [
+          {
+            "name": "Avenging Wrath",
+            "casts": 10
+          },
+          {
+            "name": "Divine Toll",
+            "casts": 34
+          },
+          {
+            "name": "Aura Mastery",
+            "casts": 4
+          },
+          {
+            "name": "Lay on Hands",
+            "casts": 1
+          },
+          {
+            "name": "Divine Protection",
+            "casts": 5
+          },
+          {
+            "name": "Divine Shield",
+            "casts": 2
           }
         ],
         "cooldownTotal": 56,
-        "cooldownsPerMinute": 2.306108442004118,
+        "cooldownsPerMinute": 2.306828831241053,
         "trackedCooldownNames": [
           "Avenging Wrath",
           "Divine Toll",
@@ -310,6 +836,454 @@
           "Sacred Weapon",
           "Holy Bulwark",
           "Divine Shield"
+        ],
+        "trackedAbilityNames": [
+          "Avenging Wrath",
+          "Divine Toll",
+          "Aura Mastery",
+          "Blessing of Sacrifice",
+          "Lay on Hands",
+          "Divine Protection",
+          "Sacred Weapon",
+          "Holy Bulwark",
+          "Divine Shield",
+          "Light of Dawn",
+          "Holy Shock",
+          "Word of Glory",
+          "Eternal Flame",
+          "Flash of Light",
+          "Holy Light",
+          "Cleanse Toxins",
+          "Hammer of Wrath"
+        ]
+      },
+      "build": {
+        "specID": 65,
+        "talentTree": [
+          {
+            "id": 102464,
+            "rank": 1,
+            "nodeID": 81495
+          },
+          {
+            "id": 102465,
+            "rank": 1,
+            "nodeID": 81496
+          },
+          {
+            "id": 102477,
+            "rank": 1,
+            "nodeID": 81508
+          },
+          {
+            "id": 102532,
+            "rank": 1,
+            "nodeID": 81554
+          },
+          {
+            "id": 102534,
+            "rank": 1,
+            "nodeID": 81555
+          },
+          {
+            "id": 102536,
+            "rank": 1,
+            "nodeID": 81557
+          },
+          {
+            "id": 102537,
+            "rank": 1,
+            "nodeID": 81558
+          },
+          {
+            "id": 102539,
+            "rank": 1,
+            "nodeID": 81560
+          },
+          {
+            "id": 102540,
+            "rank": 1,
+            "nodeID": 81561
+          },
+          {
+            "id": 102541,
+            "rank": 1,
+            "nodeID": 81562
+          },
+          {
+            "id": 102544,
+            "rank": 1,
+            "nodeID": 81564
+          },
+          {
+            "id": 102545,
+            "rank": 1,
+            "nodeID": 81565
+          },
+          {
+            "id": 102548,
+            "rank": 1,
+            "nodeID": 81567
+          },
+          {
+            "id": 102549,
+            "rank": 1,
+            "nodeID": 81568
+          },
+          {
+            "id": 102550,
+            "rank": 1,
+            "nodeID": 81569
+          },
+          {
+            "id": 102551,
+            "rank": 1,
+            "nodeID": 81570
+          },
+          {
+            "id": 102553,
+            "rank": 1,
+            "nodeID": 81571
+          },
+          {
+            "id": 102562,
+            "rank": 1,
+            "nodeID": 81578
+          },
+          {
+            "id": 102563,
+            "rank": 1,
+            "nodeID": 81579
+          },
+          {
+            "id": 102564,
+            "rank": 1,
+            "nodeID": 81580
+          },
+          {
+            "id": 102569,
+            "rank": 1,
+            "nodeID": 81584
+          },
+          {
+            "id": 102570,
+            "rank": 1,
+            "nodeID": 81585
+          },
+          {
+            "id": 102575,
+            "rank": 1,
+            "nodeID": 81590
+          },
+          {
+            "id": 102577,
+            "rank": 1,
+            "nodeID": 81591
+          },
+          {
+            "id": 102578,
+            "rank": 1,
+            "nodeID": 81592
+          },
+          {
+            "id": 102580,
+            "rank": 1,
+            "nodeID": 81594
+          },
+          {
+            "id": 102584,
+            "rank": 1,
+            "nodeID": 81598
+          },
+          {
+            "id": 102592,
+            "rank": 1,
+            "nodeID": 81605
+          },
+          {
+            "id": 102595,
+            "rank": 1,
+            "nodeID": 81607
+          },
+          {
+            "id": 102596,
+            "rank": 1,
+            "nodeID": 81608
+          },
+          {
+            "id": 102597,
+            "rank": 1,
+            "nodeID": 81609
+          },
+          {
+            "id": 102601,
+            "rank": 1,
+            "nodeID": 81613
+          },
+          {
+            "id": 102602,
+            "rank": 1,
+            "nodeID": 81614
+          },
+          {
+            "id": 102603,
+            "rank": 1,
+            "nodeID": 81615
+          },
+          {
+            "id": 102604,
+            "rank": 1,
+            "nodeID": 81616
+          },
+          {
+            "id": 102612,
+            "rank": 2,
+            "nodeID": 81621
+          },
+          {
+            "id": 102622,
+            "rank": 2,
+            "nodeID": 81630
+          },
+          {
+            "id": 114292,
+            "rank": 1,
+            "nodeID": 92220
+          },
+          {
+            "id": 115034,
+            "rank": 2,
+            "nodeID": 93009
+          },
+          {
+            "id": 115465,
+            "rank": 1,
+            "nodeID": 93180
+          },
+          {
+            "id": 115872,
+            "rank": 1,
+            "nodeID": 93520
+          },
+          {
+            "id": 115873,
+            "rank": 1,
+            "nodeID": 93521
+          },
+          {
+            "id": 115874,
+            "rank": 1,
+            "nodeID": 93522
+          },
+          {
+            "id": 115875,
+            "rank": 1,
+            "nodeID": 93523
+          },
+          {
+            "id": 116376,
+            "rank": 1,
+            "nodeID": 93927
+          },
+          {
+            "id": 117666,
+            "rank": 1,
+            "nodeID": 95069
+          },
+          {
+            "id": 117668,
+            "rank": 1,
+            "nodeID": 95071
+          },
+          {
+            "id": 117669,
+            "rank": 1,
+            "nodeID": 95072
+          },
+          {
+            "id": 117677,
+            "rank": 1,
+            "nodeID": 95080
+          },
+          {
+            "id": 117683,
+            "rank": 1,
+            "nodeID": 95086
+          },
+          {
+            "id": 117691,
+            "rank": 1,
+            "nodeID": 95094
+          },
+          {
+            "id": 117692,
+            "rank": 1,
+            "nodeID": 95095
+          },
+          {
+            "id": 117702,
+            "rank": 1,
+            "nodeID": 95105
+          },
+          {
+            "id": 117777,
+            "rank": 1,
+            "nodeID": 95098
+          },
+          {
+            "id": 117778,
+            "rank": 1,
+            "nodeID": 95073
+          },
+          {
+            "id": 123362,
+            "rank": 1,
+            "nodeID": 99839
+          },
+          {
+            "id": 128241,
+            "rank": 2,
+            "nodeID": 103851
+          },
+          {
+            "id": 128242,
+            "rank": 1,
+            "nodeID": 103852
+          },
+          {
+            "id": 128246,
+            "rank": 1,
+            "nodeID": 93191
+          },
+          {
+            "id": 128251,
+            "rank": 1,
+            "nodeID": 81631
+          },
+          {
+            "id": 128259,
+            "rank": 1,
+            "nodeID": 103863
+          },
+          {
+            "id": 128262,
+            "rank": 1,
+            "nodeID": 103866
+          },
+          {
+            "id": 128309,
+            "rank": 1,
+            "nodeID": 103856
+          },
+          {
+            "id": 133407,
+            "rank": 1,
+            "nodeID": 108034
+          },
+          {
+            "id": 133479,
+            "rank": 1,
+            "nodeID": 108099
+          },
+          {
+            "id": 133481,
+            "rank": 1,
+            "nodeID": 81510
+          },
+          {
+            "id": 133501,
+            "rank": 1,
+            "nodeID": 81588
+          },
+          {
+            "id": 136006,
+            "rank": 1,
+            "nodeID": 109748
+          },
+          {
+            "id": 136007,
+            "rank": 1,
+            "nodeID": 109749
+          },
+          {
+            "id": 136008,
+            "rank": 1,
+            "nodeID": 109750
+          },
+          {
+            "id": 136486,
+            "rank": 1,
+            "nodeID": 109998
+          },
+          {
+            "id": 136487,
+            "rank": 1,
+            "nodeID": 109999
+          },
+          {
+            "id": 136503,
+            "rank": 1,
+            "nodeID": 110012
+          },
+          {
+            "id": 136593,
+            "rank": 1,
+            "nodeID": 110092
+          },
+          {
+            "id": 137017,
+            "rank": 1,
+            "nodeID": 110417
+          },
+          {
+            "id": 137018,
+            "rank": 2,
+            "nodeID": 110417
+          },
+          {
+            "id": 137019,
+            "rank": 1,
+            "nodeID": 110417
+          },
+          {
+            "id": 117696,
+            "rank": 1,
+            "nodeID": 95099
+          },
+          {
+            "id": 102587,
+            "rank": 1,
+            "nodeID": 81600
+          },
+          {
+            "id": 102625,
+            "rank": 1,
+            "nodeID": 81632
+          },
+          {
+            "id": 102583,
+            "rank": 1,
+            "nodeID": 81597
+          }
+        ],
+        "talents": [],
+        "pvpTalents": [
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 210378,
+            "icon": "spell_paladin_lightofdawn.jpg"
+          },
+          {
+            "id": 199452,
+            "icon": "spell_holy_sealofsacrifice.jpg"
+          },
+          {
+            "id": 199330,
+            "icon": "spell_holy_purify.jpg"
+          }
         ]
       },
       "sourceName": "Kylse",
@@ -317,6 +1291,1457 @@
       "spec": "Holy",
       "capturedAt": "2026-08-20",
       "source": "mcp"
+    }
+  },
+  "combatantInfo": {
+    "kalteew": {
+      "source": "mcp",
+      "capturedAt": "2026-09-21T10:07:21.788Z",
+      "player": "Kalteew",
+      "actorID": 2,
+      "fightID": 1,
+      "event": {
+        "timestamp": 44161,
+        "type": "combatantinfo",
+        "fight": 1,
+        "sourceID": 2,
+        "gear": [
+          {
+            "id": 272258,
+            "quality": 4,
+            "icon": "inv_helm_plate_outdooramaniloa_c_01.jpg",
+            "itemLevel": 295,
+            "permanentEnchant": 7959,
+            "bonusIDs": [
+              12834,
+              6652,
+              13696,
+              13662
+            ]
+          },
+          {
+            "id": 265739,
+            "quality": 3,
+            "icon": "inv_12_jewelry_zulaman_troll_necklace_purple2.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              41,
+              13668,
+              12830
+            ],
+            "gems": [
+              {
+                "id": 240861,
+                "itemLevel": 278,
+                "icon": "inv_12_profession_jewelcrafting_uncommon_gem_cut_frost_green.jpg"
+              }
+            ]
+          },
+          {
+            "id": 271454,
+            "quality": 4,
+            "icon": "inv_shoulder_plate_raidwarriorulatek_d_01.jpg",
+            "itemLevel": 308,
+            "permanentEnchant": 8031,
+            "bonusIDs": [
+              13694,
+              13439,
+              6652,
+              13697,
+              12838
+            ],
+            "setID": 2067
+          },
+          {
+            "id": 0,
+            "quality": 1,
+            "icon": "inv_axe_02.jpg",
+            "itemLevel": 0
+          },
+          {
+            "id": 271459,
+            "quality": 4,
+            "icon": "inv_chest_plate_raidwarriorulatek_d_01.jpg",
+            "itemLevel": 308,
+            "permanentEnchant": 7957,
+            "bonusIDs": [
+              13439,
+              43,
+              12838,
+              13690,
+              13698,
+              1561
+            ],
+            "setID": 2067
+          },
+          {
+            "id": 272261,
+            "quality": 4,
+            "icon": "inv_belt_plate_outdooramaniloa_c_01.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              12834,
+              6652,
+              13695,
+              13662
+            ]
+          },
+          {
+            "id": 159435,
+            "quality": 3,
+            "icon": "inv_pant_plate_zandalardungeon_c_01.jpg",
+            "itemLevel": 298,
+            "permanentEnchant": 8159,
+            "bonusIDs": [
+              12835,
+              13440,
+              6652,
+              13662,
+              12699
+            ]
+          },
+          {
+            "id": 263852,
+            "quality": 4,
+            "icon": "inv_plate_raidwarriort2_d_01_boot.jpg",
+            "itemLevel": 295,
+            "permanentEnchant": 8018,
+            "bonusIDs": [
+              6652,
+              13662,
+              12830
+            ]
+          },
+          {
+            "id": 159425,
+            "quality": 3,
+            "icon": "inv_bracer_plate_zandalardungeon_c_01.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              13439,
+              6652,
+              13696,
+              13662,
+              12699,
+              12834
+            ]
+          },
+          {
+            "id": 272257,
+            "quality": 4,
+            "icon": "inv_glove_plate_outdooramaniloa_c_01.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              12834,
+              6652,
+              13662
+            ]
+          },
+          {
+            "id": 272149,
+            "quality": 4,
+            "icon": "inv_121_jewelry_ring02_purple.jpg",
+            "itemLevel": 295,
+            "permanentEnchant": 8021,
+            "bonusIDs": [
+              12834,
+              6652,
+              13668
+            ]
+          },
+          {
+            "id": 251136,
+            "quality": 3,
+            "icon": "inv_12_jewelry_voidelf_ring_teal.jpg",
+            "itemLevel": 295,
+            "permanentEnchant": 8021,
+            "bonusIDs": [
+              13439,
+              6652,
+              13668,
+              12699,
+              12834
+            ],
+            "gems": [
+              {
+                "id": 240861,
+                "itemLevel": 278,
+                "icon": "inv_12_profession_jewelcrafting_uncommon_gem_cut_frost_green.jpg"
+              }
+            ]
+          },
+          {
+            "id": 274499,
+            "quality": 4,
+            "icon": "rogue_venomzest.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              12834,
+              6652
+            ]
+          },
+          {
+            "id": 274498,
+            "quality": 4,
+            "icon": "diabloanniversary_charm3.jpg",
+            "itemLevel": 305,
+            "bonusIDs": [
+              12841,
+              6652
+            ]
+          },
+          {
+            "id": 259359,
+            "quality": 2,
+            "icon": "inv_cape_mail_dungeonharronir_c_01.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              6652,
+              13662,
+              12830
+            ]
+          },
+          {
+            "id": 237839,
+            "quality": 4,
+            "icon": "inv_sword_1h_questbloodelf_b_01.jpg",
+            "itemLevel": 305,
+            "bonusIDs": [
+              12214,
+              13667,
+              12497,
+              13751,
+              12693,
+              8960,
+              8792
+            ]
+          },
+          {
+            "id": 237831,
+            "quality": 4,
+            "icon": "inv_shield_1h_questbloodelf_b_01.jpg",
+            "itemLevel": 305,
+            "bonusIDs": [
+              12214,
+              13667,
+              12497,
+              13751,
+              8960,
+              12384,
+              8792
+            ]
+          },
+          {
+            "id": 0,
+            "quality": 1,
+            "icon": "inv_axe_02.jpg",
+            "itemLevel": 0
+          }
+        ],
+        "auras": [
+          {
+            "source": 2,
+            "ability": 386208,
+            "stacks": 1,
+            "icon": "ability_warrior_defensivestance.jpg",
+            "name": "Defensive Stance"
+          },
+          {
+            "source": 2,
+            "ability": 385840,
+            "stacks": 1,
+            "icon": "ability_vehicle_electrocharge.jpg",
+            "name": "Thunderlord"
+          },
+          {
+            "source": 3,
+            "ability": 462854,
+            "stacks": 1,
+            "icon": "achievement_raidprimalist_windelemental.jpg",
+            "name": "Skyfury"
+          },
+          {
+            "source": 2,
+            "ability": 202602,
+            "stacks": 4,
+            "icon": "ability_warrior_bloodfrenzy.jpg",
+            "name": "Into the Fray"
+          },
+          {
+            "source": 2,
+            "ability": 6673,
+            "stacks": 1,
+            "icon": "ability_warrior_battleshout.jpg",
+            "name": "Battle Shout"
+          }
+        ],
+        "expansion": "dragonflight",
+        "faction": 0,
+        "specID": 73,
+        "strength": 2211,
+        "agility": 431,
+        "stamina": 51896,
+        "intellect": 423,
+        "dodge": 0,
+        "parry": 809,
+        "block": 0,
+        "armor": 5327,
+        "critMelee": 809,
+        "critRanged": 809,
+        "critSpell": 809,
+        "hasteMelee": 512,
+        "hasteRanged": 512,
+        "hasteSpell": 512,
+        "speed": 9,
+        "leech": 253,
+        "avoidance": 0,
+        "mastery": 662,
+        "versatilityDamageDone": 577,
+        "versatilityHealingDone": 577,
+        "versatilityDamageReduction": 577,
+        "talentTree": [
+          {
+            "id": 112115,
+            "rank": 1,
+            "nodeID": 90264
+          },
+          {
+            "id": 112116,
+            "rank": 1,
+            "nodeID": 90265
+          },
+          {
+            "id": 112149,
+            "rank": 1,
+            "nodeID": 90295
+          },
+          {
+            "id": 112151,
+            "rank": 1,
+            "nodeID": 90297
+          },
+          {
+            "id": 112152,
+            "rank": 1,
+            "nodeID": 90298
+          },
+          {
+            "id": 112153,
+            "rank": 1,
+            "nodeID": 90299
+          },
+          {
+            "id": 112155,
+            "rank": 1,
+            "nodeID": 90301
+          },
+          {
+            "id": 112156,
+            "rank": 1,
+            "nodeID": 90302
+          },
+          {
+            "id": 112157,
+            "rank": 1,
+            "nodeID": 90303
+          },
+          {
+            "id": 112158,
+            "rank": 1,
+            "nodeID": 90304
+          },
+          {
+            "id": 112159,
+            "rank": 1,
+            "nodeID": 90305
+          },
+          {
+            "id": 112162,
+            "rank": 1,
+            "nodeID": 90308
+          },
+          {
+            "id": 112163,
+            "rank": 1,
+            "nodeID": 90309
+          },
+          {
+            "id": 112166,
+            "rank": 2,
+            "nodeID": 90311
+          },
+          {
+            "id": 112170,
+            "rank": 1,
+            "nodeID": 90314
+          },
+          {
+            "id": 112171,
+            "rank": 1,
+            "nodeID": 90315
+          },
+          {
+            "id": 112173,
+            "rank": 1,
+            "nodeID": 90317
+          },
+          {
+            "id": 112174,
+            "rank": 1,
+            "nodeID": 90318
+          },
+          {
+            "id": 112176,
+            "rank": 1,
+            "nodeID": 90319
+          },
+          {
+            "id": 112177,
+            "rank": 1,
+            "nodeID": 90320
+          },
+          {
+            "id": 112181,
+            "rank": 2,
+            "nodeID": 90324
+          },
+          {
+            "id": 112183,
+            "rank": 1,
+            "nodeID": 90326
+          },
+          {
+            "id": 112185,
+            "rank": 1,
+            "nodeID": 90328
+          },
+          {
+            "id": 112188,
+            "rank": 1,
+            "nodeID": 90331
+          },
+          {
+            "id": 112198,
+            "rank": 1,
+            "nodeID": 90337
+          },
+          {
+            "id": 112205,
+            "rank": 1,
+            "nodeID": 90343
+          },
+          {
+            "id": 112208,
+            "rank": 1,
+            "nodeID": 90346
+          },
+          {
+            "id": 112209,
+            "rank": 1,
+            "nodeID": 90347
+          },
+          {
+            "id": 112215,
+            "rank": 1,
+            "nodeID": 90351
+          },
+          {
+            "id": 112216,
+            "rank": 1,
+            "nodeID": 90352
+          },
+          {
+            "id": 112217,
+            "rank": 1,
+            "nodeID": 90353
+          },
+          {
+            "id": 112219,
+            "rank": 1,
+            "nodeID": 90355
+          },
+          {
+            "id": 112224,
+            "rank": 2,
+            "nodeID": 90360
+          },
+          {
+            "id": 112233,
+            "rank": 2,
+            "nodeID": 90366
+          },
+          {
+            "id": 112235,
+            "rank": 2,
+            "nodeID": 90368
+          },
+          {
+            "id": 112238,
+            "rank": 1,
+            "nodeID": 90371
+          },
+          {
+            "id": 112242,
+            "rank": 1,
+            "nodeID": 90375
+          },
+          {
+            "id": 112245,
+            "rank": 1,
+            "nodeID": 90378
+          },
+          {
+            "id": 112248,
+            "rank": 2,
+            "nodeID": 90381
+          },
+          {
+            "id": 112249,
+            "rank": 1,
+            "nodeID": 90382
+          },
+          {
+            "id": 112253,
+            "rank": 1,
+            "nodeID": 90385
+          },
+          {
+            "id": 112304,
+            "rank": 1,
+            "nodeID": 90432
+          },
+          {
+            "id": 112305,
+            "rank": 1,
+            "nodeID": 90433
+          },
+          {
+            "id": 112321,
+            "rank": 1,
+            "nodeID": 90448
+          },
+          {
+            "id": 112323,
+            "rank": 1,
+            "nodeID": 90449
+          },
+          {
+            "id": 112325,
+            "rank": 1,
+            "nodeID": 90451
+          },
+          {
+            "id": 117382,
+            "rank": 1,
+            "nodeID": 94785
+          },
+          {
+            "id": 117395,
+            "rank": 1,
+            "nodeID": 94798
+          },
+          {
+            "id": 117397,
+            "rank": 1,
+            "nodeID": 94800
+          },
+          {
+            "id": 117402,
+            "rank": 1,
+            "nodeID": 94805
+          },
+          {
+            "id": 117404,
+            "rank": 1,
+            "nodeID": 94807
+          },
+          {
+            "id": 117405,
+            "rank": 1,
+            "nodeID": 94808
+          },
+          {
+            "id": 117413,
+            "rank": 1,
+            "nodeID": 94816
+          },
+          {
+            "id": 117414,
+            "rank": 1,
+            "nodeID": 94817
+          },
+          {
+            "id": 118833,
+            "rank": 1,
+            "nodeID": 94797
+          },
+          {
+            "id": 118834,
+            "rank": 1,
+            "nodeID": 94792
+          },
+          {
+            "id": 118850,
+            "rank": 1,
+            "nodeID": 95956
+          },
+          {
+            "id": 118853,
+            "rank": 1,
+            "nodeID": 95959
+          },
+          {
+            "id": 123388,
+            "rank": 1,
+            "nodeID": 99851
+          },
+          {
+            "id": 132882,
+            "rank": 1,
+            "nodeID": 107577
+          },
+          {
+            "id": 132883,
+            "rank": 1,
+            "nodeID": 107578
+          },
+          {
+            "id": 132885,
+            "rank": 1,
+            "nodeID": 90312
+          },
+          {
+            "id": 132886,
+            "rank": 1,
+            "nodeID": 107579
+          },
+          {
+            "id": 134032,
+            "rank": 1,
+            "nodeID": 108543
+          },
+          {
+            "id": 134033,
+            "rank": 1,
+            "nodeID": 108544
+          },
+          {
+            "id": 134226,
+            "rank": 1,
+            "nodeID": 108686
+          },
+          {
+            "id": 134254,
+            "rank": 1,
+            "nodeID": 108705
+          },
+          {
+            "id": 136068,
+            "rank": 1,
+            "nodeID": 109809
+          },
+          {
+            "id": 136069,
+            "rank": 1,
+            "nodeID": 109810
+          },
+          {
+            "id": 136070,
+            "rank": 1,
+            "nodeID": 109811
+          },
+          {
+            "id": 136625,
+            "rank": 1,
+            "nodeID": 110118
+          },
+          {
+            "id": 136999,
+            "rank": 1,
+            "nodeID": 110411
+          },
+          {
+            "id": 137000,
+            "rank": 2,
+            "nodeID": 110411
+          },
+          {
+            "id": 137001,
+            "rank": 1,
+            "nodeID": 110411
+          },
+          {
+            "id": 137471,
+            "rank": 1,
+            "nodeID": 110653
+          },
+          {
+            "id": 117400,
+            "rank": 1,
+            "nodeID": 94803
+          },
+          {
+            "id": 112187,
+            "rank": 1,
+            "nodeID": 90330
+          },
+          {
+            "id": 112112,
+            "rank": 1,
+            "nodeID": 90261
+          }
+        ],
+        "talents": [],
+        "pvpTalents": [
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 199045,
+            "icon": "warrior_talent_icon_bloodandthunder.jpg"
+          },
+          {
+            "id": 199023,
+            "icon": "ability_warrior_warcry.jpg"
+          },
+          {
+            "id": 205800,
+            "icon": "spell_nature_reincarnation.jpg"
+          }
+        ],
+        "customPowerSet": [],
+        "secondaryCustomPowerSet": [],
+        "tertiaryCustomPowerSet": []
+      }
+    },
+    "kylse": {
+      "source": "mcp",
+      "capturedAt": "2026-09-21T10:07:23.197Z",
+      "player": "Kylse",
+      "actorID": 7,
+      "fightID": 1,
+      "event": {
+        "timestamp": 44161,
+        "type": "combatantinfo",
+        "fight": 1,
+        "sourceID": 7,
+        "gear": [
+          {
+            "id": 266432,
+            "quality": 3,
+            "icon": "inv_plate_questbloodelf_b_01_helm.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              13662,
+              13696,
+              12830
+            ]
+          },
+          {
+            "id": 272228,
+            "quality": 4,
+            "icon": "inv_121_jewelry_neck02_purple.jpg",
+            "itemLevel": 305,
+            "bonusIDs": [
+              12841,
+              6652,
+              13668
+            ],
+            "gems": [
+              {
+                "id": 240900,
+                "itemLevel": 295,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_nature_purple.jpg"
+              }
+            ]
+          },
+          {
+            "id": 272260,
+            "quality": 4,
+            "icon": "inv_shoulder_plate_outdooramaniloa_c_01.jpg",
+            "itemLevel": 305,
+            "permanentEnchant": 8031,
+            "bonusIDs": [
+              12841,
+              6652,
+              13662
+            ]
+          },
+          {
+            "id": 0,
+            "quality": 1,
+            "icon": "inv_axe_02.jpg",
+            "itemLevel": 0
+          },
+          {
+            "id": 272255,
+            "quality": 4,
+            "icon": "inv_chest_plate_outdooramaniloa_c_01.jpg",
+            "itemLevel": 295,
+            "permanentEnchant": 8013,
+            "bonusIDs": [
+              12834,
+              6652,
+              13662
+            ]
+          },
+          {
+            "id": 263269,
+            "quality": 3,
+            "icon": "inv_belt_plate_dungeonharronir_c_01.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              13662,
+              13696,
+              12830
+            ]
+          },
+          {
+            "id": 272259,
+            "quality": 4,
+            "icon": "inv_pant_plate_outdooramaniloa_c_01.jpg",
+            "itemLevel": 302,
+            "permanentEnchant": 7937,
+            "bonusIDs": [
+              12836,
+              6652,
+              13662
+            ]
+          },
+          {
+            "id": 275490,
+            "quality": 2,
+            "icon": "inv_boot_plate_outdooramaniloa_c_01.jpg",
+            "itemLevel": 292,
+            "permanentEnchant": 7993,
+            "bonusIDs": [
+              12833,
+              6652,
+              13662
+            ]
+          },
+          {
+            "id": 277764,
+            "quality": 2,
+            "icon": "inv_bracer_plate_outdooramaniloa_c_01.jpg",
+            "itemLevel": 292,
+            "bonusIDs": [
+              12833,
+              6652,
+              13695,
+              13662
+            ],
+            "gems": [
+              {
+                "id": 240900,
+                "itemLevel": 295,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_nature_purple.jpg"
+              }
+            ]
+          },
+          {
+            "id": 251221,
+            "quality": 3,
+            "icon": "inv_glove_plate_dungeonharronir_c_01.jpg",
+            "itemLevel": 302,
+            "bonusIDs": [
+              12836,
+              13440,
+              6652,
+              13662,
+              12699
+            ]
+          },
+          {
+            "id": 252258,
+            "quality": 3,
+            "icon": "inv_12_jewelry_devouringhost_ring_bronze2.jpg",
+            "itemLevel": 292,
+            "permanentEnchant": 8025,
+            "bonusIDs": [
+              12833,
+              13439,
+              6652,
+              13668,
+              12699
+            ],
+            "gems": [
+              {
+                "id": 240900,
+                "itemLevel": 295,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_nature_purple.jpg"
+              }
+            ]
+          },
+          {
+            "id": 251136,
+            "quality": 3,
+            "icon": "inv_12_jewelry_voidelf_ring_teal.jpg",
+            "itemLevel": 292,
+            "permanentEnchant": 8025,
+            "bonusIDs": [
+              12833,
+              13439,
+              41,
+              13668,
+              12699
+            ],
+            "gems": [
+              {
+                "id": 240900,
+                "itemLevel": 295,
+                "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_nature_purple.jpg"
+              }
+            ]
+          },
+          {
+            "id": 251783,
+            "quality": 4,
+            "icon": "inv_12_trinket_grisgrisofconfidenc.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              12834,
+              6652
+            ]
+          },
+          {
+            "id": 250224,
+            "quality": 3,
+            "icon": "inv_icon_shadowcouncilorb_purple.jpg",
+            "itemLevel": 292,
+            "bonusIDs": [
+              12833,
+              13439,
+              41,
+              12699
+            ]
+          },
+          {
+            "id": 275523,
+            "quality": 2,
+            "icon": "inv_cape_leather_outdooramaniloa_c_01.jpg",
+            "itemLevel": 295,
+            "bonusIDs": [
+              6652,
+              13662,
+              12830
+            ]
+          },
+          {
+            "id": 237843,
+            "quality": 4,
+            "icon": "inv_sword_1h_questbloodelf_b_01.jpg",
+            "itemLevel": 305,
+            "bonusIDs": [
+              12214,
+              13667,
+              12497,
+              13751,
+              12693,
+              8960,
+              8793
+            ]
+          },
+          {
+            "id": 237831,
+            "quality": 4,
+            "icon": "inv_shield_1h_questbloodelf_b_01.jpg",
+            "itemLevel": 305,
+            "bonusIDs": [
+              12214,
+              13667,
+              12497,
+              13751,
+              8960,
+              12384,
+              8793
+            ]
+          },
+          {
+            "id": 0,
+            "quality": 1,
+            "icon": "inv_axe_02.jpg",
+            "itemLevel": 0
+          }
+        ],
+        "auras": [
+          {
+            "source": 7,
+            "ability": 431462,
+            "stacks": 1,
+            "icon": "spell_holy_divineprovidence.jpg",
+            "name": "Will of the Dawn"
+          },
+          {
+            "source": 3,
+            "ability": 462854,
+            "stacks": 1,
+            "icon": "achievement_raidprimalist_windelemental.jpg",
+            "name": "Skyfury"
+          },
+          {
+            "source": 2,
+            "ability": 6673,
+            "stacks": 1,
+            "icon": "ability_warrior_battleshout.jpg",
+            "name": "Battle Shout"
+          }
+        ],
+        "expansion": "dragonflight",
+        "faction": 0,
+        "specID": 65,
+        "strength": 641,
+        "agility": 218,
+        "stamina": 31944,
+        "intellect": 2509,
+        "dodge": 0,
+        "parry": 0,
+        "block": 0,
+        "armor": 3517,
+        "critMelee": 425,
+        "critRanged": 425,
+        "critSpell": 425,
+        "hasteMelee": 638,
+        "hasteRanged": 638,
+        "hasteSpell": 638,
+        "speed": 121,
+        "leech": 301,
+        "avoidance": 0,
+        "mastery": 1046,
+        "versatilityDamageDone": 394,
+        "versatilityHealingDone": 394,
+        "versatilityDamageReduction": 394,
+        "talentTree": [
+          {
+            "id": 102464,
+            "rank": 1,
+            "nodeID": 81495
+          },
+          {
+            "id": 102465,
+            "rank": 1,
+            "nodeID": 81496
+          },
+          {
+            "id": 102477,
+            "rank": 1,
+            "nodeID": 81508
+          },
+          {
+            "id": 102532,
+            "rank": 1,
+            "nodeID": 81554
+          },
+          {
+            "id": 102534,
+            "rank": 1,
+            "nodeID": 81555
+          },
+          {
+            "id": 102536,
+            "rank": 1,
+            "nodeID": 81557
+          },
+          {
+            "id": 102537,
+            "rank": 1,
+            "nodeID": 81558
+          },
+          {
+            "id": 102539,
+            "rank": 1,
+            "nodeID": 81560
+          },
+          {
+            "id": 102540,
+            "rank": 1,
+            "nodeID": 81561
+          },
+          {
+            "id": 102541,
+            "rank": 1,
+            "nodeID": 81562
+          },
+          {
+            "id": 102544,
+            "rank": 1,
+            "nodeID": 81564
+          },
+          {
+            "id": 102545,
+            "rank": 1,
+            "nodeID": 81565
+          },
+          {
+            "id": 102548,
+            "rank": 1,
+            "nodeID": 81567
+          },
+          {
+            "id": 102549,
+            "rank": 1,
+            "nodeID": 81568
+          },
+          {
+            "id": 102550,
+            "rank": 1,
+            "nodeID": 81569
+          },
+          {
+            "id": 102551,
+            "rank": 1,
+            "nodeID": 81570
+          },
+          {
+            "id": 102553,
+            "rank": 1,
+            "nodeID": 81571
+          },
+          {
+            "id": 102562,
+            "rank": 1,
+            "nodeID": 81578
+          },
+          {
+            "id": 102563,
+            "rank": 1,
+            "nodeID": 81579
+          },
+          {
+            "id": 102564,
+            "rank": 1,
+            "nodeID": 81580
+          },
+          {
+            "id": 102569,
+            "rank": 1,
+            "nodeID": 81584
+          },
+          {
+            "id": 102570,
+            "rank": 1,
+            "nodeID": 81585
+          },
+          {
+            "id": 102575,
+            "rank": 1,
+            "nodeID": 81590
+          },
+          {
+            "id": 102577,
+            "rank": 1,
+            "nodeID": 81591
+          },
+          {
+            "id": 102578,
+            "rank": 1,
+            "nodeID": 81592
+          },
+          {
+            "id": 102580,
+            "rank": 1,
+            "nodeID": 81594
+          },
+          {
+            "id": 102584,
+            "rank": 1,
+            "nodeID": 81598
+          },
+          {
+            "id": 102592,
+            "rank": 1,
+            "nodeID": 81605
+          },
+          {
+            "id": 102595,
+            "rank": 1,
+            "nodeID": 81607
+          },
+          {
+            "id": 102596,
+            "rank": 1,
+            "nodeID": 81608
+          },
+          {
+            "id": 102597,
+            "rank": 1,
+            "nodeID": 81609
+          },
+          {
+            "id": 102601,
+            "rank": 1,
+            "nodeID": 81613
+          },
+          {
+            "id": 102602,
+            "rank": 1,
+            "nodeID": 81614
+          },
+          {
+            "id": 102603,
+            "rank": 1,
+            "nodeID": 81615
+          },
+          {
+            "id": 102604,
+            "rank": 1,
+            "nodeID": 81616
+          },
+          {
+            "id": 102612,
+            "rank": 2,
+            "nodeID": 81621
+          },
+          {
+            "id": 102622,
+            "rank": 2,
+            "nodeID": 81630
+          },
+          {
+            "id": 114292,
+            "rank": 1,
+            "nodeID": 92220
+          },
+          {
+            "id": 115034,
+            "rank": 2,
+            "nodeID": 93009
+          },
+          {
+            "id": 115465,
+            "rank": 1,
+            "nodeID": 93180
+          },
+          {
+            "id": 115872,
+            "rank": 1,
+            "nodeID": 93520
+          },
+          {
+            "id": 115873,
+            "rank": 1,
+            "nodeID": 93521
+          },
+          {
+            "id": 115874,
+            "rank": 1,
+            "nodeID": 93522
+          },
+          {
+            "id": 115875,
+            "rank": 1,
+            "nodeID": 93523
+          },
+          {
+            "id": 116376,
+            "rank": 1,
+            "nodeID": 93927
+          },
+          {
+            "id": 117666,
+            "rank": 1,
+            "nodeID": 95069
+          },
+          {
+            "id": 117668,
+            "rank": 1,
+            "nodeID": 95071
+          },
+          {
+            "id": 117669,
+            "rank": 1,
+            "nodeID": 95072
+          },
+          {
+            "id": 117677,
+            "rank": 1,
+            "nodeID": 95080
+          },
+          {
+            "id": 117683,
+            "rank": 1,
+            "nodeID": 95086
+          },
+          {
+            "id": 117691,
+            "rank": 1,
+            "nodeID": 95094
+          },
+          {
+            "id": 117692,
+            "rank": 1,
+            "nodeID": 95095
+          },
+          {
+            "id": 117702,
+            "rank": 1,
+            "nodeID": 95105
+          },
+          {
+            "id": 117777,
+            "rank": 1,
+            "nodeID": 95098
+          },
+          {
+            "id": 117778,
+            "rank": 1,
+            "nodeID": 95073
+          },
+          {
+            "id": 123362,
+            "rank": 1,
+            "nodeID": 99839
+          },
+          {
+            "id": 128241,
+            "rank": 2,
+            "nodeID": 103851
+          },
+          {
+            "id": 128242,
+            "rank": 1,
+            "nodeID": 103852
+          },
+          {
+            "id": 128246,
+            "rank": 1,
+            "nodeID": 93191
+          },
+          {
+            "id": 128251,
+            "rank": 1,
+            "nodeID": 81631
+          },
+          {
+            "id": 128259,
+            "rank": 1,
+            "nodeID": 103863
+          },
+          {
+            "id": 128262,
+            "rank": 1,
+            "nodeID": 103866
+          },
+          {
+            "id": 128309,
+            "rank": 1,
+            "nodeID": 103856
+          },
+          {
+            "id": 133407,
+            "rank": 1,
+            "nodeID": 108034
+          },
+          {
+            "id": 133479,
+            "rank": 1,
+            "nodeID": 108099
+          },
+          {
+            "id": 133481,
+            "rank": 1,
+            "nodeID": 81510
+          },
+          {
+            "id": 133501,
+            "rank": 1,
+            "nodeID": 81588
+          },
+          {
+            "id": 136006,
+            "rank": 1,
+            "nodeID": 109748
+          },
+          {
+            "id": 136007,
+            "rank": 1,
+            "nodeID": 109749
+          },
+          {
+            "id": 136008,
+            "rank": 1,
+            "nodeID": 109750
+          },
+          {
+            "id": 136486,
+            "rank": 1,
+            "nodeID": 109998
+          },
+          {
+            "id": 136487,
+            "rank": 1,
+            "nodeID": 109999
+          },
+          {
+            "id": 136503,
+            "rank": 1,
+            "nodeID": 110012
+          },
+          {
+            "id": 136593,
+            "rank": 1,
+            "nodeID": 110092
+          },
+          {
+            "id": 137017,
+            "rank": 1,
+            "nodeID": 110417
+          },
+          {
+            "id": 137018,
+            "rank": 2,
+            "nodeID": 110417
+          },
+          {
+            "id": 137019,
+            "rank": 1,
+            "nodeID": 110417
+          },
+          {
+            "id": 117696,
+            "rank": 1,
+            "nodeID": 95099
+          },
+          {
+            "id": 102587,
+            "rank": 1,
+            "nodeID": 81600
+          },
+          {
+            "id": 102625,
+            "rank": 1,
+            "nodeID": 81632
+          },
+          {
+            "id": 102583,
+            "rank": 1,
+            "nodeID": 81597
+          }
+        ],
+        "talents": [],
+        "pvpTalents": [
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 210378,
+            "icon": "spell_paladin_lightofdawn.jpg"
+          },
+          {
+            "id": 199452,
+            "icon": "spell_holy_sealofsacrifice.jpg"
+          },
+          {
+            "id": 199330,
+            "icon": "spell_holy_purify.jpg"
+          }
+        ],
+        "customPowerSet": [],
+        "secondaryCustomPowerSet": [],
+        "tertiaryCustomPowerSet": []
+      }
     }
   }
 }
