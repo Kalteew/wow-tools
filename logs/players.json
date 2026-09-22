@@ -11,10 +11,16 @@
   ],
   "secondary": [
     {
-      "aliases": ["Azaelle"],
+      "aliases": ["Azåelle", "Azaelle", "Azael"],
       "class": "DemonHunter",
       "spec": "Havoc",
-      "realm": null
+      "realm": "Hyjal"
+    },
+    {
+      "aliases": ["Kylse", "Kils"],
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal"
     }
   ]
 }
