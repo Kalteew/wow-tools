@@ -1139,6 +1139,44 @@ local DISABLED_RECHECK_MAX = 8
 local disabledRecheckDelay = DISABLED_RECHECK_MIN
 local disabledRecheckPending = false
 
+-- Apres le clic securise sur « Appliquer », Blizzard committe la configuration
+-- au retour de l'action. Fermer avant ce retour annulerait parfois le clic ; on
+-- attend donc que les changements soient effectivement committes, puis on
+-- ferme seulement si le metier courant n'a plus d'action de specialisation.
+local closeAfterApplyPending = false
+
+local function ScheduleCloseAfterApply(skillLineID, attempt)
+    if closeAfterApplyPending
+        or type(C_Timer) ~= "table"
+        or type(C_Timer.After) ~= "function" then
+        return
+    end
+    closeAfterApplyPending = true
+    attempt = attempt or 1
+    C_Timer.After(0.1, function()
+        closeAfterApplyPending = false
+
+        local configID = GetConfigID(skillLineID)
+        if HasStagedChanges(configID) then
+            if attempt < 10 then
+                ScheduleCloseAfterApply(skillLineID, attempt + 1)
+            end
+            return
+        end
+
+        local nextAction = api.GetNextAction()
+        if nextAction and nextAction.kind ~= "open-profession" then
+            return
+        end
+
+        if type(C_TradeSkillUI) == "table"
+            and type(C_TradeSkillUI.CloseTradeSkill) == "function" then
+            pcall(C_TradeSkillUI.CloseTradeSkill)
+            DebugLog("SpecPlan fermeture apres application skillLine=%s", tostring(skillLineID))
+        end
+    end)
+end
+
 local function ScheduleDisabledRecheck()
     if disabledRecheckPending
         or type(C_Timer) ~= "table"
@@ -1761,6 +1799,9 @@ function api.Step(button)
             lastApplyFailure = applyReason
             Say("error", ("Spé : bouton « Appliquer » du jeu indisponible (%s)")
                 :format(tostring(applyReason)))
+        end
+        if armed then
+            ScheduleCloseAfterApply(action.skillLineID)
         end
         if type(api.RequestTrackerRefresh) == "function" then
             api.RequestTrackerRefresh()
