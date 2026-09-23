@@ -2795,7 +2795,7 @@ function trackerUI.UpdateDashboard()
         dashboard.footer:SetTextColor(UI.Unpack(UI.COLOR.success))
     else
         dashboard.footer:SetText(("Historique %s · temps actif"):format(
-            XPTracker.GetXPModeConfig().label))
+            trackerUI.GetXPModeConfig().label))
         dashboard.footer:SetTextColor(UI.Unpack(UI.COLOR.textMuted))
     end
 end
@@ -3557,7 +3557,6 @@ eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_MONEY")
 eventFrame:RegisterEvent("PLAYER_XP_UPDATE")
 eventFrame:RegisterEvent("PLAYER_LEVEL_UP")
-eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("CHAT_MSG_LOOT")
 eventFrame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
