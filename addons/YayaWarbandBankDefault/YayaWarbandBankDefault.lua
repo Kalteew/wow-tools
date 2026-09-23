@@ -262,47 +262,11 @@ local providers = {
 			local selected = GetPanelField(panel, "GetSelectedTabID", "selectedTabID")
 			return activeType == GetAccountBankType() and selected == target
 		end,
-		Apply = function(target)
-			local bankFrame = _G.BankFrame
-			local panel = GetBankPanel()
-			if not panel then
-				Debug("blizzard: BankPanel introuvable")
-				return false
-			end
-
-			-- 1. type de banque + onglet de type visuellement selectionne
-			local accountTabID = bankFrame and bankFrame.accountBankTabID
-			if accountTabID and type(bankFrame.SetTab) == "function" then
-				local ok, err = pcall(bankFrame.SetTab, bankFrame, accountTabID)
-				Debug("blizzard: SetTab(" .. tostring(accountTabID) .. ") ok=" .. tostring(ok)
-					.. (ok and "" or (" -> " .. tostring(err))))
-			else
-				Debug("blizzard: accountBankTabID=" .. tostring(accountTabID)
-					.. " SetTab=" .. tostring(bankFrame ~= nil and type(bankFrame.SetTab) == "function"))
-			end
-
-			-- 2. onglet warband : Reset() ne le choisit pas quand les donnees arrivent
-			--    en retard, et SelectTab(-1) sort en early-return depuis le panneau
-			--    d'achat de la banque perso.
-			local selected = GetPanelField(panel, "GetSelectedTabID", "selectedTabID")
-			if selected ~= target then
-				if type(panel.SelectTab) ~= "function" then
-					Debug("blizzard: BankPanel:SelectTab indisponible")
-					return false
-				end
-				local ok, err = pcall(panel.SelectTab, panel, target)
-				Debug("blizzard: SelectTab(" .. tostring(target) .. ") depuis "
-					.. tostring(selected) .. " ok=" .. tostring(ok)
-					.. (ok and "" or (" -> " .. tostring(err))))
-			end
-
-			-- 3. rafraichissement, indispensable si SelectTab est sorti en early-return
-			if type(panel.RefreshBankTabs) == "function" then
-				pcall(panel.RefreshBankTabs, panel)
-			end
-			if type(panel.RefreshBankPanel) == "function" then
-				pcall(panel.RefreshBankPanel, panel)
-			end
+		-- Ne jamais piloter BankFrame/BankPanel depuis un addon : SetTab/SelectTab
+		-- ecrivent bankType, que Blizzard relit ensuite pendant UseContainerItem.
+		-- Le chemin Blizzard garde la selection par defaut et preserve le clic droit.
+		Apply = function()
+			Debug("blizzard: selection ignoree pour eviter le taint du BankPanel")
 			return true
 		end,
 	},
