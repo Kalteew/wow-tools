@@ -123,12 +123,74 @@ function Get-WQTSourceHash {
     }
 }
 
+function Invoke-WQTGroupFinderAutoPatch {
+    param(
+        [string]$AddonPath,
+        [switch]$Quiet,
+        [switch]$DryRun
+    )
+
+    $resolvedAddonPath = Resolve-WQTAddonPath -AddonPath $AddonPath
+    $version = Get-WQTAddonVersion -AddonPath $resolvedAddonPath
+    $sourcePath = Join-Path $resolvedAddonPath "WorldQuestTracker_GroupFinder.lua"
+    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+        throw "Fichier WQT introuvable: $sourcePath"
+    }
+
+    $sourceHash = Get-WQTSourceHash -Path $sourcePath
+    $file = Read-WQTTextFile -Path $sourcePath
+    $marker = "Yaya WQT AutoPatch: default competitive group playstyle"
+    if ($file.Text.Contains($marker)) {
+        Write-WQTAutoPatchLog -Message ("already patched group finder: WQT {0}, SHA256 {1}" -f $version, $sourceHash) -Quiet:$Quiet
+        return
+    }
+
+    $text = $file.Text.Replace("`r`n", "`n")
+    if (-not $text.Contains("CategorySelection.FindGroupButton:Click()")) {
+        throw ("Point d'entrée WQT de création de groupe introuvable (version={0}, SHA256={1})." -f $version, $sourceHash)
+    }
+
+    $replacement = @"
+-- $marker
+-- Default new group listings to the Competitive general playstyle.
+local function YayaWQT_SetCompetitivePlaystyle(self)
+    if not self or LFGListEntryCreation_IsEditMode(self) then
+        return
+    end
+    if Enum and Enum.LFGEntryGeneralPlaystyle then
+        LFGListEntryCreation_OnPlayStyleSelectedInternal(self, Enum.LFGEntryGeneralPlaystyle.FunSerious)
+    end
+end
+
+hooksecurefunc("LFGListEntryCreation_OnShow", YayaWQT_SetCompetitivePlaystyle)
+"@.Trim()
+    $replacement = $replacement.Replace("`r`n", "`n")
+    $patchedText = $text.Insert(0, $replacement + "`n`n")
+    $newline = if ($file.Text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $patchedText = $patchedText.Replace("`n", $newline)
+
+    if ($DryRun) {
+        Write-WQTAutoPatchLog -Message ("dry-run: WQT group finder {0} needs patch, SHA256 {1}" -f $version, $sourceHash) -Quiet:$Quiet
+        return
+    }
+
+    $backupRoot = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "YayaTools\WQTAutoPatch\backups"
+    New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+    $safeVersion = $version -replace '[^A-Za-z0-9._-]', '_'
+    $backupPath = Join-Path $backupRoot ("WorldQuestTracker_GroupFinder.lua.{0}.{1}.bak" -f $safeVersion, (Get-Date).ToString("yyyyMMdd-HHmmss"))
+    Copy-Item -LiteralPath $sourcePath -Destination $backupPath -Force
+    Write-WQTTextFileAtomically -Path $sourcePath -Text $patchedText -HasBom $file.HasBom
+    Write-WQTAutoPatchLog -Message ("patched WQT group finder {0}; backup={1}" -f $version, $backupPath) -Quiet:$Quiet
+}
+
 function Invoke-WQTAutoPatch {
     param(
         [string]$AddonPath,
         [switch]$Quiet,
         [switch]$DryRun
     )
+
+    Invoke-WQTGroupFinderAutoPatch -AddonPath $AddonPath -Quiet:$Quiet -DryRun:$DryRun
 
     $resolvedAddonPath = Resolve-WQTAddonPath -AddonPath $AddonPath
     $version = Get-WQTAddonVersion -AddonPath $resolvedAddonPath
@@ -146,8 +208,6 @@ function Invoke-WQTAutoPatch {
 
     $text = $file.Text.Replace("`r`n", "`n")
     $pattern = '(?m)^hooksecurefunc\(ObjectiveTrackerManager, "UpdateAll", function\(\)\n[ \t]+On_ObjectiveTracker_Update\(\)(?:[ \t]+--v11)?\nend\)\nhooksecurefunc\(ObjectiveTrackerManager, "UpdateModule", function\(\)\n[ \t]+On_ObjectiveTracker_Update\(\)(?:[ \t]+--v11)?\nend\)'
-    # $matches est une variable automatique de PowerShell : on utilise un nom
-    # propre pour eviter toute collision avec l'operateur -match.
     $blockMatches = [regex]::Matches($text, $pattern)
     if ($blockMatches.Count -ne 1) {
         throw ("Bloc WQT attendu introuvable ou ambigu (matches={0}, version={1}, SHA256={2})." -f $blockMatches.Count, $version, $sourceHash)

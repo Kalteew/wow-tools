@@ -24,6 +24,7 @@ data/http-cache/
 data/reports/
 data/flipping/cache/
 data/flipping/generated/
+wcl_mplus/cache/data/
 dist/
 tmp-*.html
 *.log

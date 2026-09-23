@@ -25,6 +25,7 @@ equals("reglage tranche 20", XP.SetLevelBandSize(20), 20)
 equals("tranche 20 configurable", XP.GetLevelBand(21), "21-40")
 XP.SetLevelBandSize(10)
 equals("sous-zone Darkshire canonisee", XP.GetZoneName("Darkshire Town Hall"), "Duskwood")
+equals("sous-zone Farstrider canonisee", XP.GetZoneName("The Farstrider Lodge"), "Loch Modan")
 local legacyZones = {
     zoneXP = { ["Darkshire Town Hall"] = 10 },
     zoneSeconds = { ["Darkshire Town Hall"] = 5 },

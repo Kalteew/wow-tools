@@ -1,0 +1,10 @@
+{
+  "manifestVersion": 1,
+  "name": "wcl-mplus-companion",
+  "version": "0.1.0",
+  "features": ["game_info"],
+  "infoUpdates": ["group_applicants"],
+  "entry": "app.js",
+  "worker": "http://127.0.0.1:28777/v1/applicants/snapshot",
+  "automation": false
+}

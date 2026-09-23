@@ -464,7 +464,9 @@ local function TrimXPSessions(mode)
 end
 
 local function GetCurrentZoneName()
-    local zone = GetZoneText and GetZoneText() or nil
+    -- GetZoneText() retourne la sous-zone (par ex. The Farstrider Lodge).
+    -- GetRealZoneText() est le nom de la zone de carte a conserver dans les stats.
+    local zone = GetRealZoneText and GetRealZoneText() or nil
     if not zone or zone == "" then
         if C_Map and type(C_Map.GetBestMapForUnit) == "function"
             and type(C_Map.GetMapInfo) == "function" then
@@ -474,7 +476,7 @@ local function GetCurrentZoneName()
         end
     end
     if not zone or zone == "" then
-        zone = GetRealZoneText and GetRealZoneText() or ""
+        zone = GetZoneText and GetZoneText() or ""
     end
     if XPTracker and type(XPTracker.GetZoneName) == "function" then
         zone = XPTracker.GetZoneName(zone)

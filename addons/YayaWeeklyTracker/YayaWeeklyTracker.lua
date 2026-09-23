@@ -285,16 +285,6 @@ local MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID = {
             itemID = 257417,
             auctionHouse = true,
         },
-        {
-            label = "Concentrated Silvermoon Health Potion",
-            optionKey = "trackRecipeConcentratedSilvermoonHealthPotion",
-            spellID = 1289744,
-            itemID = 271885,
-            moxieCost = 150,
-            mapID = 2512,
-            x = 58.8,
-            y = 46.0,
-        },
     },
     [2909] = {
         {
@@ -364,6 +354,134 @@ runtimeState.baseProfessionToMidnightSkillLineID = {
     [186] = 2916, -- Mining
     [393] = 2917, -- Skinning
     [197] = 2918, -- Tailoring
+}
+-- Palier 2 : recettes apprises apres completion du petit noyau historique.
+-- Les recettes sans `itemID` sont reconnues par leur spellID, y compris quand
+-- le parchemin de recette dort dans les sacs.
+runtimeState.midnightNewRecipeTrackingBySkillLineID = {
+    [2906] = {
+        {
+            label = "Concentrated Silvermoon Health Potion",
+            spellID = 1289744,
+            itemID = 271885,
+            moxieCost = 150,
+            voidlightMarlCost = 0,
+            mapID = 2512,
+            x = 58.8,
+            y = 46.0,
+        },
+        -- Decouvertes de Camberon's Cauldron. School of Gems est volontairement
+        -- absente : elle ne doit jamais etre apprise ni suivie.
+        { label = "Light's Potential", spellID = 1230869, moxieCost = 50, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Potion of Zealotry", spellID = 1230863, moxieCost = 50, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Lightfused Mana Potion", spellID = 1230865, moxieCost = 0, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Potion of Devoured Dreams", spellID = 1230862, moxieCost = 25, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Draught of Rampant Abandon", spellID = 1230860, moxieCost = 50, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Haranir Phial of Ingenuity", spellID = 1230872, moxieCost = 25, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Flask of the Blood Knights", spellID = 1230877, moxieCost = 50, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Flask of the Magisters", spellID = 1230876, moxieCost = 50, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Flask of the Shattered Sun", spellID = 1230878, moxieCost = 50, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Bouquet of Herbs", spellID = 1230892, moxieCost = 0, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Transmute: Mote of Light", spellID = 1230890, moxieCost = 25, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Transmute: Mote of Primal Energy", spellID = 1230889, moxieCost = 25, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Transmute: Mote of Pure Void", spellID = 1230888, moxieCost = 25, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Primal Philosopher's Stone", spellID = 1230861, moxieCost = 0, voidlightMarlCost = 0, mapID = 2395, x = 47.0, y = 51.8 },
+        { label = "Haranir Preserving Agents", spellID = 1233137, moxieCost = 150, voidlightMarlCost = 0, mapID = 2395, x = 43.4, y = 47.4 },
+        { label = "Sunsmoke Censer", spellID = 1233135, moxieCost = 150, voidlightMarlCost = 0, mapID = 2395, x = 43.4, y = 47.4 },
+    },
+    [2913] = {
+        { label = "Codified Azeroot", spellID = 1230018, voidlightMarlCost = 0 },
+        { label = "Soul Cipher", spellID = 1230019, voidlightMarlCost = 0 },
+        { label = "Sienna Ink", spellID = 1230016, voidlightMarlCost = 0 },
+        { label = "Munsell Ink", spellID = 1230017, voidlightMarlCost = 0 },
+        { label = "Faunatender's Baton", spellID = 1230055, voidlightMarlCost = 0 },
+        { label = "Faunatender's Trust", spellID = 1230058, voidlightMarlCost = 0 },
+        { label = "Floratender's Crutch", spellID = 1230056, voidlightMarlCost = 0 },
+        { label = "Rootwarden's Lamp", spellID = 1230057, voidlightMarlCost = 0 },
+        { label = "Thalassian Missive of the Peerless", spellID = 1230038, voidlightMarlCost = 0 },
+        { label = "Thalassian Missive of the Quickblade", spellID = 1230037, voidlightMarlCost = 0 },
+        { label = "Thalassian Missive of the Fireflash", spellID = 1230040, voidlightMarlCost = 0 },
+        { label = "Thalassian Missive of the Harmonious", spellID = 1230039, voidlightMarlCost = 0 },
+        { label = "Thalassian Missive of the Aurora", spellID = 1230042, voidlightMarlCost = 0 },
+        { label = "Thalassian Missive of the Feverflare", spellID = 1230041, voidlightMarlCost = 0 },
+        { label = "Hobbyist Alchemist's Mixing Rod", spellID = 1230021, voidlightMarlCost = 0 },
+        { label = "Hobbyist Rolling Pin", spellID = 1230020, voidlightMarlCost = 0 },
+        { label = "Hobbyist Scribe's Quill", spellID = 1230022, voidlightMarlCost = 0 },
+        { label = "Vantus Rune: Radiant", spellID = 1230050, voidlightMarlCost = 0 },
+    },
+    [2909] = {
+        { label = "Runed Refulgent Copper Rod", spellID = 1236486, voidlightMarlCost = 0 },
+        { label = "Thalassian Phoenix Oil", spellID = 1236491, voidlightMarlCost = 0 },
+        { label = "Enchant Helm - Blessing of Speed", spellID = 1236070, voidlightMarlCost = 0 },
+        { label = "Enchant Helm - Hex of Leeching", spellID = 1236055, voidlightMarlCost = 0 },
+        { label = "Enchant Helm - Rune of Avoidance", spellID = 1236083, voidlightMarlCost = 0 },
+        { label = "Enchant Ring - Zul'jin's Mastery", spellID = 1236060, voidlightMarlCost = 0 },
+        { label = "Enchant Ring - Nature's Wrath", spellID = 1236073, voidlightMarlCost = 0 },
+        { label = "Enchant Ring - Thalassian Versatility", spellID = 1236087, voidlightMarlCost = 0 },
+        { label = "Enchant Shoulders - Thalassian Recovery", spellID = 1236090, voidlightMarlCost = 0 },
+        { label = "Enchant Shoulders - Flight of the Eagle", spellID = 1236061, voidlightMarlCost = 0 },
+        { label = "Enchant Shoulders - Nature's Grace", spellID = 1236075, voidlightMarlCost = 0 },
+        { label = "Enchant Weapon - Arcane Mastery", spellID = 1236097, voidlightMarlCost = 0 },
+        { label = "Enchant Weapon - Berserker's Rage", spellID = 1236067, voidlightMarlCost = 0 },
+        { label = "Enchant Weapon - Jan'alai's Precision", spellID = 1236066, voidlightMarlCost = 0 },
+        { label = "Enchant Weapon - Worldsoul Aegis", spellID = 1236080, voidlightMarlCost = 0 },
+        { label = "Illusory Adornment - Blooming Light", spellID = 1236098, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Blood Elf", spellID = 1236461, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Dark Iron Dwarf", spellID = 1236463, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Draenei", spellID = 1236465, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Dwarf", spellID = 1236466, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Earthen", spellID = 1236594, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Gnome", spellID = 1236467, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Goblin", spellID = 1236468, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Highmountain Tauren", spellID = 1236469, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Human", spellID = 1236470, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Kul Tiran", spellID = 1236471, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Lightforged Draenei", spellID = 1236472, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Mag'har Orc", spellID = 1236473, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Mechagnome", spellID = 1236474, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Night Elf", spellID = 1236475, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Nightborne", spellID = 1236476, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Orc", spellID = 1236477, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Pandaren", spellID = 1236478, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Tauren", spellID = 1236479, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Troll", spellID = 1236480, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Undead", spellID = 1236481, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Void Elf", spellID = 1236482, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Vulpera", spellID = 1236483, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Worgen", spellID = 1236484, voidlightMarlCost = 0 },
+        { label = "Gleeful Glamour - Zandalari Troll", spellID = 1236485, voidlightMarlCost = 0 },
+    },
+    [2907] = {
+        { label = "Sterling Alloy", spellID = 1230763, voidlightMarlCost = 0 },
+        { label = "Gloaming Alloy", spellID = 1230762, voidlightMarlCost = 0 },
+        { label = "Refulgent Copper Ingot", spellID = 1230761, voidlightMarlCost = 0 },
+        { label = "Blood-Tempered Leggings", spellID = 1229624, voidlightMarlCost = 0 },
+        { label = "Blood-Tempered Pauldrons", spellID = 1229622, voidlightMarlCost = 0 },
+        { label = "Blood-Tempered Greaves", spellID = 1229629, voidlightMarlCost = 0 },
+        { label = "Blood-Tempered Basinet", spellID = 1229625, voidlightMarlCost = 0 },
+        { label = "Blood-Tempered Gauntlets", spellID = 1229621, voidlightMarlCost = 0 },
+        { label = "Blood-Tempered Bulwark", spellID = 1229626, voidlightMarlCost = 0 },
+        { label = "Blood-Tempered Greatbelt", spellID = 1229627, voidlightMarlCost = 0 },
+        { label = "Blood-Tempered Bracers", spellID = 1229623, voidlightMarlCost = 0 },
+        { label = "Blood-Tempered Chestplate", spellID = 1229628, voidlightMarlCost = 0 },
+        { label = "Dawnforged War Mace", spellID = 1229616, voidlightMarlCost = 0 },
+        { label = "Primalforged Knuckles", spellID = 1229617, voidlightMarlCost = 0 },
+        { label = "Dawnforged Long Blade", spellID = 1229618, voidlightMarlCost = 0 },
+        { label = "Dawnforged Splitter", spellID = 1229615, voidlightMarlCost = 0 },
+        { label = "Dawnforged Edge", spellID = 1229619, voidlightMarlCost = 0 },
+        { label = "Dawnforged Ritual Knife", spellID = 1229620, voidlightMarlCost = 0 },
+        { label = "Primalforged Heavy Axe", spellID = 1229614, voidlightMarlCost = 0 },
+        { label = "Thalassian Blacksmith's Hammer", spellID = 1229606, voidlightMarlCost = 0 },
+        { label = "Thalassian Blacksmith's Toolbox", spellID = 1229611, voidlightMarlCost = 0 },
+        { label = "Thalassian Leatherworker's Knife", spellID = 1229607, voidlightMarlCost = 0 },
+        { label = "Thalassian Leatherworker's Toolset", spellID = 1229612, voidlightMarlCost = 0 },
+        { label = "Thalassian Needle Set", spellID = 1229613, voidlightMarlCost = 0 },
+        { label = "Thalassian Pickaxe", spellID = 1229609, voidlightMarlCost = 0 },
+        { label = "Thalassian Sickle", spellID = 1229610, voidlightMarlCost = 0 },
+        { label = "Thalassian Skinning Knife", spellID = 1229608, voidlightMarlCost = 0 },
+        { label = "Refulgent Weightstone", spellID = 1230759, voidlightMarlCost = 0 },
+        { label = "Refulgent Razorstone", spellID = 1230760, voidlightMarlCost = 0 },
+    },
 }
 local ARTISAN_CONSORTIUM_PAYOUT_ITEM_IDS = {
     [227713] = true,
@@ -1150,7 +1268,6 @@ local TRACKER_DEFAULTS = {
     autoOpenContainers = false,
     trackRecipePotionRecklessness = true,
     trackRecipeViciousThalassianFlaskHonor = true,
-    trackRecipeConcentratedSilvermoonHealthPotion = true,
     trackRecipeHaranirMulticrafting = true,
     trackRecipeHaranirGlamour = true,
     trackHaranirLegends = true,
@@ -1252,7 +1369,6 @@ runtimeState.trackingOptions = {
     { category = "Conteneurs", key = "autoOpenContainers", effect = "autoopen", label = "Proposer l'ouverture securisee des conteneurs YWT" },
     { category = "Recettes Midnight", key = "trackRecipePotionRecklessness", label = "Potion of Recklessness" },
     { category = "Recettes Midnight", key = "trackRecipeViciousThalassianFlaskHonor", label = "Vicious Thalassian Flask of Honor" },
-    { category = "Recettes Midnight", key = "trackRecipeConcentratedSilvermoonHealthPotion", label = "Concentrated Silvermoon Health Potion" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirMulticrafting", label = "Enchant Tool - Haranir Multicrafting" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirGlamour", label = "Gleeful Glamour - Haranir" },
 }
@@ -1637,7 +1753,6 @@ local function GetAccountDB()
         for _, key in ipairs({
             "trackRecipePotionRecklessness",
             "trackRecipeViciousThalassianFlaskHonor",
-            "trackRecipeConcentratedSilvermoonHealthPotion",
             "trackRecipeHaranirMulticrafting",
             "trackRecipeHaranirGlamour",
         }) do
@@ -6931,6 +7046,26 @@ trackerUI.GetRecipeKnownFromTooltip = function(itemID)
     return false
 end
 
+trackerUI.GetMidnightRecipeCacheKey = function(recipe)
+    if not recipe then
+        return "none"
+    end
+    return recipe.itemID or ("spell:" .. tostring(recipe.spellID))
+end
+
+trackerUI.GetMidnightRecipeDefinitions = function(skillLineID)
+    local recipes = {}
+    local existingRecipes = MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID[skillLineID]
+    local newRecipes = runtimeState.midnightNewRecipeTrackingBySkillLineID[skillLineID]
+    for _, recipe in ipairs(existingRecipes or EMPTY_TABLE) do
+        recipes[#recipes + 1] = recipe
+    end
+    for _, recipe in ipairs(newRecipes or EMPTY_TABLE) do
+        recipes[#recipes + 1] = recipe
+    end
+    return recipes
+end
+
 local function IsMidnightRecipeKnown(recipe)
     if not recipe then
         return true
@@ -6938,13 +7073,14 @@ local function IsMidnightRecipeKnown(recipe)
 
     local characterDB = GetCharacterDB()
     characterDB.knownMidnightRecipes = characterDB.knownMidnightRecipes or {}
-    if characterDB.knownMidnightRecipes[recipe.itemID] == true then
+    local cacheKey = trackerUI.GetMidnightRecipeCacheKey(recipe)
+    if characterDB.knownMidnightRecipes[cacheKey] == true then
         return true
     end
 
     local tooltipKnown = trackerUI.GetRecipeKnownFromTooltip(recipe.itemID)
     if tooltipKnown == true then
-        characterDB.knownMidnightRecipes[recipe.itemID] = true
+        characterDB.knownMidnightRecipes[cacheKey] = true
         midnightCaches.recipeItemsDirty = true
         return tooltipKnown
     elseif tooltipKnown == false then
@@ -6954,9 +7090,14 @@ local function IsMidnightRecipeKnown(recipe)
     if C_TradeSkillUI and recipe.spellID and type(C_TradeSkillUI.GetRecipeInfo) == "function" then
         local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipe.spellID)
         if type(recipeInfo) == "table" and recipeInfo.learned == true then
-            characterDB.knownMidnightRecipes[recipe.itemID] = true
+            characterDB.knownMidnightRecipes[cacheKey] = true
             midnightCaches.recipeItemsDirty = true
             return true
+        elseif type(recipeInfo) == "table" and recipeInfo.learned == false and not recipe.itemID then
+            -- Les recettes du palier 2 sont adressees directement par spellID :
+            -- pour elles, le retour structure de l'API distingue bien « pas
+            -- encore apprise » d'une donnee simplement non chargee.
+            return false
         end
     end
 
@@ -6973,16 +7114,18 @@ local function IsMidnightRecipeKnown(recipe)
             false
         )
         if known == true then
-            characterDB.knownMidnightRecipes[recipe.itemID] = true
+            characterDB.knownMidnightRecipes[cacheKey] = true
             midnightCaches.recipeItemsDirty = true
             return true
+        elseif known == false and not recipe.itemID then
+            return false
         end
     end
 
     if C_TradeSkillUI and recipe.itemID and type(C_TradeSkillUI.GetRecipeInfoForItemID) == "function" then
         local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfoForItemID, recipe.itemID)
         if type(recipeInfo) == "table" and recipeInfo.learned == true then
-            characterDB.knownMidnightRecipes[recipe.itemID] = true
+            characterDB.knownMidnightRecipes[cacheKey] = true
             midnightCaches.recipeItemsDirty = true
             return true
         end
@@ -7000,14 +7143,19 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
     local previous = midnightCaches.recipeItems
     trackedRows = trackedRows or GetTrackedMidnightProfessions()
     local trackedRecipesByItemID = {}
+    local trackedRecipes = {}
     for _, row in ipairs(trackedRows or EMPTY_TABLE) do
-        local recipes = MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID[row.skillLineID]
-        for _, recipe in ipairs(recipes or EMPTY_TABLE) do
+        local recipes = trackerUI.GetMidnightRecipeDefinitions(row.skillLineID)
+        for _, recipe in ipairs(recipes) do
             if GetAccountDB()[recipe.optionKey] ~= false then
                 local known = IsMidnightRecipeKnown(recipe)
                 if known == nil then
                     runtimeState.midnightRecipeStatePending = true
-                elseif not known then
+                end
+                if known ~= true then
+                    trackedRecipes[#trackedRecipes + 1] = recipe
+                end
+                if known ~= true and recipe.itemID then
                     trackedRecipesByItemID[recipe.itemID] = recipe
                 end
             end
@@ -7018,13 +7166,32 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
     local firstMatch
     local totalCount = 0
     local countsByItemID = {}
+    local countsByRecipeKey = {}
     for bagID = 0, maxBagIndex do
         local slotCount = GetContainerNumSlotsCompat(bagID)
         for slotIndex = 1, slotCount do
             local itemID = GetContainerItemIDCompat(bagID, slotIndex)
-            if itemID and trackedRecipesByItemID[itemID] then
+            local recipe = itemID and trackedRecipesByItemID[itemID] or nil
+            if not recipe and itemID and C_TradeSkillUI
+                and type(C_TradeSkillUI.GetRecipeInfoForItemID) == "function" then
+                local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfoForItemID, itemID)
+                local recipeID = type(recipeInfo) == "table"
+                    and (recipeInfo.recipeID or recipeInfo.spellID or recipeInfo.recipeSpellID)
+                    or nil
+                if recipeID then
+                    for _, candidate in ipairs(trackedRecipes) do
+                        if candidate.spellID == recipeID then
+                            recipe = candidate
+                            break
+                        end
+                    end
+                end
+            end
+            if itemID and recipe then
                 local count = math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
                 countsByItemID[itemID] = (countsByItemID[itemID] or 0) + count
+                local recipeKey = trackerUI.GetMidnightRecipeCacheKey(recipe)
+                countsByRecipeKey[recipeKey] = (countsByRecipeKey[recipeKey] or 0) + count
                 totalCount = totalCount + count
                 if not firstMatch then
                     firstMatch = {
@@ -7042,6 +7209,7 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
     local result = {
         totalCount = totalCount,
         countsByItemID = countsByItemID,
+        countsByRecipeKey = countsByRecipeKey,
         bagID = firstMatch and firstMatch.bagID or nil,
         itemID = firstMatch and firstMatch.itemID or nil,
         itemLink = firstMatch and firstMatch.itemLink or nil,
@@ -7078,32 +7246,76 @@ trackerUI.GetMidnightRecipeStatus = function(row)
         requiredVoidlightMarl = 0,
         currentVoidlightMarl = 0,
     }
-    local recipes = row and row.skillLineID and MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID[row.skillLineID]
-    if not recipes then
+    local skillLineID = row and row.skillLineID
+    local existingRecipes = skillLineID and MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID[skillLineID]
+    local newRecipes = skillLineID and runtimeState.midnightNewRecipeTrackingBySkillLineID[skillLineID]
+    if not existingRecipes and not newRecipes then
         return result
     end
 
     local playerLevel = UnitLevel and UnitLevel("player") or 0
     local recipeItems = trackerUI.FindMidnightRecipeInBags()
-    for _, recipe in ipairs(recipes) do
+    local accountDB = GetAccountDB()
+    local tierOneComplete = true
+
+    local function IsRecipeInBags(recipe)
+        local countsByRecipeKey = recipeItems.countsByRecipeKey or EMPTY_TABLE
+        return (countsByRecipeKey[trackerUI.GetMidnightRecipeCacheKey(recipe)] or 0) > 0
+    end
+
+    local function EvaluateRecipe(recipe, collectMissing)
         local requiresAbundance = recipe.abundance == true
             or (tonumber(recipe.abundanceCost) or 0) > 0
-        if GetAccountDB()[recipe.optionKey] ~= false
-            and (not requiresAbundance or playerLevel >= runtimeState.minimumMidnightAbundanceLevel) then
-            local known = IsMidnightRecipeKnown(recipe)
-            if known == nil then
-                runtimeState.midnightRecipeStatePending = true
-            elseif not known and (recipeItems.countsByItemID[recipe.itemID] or 0) == 0 then
-                result.missingRecipes[#result.missingRecipes + 1] = recipe
-                -- Une recette achetee a l'hotel des ventes ne coute aucune monnaie de metier.
-                if not recipe.auctionHouse then
-                    result.requiredMoxie = result.requiredMoxie + (recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST)
-                    result.requiredVoidlightMarl = result.requiredVoidlightMarl
-                        + (recipe.voidlightMarlCost or runtimeState.midnightRecipeVoidlightMarlCost)
+        if accountDB[recipe.optionKey] == false then
+            return true
+        end
+        if requiresAbundance and playerLevel < runtimeState.minimumMidnightAbundanceLevel then
+            return true
+        end
+
+        local inBags = IsRecipeInBags(recipe)
+        local known = inBags and true or IsMidnightRecipeKnown(recipe)
+        if known == nil then
+            runtimeState.midnightRecipeStatePending = true
+            return false
+        end
+        if known then
+            return true
+        end
+
+        if collectMissing then
+            result.missingRecipes[#result.missingRecipes + 1] = recipe
+            -- Une recette achetee a l'hotel des ventes ne coute aucune monnaie de metier.
+            if not recipe.auctionHouse then
+                local moxieCost = recipe.moxieCost
+                if moxieCost == nil then
+                    -- Les entrees sans itemID sont les recettes de trainer :
+                    -- elles ne coutent pas de Moxie. Les anciennes recettes
+                    -- adressees par itemID gardent le repli historique.
+                    moxieCost = recipe.itemID and MIDNIGHT_RECIPE_MOXIE_COST or 0
                 end
+                result.requiredMoxie = result.requiredMoxie + moxieCost
+                result.requiredVoidlightMarl = result.requiredVoidlightMarl
+                    + (recipe.voidlightMarlCost or runtimeState.midnightRecipeVoidlightMarlCost)
             end
         end
+        return false
     end
+
+    -- Le palier historique est toujours visible et decide si le palier 2
+    -- devient actif. Une profession sans palier historique est deja complete.
+    for _, recipe in ipairs(existingRecipes or EMPTY_TABLE) do
+        if not EvaluateRecipe(recipe, true) then
+            tierOneComplete = false
+        end
+    end
+
+    if tierOneComplete then
+        for _, recipe in ipairs(newRecipes or EMPTY_TABLE) do
+            EvaluateRecipe(recipe, true)
+        end
+    end
+
     if result.requiredMoxie > 0 then
         result.currentMoxie = GetCurrencyQuantity(row.moxieCurrencyID or MIDNIGHT_MOXIE_CURRENCY_IDS[row.skillLineID])
     end
@@ -7652,6 +7864,9 @@ runtimeState.testSeams = {
     GetTrackedProfessions = GetTrackedMidnightProfessions,
     BuildTokens = trackerUI.BuildMidnightProfessionTokens,
     GetWarningTokens = trackerUI.GetMidnightProfessionWarningTokens,
+    GetRecipeStatus = trackerUI.GetMidnightRecipeStatus,
+    FindRecipeItems = trackerUI.FindMidnightRecipeInBags,
+    InvalidateRecipeItems = trackerUI.InvalidateMidnightRecipeItemCache,
 }
 
 trackerUI.NotifyContainerOpening = function(button, _, down)

@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WCL M+</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+  <main class="panel">
+    <header><h1>WCL M+</h1><span id="state" class="state loading">loading</span></header>
+    <p id="message">Chargement des candidatures…</p>
+    <section id="applicants" aria-live="polite"></section>
+    <details><summary>Simulateur JSON</summary><textarea id="json" spellcheck="false">[{"applicant_id":"demo-1","name":"Azaelle","realm":"Hyjal","region":"EU","status":"active"}]</textarea><button id="simulate">Simuler</button></details>
+  </main>
+  <script src="overlay.js"></script>
+</body>
+</html>

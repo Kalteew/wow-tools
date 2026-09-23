@@ -48,6 +48,26 @@ from wow_tools.sources.blizzard import BlizzardClient
 _GUI_SINGLE_INSTANCE_HOST = "127.0.0.1"
 _GUI_SINGLE_INSTANCE_PORT = 46321
 
+# Shared visual language for the desktop app.  Keeping these tokens here makes
+# new tabs inherit the same product surface instead of growing another theme.
+_UI_COLORS = {
+    "app": "#0d131b",
+    "surface": "#151e29",
+    "surface_raised": "#1c2836",
+    "surface_hover": "#26384c",
+    "border": "#2b3b4f",
+    "border_strong": "#3b5068",
+    "text": "#e8edf3",
+    "muted": "#94a3b5",
+    "accent": "#e4b95f",
+    "accent_soft": "#f2d58b",
+    "danger": "#c95b58",
+    "danger_hover": "#e2766d",
+    "selection": "#2c5b83",
+    "selection_text": "#f5f8fb",
+    "success": "#7bc7a4",
+}
+
 
 @dataclass
 class _TabState:
@@ -518,7 +538,7 @@ class ProfitabilityGui:
         self.root.title("WoW Tools - Marché EU")
         # Keep the native Windows frame so the app appears in the taskbar and Alt-Tab.
         self.root.overrideredirect(False)
-        self.root.configure(background="#0b0908")
+        self.root.configure(background=_UI_COLORS["app"])
         self.root.geometry("1400x900+60+40")
         self.root.minsize(1100, 760)
         self._setup_style()
@@ -529,7 +549,7 @@ class ProfitabilityGui:
         ensure_favorite_spell_ids(conn, default_favorite_spell_ids())
         conn.close()
 
-        container = ttk.Frame(self.content_host, padding=12, style="Exchange.TFrame")
+        container = ttk.Frame(self.content_host, padding=14, style="Exchange.TFrame")
         container.pack(fill="both", expand=True)
 
         notebook = ttk.Notebook(container)
@@ -552,17 +572,18 @@ class ProfitabilityGui:
         self.root.after(500, lambda: self._start_exchange_search(self.exchange_tab))
 
     def _build_window_chrome(self) -> None:
+        colors = _UI_COLORS
         shell = tk.Frame(
             self.root,
-            background="#7d6428",
-            highlightbackground="#b1923a",
-            highlightcolor="#b1923a",
+            background=colors["border"],
+            highlightbackground=colors["border_strong"],
+            highlightcolor=colors["border_strong"],
             highlightthickness=1,
         )
         shell.pack(fill="both", expand=True, padx=4, pady=4)
         self.window_shell = shell
 
-        titlebar = tk.Frame(shell, background="#241b19", height=30)
+        titlebar = tk.Frame(shell, background=colors["surface"], height=38)
         titlebar.pack(fill="x", padx=2, pady=(2, 0))
         titlebar.pack_propagate(False)
         self.titlebar = titlebar
@@ -570,11 +591,11 @@ class ProfitabilityGui:
         title = tk.Label(
             titlebar,
             text="WoW Tools  ·  Marché EU",
-            background="#241b19",
-            foreground="#f1c62f",
-            font=("Segoe UI", 10, "bold"),
+            background=colors["surface"],
+            foreground=colors["accent_soft"],
+            font=("Segoe UI", 11, "bold"),
             anchor="w",
-            padx=10,
+            padx=14,
         )
         title.pack(side="left", fill="both", expand=True)
 
@@ -582,19 +603,19 @@ class ProfitabilityGui:
             titlebar,
             text="×",
             command=self.root.destroy,
-            background="#760000",
-            foreground="#ffe36a",
-            activebackground="#a51a10",
-            activeforeground="#fff1c2",
+            background=colors["surface_raised"],
+            foreground=colors["muted"],
+            activebackground=colors["danger"],
+            activeforeground=colors["selection_text"],
             relief="flat",
             borderwidth=0,
-            font=("Segoe UI Symbol", 13, "bold"),
-            width=3,
+            font=("Segoe UI Symbol", 14, "bold"),
+            width=4,
             cursor="hand2",
         )
-        close_button.pack(side="right", fill="y", padx=(0, 2), pady=2)
+        close_button.pack(side="right", fill="y", padx=(0, 3), pady=3)
 
-        self.content_host = tk.Frame(shell, background="#111010")
+        self.content_host = tk.Frame(shell, background=colors["app"])
         self.content_host.pack(fill="both", expand=True, padx=2, pady=(0, 2))
 
         titlebar.bind("<ButtonPress-1>", self._start_window_drag)
@@ -613,56 +634,126 @@ class ProfitabilityGui:
         self.root.geometry(f"+{event.x_root - offset_x}+{event.y_root - offset_y}")
 
     def _setup_style(self) -> None:
+        colors = _UI_COLORS
         style = ttk.Style(self.root)
         for theme in ("clam", "vista", "default"):
             if theme in style.theme_names():
                 style.theme_use(theme)
                 break
-        style.configure("Header.TLabel", font=("Segoe UI", 12, "bold"))
-        style.configure("Summary.TLabel", font=("Segoe UI", 10))
-        style.configure("SpecHero.TLabel", font=("Segoe UI", 14, "bold"))
-        style.configure("SpecSubhero.TLabel", font=("Segoe UI", 10))
-        style.configure("SpecKey.TLabel", font=("Segoe UI", 9, "bold"))
-        style.configure("SpecValue.TLabel", font=("Segoe UI", 10))
-        style.configure("AuctionTitle.TLabel", font=("Segoe UI", 17, "bold"), foreground="#173b63")
-        style.configure("AuctionSubtitle.TLabel", font=("Segoe UI", 9), foreground="#687483")
-        style.configure("AuctionKey.TLabel", font=("Segoe UI", 9, "bold"))
-        style.configure("AuctionAccent.TButton", font=("Segoe UI", 9, "bold"))
-        style.configure("Auction.Treeview", rowheight=34, font=("Segoe UI", 10))
-        style.configure("Auction.Treeview.Heading", font=("Segoe UI", 9, "bold"))
-        style.configure("Category.TLabel", anchor="w", font=("Segoe UI", 9), padding=(8, 5))
+        # Native Tk widgets used by the app should feel like the themed ttk ones.
+        self.root.option_add("*Text.background", colors["surface_raised"])
+        self.root.option_add("*Text.foreground", colors["text"])
+        self.root.option_add("*Text.insertBackground", colors["accent"])
+        self.root.option_add("*Listbox.background", colors["surface_raised"])
+        self.root.option_add("*Listbox.foreground", colors["text"])
+        self.root.option_add("*Listbox.selectBackground", colors["selection"])
+        self.root.option_add("*Listbox.selectForeground", colors["selection_text"])
 
-        exchange_bg = "#111010"
-        exchange_panel = "#1c1818"
-        exchange_bar = "#2d2524"
-        exchange_gold = "#f1c62f"
-        exchange_text = "#eee9e2"
-        exchange_muted = "#b8aaa0"
-        exchange_red = "#760000"
+        style.configure("TFrame", background=colors["surface"])
+        style.configure("TLabel", background=colors["surface"], foreground=colors["text"], font=("Segoe UI", 10))
+        style.configure("TSeparator", background=colors["border"])
+        style.configure(
+            "TLabelframe",
+            background=colors["surface"],
+            foreground=colors["text"],
+            bordercolor=colors["border"],
+            lightcolor=colors["border"],
+            darkcolor=colors["border"],
+            relief="solid",
+            padding=10,
+        )
+        style.configure("TLabelframe.Label", background=colors["surface"], foreground=colors["accent"], font=("Segoe UI", 9, "bold"))
+        style.configure("Header.TLabel", background=colors["surface"], foreground=colors["text"], font=("Segoe UI", 17, "bold"))
+        style.configure("Summary.TLabel", background=colors["surface"], foreground=colors["muted"], font=("Segoe UI", 10))
+        style.configure("SpecHero.TLabel", background=colors["surface"], foreground=colors["accent_soft"], font=("Segoe UI", 14, "bold"))
+        style.configure("SpecSubhero.TLabel", background=colors["surface"], foreground=colors["muted"], font=("Segoe UI", 10))
+        style.configure("SpecKey.TLabel", background=colors["surface"], foreground=colors["accent"], font=("Segoe UI", 9, "bold"))
+        style.configure("SpecValue.TLabel", background=colors["surface"], foreground=colors["text"], font=("Segoe UI", 10))
+
+        style.configure(
+            "TButton",
+            background=colors["surface_raised"],
+            foreground=colors["text"],
+            bordercolor=colors["border_strong"],
+            lightcolor=colors["surface_raised"],
+            darkcolor=colors["border"],
+            padding=(12, 7),
+            font=("Segoe UI", 9, "bold"),
+        )
+        style.map(
+            "TButton",
+            background=[("active", colors["surface_hover"]), ("pressed", colors["border"])],
+            foreground=[("disabled", colors["muted"]), ("!disabled", colors["text"])],
+        )
+        style.configure(
+            "Accent.TButton",
+            background=colors["accent"],
+            foreground=colors["app"],
+            bordercolor=colors["accent"],
+            lightcolor=colors["accent_soft"],
+            darkcolor=colors["accent"],
+            padding=(14, 7),
+            font=("Segoe UI", 9, "bold"),
+        )
+        style.map("Accent.TButton", background=[("active", colors["accent_soft"]), ("pressed", colors["accent"])], foreground=[("disabled", colors["muted"]), ("!disabled", colors["app"])])
+        style.configure("TCheckbutton", background=colors["surface"], foreground=colors["text"], font=("Segoe UI", 9))
+        style.map("TCheckbutton", foreground=[("disabled", colors["muted"]), ("active", colors["accent_soft"])])
+        style.configure("TRadiobutton", background=colors["surface"], foreground=colors["text"])
+
+        style.configure("TEntry", fieldbackground=colors["surface_raised"], foreground=colors["text"], insertcolor=colors["accent"], bordercolor=colors["border_strong"], padding=(8, 6))
+        style.configure("TCombobox", fieldbackground=colors["surface_raised"], background=colors["surface_raised"], foreground=colors["text"], arrowcolor=colors["accent"], bordercolor=colors["border_strong"], padding=(6, 5))
+        style.map("TCombobox", fieldbackground=[("readonly", colors["surface_raised"])], foreground=[("readonly", colors["text"])])
+        style.configure("TSpinbox", fieldbackground=colors["surface_raised"], foreground=colors["text"], bordercolor=colors["border_strong"], arrowcolor=colors["accent"], padding=(6, 5))
+
+        style.configure("Treeview", background=colors["surface_raised"], fieldbackground=colors["surface_raised"], foreground=colors["text"], rowheight=32, font=("Segoe UI", 10), bordercolor=colors["border"], relief="flat")
+        style.configure("Treeview.Heading", background=colors["surface_hover"], foreground=colors["accent_soft"], relief="flat", padding=(8, 8), font=("Segoe UI", 9, "bold"))
+        style.map("Treeview", background=[("selected", colors["selection"])], foreground=[("selected", colors["selection_text"])])
+        style.configure("TScrollbar", background=colors["surface_raised"], troughcolor=colors["app"], bordercolor=colors["app"], arrowcolor=colors["muted"])
+        style.configure("TPanedwindow", background=colors["app"], sashthickness=8)
+
+        style.configure("TNotebook", background=colors["app"], borderwidth=0, tabmargins=(6, 6, 6, 0))
+        style.configure("TNotebook.Tab", background=colors["surface_raised"], foreground=colors["muted"], padding=(16, 9), borderwidth=0, font=("Segoe UI", 9, "bold"))
+        style.map("TNotebook.Tab", background=[("selected", colors["surface_hover"]), ("active", colors["border"])], foreground=[("selected", colors["accent_soft"]), ("active", colors["text"])])
+
+        # Legacy per-tab style names stay available, but now inherit the same
+        # design tokens so no page can drift into a separate visual language.
+        style.configure("AuctionTitle.TLabel", background=colors["surface"], foreground=colors["text"], font=("Segoe UI", 17, "bold"))
+        style.configure("AuctionSubtitle.TLabel", background=colors["surface"], foreground=colors["muted"], font=("Segoe UI", 9))
+        style.configure("AuctionKey.TLabel", background=colors["surface"], foreground=colors["accent"], font=("Segoe UI", 9, "bold"))
+        style.configure("AuctionAccent.TButton", background=colors["accent"], foreground=colors["app"], bordercolor=colors["accent"], padding=(14, 7), font=("Segoe UI", 9, "bold"))
+        style.map("AuctionAccent.TButton", background=[("active", colors["accent_soft"]), ("pressed", colors["accent"])], foreground=[("!disabled", colors["app"])])
+        style.configure("Auction.Treeview", background=colors["surface_raised"], fieldbackground=colors["surface_raised"], foreground=colors["text"], rowheight=32, font=("Segoe UI", 10), bordercolor=colors["border"])
+        style.configure("Auction.Treeview.Heading", background=colors["surface_hover"], foreground=colors["accent_soft"], relief="flat", padding=(8, 8), font=("Segoe UI", 9, "bold"))
+        style.map("Auction.Treeview", background=[("selected", colors["selection"])], foreground=[("selected", colors["selection_text"])])
+        style.configure("Category.TLabel", background=colors["surface"], foreground=colors["text"], anchor="w", font=("Segoe UI", 9), padding=(8, 5))
+
+        exchange_bg = colors["app"]
+        exchange_panel = colors["surface"]
+        exchange_bar = colors["surface_hover"]
+        exchange_gold = colors["accent"]
+        exchange_text = colors["text"]
+        exchange_muted = colors["muted"]
         style.configure("Exchange.TFrame", background=exchange_bg)
         style.configure("Exchange.TPanedwindow", background=exchange_bg)
         style.configure("Exchange.TLabel", background=exchange_bg, foreground=exchange_text)
-        style.configure("Exchange.Title.TLabel", background=exchange_bg, foreground=exchange_gold, font=("Segoe UI", 17, "bold"))
+        style.configure("Exchange.Title.TLabel", background=exchange_bg, foreground=colors["accent_soft"], font=("Segoe UI", 17, "bold"))
         style.configure("Exchange.Muted.TLabel", background=exchange_bg, foreground=exchange_muted, font=("Segoe UI", 9))
         style.configure("Exchange.Key.TLabel", background=exchange_panel, foreground=exchange_gold, font=("Segoe UI", 9, "bold"))
-        style.configure("Exchange.TLabelframe", background=exchange_bg, foreground=exchange_gold, bordercolor="#51453d", relief="solid")
+        style.configure("Exchange.TLabelframe", background=exchange_bg, foreground=exchange_text, bordercolor=colors["border"], relief="solid", padding=10)
         style.configure("Exchange.TLabelframe.Label", background=exchange_bg, foreground=exchange_gold, font=("Segoe UI", 9, "bold"))
-        style.configure("Exchange.Category.TLabel", background=exchange_bar, foreground=exchange_gold, anchor="w", padding=(9, 5), font=("Segoe UI", 9, "bold"))
-        style.configure("Exchange.TButton", background=exchange_red, foreground=exchange_gold, bordercolor="#b69a32", lightcolor="#a91b12", darkcolor="#3b0000", padding=(12, 5), font=("Segoe UI", 9, "bold"))
-        style.map("Exchange.TButton", background=[("active", "#a51a10"), ("pressed", "#4b0000")], foreground=[("disabled", "#77706b"), ("!disabled", exchange_gold)])
-        style.configure("Exchange.TEntry", fieldbackground=exchange_panel, foreground=exchange_text, insertcolor=exchange_gold, bordercolor="#66544a")
-        style.configure("Exchange.TCombobox", fieldbackground=exchange_panel, background=exchange_panel, foreground=exchange_text, arrowcolor=exchange_gold, bordercolor="#66544a")
+        style.configure("Exchange.Category.TLabel", background=exchange_bar, foreground=exchange_text, anchor="w", padding=(10, 7), font=("Segoe UI", 9, "bold"))
+        style.configure("Exchange.TButton", background=colors["surface_raised"], foreground=exchange_gold, bordercolor=colors["border_strong"], lightcolor=colors["surface_raised"], darkcolor=colors["border"], padding=(12, 7), font=("Segoe UI", 9, "bold"))
+        style.map("Exchange.TButton", background=[("active", colors["surface_hover"]), ("pressed", colors["border"])], foreground=[("disabled", colors["muted"]), ("!disabled", exchange_gold)])
+        style.configure("Exchange.TEntry", fieldbackground=exchange_panel, foreground=exchange_text, insertcolor=exchange_gold, bordercolor=colors["border_strong"], padding=(8, 6))
+        style.configure("Exchange.TCombobox", fieldbackground=exchange_panel, background=exchange_panel, foreground=exchange_text, arrowcolor=exchange_gold, bordercolor=colors["border_strong"], padding=(6, 5))
         style.map("Exchange.TCombobox", fieldbackground=[("readonly", exchange_panel)], foreground=[("readonly", exchange_text)])
-        style.configure("Exchange.Treeview", background=exchange_bg, fieldbackground=exchange_bg, foreground=exchange_text, rowheight=32, font=("Segoe UI", 10), bordercolor="#51453d")
-        style.configure("Exchange.Treeview.Heading", background=exchange_bar, foreground=exchange_gold, relief="flat", font=("Segoe UI", 9, "bold"))
-        style.map("Exchange.Treeview", background=[("selected", "#75170f")], foreground=[("selected", "#fff1c2")])
+        style.configure("Exchange.Treeview", background=exchange_panel, fieldbackground=exchange_panel, foreground=exchange_text, rowheight=32, font=("Segoe UI", 10), bordercolor=colors["border"])
+        style.configure("Exchange.Treeview.Heading", background=exchange_bar, foreground=exchange_gold, relief="flat", padding=(8, 8), font=("Segoe UI", 9, "bold"))
+        style.map("Exchange.Treeview", background=[("selected", colors["selection"])], foreground=[("selected", colors["selection_text"])])
         style.configure("Exchange.TScrollbar", background=exchange_bar, troughcolor=exchange_bg, bordercolor=exchange_bg, arrowcolor=exchange_gold)
-        style.configure("TNotebook", background=exchange_bg, borderwidth=0)
-        style.configure("TNotebook.Tab", background=exchange_bar, foreground=exchange_gold, padding=(12, 5), font=("Segoe UI", 9, "bold"))
-        style.map("TNotebook.Tab", background=[("selected", exchange_red)], foreground=[("selected", "#fff1c2")])
 
     def _build_tab(self, notebook: ttk.Notebook, title: str, *, kind: str) -> _TabState:
-        frame = ttk.Frame(notebook, padding=10)
+        frame = ttk.Frame(notebook, padding=16)
         notebook.add(frame, text=title)
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(2, weight=1)
@@ -736,7 +827,7 @@ class ProfitabilityGui:
         details_box.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
         details_box.columnconfigure(0, weight=1)
         details_box.rowconfigure(0, weight=1)
-        details_text = tk.Text(details_box, wrap="word", height=10, font=("Consolas", 10))
+        details_text = tk.Text(details_box, wrap="word", height=10, font=("Segoe UI", 10), padx=8, pady=8, relief="flat")
         details_text.grid(row=0, column=0, sticky="nsew")
         details_text.configure(state="disabled")
 
@@ -797,7 +888,7 @@ class ProfitabilityGui:
         return tree
 
     def _build_characters_tab(self, notebook: ttk.Notebook) -> _CharactersTabState:
-        frame = ttk.Frame(notebook, padding=10)
+        frame = ttk.Frame(notebook, padding=16)
         notebook.add(frame, text="Personnages")
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(2, weight=3)
@@ -856,7 +947,7 @@ class ProfitabilityGui:
         details_box.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
         details_box.columnconfigure(0, weight=1)
         details_box.rowconfigure(0, weight=1)
-        details_text = tk.Text(details_box, wrap="word", height=10, font=("Consolas", 10))
+        details_text = tk.Text(details_box, wrap="word", height=10, font=("Segoe UI", 10), padx=8, pady=8, relief="flat")
         details_text.grid(row=0, column=0, sticky="nsew")
         details_text.configure(state="disabled")
 
@@ -876,7 +967,7 @@ class ProfitabilityGui:
         return state
 
     def _build_specialization_tab(self, notebook: ttk.Notebook) -> _SpecializationTabState:
-        frame = ttk.Frame(notebook, padding=10)
+        frame = ttk.Frame(notebook, padding=16)
         notebook.add(frame, text="Spécialisation")
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(2, weight=3)
@@ -998,7 +1089,7 @@ class ProfitabilityGui:
         return state
 
     def _build_lumber_tab(self, notebook: ttk.Notebook) -> _LumberTabState:
-        frame = ttk.Frame(notebook, padding=10)
+        frame = ttk.Frame(notebook, padding=16)
         notebook.add(frame, text="Lumber")
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(2, weight=3)
@@ -1070,7 +1161,7 @@ class ProfitabilityGui:
         details_box.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
         details_box.columnconfigure(0, weight=1)
         details_box.rowconfigure(0, weight=1)
-        details_text = tk.Text(details_box, wrap="word", height=10, font=("Consolas", 10))
+        details_text = tk.Text(details_box, wrap="word", height=10, font=("Segoe UI", 10), padx=8, pady=8, relief="flat")
         details_text.grid(row=0, column=0, sticky="nsew")
         details_text.configure(state="disabled")
 
@@ -1090,7 +1181,7 @@ class ProfitabilityGui:
         return state
 
     def _build_mounts_tab(self, notebook: ttk.Notebook) -> _MountsTabState:
-        frame = ttk.Frame(notebook, padding=10)
+        frame = ttk.Frame(notebook, padding=16)
         notebook.add(frame, text="Montures")
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(3, weight=1)
@@ -1179,8 +1270,8 @@ class ProfitabilityGui:
         for column, (label, width) in headings.items():
             tree.heading(column, text=label)
             tree.column(column, width=width, anchor="w")
-        tree.tag_configure("unavailable", foreground="#9a7770")
-        tree.tag_configure("rmt", foreground="#a48b83")
+        tree.tag_configure("unavailable", foreground=_UI_COLORS["muted"])
+        tree.tag_configure("rmt", foreground="#7f8da0")
         scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
         scrollbar.grid(row=0, column=1, sticky="ns")
         tree.configure(yscrollcommand=scrollbar.set)
@@ -1192,15 +1283,15 @@ class ProfitabilityGui:
         image_label = tk.Label(
             details_box,
             text="Sélectionne une monture",
-            background="#171313",
-            foreground="#d8c6bd",
+            background=_UI_COLORS["surface_raised"],
+            foreground=_UI_COLORS["muted"],
             height=8,
             anchor="center",
         )
         image_label.grid(row=0, column=0, sticky="ew", pady=(0, 8))
         open_button = ttk.Button(details_box, text="Ouvrir le lien Wowhead", state="disabled")
         open_button.grid(row=1, column=0, sticky="e", pady=(0, 8))
-        details_text = tk.Text(details_box, wrap="word", height=16, font=("Consolas", 9))
+        details_text = tk.Text(details_box, wrap="word", height=16, font=("Segoe UI", 9), padx=8, pady=8, relief="flat")
         details_text.grid(row=2, column=0, sticky="nsew")
         details_text.configure(state="disabled")
 
@@ -1234,7 +1325,7 @@ class ProfitabilityGui:
         return state
 
     def _build_auction_tab(self, notebook: ttk.Notebook) -> _AuctionTabState:
-        frame = ttk.Frame(notebook, padding=10)
+        frame = ttk.Frame(notebook, padding=16)
         notebook.add(frame, text="Comparateur AH")
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(3, weight=3)
@@ -1272,10 +1363,10 @@ class ProfitabilityGui:
             activestyle="none",
             selectmode="browse",
             font=("Segoe UI", 10),
-            background="#ffffff",
-            foreground="#202020",
-            selectbackground="#2f6fae",
-            selectforeground="#ffffff",
+            background=_UI_COLORS["surface_raised"],
+            foreground=_UI_COLORS["text"],
+            selectbackground=_UI_COLORS["selection"],
+            selectforeground=_UI_COLORS["selection_text"],
             relief="solid",
             borderwidth=1,
             highlightthickness=0,
@@ -1317,8 +1408,8 @@ class ProfitabilityGui:
         for column, (label, width) in headings.items():
             tree.heading(column, text=label)
             tree.column(column, width=width, anchor="w")
-        tree.tag_configure("best", background="#fff4cf", foreground="#2f2610")
-        tree.tag_configure("empty", foreground="#8c8c8c")
+        tree.tag_configure("best", background="#3b3423", foreground=_UI_COLORS["accent_soft"])
+        tree.tag_configure("empty", foreground=_UI_COLORS["muted"])
         scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
         scrollbar.grid(row=0, column=1, sticky="ns")
         tree.configure(yscrollcommand=scrollbar.set)
@@ -1332,8 +1423,9 @@ class ProfitabilityGui:
             wrap="word",
             height=8,
             font=("Segoe UI", 10),
-            background="#f7f7f7",
-            foreground="#202020",
+            background=_UI_COLORS["surface_raised"],
+            foreground=_UI_COLORS["text"],
+            insertbackground=_UI_COLORS["accent"],
             relief="flat",
             padx=8,
             pady=8,
@@ -1378,7 +1470,7 @@ class ProfitabilityGui:
         return state
 
     def _build_exchange_tab(self, notebook: ttk.Notebook) -> _ExchangeTabState:
-        frame = ttk.Frame(notebook, padding=10, style="Exchange.TFrame")
+        frame = ttk.Frame(notebook, padding=16, style="Exchange.TFrame")
         notebook.add(frame, text="Undermine AH")
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(1, weight=1)
@@ -1441,10 +1533,10 @@ class ProfitabilityGui:
             activestyle="none",
             selectmode="browse",
             font=("Segoe UI", 10),
-            background="#1c1818",
-            foreground="#eee9e2",
-            selectbackground="#75170f",
-            selectforeground="#fff1c2",
+            background=_UI_COLORS["surface_raised"],
+            foreground=_UI_COLORS["text"],
+            selectbackground=_UI_COLORS["selection"],
+            selectforeground=_UI_COLORS["selection_text"],
             relief="solid",
             borderwidth=1,
             highlightthickness=0,
@@ -1499,7 +1591,7 @@ class ProfitabilityGui:
         for column, (label, width) in overview_headings.items():
             overview_tree.heading(column, text=label)
             overview_tree.column(column, width=width, anchor="w")
-        overview_tree.tag_configure("best", background="#fff4cf", foreground="#2f2610")
+        overview_tree.tag_configure("best", background="#3b3423", foreground=_UI_COLORS["accent_soft"])
         overview_scroll = ttk.Scrollbar(overview_frame, orient="vertical", command=overview_tree.yview)
         overview_scroll.grid(row=1, column=1, sticky="ns")
         overview_tree.configure(yscrollcommand=overview_scroll.set)
@@ -1521,7 +1613,7 @@ class ProfitabilityGui:
         ttk.Label(detail_header, textvariable=title_var, style="Exchange.Title.TLabel").grid(row=0, column=2, sticky="w")
         ttk.Label(detail_header, textvariable=subtitle_var, style="Exchange.Muted.TLabel").grid(row=1, column=2, sticky="w")
 
-        chart = tk.Canvas(detail_frame, height=210, background="#201c1c", highlightthickness=0)
+        chart = tk.Canvas(detail_frame, height=210, background=_UI_COLORS["surface_raised"], highlightthickness=0)
         chart.grid(row=1, column=0, sticky="ew", pady=(0, 10))
         detail_tree = ttk.Treeview(
             detail_frame,
@@ -1843,8 +1935,8 @@ class ProfitabilityGui:
                 ),
                 tags=tags,
             )
-        state.detail_tree.tag_configure("best", background="#fff4cf", foreground="#2f2610")
-        state.detail_tree.tag_configure("empty", foreground="#8c8c8c")
+        state.detail_tree.tag_configure("best", background="#3b3423", foreground=_UI_COLORS["accent_soft"])
+        state.detail_tree.tag_configure("empty", foreground=_UI_COLORS["muted"])
         self._draw_exchange_chart(state, variant)
         self._sort_exchange_detail(state, state.detail_sort_column, toggle=False)
 
@@ -1870,7 +1962,7 @@ class ProfitabilityGui:
         rows = [row for row in variant.get("realm_rows") or [] if row.get("price_copper") is not None]
         rows.sort(key=lambda row: int(row.get("price_copper") or 0))
         if not rows:
-            canvas.create_text(width / 2, height / 2, text="Aucune annonce pour cette variante", fill="#eeeeee")
+            canvas.create_text(width / 2, height / 2, text="Aucune annonce pour cette variante", fill=_UI_COLORS["muted"])
             return
         if len(rows) > 90:
             step = max(1, len(rows) // 90)
@@ -1886,14 +1978,14 @@ class ProfitabilityGui:
             x1 = x0 + bar_width
             price_height = plot_height * (int(row.get("price_copper") or 0) / max_price)
             quantity_height = plot_height * 0.3 * (int(row.get("available_quantity") or 0) / max_quantity)
-            canvas.create_rectangle(x0, top + plot_height - price_height, x1, top + plot_height, fill="#7572f2", outline="#aaa7ff")
-            canvas.create_rectangle(x0, top + plot_height - quantity_height, x1, top + plot_height, fill="#e36d78", outline="")
+            canvas.create_rectangle(x0, top + plot_height - price_height, x1, top + plot_height, fill="#6f9ed3", outline="#9cc2ee")
+            canvas.create_rectangle(x0, top + plot_height - quantity_height, x1, top + plot_height, fill="#c96b74", outline="")
         median_price = statistics.median(int(row.get("price_copper") or 0) for row in rows)
         median_x = left + plot_width * (median_price / max_price)
-        canvas.create_line(median_x, top, median_x, top + plot_height, fill="#eeeeee", dash=(3, 3))
-        canvas.create_text(left, 10, anchor="w", text="Prix", fill="#bdbaff", font=("Segoe UI", 9, "bold"))
-        canvas.create_text(width - right, 10, anchor="e", text=f"Médiane {_format_exchange_price(int(median_price))}", fill="#eeeeee", font=("Segoe UI", 9))
-        canvas.create_text(left, height - 10, anchor="w", text="violet = prix · rouge = quantité", fill="#dddddd", font=("Segoe UI", 8))
+        canvas.create_line(median_x, top, median_x, top + plot_height, fill=_UI_COLORS["accent_soft"], dash=(3, 3))
+        canvas.create_text(left, 10, anchor="w", text="Prix", fill="#9cc2ee", font=("Segoe UI", 9, "bold"))
+        canvas.create_text(width - right, 10, anchor="e", text=f"Médiane {_format_exchange_price(int(median_price))}", fill=_UI_COLORS["text"], font=("Segoe UI", 9))
+        canvas.create_text(left, height - 10, anchor="w", text="bleu = prix · rouge = quantité", fill=_UI_COLORS["muted"], font=("Segoe UI", 8))
 
     def _exchange_detail_selection_changed(self, state: _ExchangeTabState) -> None:
         selection = state.detail_tree.selection()

@@ -25,6 +25,7 @@ XP.SOURCE_LABELS = {
 XP.ZONE_ALIASES = {
     ["Darkshire Town Hall"] = "Duskwood",
     ["Lakeshire Town Hall"] = "Redridge Mountains",
+    ["The Farstrider Lodge"] = "Loch Modan",
 }
 
 local function Number(value, fallback)

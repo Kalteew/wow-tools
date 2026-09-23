@@ -98,8 +98,11 @@ Bundled addons:
 - [addons/YayaAddonProfiles](addons/YayaAddonProfiles)
 - [addons/YayaProfessionSpecializations](addons/YayaProfessionSpecializations)
 - [addons/YayaPremadeAssistant](addons/YayaPremadeAssistant)
+- [addons/YayaWCLMPlus](addons/YayaWCLMPlus)
 - [addons/YayaQueue](addons/YayaQueue)
 - [addons/YayaReagentSniper](addons/YayaReagentSniper)
+
+Warcraft Logs Mythic+ parse prototype: see [wcl_mplus/README.md](wcl_mplus/README.md) and the [installation guide for another PC](docs/wcl-mplus/INSTALL.md). The current local browser demo does not yet detect live group applicants or display an in-game overlay.
 
 Notes:
 
