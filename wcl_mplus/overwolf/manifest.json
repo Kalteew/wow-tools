@@ -1,0 +1,47 @@
+{
+  "manifest_version": "1",
+  "type": "WebApp",
+  "permissions": ["Extensions", "Hotkeys", "GameInfo"],
+  "meta": {
+    "name": "WCL M+",
+    "version": "0.1.0",
+    "minimum-overwolf-version": "0.220.0.1",
+    "author": "Kalteew",
+    "icon": "assets/icon.svg",
+    "icon_gray": "assets/icon.svg",
+    "launcher_icon": "assets/icon.svg",
+    "description": "Affiche les scores et parses Warcraft Logs des candidatures M+."
+  },
+  "data": {
+    "game_targeting": { "type": "dedicated", "game_ids": [ 765 ] },
+    "start_window": "desktop",
+    "windows": {
+      "desktop": {
+        "file": "windows/desktop.html",
+        "native_window": true,
+        "desktop_only": true,
+        "size": { "width": 520, "height": 360 },
+        "open_dev_tools": true
+      },
+      "in-game": {
+        "file": "windows/in-game.html",
+        "is_background_page": true,
+        "native_window": true,
+        "focus_game_takeover": "ReleaseOnHidden",
+        "focus_game_takeover_release_hotkey": "wcl_mplus_showhide",
+        "size": { "width": 540, "height": 420 },
+        "open_dev_tools": true
+      }
+    },
+    "game_events": [ 765 ],
+    "hotkeys": {
+      "wcl_mplus_showhide": {
+        "title": "Afficher/masquer WCL M+",
+        "action-type": "custom",
+        "default": "Ctrl+Shift+P",
+        "game_ids": [ 765 ]
+      }
+    },
+    "developer": { "enable_auto_refresh": true, "reload_delay": 1000, "filter": "*.*" }
+  }
+}

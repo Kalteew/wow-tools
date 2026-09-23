@@ -30,6 +30,8 @@ assert(declaration:match('description="Action suivante %(YQ / YWT%)"'),
     "binding must have a readable description without a tainted BINDING_NAME global")
 assert(not declaration:match('BINDING_HEADER_'), "do not resolve the category through a tainted global")
 assert(not declaration:match('header='), "do not create an untranslated legacy header row")
+assert(xml:match('<Binding%s+name="YayaToggleWorldMap"[^>]-description="Carte sans objectifs"[^>]-runOnUp="true"'),
+    "world map binding must be declared on key release")
 local binding = YayaCore.ActionBinding
 local function candidate(y, scale)
     return {

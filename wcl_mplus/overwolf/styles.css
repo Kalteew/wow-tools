@@ -1,0 +1,9 @@
+:root { color-scheme: dark; font: 14px Segoe UI, sans-serif; }
+body { margin: 0; padding: 18px; color: #edf2ff; background: #171b2e; }
+body.overlay { width: 504px; background: rgba(23, 27, 46, .94); border: 1px solid #3b4772; border-radius: 10px; }
+h1 { margin: 0 0 14px; color: #62d7ff; font-size: 22px; }
+header { display: flex; justify-content: space-between; align-items: center; }
+.state { padding: 3px 8px; border-radius: 10px; background: #39425f; text-transform: uppercase; font-size: 11px; }
+.state.ready { background: #226644; }.state.offline { background: #713d4a; }.muted { color: #aeb8d6; }
+.applicant { padding: 10px 12px; margin: 7px 0; border-radius: 7px; background: #232b48; }
+code { color: #f3b562; }

@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>WCL M+</title><link rel="stylesheet" href="../styles.css"></head>
+<body class="desktop">
+  <h1>WCL M+</h1>
+  <p>Le companion Overwolf est installé en mode développement.</p>
+  <p>1. Démarre le worker local sur <code>127.0.0.1:28777</code>.</p>
+  <p>2. Lance WoW Retail et ouvre la recherche de groupe.</p>
+  <p>3. Utilise <strong>Ctrl+Shift+P</strong> pour afficher l’overlay.</p>
+  <p id="health" class="muted">Vérification du worker…</p>
+  <script>
+    fetch('http://127.0.0.1:28777/v1/health').then(r => r.ok ? r.json() : Promise.reject())
+      .then(() => document.querySelector('#health').textContent = 'Worker local connecté.')
+      .catch(() => document.querySelector('#health').textContent = 'Worker local indisponible.');
+  </script>
+</body>
+</html>

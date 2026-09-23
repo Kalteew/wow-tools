@@ -2,10 +2,11 @@
 ## Title: Yaya Core
 ## Notes: Implementations partagees par la suite d'addons Yaya (monnaie, prix TSM, journal, objets, infobulles, design system, panneaux d'options).
 ## Author: Yaya
-## Version: 1.3.0
+## Version: 1.4.3
 ## OptionalDeps: TradeSkillMaster
 
 YayaCore.lua
 ActionBinding.lua
+WorldMapBinding.lua
 UI.lua
 Settings.lua

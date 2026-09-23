@@ -1,3 +1,4 @@
 <Bindings>
     <Binding name="CLICK YayaNextActionButton:LeftButton" description="Action suivante (YQ / YWT)" category="Yaya" runOnUp="true" />
+    <Binding name="YayaToggleWorldMap" description="Carte sans objectifs" category="Yaya" runOnUp="true" />
 </Bindings>
