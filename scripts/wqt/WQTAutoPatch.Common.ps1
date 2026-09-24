@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 $script:TaskName = "WQT Auto Patch Watcher"
 $script:WatcherMutexName = "Local\WQTAutoPatchWatcher"
 $script:StartupLauncherName = "WQT Auto Patch Watcher.vbs"
-$script:PatchMarker = "Yaya WQT AutoPatch: deferred ObjectiveTrackerManager hooks"
+$script:PatchMarker = "Yaya WQT AutoPatch: deferred ObjectiveTrackerManager hooks v2"
 
 function Get-WQTAutoPatchLogPath {
     return (Resolve-AddonPatchOutputPath -DefaultDirectory $PSScriptRoot -FileName "wqt-auto-patch.log")
@@ -207,7 +207,9 @@ function Invoke-WQTAutoPatch {
     }
 
     $text = $file.Text.Replace("`r`n", "`n")
-    $pattern = '(?m)^hooksecurefunc\(ObjectiveTrackerManager, "UpdateAll", function\(\)\n[ \t]+On_ObjectiveTracker_Update\(\)(?:[ \t]+--v11)?\nend\)\nhooksecurefunc\(ObjectiveTrackerManager, "UpdateModule", function\(\)\n[ \t]+On_ObjectiveTracker_Update\(\)(?:[ \t]+--v11)?\nend\)'
+    $legacyPattern = '(?ms)^-- Yaya WQT AutoPatch: deferred ObjectiveTrackerManager hooks\n.*?^hooksecurefunc\(ObjectiveTrackerManager, "UpdateModule", ScheduleWQTObjectiveTrackerUpdate\)'
+    $upstreamPattern = '(?m)^hooksecurefunc\(ObjectiveTrackerManager, "UpdateAll", function\(\)\n[ \t]+On_ObjectiveTracker_Update\(\)(?:[ \t]+--v11)?\nend\)\nhooksecurefunc\(ObjectiveTrackerManager, "UpdateModule", function\(\)\n[ \t]+On_ObjectiveTracker_Update\(\)(?:[ \t]+--v11)?\nend\)'
+    $pattern = if ($text -match $legacyPattern) { $legacyPattern } else { $upstreamPattern }
     $blockMatches = [regex]::Matches($text, $pattern)
     if ($blockMatches.Count -ne 1) {
         throw ("Bloc WQT attendu introuvable ou ambigu (matches={0}, version={1}, SHA256={2})." -f $blockMatches.Count, $version, $sourceHash)
@@ -239,6 +241,14 @@ hooksecurefunc(ObjectiveTrackerManager, "UpdateModule", ScheduleWQTObjectiveTrac
 
     $match = $blockMatches[0]
     $patchedText = $text.Remove($match.Index, $match.Length).Insert($match.Index, $replacement)
+    $patchedText = $patchedText.Replace(
+        'ObjectiveTrackerFrame.Header.MinimizeButton:HookScript("OnClick", function() --v11' + "`n" + "`tOn_ObjectiveTracker_Update()" + "`nend)",
+        'ObjectiveTrackerFrame.Header.MinimizeButton:HookScript("OnClick", function() --v11' + "`n" + "`tScheduleWQTObjectiveTrackerUpdate()" + "`nend)"
+    )
+    $patchedText = $patchedText.Replace(
+        'function WorldQuestTracker:FullTrackerUpdate()' + "`n" + "`tOn_ObjectiveTracker_Update()" + "`nend",
+        'function WorldQuestTracker:FullTrackerUpdate()' + "`n" + "`tScheduleWQTObjectiveTrackerUpdate()" + "`nend"
+    )
     $newline = if ($file.Text.Contains("`r`n")) { "`r`n" } else { "`n" }
     $patchedText = $patchedText.Replace("`n", $newline)
 
