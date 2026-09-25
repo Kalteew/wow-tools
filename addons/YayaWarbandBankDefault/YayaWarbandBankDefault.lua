@@ -157,6 +157,32 @@ local function GetBankPanel()
 	return _G.BankPanel or (bankFrame and bankFrame.BankPanel) or nil
 end
 
+-- BankPanel.bankType est relu par le code protege des sacs apres la fermeture de
+-- la banque. Le laisser visible a ce moment-la suffit a faire remonter la valeur
+-- ecrite pendant la selection de la Warbank comme une valeur tainted. Blizzard
+-- reaffiche naturellement BankPanel a la prochaine ouverture ; on ne masque donc
+-- le panneau qu'une fois la session terminee, sans jamais ecrire son etat interne.
+local function HideClosedBankPanel(reason)
+	local panel = GetBankPanel()
+	if not panel or type(panel.Hide) ~= "function" then
+		Debug("nettoyage " .. tostring(reason) .. ": BankPanel absente")
+		return false
+	end
+
+	local shown = true
+	if type(panel.IsShown) == "function" then
+		local ok, value = pcall(panel.IsShown, panel)
+		if ok then
+			shown = value == true
+		end
+	end
+	if shown then
+		panel:Hide()
+		Debug("nettoyage " .. tostring(reason) .. ": BankPanel masquee")
+	end
+	return true
+end
+
 local function GetElvUIBags()
 	local elvUI = _G.ElvUI
 	if type(elvUI) ~= "table" then
@@ -262,8 +288,46 @@ local providers = {
 			local selected = GetPanelField(panel, "GetSelectedTabID", "selectedTabID")
 			return activeType == GetAccountBankType() and selected == target
 		end,
-		-- Pas d'Apply : lire/ecrire BankPanel pendant l'ouverture n'apporte rien et
-		-- peut propager une taint vers C_Container.UseContainerItem.
+		Apply = function(target)
+			local bankFrame = _G.BankFrame
+			local panel = GetBankPanel()
+			if not panel then
+				Debug("blizzard: BankPanel introuvable")
+				return false
+			end
+
+			-- Pendant que la banque est ouverte, on reprend le chemin natif de Blizzard.
+			-- HideClosedBankPanel nettoie ensuite la lecture dangereuse a la fermeture.
+			local accountTabID = bankFrame and bankFrame.accountBankTabID
+			if accountTabID and type(bankFrame.SetTab) == "function" then
+				local ok, err = pcall(bankFrame.SetTab, bankFrame, accountTabID)
+				Debug("blizzard: SetTab(" .. tostring(accountTabID) .. ") ok=" .. tostring(ok)
+					.. (ok and "" or (" -> " .. tostring(err))))
+			else
+				Debug("blizzard: accountBankTabID=" .. tostring(accountTabID)
+					.. " SetTab=" .. tostring(bankFrame ~= nil and type(bankFrame.SetTab) == "function"))
+			end
+
+			local selected = GetPanelField(panel, "GetSelectedTabID", "selectedTabID")
+			if selected ~= target then
+				if type(panel.SelectTab) ~= "function" then
+					Debug("blizzard: BankPanel:SelectTab indisponible")
+					return false
+				end
+				local ok, err = pcall(panel.SelectTab, panel, target)
+				Debug("blizzard: SelectTab(" .. tostring(target) .. ") depuis "
+					.. tostring(selected) .. " ok=" .. tostring(ok)
+					.. (ok and "" or (" -> " .. tostring(err))))
+			end
+
+			if type(panel.RefreshBankTabs) == "function" then
+				pcall(panel.RefreshBankTabs, panel)
+			end
+			if type(panel.RefreshBankPanel) == "function" then
+				pcall(panel.RefreshBankPanel, panel)
+			end
+			return true
+		end,
 	},
 }
 
@@ -302,12 +366,6 @@ local function TryOnce()
 		Debug(label .. provider.name .. " aucun onglet de warbank achete ("
 			.. tostring(purchased) .. ") -> on ne force rien, jamais de panneau d'achat")
 		return false
-	end
-
-	if not provider.Apply then
-		Debug(label .. provider.name .. " onglet warband " .. tostring(target)
-			.. " : aucun acces a BankPanel, on garde le defaut Blizzard")
-		return true
 	end
 
 	if provider.IsSatisfied(target) then
@@ -378,15 +436,15 @@ local function Trigger(reason)
 end
 
 local function EndSession()
-	if not state.open then
-		return
+	if state.open then
+		state.open = false
+		state.done = false
+		state.attempt = 0
+		state.attemptsRun = 0
+		state.token = state.token + 1
+		Debug("session de banque fermee")
 	end
-	state.open = false
-	state.done = false
-	state.attempt = 0
-	state.attemptsRun = 0
-	state.token = state.token + 1
-	Debug("session de banque fermee")
+	HideClosedBankPanel("fermeture")
 end
 
 -- Pourquoi aucun hook de detection de "choix manuel" :
@@ -643,6 +701,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
 		-- les hooks poses avant le chargement des SavedVariables n'ont rien pu journaliser
 		Debug("PLAYER_LOGIN: hooks bankFrame=" .. tostring(hooks.bankFrame)
 			.. " elvui=" .. tostring(hooks.elvui))
+		HideClosedBankPanel("PLAYER_LOGIN")
 	elseif event == "BANKFRAME_OPENED" then
 		Trigger("BANKFRAME_OPENED")
 	elseif event == "BANKFRAME_CLOSED" then

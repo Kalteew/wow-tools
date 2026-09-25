@@ -1,10 +1,12 @@
 # Yaya Warband Bank Default
 
-Ouvre la banque directement sur le premier onglet de banque de bande (warband) quand
-l'interface peut le faire sans contaminer l'etat Blizzard.
+Ouvre la banque directement sur le premier onglet de banque de bande (warband), tout en
+preservant les clics droits sur les objets des sacs.
 
 ElvUI reapplique la selection a **chaque** ouverture. Avec l'interface Blizzard, l'addon
-ne force aucun onglet : il privilegie le depot fiable depuis les sacs.
+utilise la selection native a l'ouverture, puis masque `BankPanel` a la fermeture. Blizzard
+le reaffiche a la prochaine ouverture ; masque hors banque, il ne peut plus contaminer le
+chemin protege de `C_Container.UseContainerItem`.
 
 ## Garanties
 
@@ -16,9 +18,8 @@ ne force aucun onglet : il privilegie le depot fiable depuis les sacs.
 
 ## Interfaces prises en charge
 
-- **banque Blizzard** : aucune ecriture ni manipulation de `BankPanel`. Blizzard garde
-  son ouverture native ; cela preserve le clic droit des sacs. Si l'onglet personnel
-  s'ouvre, cliquez une fois sur l'onglet Warband ;
+- **banque Blizzard** : selection native du premier onglet Warband achete, puis nettoyage
+  de `BankPanel` a la fermeture pour preserver le clic droit des sacs ;
 - **ElvUI** : hook sur `OpenBank` du module `Bags`, puis selection via le chemin natif
   d'ElvUI (`SelectBankTab`, comme son propre bouton Warband) ;
 - **Ellesmere UI** et autres UI qui se contentent d'habiller la fenetre Blizzard : le
@@ -27,8 +28,8 @@ ne force aucun onglet : il privilegie le depot fiable depuis les sacs.
   `/ywd probe` dit laquelle est active.
 
 ElvUI reste selectionne automatiquement via son propre chemin natif. La banque Blizzard
-n'est jamais forcee par l'addon : appeler `SetTab` ou `SelectTab` depuis un addon rend
-`BankPanel.bankType` taint et bloque `C_Container.UseContainerItem` au clic droit.
+est pilotee pendant son ouverture, puis `BankPanel` est masque hors banque : le code des
+sacs ne lit donc plus `BankPanel.bankType` taint au clic droit.
 
 ## Commandes
 
