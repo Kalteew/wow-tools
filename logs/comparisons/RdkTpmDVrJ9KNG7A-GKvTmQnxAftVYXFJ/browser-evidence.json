@@ -1,0 +1,44 @@
+{
+  "capturedAt": "2026-09-24",
+  "source": "Warcraft Logs browser UI from user_report_url",
+  "comparisonUrl": "https://www.warcraftlogs.com/reports/compare/RdkTpmDVrJ9KNG7A/GKvTmQnxAftVYXFJ?fight=1%2C8&type=damage-done&source=1%2C%D0%9E%D0%BC%D0%B3%D0%BF%D0%B2%D0%BF%D0%BA%D1%80%D0%B8%D1%82%D1%82",
+  "players": [
+    {
+      "report": "RdkTpmDVrJ9KNG7A", "fight": 1, "name": "Azåelle", "actorID": 1,
+      "reportDate": "2026-09-23", "dungeon": "Murder Row", "key": 16, "timer": "29:41",
+      "itemLevel": 315, "heroTalents": "Fel-Scarred", "deaths": 2,
+      "damageTableDps": 198743.4, "damageTotalDisplayedMillions": 337.83,
+      "bossPhaseDps": 151941.1,
+      "statsRatings": {"agility":2475,"crit":1181,"haste":185,"mastery":929,"versatility":478},
+      "casts": {"Eye Beam":51,"Abyssal Gaze":16,"Essence Break":37,"Death Sweep":153,"Metamorphosis":12,"The Hunt":22,"Immolation Aura":55},
+      "damageMillions": {"Immolation Aura":81.10,"Demonsurge":47.42,"Essence Break":30.18,"Death Sweep":28.36,"Eye Beam 198030":27.53,"Eye Beam 1287949":6.80},
+      "buffUptimePercent": {"Metamorphosis":40.54,"Exergy":80.62,"Initiative":29.99,"Well Fed":41.82,"Empowered Eye Beam":12.68},
+      "deathFightTimes": ["11:50","25:00"]
+    },
+    {
+      "report": "GKvTmQnxAftVYXFJ", "fight": 8, "name": "Омгпвпкритт", "actorID": 436,
+      "reportDate": "2026-09-14", "dungeon": "Murder Row", "key": 17, "timer": "28:14",
+      "itemLevel": 321, "heroTalents": "Fel-Scarred", "deaths": 0,
+      "damageTableDps": 316104.3, "damageTotalDisplayedMillions": 538.39,
+      "bossPhaseDps": 232380.3,
+      "statsRatings": {"agility":2668,"crit":1607,"haste":220,"mastery":1317},
+      "casts": {"Eye Beam":49,"Abyssal Gaze":18,"Essence Break":35,"Death Sweep":151,"Metamorphosis":11,"The Hunt":19,"Immolation Aura":53},
+      "damageMillions": {"Immolation Aura":127.99,"Demonsurge":68.48,"Essence Break":63.96,"Death Sweep":36.14,"Eye Beam 198030":56.10,"Eye Beam 1287949":28.67},
+      "buffUptimePercent": {"Metamorphosis":38.75,"Exergy":68.06,"Initiative":27.96,"Well Fed":100,"Empowered Eye Beam":5.75}
+    }
+  ],
+  "notes": [
+    "Timer and damage-table time are different denominators. Damage tables cover 1699.826 s for Azaelle and 1703.205 s for comparator; do not mix timer DPS with table DPS.",
+    "Boss phase comparison includes any adds during boss phases and is not a pure single-target simulation.",
+    "Comparison has different key levels, groups, routes, gear and dates. Do not attribute the entire DPS gap to one execution issue.",
+    "Immolation Aura cast tab grouped total includes triggered applications (137 vs132); actual damage-table manual casts55 vs53.",
+    "1287949 is entire empowered Eye Beam damage, not the bonus damage alone. Its raw difference is not a DPS-loss estimate."
+  ],
+  "azaelleRankingUi": {
+    "url": "https://www.warcraftlogs.com/reports/RdkTpmDVrJ9KNG7A?fight=1&view=rankings",
+    "metric": "Damage (By Key Lvl)", "comparison": "Parses",
+    "historical": {"parsePercent":null,"displayedRankPercent":"-","displayedSampleSize":0,"displayedKeyPercent":100},
+    "today": {"displayedRankPercent":100,"displayedOutOf":19572,"displayedKeyPercent":100},
+    "limitation": "All five players show100 for current DPS and Key%, while historical has no parse data. Do not interpret this UI state as a reliable performance percentile."
+  }
+}

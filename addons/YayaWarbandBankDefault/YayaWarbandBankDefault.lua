@@ -262,13 +262,8 @@ local providers = {
 			local selected = GetPanelField(panel, "GetSelectedTabID", "selectedTabID")
 			return activeType == GetAccountBankType() and selected == target
 		end,
-		-- Ne jamais piloter BankFrame/BankPanel depuis un addon : SetTab/SelectTab
-		-- ecrivent bankType, que Blizzard relit ensuite pendant UseContainerItem.
-		-- Le chemin Blizzard garde la selection par defaut et preserve le clic droit.
-		Apply = function()
-			Debug("blizzard: selection ignoree pour eviter le taint du BankPanel")
-			return true
-		end,
+		-- Pas d'Apply : lire/ecrire BankPanel pendant l'ouverture n'apporte rien et
+		-- peut propager une taint vers C_Container.UseContainerItem.
 	},
 }
 
@@ -307,6 +302,12 @@ local function TryOnce()
 		Debug(label .. provider.name .. " aucun onglet de warbank achete ("
 			.. tostring(purchased) .. ") -> on ne force rien, jamais de panneau d'achat")
 		return false
+	end
+
+	if not provider.Apply then
+		Debug(label .. provider.name .. " onglet warband " .. tostring(target)
+			.. " : aucun acces a BankPanel, on garde le defaut Blizzard")
+		return true
 	end
 
 	if provider.IsSatisfied(target) then

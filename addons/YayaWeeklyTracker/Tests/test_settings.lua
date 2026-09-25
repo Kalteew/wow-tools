@@ -202,6 +202,69 @@ check("professionOrder a un fournisseur d'items", orderDesc and type(orderDesc.i
 equals("le fournisseur rend les onze metiers Midnight", orderDesc and #orderDesc.items() or 0, 11)
 
 -- ---------------------------------------------------------------------------
+-- 1 bis. Sources des recettes Midnight
+-- ---------------------------------------------------------------------------
+
+equals("Potion of Recklessness est une recette de reputation",
+    seams.GetRecipeAcquisitionType({ spellID = 1230859 }), "reputation")
+equals("Flask of Honor est une recette PvP",
+    seams.GetRecipeAcquisitionType({ spellID = 1230883 }), "pvp")
+equals("Light's Potential vient du chaudron",
+    seams.GetRecipeAcquisitionType({ spellID = 1230869 }), "cauldron")
+equals("Sunsmoke Censer vient du vendeur de metier",
+    seams.GetRecipeAcquisitionType({ spellID = 1233135 }), "professionVendor")
+equals("Missive of the Peerless vient du trainer",
+    seams.GetRecipeAcquisitionType({ spellID = 1230038 }), "trainer")
+equals("Zul'jin's Mastery vient d'un talent de connaissance",
+    seams.GetRecipeAcquisitionType({ spellID = 1236060 }), "knowledge")
+equals("Thalassian Competitor est une recette PvP meme en patron order",
+    seams.GetRecipeAcquisitionType({ spellID = 1230067, patronOrder = true }), "pvp")
+equals("Amani Extract est une recette de reputation",
+    seams.GetRecipeAcquisitionType({ spellID = 1230864, patronOrder = true }), "reputation")
+equals("Haranir Phial of Perception est une recette de reputation",
+    seams.GetRecipeAcquisitionType({ spellID = 1230873, patronOrder = true }), "reputation")
+equals("Rootbound Vat est une recette de reputation",
+    seams.GetRecipeAcquisitionType({ spellID = 1233133, patronOrder = true }), "reputation")
+equals("Cauldron of Sin'dorei Flasks vient de Knowledge",
+    seams.GetRecipeAcquisitionType({ spellID = 1230874, patronOrder = true }), "knowledge")
+equals("Entropic Illuminant vient d'un tresor ou donjon",
+    seams.GetRecipeAcquisitionType({ spellID = 1233132, patronOrder = true }), "drop")
+equals("Riftstone vient d'un tresor ou donjon",
+    seams.GetRecipeAcquisitionType({ spellID = 1233136, patronOrder = true }), "drop")
+equals("Silvermoon Spire Fountain vient d'un tresor ou donjon",
+    seams.GetRecipeAcquisitionType({ spellID = 1233138, patronOrder = true }), "drop")
+equals("Cognitive Heliotrope est une recette PvP",
+    seams.GetRecipeAcquisitionType({ spellID = 1230501, patronOrder = true }), "pvp")
+equals("Thalassian Missive of Deftness vient du vendeur de metier",
+    seams.GetRecipeAcquisitionType({ spellID = 1230043, patronOrder = true }), "professionVendor")
+equals("Animated Sin'dorei Pick vient du vendeur de metier",
+    seams.GetRecipeAcquisitionType({ spellID = 1246902, patronOrder = true }), "professionVendor")
+equals("Endless Codex of Blooming Light vient de la reputation",
+    seams.GetRecipeAcquisitionType({ spellID = 1281342, patronOrder = true }), "reputation")
+equals("Self-Pouring Thalassian Sunwine vient de la reputation",
+    seams.GetRecipeAcquisitionType({ spellID = 1246909, patronOrder = true }), "reputation")
+equals("Quel'dorei Visor vient d'une decouverte de recyclage",
+    seams.GetRecipeAcquisitionType({ spellID = 1229885, patronOrder = true }), "discovery")
+equals("Voidlight Potion Cauldron reste une recette Knowledge",
+    seams.GetRecipeAcquisitionType({ spellID = 1230857, patronOrder = true }), "knowledge")
+equals("Silvermoon Health Potion vient du trainer",
+    seams.GetRecipeAcquisitionType({ spellID = 1230866, patronOrder = true }), "trainer")
+equals("une recette Knowledge accepte son type explicite",
+    seams.GetRecipeAcquisitionType({ acquisitionType = "knowledge" }), "knowledge")
+check("reputation est masquee par defaut", not seams.IsRecipeSourceTracked({ spellID = 1230859 }))
+check("PvP est masquee par defaut", not seams.IsRecipeSourceTracked({ spellID = 1230883 }))
+check("Knowledge est masquee par defaut", not seams.IsRecipeSourceTracked({ acquisitionType = "knowledge" }))
+check("Thalassian Competitor est masque par defaut",
+    not seams.IsRecipeSourceTracked({ spellID = 1230067, patronOrder = true }))
+check("tresors et donjons sont masques par defaut",
+    not seams.IsRecipeSourceTracked({ spellID = 1233132, patronOrder = true }))
+check("decouvertes et recyclage sont masques par defaut",
+    not seams.IsRecipeSourceTracked({ spellID = 1229885, patronOrder = true }))
+DB().trackRecipeSourceReputation = true
+check("activer reputation la rend visible", seams.IsRecipeSourceTracked({ spellID = 1230859 }))
+DB().trackRecipeSourceReputation = false
+
+-- ---------------------------------------------------------------------------
 -- 2. Panneau
 -- ---------------------------------------------------------------------------
 

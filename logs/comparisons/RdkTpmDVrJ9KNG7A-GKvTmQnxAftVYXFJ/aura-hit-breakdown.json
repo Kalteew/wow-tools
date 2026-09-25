@@ -1,0 +1,1945 @@
+{
+  "source": "cached WCL aggregates",
+  "note": "hitDetails mean uses WCL hitdetails total/count (can include different absorption/overkill accounting from row total). Event-level buff associations cannot be inferred from aggregates.",
+  "auraRows": [
+    {
+      "id": 390197,
+      "name": "Ragefire",
+      "azaDamage": 43163134,
+      "refDamage": 70456644,
+      "azaHits": 467,
+      "refHits": 560,
+      "azaMeanEffective": 92426.41113490364,
+      "refMeanEffective": 125815.43571428572,
+      "azaCritPct": 0,
+      "refCritPct": 0,
+      "hitDetails": [
+        {
+          "type": "Hit",
+          "azaCount": 467,
+          "refCount": 560,
+          "azaMean": 93308.81370449679,
+          "refMean": 127276.44107142858,
+          "ratio": 1.3640345002617347,
+          "azaMin": 3528,
+          "azaMax": 182828,
+          "refMin": 6724,
+          "refMax": 351983
+        }
+      ],
+      "azaTop5Targets": [
+        {
+          "name": "Demon Fly",
+          "total": 7207380,
+          "type": "NPC"
+        },
+        {
+          "name": "Trained Felhunter",
+          "total": 3770354,
+          "type": "NPC"
+        },
+        {
+          "name": "Felonious Mage",
+          "total": 3440917,
+          "type": "NPC"
+        },
+        {
+          "name": "Row Hooligan",
+          "total": 3418040,
+          "type": "NPC"
+        },
+        {
+          "name": "Felwyrm",
+          "total": 3345370,
+          "type": "NPC"
+        }
+      ],
+      "refTop5Targets": [
+        {
+          "name": "Trained Felhunter",
+          "total": 10533987,
+          "type": "NPC"
+        },
+        {
+          "name": "Wrathguard Flayer",
+          "total": 8325808,
+          "type": "NPC"
+        },
+        {
+          "name": "Demon Fly",
+          "total": 6925473,
+          "type": "NPC"
+        },
+        {
+          "name": "Fel Invoker",
+          "total": 5691249,
+          "type": "NPC"
+        },
+        {
+          "name": "Felwyrm",
+          "total": 4705925,
+          "type": "NPC"
+        }
+      ]
+    },
+    {
+      "id": 258922,
+      "name": "Immolation Aura",
+      "azaDamage": 14709146,
+      "refDamage": 16588510,
+      "azaHits": 2510,
+      "refHits": 2358,
+      "azaMeanEffective": 5860.217529880478,
+      "refMeanEffective": 7034.991518235793,
+      "azaCritPct": 57.01195219123506,
+      "refCritPct": 61.32315521628499,
+      "hitDetails": [
+        {
+          "type": "Hit",
+          "azaCount": 1079,
+          "refCount": 912,
+          "azaMean": 2624.728452270621,
+          "refMean": 2945.9122807017543,
+          "ratio": 1.122368402778307,
+          "azaMin": 431,
+          "azaMax": 15317,
+          "refMin": 341,
+          "refMax": 8870
+        },
+        {
+          "type": "Critical Hit",
+          "azaCount": 1431,
+          "refCount": 1446,
+          "azaMean": 8300.37106918239,
+          "refMean": 9636.79806362379,
+          "ratio": 1.1610081023248808,
+          "azaMin": 931,
+          "azaMax": 54653,
+          "refMin": 1174,
+          "refMax": 41337
+        }
+      ],
+      "azaTop5Targets": [
+        {
+          "name": "Demon Fly",
+          "total": 1584563,
+          "type": "NPC"
+        },
+        {
+          "name": "Felwyrm",
+          "total": 1350621,
+          "type": "NPC"
+        },
+        {
+          "name": "Unleashed Imp",
+          "total": 1248044,
+          "type": "NPC"
+        },
+        {
+          "name": "Trained Felhunter",
+          "total": 1224844,
+          "type": "NPC"
+        },
+        {
+          "name": "Row Hooligan",
+          "total": 1006138,
+          "type": "NPC"
+        }
+      ],
+      "refTop5Targets": [
+        {
+          "name": "Demon Fly",
+          "total": 1861960,
+          "type": "NPC"
+        },
+        {
+          "name": "Trained Felhunter",
+          "total": 1789447,
+          "type": "NPC"
+        },
+        {
+          "name": "Wrathguard Flayer",
+          "total": 1573864,
+          "type": "NPC"
+        },
+        {
+          "name": "Felonious Mage",
+          "total": 1083617,
+          "type": "NPC"
+        },
+        {
+          "name": "Street Sneak",
+          "total": 1063580,
+          "type": "NPC"
+        }
+      ]
+    },
+    {
+      "id": 427908,
+      "name": "Immolation Aura",
+      "azaDamage": 10875202,
+      "refDamage": 20386821,
+      "azaHits": 1672,
+      "refHits": 2089,
+      "azaMeanEffective": 6504.307416267942,
+      "refMeanEffective": 9759.129248444231,
+      "azaCritPct": 53.94736842105263,
+      "refCritPct": 64.52848252752513,
+      "hitDetails": [
+        {
+          "type": "Hit",
+          "azaCount": 770,
+          "refCount": 741,
+          "azaMean": 3089.035064935065,
+          "refMean": 3863.153846153846,
+          "ratio": 1.2506021346297194,
+          "azaMin": 366,
+          "azaMax": 9153,
+          "refMin": 431,
+          "refMax": 25403
+        },
+        {
+          "type": "Critical Hit",
+          "azaCount": 902,
+          "refCount": 1348,
+          "azaMean": 9439.464523281596,
+          "refMean": 13001.68175074184,
+          "ratio": 1.3773749261596728,
+          "azaMin": 1221,
+          "azaMax": 29129,
+          "refMin": 1589,
+          "refMax": 94044
+        }
+      ],
+      "azaTop5Targets": [
+        {
+          "name": "Demon Fly",
+          "total": 1180486,
+          "type": "NPC"
+        },
+        {
+          "name": "Street Sneak",
+          "total": 893158,
+          "type": "NPC"
+        },
+        {
+          "name": "Felonious Mage",
+          "total": 879341,
+          "type": "NPC"
+        },
+        {
+          "name": "Row Hooligan",
+          "total": 825937,
+          "type": "NPC"
+        },
+        {
+          "name": "Wrathguard Flayer",
+          "total": 754972,
+          "type": "NPC"
+        }
+      ],
+      "refTop5Targets": [
+        {
+          "name": "Trained Felhunter",
+          "total": 2934008,
+          "type": "NPC"
+        },
+        {
+          "name": "Wrathguard Flayer",
+          "total": 2570882,
+          "type": "NPC"
+        },
+        {
+          "name": "Fel Invoker",
+          "total": 1735752,
+          "type": "NPC"
+        },
+        {
+          "name": "Felwyrm",
+          "total": 1410680,
+          "type": "NPC"
+        },
+        {
+          "name": "Row Hooligan",
+          "total": 1241966,
+          "type": "NPC"
+        }
+      ]
+    },
+    {
+      "id": 427910,
+      "name": "Immolation Aura",
+      "azaDamage": 5064487,
+      "refDamage": 9857982,
+      "azaHits": 687,
+      "refHits": 874,
+      "azaMeanEffective": 7371.887918486172,
+      "refMeanEffective": 11279.155606407323,
+      "azaCritPct": 50.36390101892285,
+      "refCritPct": 67.3913043478261,
+      "hitDetails": [
+        {
+          "type": "Hit",
+          "azaCount": 341,
+          "refCount": 285,
+          "azaMean": 3510.6862170087975,
+          "refMean": 4266.182456140351,
+          "ratio": 1.2151990216246833,
+          "azaMin": 603,
+          "azaMax": 7588,
+          "refMin": 1572,
+          "refMax": 22105
+        },
+        {
+          "type": "Critical Hit",
+          "azaCount": 346,
+          "refCount": 589,
+          "azaMean": 11204.150289017341,
+          "refMean": 14672.529711375213,
+          "ratio": 1.3095620223657376,
+          "azaMin": 1742,
+          "azaMax": 34235,
+          "refMin": 5115,
+          "refMax": 128921
+        }
+      ],
+      "azaTop5Targets": [
+        {
+          "name": "Demon Fly",
+          "total": 833880,
+          "type": "NPC"
+        },
+        {
+          "name": "Trained Felhunter",
+          "total": 571463,
+          "type": "NPC"
+        },
+        {
+          "name": "Shivan Punisher",
+          "total": 454901,
+          "type": "NPC"
+        },
+        {
+          "name": "Felonious Mage",
+          "total": 398040,
+          "type": "NPC"
+        },
+        {
+          "name": "Wrathguard Flayer",
+          "total": 347432,
+          "type": "NPC"
+        }
+      ],
+      "refTop5Targets": [
+        {
+          "name": "Trained Felhunter",
+          "total": 1575290,
+          "type": "NPC"
+        },
+        {
+          "name": "Wrathguard Flayer",
+          "total": 1245981,
+          "type": "NPC"
+        },
+        {
+          "name": "Fel Invoker",
+          "total": 1132921,
+          "type": "NPC"
+        },
+        {
+          "name": "Felwyrm",
+          "total": 674658,
+          "type": "NPC"
+        },
+        {
+          "name": "Kystia Manaheart",
+          "total": 629820,
+          "type": "Boss"
+        }
+      ]
+    },
+    {
+      "id": 258921,
+      "name": "Immolation Aura",
+      "azaDamage": 2448449,
+      "refDamage": 2461457,
+      "azaHits": 260,
+      "refHits": 218,
+      "azaMeanEffective": 9417.111538461539,
+      "refMeanEffective": 11291.087155963303,
+      "azaCritPct": 55,
+      "refCritPct": 55.04587155963303,
+      "hitDetails": [
+        {
+          "type": "Hit",
+          "azaCount": 117,
+          "refCount": 98,
+          "azaMean": 4390.777777777777,
+          "refMean": 5322.918367346939,
+          "ratio": 1.2122950959364944,
+          "azaMin": 1522,
+          "azaMax": 22264,
+          "refMin": 3001,
+          "refMax": 9505
+        },
+        {
+          "type": "Critical Hit",
+          "azaCount": 143,
+          "refCount": 120,
+          "azaMean": 13529.566433566433,
+          "refMean": 16165.091666666667,
+          "ratio": 1.194797464208578,
+          "azaMin": 2143,
+          "azaMax": 26336,
+          "refMin": 3549,
+          "refMax": 30124
+        }
+      ],
+      "azaTop5Targets": [
+        {
+          "name": "Demon Fly",
+          "total": 276503,
+          "type": "NPC"
+        },
+        {
+          "name": "Felwyrm",
+          "total": 261056,
+          "type": "NPC"
+        },
+        {
+          "name": "Trained Felhunter",
+          "total": 166998,
+          "type": "NPC"
+        },
+        {
+          "name": "Unleashed Imp",
+          "total": 149897,
+          "type": "NPC"
+        },
+        {
+          "name": "Row Hooligan",
+          "total": 136092,
+          "type": "NPC"
+        }
+      ],
+      "refTop5Targets": [
+        {
+          "name": "Demon Fly",
+          "total": 290717,
+          "type": "NPC"
+        },
+        {
+          "name": "Wrathguard Flayer",
+          "total": 216151,
+          "type": "NPC"
+        },
+        {
+          "name": "Felonious Mage",
+          "total": 215107,
+          "type": "NPC"
+        },
+        {
+          "name": "Wild Imp",
+          "total": 207679,
+          "type": "NPC"
+        },
+        {
+          "name": "Unleashed Imp",
+          "total": 166888,
+          "type": "NPC"
+        }
+      ]
+    },
+    {
+      "id": 427904,
+      "name": "Immolation Aura",
+      "azaDamage": 2372638,
+      "refDamage": 3448849,
+      "azaHits": 197,
+      "refHits": 207,
+      "azaMeanEffective": 12043.847715736041,
+      "refMeanEffective": 16661.10628019324,
+      "azaCritPct": 56.34517766497462,
+      "refCritPct": 58.93719806763285,
+      "hitDetails": [
+        {
+          "type": "Hit",
+          "azaCount": 86,
+          "refCount": 85,
+          "azaMean": 5565.325581395349,
+          "refMean": 6113.082352941176,
+          "ratio": 1.0984231315014086,
+          "azaMin": 1551,
+          "azaMax": 11074,
+          "refMin": 906,
+          "refMax": 12612
+        },
+        {
+          "type": "Critical Hit",
+          "azaCount": 111,
+          "refCount": 122,
+          "azaMean": 17100.46846846847,
+          "refMean": 24186.622950819674,
+          "ratio": 1.414383646589411,
+          "azaMin": 3229,
+          "azaMax": 47676,
+          "refMin": 11700,
+          "refMax": 143967
+        }
+      ],
+      "azaTop5Targets": [
+        {
+          "name": "Demon Fly",
+          "total": 339557,
+          "type": "NPC"
+        },
+        {
+          "name": "Felonious Mage",
+          "total": 175011,
+          "type": "NPC"
+        },
+        {
+          "name": "Shivan Punisher",
+          "total": 174746,
+          "type": "NPC"
+        },
+        {
+          "name": "Street Sneak",
+          "total": 163542,
+          "type": "NPC"
+        },
+        {
+          "name": "Wrathguard Flayer",
+          "total": 151879,
+          "type": "NPC"
+        }
+      ],
+      "refTop5Targets": [
+        {
+          "name": "Trained Felhunter",
+          "total": 621160,
+          "type": "NPC"
+        },
+        {
+          "name": "Wrathguard Flayer",
+          "total": 540796,
+          "type": "NPC"
+        },
+        {
+          "name": "Fel Invoker",
+          "total": 288573,
+          "type": "NPC"
+        },
+        {
+          "name": "Warehouse Worker",
+          "total": 241757,
+          "type": "NPC"
+        },
+        {
+          "name": "Felonious Mage",
+          "total": 213319,
+          "type": "NPC"
+        }
+      ]
+    },
+    {
+      "id": 427911,
+      "name": "Immolation Aura",
+      "azaDamage": 1151584,
+      "refDamage": 2158972,
+      "azaHits": 132,
+      "refHits": 203,
+      "azaMeanEffective": 8724.121212121212,
+      "refMeanEffective": 10635.330049261083,
+      "azaCritPct": 55.303030303030305,
+      "refCritPct": 54.1871921182266,
+      "hitDetails": [
+        {
+          "type": "Hit",
+          "azaCount": 59,
+          "refCount": 93,
+          "azaMean": 3888.186440677966,
+          "refMean": 4811.354838709677,
+          "ratio": 1.2374290461932536,
+          "azaMin": 1699,
+          "azaMax": 7660,
+          "refMin": 1542,
+          "refMax": 21057
+        },
+        {
+          "type": "Critical Hit",
+          "azaCount": 73,
+          "refCount": 110,
+          "azaMean": 12632.712328767124,
+          "refMean": 15559.236363636364,
+          "ratio": 1.2316623666166275,
+          "azaMin": 5405,
+          "azaMax": 22575,
+          "refMin": 4831,
+          "refMax": 66561
+        }
+      ],
+      "azaTop5Targets": [
+        {
+          "name": "Demon Fly",
+          "total": 545054,
+          "type": "NPC"
+        },
+        {
+          "name": "Lithiel Cinderfury",
+          "total": 231398,
+          "type": "Boss"
+        },
+        {
+          "name": "Wrathguard Flayer",
+          "total": 173998,
+          "type": "NPC"
+        },
+        {
+          "name": "Shivan Punisher",
+          "total": 142521,
+          "type": "NPC"
+        },
+        {
+          "name": "Fel Invoker",
+          "total": 56914,
+          "type": "NPC"
+        }
+      ],
+      "refTop5Targets": [
+        {
+          "name": "Kystia Manaheart",
+          "total": 423750,
+          "type": "Boss"
+        },
+        {
+          "name": "Warehouse Worker",
+          "total": 423197,
+          "type": "NPC"
+        },
+        {
+          "name": "Keen Taskmaster",
+          "total": 349059,
+          "type": "NPC"
+        },
+        {
+          "name": "Zaen Bladesorrow",
+          "total": 244624,
+          "type": "NPC"
+        },
+        {
+          "name": "Fel Invoker",
+          "total": 211858,
+          "type": "NPC"
+        }
+      ]
+    },
+    {
+      "id": 427905,
+      "name": "Immolation Aura",
+      "azaDamage": 1149915,
+      "refDamage": 2090598,
+      "azaHits": 93,
+      "refHits": 88,
+      "azaMeanEffective": 12364.677419354839,
+      "refMeanEffective": 23756.795454545456,
+      "azaCritPct": 55.913978494623656,
+      "refCritPct": 73.86363636363636,
+      "hitDetails": [
+        {
+          "type": "Hit",
+          "azaCount": 41,
+          "refCount": 23,
+          "azaMean": 5894.317073170731,
+          "refMean": 7314.739130434783,
+          "ratio": 1.2409816166370506,
+          "azaMin": 3807,
+          "azaMax": 16902,
+          "refMin": 4019,
+          "refMax": 10604
+        },
+        {
+          "type": "Critical Hit",
+          "azaCount": 52,
+          "refCount": 65,
+          "azaMean": 17466.30769230769,
+          "refMean": 29574.753846153846,
+          "ratio": 1.6932458975962512,
+          "azaMin": 3420,
+          "azaMax": 36655,
+          "refMin": 13652,
+          "refMax": 165422
+        }
+      ],
+      "azaTop5Targets": [
+        {
+          "name": "Trained Felhunter",
+          "total": 135661,
+          "type": "NPC"
+        },
+        {
+          "name": "Demon Fly",
+          "total": 127396,
+          "type": "NPC"
+        },
+        {
+          "name": "Unleashed Imp",
+          "total": 118779,
+          "type": "NPC"
+        },
+        {
+          "name": "Felonious Mage",
+          "total": 93697,
+          "type": "NPC"
+        },
+        {
+          "name": "Row Hooligan",
+          "total": 73352,
+          "type": "NPC"
+        }
+      ],
+      "refTop5Targets": [
+        {
+          "name": "Trained Felhunter",
+          "total": 401308,
+          "type": "NPC"
+        },
+        {
+          "name": "Wrathguard Flayer",
+          "total": 294418,
+          "type": "NPC"
+        },
+        {
+          "name": "Fel Invoker",
+          "total": 248308,
+          "type": "NPC"
+        },
+        {
+          "name": "Felwyrm",
+          "total": 183355,
+          "type": "NPC"
+        },
+        {
+          "name": "Kystia Manaheart",
+          "total": 165422,
+          "type": "Boss"
+        }
+      ]
+    },
+    {
+      "id": 427906,
+      "name": "Immolation Aura",
+      "azaDamage": 164299,
+      "refDamage": 543388,
+      "azaHits": 16,
+      "refHits": 23,
+      "azaMeanEffective": 10268.6875,
+      "refMeanEffective": 23625.565217391304,
+      "azaCritPct": 37.5,
+      "refCritPct": 65.21739130434783,
+      "hitDetails": [
+        {
+          "type": "Hit",
+          "azaCount": 10,
+          "refCount": 8,
+          "azaMean": 5568.1,
+          "refMean": 9029,
+          "ratio": 1.6215585208598982,
+          "azaMin": 4250,
+          "azaMax": 7499,
+          "refMin": 6377,
+          "refMax": 16460
+        },
+        {
+          "type": "Critical Hit",
+          "azaCount": 6,
+          "refCount": 15,
+          "azaMean": 18103,
+          "refMean": 31410.4,
+          "ratio": 1.7350936308899079,
+          "azaMin": 13560,
+          "azaMax": 24837,
+          "refMin": 15245,
+          "refMax": 126888
+        }
+      ],
+      "azaTop5Targets": [
+        {
+          "name": "Demon Fly",
+          "total": 62144,
+          "type": "NPC"
+        },
+        {
+          "name": "Lithiel Cinderfury",
+          "total": 55050,
+          "type": "Boss"
+        },
+        {
+          "name": "Wrathguard Flayer",
+          "total": 18656,
+          "type": "NPC"
+        },
+        {
+          "name": "Unleashed Imp",
+          "total": 15852,
+          "type": "NPC"
+        },
+        {
+          "name": "Shivan Punisher",
+          "total": 7499,
+          "type": "NPC"
+        }
+      ],
+      "refTop5Targets": [
+        {
+          "name": "Warehouse Worker",
+          "total": 164221,
+          "type": "NPC"
+        },
+        {
+          "name": "Kystia Manaheart",
+          "total": 142133,
+          "type": "Boss"
+        },
+        {
+          "name": "Keen Taskmaster",
+          "total": 61526,
+          "type": "NPC"
+        },
+        {
+          "name": "Zaen Bladesorrow",
+          "total": 45489,
+          "type": "NPC"
+        },
+        {
+          "name": "Defiled Golem",
+          "total": 35323,
+          "type": "NPC"
+        }
+      ]
+    }
+  ],
+  "talentDifferences": [
+    {
+      "id": 112914,
+      "azaRank": 1,
+      "refRank": null,
+      "nodeID": 90996
+    },
+    {
+      "id": 112936,
+      "azaRank": 1,
+      "refRank": null,
+      "nodeID": 91015
+    },
+    {
+      "id": 112949,
+      "azaRank": 1,
+      "refRank": 2,
+      "nodeID": 91026
+    },
+    {
+      "id": 117510,
+      "azaRank": null,
+      "refRank": 1,
+      "nodeID": 94913
+    },
+    {
+      "id": 117755,
+      "azaRank": null,
+      "refRank": 1,
+      "nodeID": 90997
+    },
+    {
+      "id": 124011,
+      "azaRank": 1,
+      "refRank": null,
+      "nodeID": 94913
+    }
+  ],
+  "gear": [
+    {
+      "slotIndex": 0,
+      "azaItem": {
+        "id": 271537,
+        "quality": 4,
+        "icon": "inv_helm_leather_raiddemonhunterulatek_d_01.jpg",
+        "itemLevel": 318,
+        "permanentEnchant": 8016,
+        "bonusIDs": [
+          40,
+          12849,
+          13696,
+          13440,
+          13692,
+          13698,
+          1571
+        ],
+        "setID": 2056
+      },
+      "refItem": {
+        "id": 271537,
+        "quality": 4,
+        "icon": "inv_helm_leather_raiddemonhunterulatek_d_01.jpg",
+        "itemLevel": 321,
+        "permanentEnchant": 8017,
+        "bonusIDs": [
+          6652,
+          13696,
+          13440,
+          13692,
+          13698,
+          12846
+        ],
+        "setID": 2056
+      }
+    },
+    {
+      "slotIndex": 1,
+      "azaItem": {
+        "id": 251234,
+        "quality": 3,
+        "icon": "inv_12_jewelry_devouringhost_necklace_silver2.jpg",
+        "itemLevel": 321,
+        "bonusIDs": [
+          13440,
+          6652,
+          13668,
+          12699,
+          12846
+        ],
+        "gems": [
+          {
+            "id": 240897,
+            "itemLevel": 278,
+            "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_fire_purple.jpg"
+          }
+        ]
+      },
+      "refItem": {
+        "id": 251234,
+        "quality": 3,
+        "icon": "inv_12_jewelry_devouringhost_necklace_silver2.jpg",
+        "itemLevel": 311,
+        "bonusIDs": [
+          13440,
+          6652,
+          13668,
+          12699,
+          12843
+        ],
+        "gems": [
+          {
+            "id": 240983,
+            "itemLevel": 295,
+            "icon": "inv_12_profession_jewelcrafting_epic_gem_cut_green.jpg"
+          }
+        ]
+      }
+    },
+    {
+      "slotIndex": 2,
+      "azaItem": {
+        "id": 271535,
+        "quality": 4,
+        "icon": "inv_shoulder_leather_raiddemonhunterulatek_d_01.jpg",
+        "itemLevel": 311,
+        "permanentEnchant": 8001,
+        "bonusIDs": [
+          12843,
+          41,
+          13440,
+          13694,
+          13697,
+          1564
+        ],
+        "setID": 2056
+      },
+      "refItem": {
+        "id": 244572,
+        "quality": 4,
+        "icon": "inv_shoulder_leather_questbloodelf_b_01.jpg",
+        "itemLevel": 331,
+        "permanentEnchant": 8001,
+        "bonusIDs": [
+          12214,
+          13667,
+          12497,
+          13751,
+          14001,
+          8960,
+          12384,
+          8791,
+          13836
+        ]
+      }
+    },
+    {
+      "slotIndex": 3,
+      "azaItem": {
+        "id": 0,
+        "quality": 1,
+        "icon": "inv_axe_02.jpg",
+        "itemLevel": 0
+      },
+      "refItem": {
+        "id": 0,
+        "quality": 1,
+        "icon": "inv_axe_02.jpg",
+        "itemLevel": 0
+      }
+    },
+    {
+      "slotIndex": 4,
+      "azaItem": {
+        "id": 272239,
+        "quality": 4,
+        "icon": "inv_chest_leather_outdooramaniloa_c_01.jpg",
+        "itemLevel": 295,
+        "permanentEnchant": 7986,
+        "bonusIDs": [
+          12834,
+          6652,
+          13662
+        ]
+      },
+      "refItem": {
+        "id": 271540,
+        "quality": 4,
+        "icon": "inv_chest_leather_raiddemonhunterulatek_d_01.jpg",
+        "itemLevel": 321,
+        "permanentEnchant": 7987,
+        "bonusIDs": [
+          6652,
+          13440,
+          13690,
+          13698,
+          12846
+        ],
+        "setID": 2056
+      }
+    },
+    {
+      "slotIndex": 5,
+      "azaItem": {
+        "id": 251189,
+        "quality": 3,
+        "icon": "inv_belt_leather_dungeonharronir_c_01.jpg",
+        "itemLevel": 308,
+        "bonusIDs": [
+          12842,
+          13440,
+          6652,
+          13696,
+          13662,
+          12699
+        ]
+      },
+      "refItem": {
+        "id": 268256,
+        "quality": 4,
+        "icon": "inv_belt_leather_raiddruidulatek_d_01.jpg",
+        "itemLevel": 328,
+        "bonusIDs": [
+          6652,
+          13696,
+          13662,
+          13334,
+          12852
+        ]
+      }
+    },
+    {
+      "slotIndex": 6,
+      "azaItem": {
+        "id": 271536,
+        "quality": 4,
+        "icon": "inv_pant_leather_raiddemonhunterulatek_d_01.jpg",
+        "itemLevel": 318,
+        "permanentEnchant": 8159,
+        "bonusIDs": [
+          6652,
+          12849,
+          13440,
+          13693,
+          13698,
+          1571
+        ],
+        "setID": 2056
+      },
+      "refItem": {
+        "id": 271536,
+        "quality": 4,
+        "icon": "inv_pant_leather_raiddemonhunterulatek_d_01.jpg",
+        "itemLevel": 334,
+        "permanentEnchant": 8159,
+        "bonusIDs": [
+          13334,
+          6652,
+          13693,
+          13698,
+          12854
+        ],
+        "setID": 2056
+      }
+    },
+    {
+      "slotIndex": 7,
+      "azaItem": {
+        "id": 244569,
+        "quality": 4,
+        "icon": "inv_boot_leather_questbloodelf_b_01.jpg",
+        "itemLevel": 331,
+        "permanentEnchant": 7963,
+        "bonusIDs": [
+          12214,
+          13667,
+          12497,
+          13751,
+          14001,
+          8791,
+          13836
+        ]
+      },
+      "refItem": {
+        "id": 159327,
+        "quality": 3,
+        "icon": "inv_boot_leather_zandalardungeon_c_01.jpg",
+        "itemLevel": 311,
+        "permanentEnchant": 7963,
+        "bonusIDs": [
+          12843,
+          13440,
+          6652,
+          13662,
+          12699
+        ]
+      }
+    },
+    {
+      "slotIndex": 8,
+      "azaItem": {
+        "id": 244576,
+        "quality": 4,
+        "icon": "inv_bracer_leather_questbloodelf_b_01.jpg",
+        "itemLevel": 331,
+        "bonusIDs": [
+          12214,
+          13667,
+          12497,
+          13751,
+          14001,
+          8791,
+          13836,
+          13696
+        ]
+      },
+      "refItem": {
+        "id": 244576,
+        "quality": 4,
+        "icon": "inv_bracer_leather_questbloodelf_b_01.jpg",
+        "itemLevel": 331,
+        "bonusIDs": [
+          12214,
+          13667,
+          12497,
+          13751,
+          14001,
+          8960,
+          12384,
+          8791,
+          13836,
+          13696
+        ]
+      }
+    },
+    {
+      "slotIndex": 9,
+      "azaItem": {
+        "id": 271538,
+        "quality": 4,
+        "icon": "inv_glove_leather_raiddemonhunterulatek_d_01.jpg",
+        "itemLevel": 334,
+        "bonusIDs": [
+          6652,
+          13440,
+          13691,
+          13697,
+          12854
+        ],
+        "setID": 2056
+      },
+      "refItem": {
+        "id": 271538,
+        "quality": 4,
+        "icon": "inv_glove_leather_raiddemonhunterulatek_d_01.jpg",
+        "itemLevel": 321,
+        "bonusIDs": [
+          13334,
+          6652,
+          13691,
+          13697,
+          12846
+        ],
+        "setID": 2056
+      }
+    },
+    {
+      "slotIndex": 10,
+      "azaItem": {
+        "id": 272149,
+        "quality": 4,
+        "icon": "inv_121_jewelry_ring02_purple.jpg",
+        "itemLevel": 295,
+        "permanentEnchant": 7966,
+        "bonusIDs": [
+          12834,
+          6652,
+          13668
+        ],
+        "gems": [
+          {
+            "id": 240907,
+            "itemLevel": 278,
+            "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_void_red.jpg"
+          }
+        ]
+      },
+      "refItem": {
+        "id": 158366,
+        "quality": 3,
+        "icon": "inv_ring_80_03d.jpg",
+        "itemLevel": 311,
+        "permanentEnchant": 7967,
+        "bonusIDs": [
+          12843,
+          13440,
+          6652,
+          13668,
+          12699
+        ],
+        "gems": [
+          {
+            "id": 240898,
+            "itemLevel": 295,
+            "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_fire_purple.jpg"
+          }
+        ]
+      }
+    },
+    {
+      "slotIndex": 11,
+      "azaItem": {
+        "id": 162544,
+        "quality": 3,
+        "icon": "inv_ring_80_04c.jpg",
+        "itemLevel": 308,
+        "permanentEnchant": 7966,
+        "bonusIDs": [
+          12842,
+          13440,
+          6652,
+          13668,
+          12699
+        ],
+        "gems": [
+          {
+            "id": 240907,
+            "itemLevel": 278,
+            "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_void_red.jpg"
+          }
+        ]
+      },
+      "refItem": {
+        "id": 251136,
+        "quality": 3,
+        "icon": "inv_12_jewelry_voidelf_ring_teal.jpg",
+        "itemLevel": 311,
+        "permanentEnchant": 7967,
+        "bonusIDs": [
+          12843,
+          13440,
+          6652,
+          13668,
+          12699
+        ],
+        "gems": [
+          {
+            "id": 240898,
+            "itemLevel": 295,
+            "icon": "inv_12_profession_jewelcrafting_rare_gem_cut_fire_purple.jpg"
+          }
+        ]
+      }
+    },
+    {
+      "slotIndex": 12,
+      "azaItem": {
+        "id": 250228,
+        "quality": 3,
+        "icon": "inv_alchemy_90_stone_green.jpg",
+        "itemLevel": 311,
+        "bonusIDs": [
+          12843,
+          13440,
+          6652,
+          12699
+        ]
+      },
+      "refItem": {
+        "id": 270175,
+        "quality": 4,
+        "icon": "inv_121_trinket_raid_ulatek_heart.jpg",
+        "itemLevel": 321,
+        "bonusIDs": [
+          6652,
+          13333,
+          13696,
+          12846
+        ]
+      }
+    },
+    {
+      "slotIndex": 13,
+      "azaItem": {
+        "id": 250259,
+        "quality": 3,
+        "icon": "inv_misc_herb_nightmarevine.jpg",
+        "itemLevel": 311,
+        "bonusIDs": [
+          12843,
+          13440,
+          6652,
+          12699
+        ]
+      },
+      "refItem": {
+        "id": 250214,
+        "quality": 3,
+        "icon": "inv_enchant_essenceastrallarge.jpg",
+        "itemLevel": 321,
+        "bonusIDs": [
+          13440,
+          6652,
+          12699,
+          12846
+        ]
+      }
+    },
+    {
+      "slotIndex": 14,
+      "azaItem": {
+        "id": 272226,
+        "quality": 4,
+        "icon": "inv_cape_leather_outdooramaniloa_c_01.jpg",
+        "itemLevel": 295,
+        "bonusIDs": [
+          12834,
+          6652,
+          13662
+        ]
+      },
+      "refItem": {
+        "id": 251132,
+        "quality": 3,
+        "icon": "inv_cape_leather_dungeonharronir_c_01.jpg",
+        "itemLevel": 311,
+        "bonusIDs": [
+          12843,
+          13440,
+          6652,
+          13662,
+          12699
+        ]
+      }
+    },
+    {
+      "slotIndex": 15,
+      "azaItem": {
+        "id": 237840,
+        "quality": 4,
+        "icon": "inv_glaive_1h_questbloodelf_b_01.jpg",
+        "itemLevel": 331,
+        "permanentEnchant": 8689,
+        "bonusIDs": [
+          12214,
+          13667,
+          12497,
+          13751,
+          14001,
+          12693,
+          8960,
+          8791,
+          13836
+        ]
+      },
+      "refItem": {
+        "id": 237840,
+        "quality": 4,
+        "icon": "inv_glaive_1h_questbloodelf_b_01.jpg",
+        "itemLevel": 331,
+        "permanentEnchant": 8039,
+        "temporaryEnchant": 8052,
+        "bonusIDs": [
+          12214,
+          12497,
+          13751,
+          14001,
+          8791,
+          13836
+        ]
+      }
+    },
+    {
+      "slotIndex": 16,
+      "azaItem": {
+        "id": 237840,
+        "quality": 4,
+        "icon": "inv_glaive_1h_questbloodelf_b_01.jpg",
+        "itemLevel": 331,
+        "permanentEnchant": 8689,
+        "bonusIDs": [
+          12214,
+          13667,
+          12497,
+          13751,
+          14001,
+          12693,
+          8960,
+          8791,
+          13836
+        ]
+      },
+      "refItem": {
+        "id": 268201,
+        "quality": 4,
+        "icon": "inv_glaive_1h_ulatek_d_01.jpg",
+        "itemLevel": 321,
+        "permanentEnchant": 8039,
+        "temporaryEnchant": 8052,
+        "bonusIDs": [
+          42,
+          13334,
+          12846
+        ]
+      }
+    },
+    {
+      "slotIndex": 17,
+      "azaItem": {
+        "id": 0,
+        "quality": 1,
+        "icon": "inv_axe_02.jpg",
+        "itemLevel": 0
+      },
+      "refItem": {
+        "id": 31404,
+        "quality": 2,
+        "icon": "inv_shirt_15.jpg",
+        "itemLevel": 1
+      }
+    }
+  ],
+  "buffs": [
+    {
+      "id": 58984,
+      "name": "Shadowmeld",
+      "azaUptimeMs": null,
+      "refUptimeMs": 568,
+      "azaUses": null,
+      "refUses": 1,
+      "azaUptimePct": 0,
+      "refUptimePct": 0.03334889223552068
+    },
+    {
+      "id": 162264,
+      "name": "Metamorphosis",
+      "azaUptimeMs": 689092,
+      "refUptimeMs": 659951,
+      "azaUses": 64,
+      "refUses": 60,
+      "azaUptimePct": 40.538972812511396,
+      "refUptimePct": 38.74759644317625
+    },
+    {
+      "id": 163073,
+      "name": "Demon Soul",
+      "azaUptimeMs": 170157,
+      "refUptimeMs": 122719,
+      "azaUses": 17,
+      "refUses": 11,
+      "azaUptimePct": 10.010259873657656,
+      "refUptimePct": 7.205180820864194
+    },
+    {
+      "id": 188499,
+      "name": "Blade Dance",
+      "azaUptimeMs": 46997,
+      "refUptimeMs": 52230,
+      "azaUses": 47,
+      "refUses": 52,
+      "azaUptimePct": 2.7648123984454878,
+      "refUptimePct": 3.0665715518683894
+    },
+    {
+      "id": 198013,
+      "name": "Eye Beam",
+      "azaUptimeMs": 82078,
+      "refUptimeMs": 88182,
+      "azaUses": 101,
+      "refUses": 99,
+      "azaUptimePct": 4.828611869685486,
+      "refUptimePct": 5.177415519564586
+    },
+    {
+      "id": 208628,
+      "name": "Exergy",
+      "azaUptimeMs": 1370402,
+      "refUptimeMs": 1159214,
+      "azaUses": 78,
+      "refUses": 60,
+      "azaUptimePct": 80.62013406078034,
+      "refUptimePct": 68.06074430265294
+    },
+    {
+      "id": 212800,
+      "name": "Blur",
+      "azaUptimeMs": 59940,
+      "refUptimeMs": 170120,
+      "azaUses": 6,
+      "refUses": 17,
+      "azaUptimePct": 3.526243274311606,
+      "refUptimePct": 9.988228075892215
+    },
+    {
+      "id": 258920,
+      "name": "Immolation Aura",
+      "azaUptimeMs": 670224,
+      "refUptimeMs": 651216,
+      "azaUses": 67,
+      "refUses": 66,
+      "azaUptimePct": 39.42897684821858,
+      "refUptimePct": 38.23473979937823
+    },
+    {
+      "id": 343312,
+      "name": "Furious Gaze",
+      "azaUptimeMs": 518538,
+      "refUptimeMs": 527938,
+      "azaUses": 65,
+      "refUses": 66,
+      "azaUptimePct": 30.505357607190383,
+      "refUptimePct": 30.996738501824503
+    },
+    {
+      "id": 370965,
+      "name": "The Hunt",
+      "azaUptimeMs": 5873,
+      "refUptimeMs": 3426,
+      "azaUses": 22,
+      "refUses": 19,
+      "azaUptimePct": 0.34550595178565335,
+      "refUptimePct": 0.2011501845050948
+    },
+    {
+      "id": 389890,
+      "name": "Tactical Retreat",
+      "azaUptimeMs": 553166,
+      "refUptimeMs": 410125,
+      "azaUses": 56,
+      "refUses": 41,
+      "azaUptimePct": 32.54250729192282,
+      "refUptimePct": 24.079602866360773
+    },
+    {
+      "id": 390192,
+      "name": "Ragefire",
+      "azaUptimeMs": 630780,
+      "refUptimeMs": 596181,
+      "azaUses": 66,
+      "refUses": 64,
+      "azaUptimePct": 37.108504046884796,
+      "refUptimePct": 35.00347873567774
+    },
+    {
+      "id": 391215,
+      "name": "Initiative",
+      "azaUptimeMs": 509750,
+      "refUptimeMs": 476280,
+      "azaUses": 457,
+      "refUses": 433,
+      "azaUptimePct": 29.988363514853873,
+      "refUptimePct": 27.963750693545403
+    },
+    {
+      "id": 427901,
+      "name": "Deflecting Dance",
+      "azaUptimeMs": 213639,
+      "refUptimeMs": 211578,
+      "azaUses": 200,
+      "refUses": 203,
+      "azaUptimePct": 12.568286401078698,
+      "refUptimePct": 12.422344932054568
+    },
+    {
+      "id": 427912,
+      "name": "Immolation Aura",
+      "azaUptimeMs": 400413,
+      "refUptimeMs": 420208,
+      "azaUses": 40,
+      "refUses": 42,
+      "azaUptimePct": 23.55611692020242,
+      "refUptimePct": 24.671604416379708
+    },
+    {
+      "id": 427913,
+      "name": "Immolation Aura",
+      "azaUptimeMs": 169146,
+      "refUptimeMs": 140087,
+      "azaUses": 17,
+      "refUses": 14,
+      "azaUptimePct": 9.950783197809658,
+      "refUptimePct": 8.22490539893906
+    },
+    {
+      "id": 427914,
+      "name": "Immolation Aura",
+      "azaUptimeMs": 35478,
+      "refUptimeMs": 58718,
+      "azaUses": 4,
+      "refUses": 6,
+      "azaUptimePct": 2.087154802903356,
+      "refUptimePct": 3.447500447685393
+    },
+    {
+      "id": 428361,
+      "name": "Ragefire",
+      "azaUptimeMs": 389847,
+      "refUptimeMs": 408311,
+      "azaUses": 40,
+      "refUses": 42,
+      "azaUptimePct": 22.934523886562506,
+      "refUptimePct": 23.9730977774255
+    },
+    {
+      "id": 428362,
+      "name": "Ragefire",
+      "azaUptimeMs": 167515,
+      "refUptimeMs": 137251,
+      "azaUses": 17,
+      "refUses": 14,
+      "azaUptimePct": 9.854832200472284,
+      "refUptimePct": 8.058395789115227
+    },
+    {
+      "id": 428363,
+      "name": "Ragefire",
+      "azaUptimeMs": 33671,
+      "refUptimeMs": 58013,
+      "azaUses": 4,
+      "refUses": 6,
+      "azaUptimePct": 1.9808498046270617,
+      "refUptimePct": 3.4061078965832063
+    },
+    {
+      "id": 452416,
+      "name": "Demonsurge",
+      "azaUptimeMs": 681506,
+      "refUptimeMs": 612960,
+      "azaUses": 217,
+      "refUses": 202,
+      "azaUptimePct": 40.092691840223644,
+      "refUptimePct": 35.98862145190978
+    },
+    {
+      "id": 452497,
+      "name": "Abyssal Gaze",
+      "azaUptimeMs": 26894,
+      "refUptimeMs": 30742,
+      "azaUses": 16,
+      "refUses": 18,
+      "azaUptimePct": 1.5821619389278667,
+      "refUptimePct": 1.804950079409114
+    },
+    {
+      "id": 453314,
+      "name": "Enduring Torment",
+      "azaUptimeMs": 975337,
+      "refUptimeMs": 1048275,
+      "azaUses": 63,
+      "refUses": 50,
+      "azaUptimePct": 57.37863757819918,
+      "refUptimePct": 61.54720071864514
+    },
+    {
+      "id": 469703,
+      "name": "Tempered in Battle",
+      "azaUptimeMs": 11972,
+      "refUptimeMs": null,
+      "azaUses": 3,
+      "refUses": null,
+      "azaUptimePct": 0.7043073820496921,
+      "refUptimePct": 0
+    },
+    {
+      "id": 1214887,
+      "name": "Cycle of Hatred",
+      "azaUptimeMs": 1671577,
+      "refUptimeMs": 1636908,
+      "azaUses": 4,
+      "refUses": 8,
+      "azaUptimePct": 98.33812401975261,
+      "refUptimePct": 96.10751494975649
+    },
+    {
+      "id": 1229746,
+      "name": "Arcanoweave Insight",
+      "azaUptimeMs": null,
+      "refUptimeMs": 821090,
+      "azaUses": null,
+      "refUses": 111,
+      "azaUptimePct": 0,
+      "refUptimePct": 48.208524517013515
+    },
+    {
+      "id": 1232585,
+      "name": "Well Fed",
+      "azaUptimeMs": 710834,
+      "refUptimeMs": 1703205,
+      "azaUses": 1,
+      "refUses": 1,
+      "azaUptimePct": 41.81804490577271,
+      "refUptimePct": 100
+    },
+    {
+      "id": 1235111,
+      "name": "Flask of the Shattered Sun",
+      "azaUptimeMs": 1699825,
+      "refUptimeMs": 1703205,
+      "azaUses": 1,
+      "refUses": 1,
+      "azaUptimePct": 99.9999411704492,
+      "refUptimePct": 100
+    },
+    {
+      "id": 1236994,
+      "name": "Potion of Recklessness",
+      "azaUptimeMs": 72324,
+      "refUptimeMs": 120004,
+      "azaUses": 3,
+      "refUses": 4,
+      "azaUptimePct": 4.254788431286497,
+      "refUptimePct": 7.0457754644919435
+    },
+    {
+      "id": 1241715,
+      "name": "Might of the Void",
+      "azaUptimeMs": null,
+      "refUptimeMs": 978897,
+      "azaUses": null,
+      "refUses": 180,
+      "azaUptimePct": 0,
+      "refUptimePct": 57.47382141315931
+    },
+    {
+      "id": 1242775,
+      "name": "Farstrider's Step",
+      "azaUptimeMs": 117,
+      "refUptimeMs": 158,
+      "azaUses": 13,
+      "refUses": 13,
+      "azaUptimePct": 0.006883057442349982,
+      "refUptimePct": 0.00927662847396526
+    },
+    {
+      "id": 1252486,
+      "name": "Hasty Hunt",
+      "azaUptimeMs": 386405,
+      "refUptimeMs": null,
+      "azaUses": 34,
+      "refUses": null,
+      "azaUptimePct": 22.73203257274568,
+      "refUptimePct": 0
+    },
+    {
+      "id": 1252487,
+      "name": "Focused Hunt",
+      "azaUptimeMs": 171638,
+      "refUptimeMs": null,
+      "azaUses": 16,
+      "refUses": null,
+      "azaUptimePct": 10.097386438376633,
+      "refUptimePct": 0
+    },
+    {
+      "id": 1252488,
+      "name": "Masterful Hunt",
+      "azaUptimeMs": 467542,
+      "refUptimeMs": null,
+      "azaUses": 44,
+      "refUses": null,
+      "azaUptimePct": 27.50528583513842,
+      "refUptimePct": 0
+    },
+    {
+      "id": 1252489,
+      "name": "Versatile Hunt",
+      "azaUptimeMs": 32641,
+      "refUptimeMs": null,
+      "azaUses": 3,
+      "refUses": null,
+      "azaUptimePct": 1.9202553673140663,
+      "refUptimePct": 0
+    },
+    {
+      "id": 1254180,
+      "name": "Xathuux's Last Roar",
+      "azaUptimeMs": 525248,
+      "refUptimeMs": null,
+      "azaUses": 18,
+      "refUses": null,
+      "azaUptimePct": 30.900103892986692,
+      "refUptimePct": 0
+    },
+    {
+      "id": 1254331,
+      "name": "Echoing Roar",
+      "azaUptimeMs": 575541,
+      "refUptimeMs": null,
+      "azaUses": 1395,
+      "refUses": null,
+      "azaUptimePct": 33.85881849083377,
+      "refUptimePct": 0
+    },
+    {
+      "id": 1263768,
+      "name": "Light's Blessing",
+      "azaUptimeMs": null,
+      "refUptimeMs": 95027,
+      "azaUses": null,
+      "refUses": 57,
+      "azaUptimePct": 0,
+      "refUptimePct": 5.579304898705676
+    },
+    {
+      "id": 1266616,
+      "name": "Demon Muzzle",
+      "azaUptimeMs": 60002,
+      "refUptimeMs": 264165,
+      "azaUses": 5,
+      "refUses": 22,
+      "azaUptimePct": 3.529890706460544,
+      "refUptimePct": 15.509876967247044
+    },
+    {
+      "id": 1266619,
+      "name": "First In, Last Out",
+      "azaUptimeMs": 80958,
+      "refUptimeMs": 125104,
+      "azaUses": 42,
+      "refUses": 76,
+      "azaUptimePct": 4.762722772801451,
+      "refUptimePct": 7.345210940550316
+    },
+    {
+      "id": 1271092,
+      "name": "Eternal Hunt",
+      "azaUptimeMs": 152783,
+      "refUptimeMs": 124761,
+      "azaUses": 65,
+      "refUses": 66,
+      "azaUptimePct": 8.98815525824408,
+      "refUptimePct": 7.325072436964429
+    },
+    {
+      "id": 1271144,
+      "name": "Empowered Eye Beam",
+      "azaUptimeMs": 215557,
+      "refUptimeMs": 97954,
+      "azaUses": 22,
+      "refUses": 19,
+      "azaUptimePct": 12.681121479492607,
+      "refUptimePct": 5.751157376827804
+    },
+    {
+      "id": 1287665,
+      "name": "Rune of Lingering",
+      "azaUptimeMs": 265961,
+      "refUptimeMs": 162735,
+      "azaUses": 39,
+      "refUses": 23,
+      "azaUptimePct": 15.646366157477294,
+      "refUptimePct": 9.554633763992003
+    },
+    {
+      "id": 1287772,
+      "name": "Rune of Critical Power",
+      "azaUptimeMs": 1226342,
+      "refUptimeMs": 1264527,
+      "azaUses": 342,
+      "refUses": 356,
+      "azaUptimePct": 72.14514897407146,
+      "refUptimePct": 74.24396945758144
+    },
+    {
+      "id": 1287955,
+      "name": "Rune of Void-Tainted Shell",
+      "azaUptimeMs": 270858,
+      "refUptimeMs": null,
+      "azaUses": 28,
+      "refUses": null,
+      "azaUptimePct": 15.934454467692575,
+      "refUptimePct": 0
+    },
+    {
+      "id": 1297655,
+      "name": "Jan'alai's Rite",
+      "azaUptimeMs": 30015,
+      "refUptimeMs": null,
+      "azaUses": 2,
+      "refUses": null,
+      "azaUptimePct": 1.7657689669413221,
+      "refUptimePct": 0
+    },
+    {
+      "id": 1297663,
+      "name": "Halazzi's Rite",
+      "azaUptimeMs": 831688,
+      "refUptimeMs": null,
+      "azaUses": 148,
+      "refUses": null,
+      "azaUptimePct": 48.927831436864714,
+      "refUptimePct": 0
+    },
+    {
+      "id": 1297665,
+      "name": "Nalorakk's Rite",
+      "azaUptimeMs": 60037,
+      "refUptimeMs": null,
+      "azaUses": 4,
+      "refUses": null,
+      "azaUptimePct": 3.5319497407381695,
+      "refUptimePct": 0
+    },
+    {
+      "id": 1297761,
+      "name": "Voracious Heart of Ula'tek",
+      "azaUptimeMs": null,
+      "refUptimeMs": 220057,
+      "azaUses": null,
+      "refUses": 11,
+      "azaUptimePct": 0,
+      "refUptimePct": 12.920171089211223
+    },
+    {
+      "id": 1305376,
+      "name": "Devoured Strength",
+      "azaUptimeMs": null,
+      "refUptimeMs": 193043,
+      "azaUses": null,
+      "refUses": 95,
+      "azaUptimePct": 0,
+      "refUptimePct": 11.334102471516934
+    }
+  ]
+}

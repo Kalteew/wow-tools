@@ -1,0 +1,22 @@
+{
+  "reportData": {
+    "report": {
+      "deaths": {
+        "data": [
+          {
+            "timestamp": 4492197,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 1,
+            "abilityGameID": 0,
+            "fight": 3,
+            "killerID": 179,
+            "killerInstance": 3,
+            "killingAbilityGameID": 1297691
+          }
+        ],
+        "nextPageTimestamp": null
+      }
+    }
+  }
+}

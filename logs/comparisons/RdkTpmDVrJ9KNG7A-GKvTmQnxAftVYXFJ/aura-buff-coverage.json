@@ -1,0 +1,1246 @@
+﻿[
+    {
+        "player":  "azaelle",
+        "tickCount":  5001,
+        "rageCount":  467,
+        "buffs":  [
+                      {
+                          "phase":  "ticks",
+                          "id":  1235111,
+                          "name":  "Flask of the Shattered Sun",
+                          "count":  5001,
+                          "coverage":  100,
+                          "amount":  31632588,
+                          "average":  6325.3,
+                          "critRate":  55.03
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  208628,
+                          "name":  "Exergy",
+                          "count":  4533,
+                          "coverage":  90.64,
+                          "amount":  29346036,
+                          "average":  6473.9,
+                          "critRate":  54.78
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1287772,
+                          "name":  "Rune of Critical Power",
+                          "count":  4366,
+                          "coverage":  87.3,
+                          "amount":  28316420,
+                          "average":  6485.7,
+                          "critRate":  55.54
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  390192,
+                          "name":  "Ragefire",
+                          "count":  3230,
+                          "coverage":  64.59,
+                          "amount":  18840907,
+                          "average":  5833.1,
+                          "critRate":  56.93
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  162264,
+                          "name":  "Metamorphosis",
+                          "count":  3214,
+                          "coverage":  64.27,
+                          "amount":  21987328,
+                          "average":  6841.1,
+                          "critRate":  55.23
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  452416,
+                          "name":  "Demonsurge",
+                          "count":  3166,
+                          "coverage":  63.31,
+                          "amount":  21391521,
+                          "average":  6756.6,
+                          "critRate":  54.52
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  258920,
+                          "name":  "Immolation Aura",
+                          "count":  3112,
+                          "coverage":  62.23,
+                          "amount":  17985770,
+                          "average":  5779.5,
+                          "critRate":  57.26
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1229746,
+                          "name":  null,
+                          "count":  2977,
+                          "coverage":  59.53,
+                          "amount":  19047612,
+                          "average":  6398.3,
+                          "critRate":  53.44
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  428361,
+                          "name":  "Ragefire",
+                          "count":  2940,
+                          "coverage":  58.79,
+                          "amount":  19620839,
+                          "average":  6673.8,
+                          "critRate":  54.35
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  427912,
+                          "name":  "Immolation Aura",
+                          "count":  2844,
+                          "coverage":  56.87,
+                          "amount":  18869020,
+                          "average":  6634.7,
+                          "critRate":  54.75
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1297663,
+                          "name":  "Halazzi\u0027s Rite",
+                          "count":  2754,
+                          "coverage":  55.07,
+                          "amount":  18170042,
+                          "average":  6597.7,
+                          "critRate":  57.81
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1232585,
+                          "name":  "Well Fed",
+                          "count":  2207,
+                          "coverage":  44.13,
+                          "amount":  12532780,
+                          "average":  5678.6,
+                          "critRate":  56
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  391215,
+                          "name":  "Initiative",
+                          "count":  2078,
+                          "coverage":  41.55,
+                          "amount":  11812178,
+                          "average":  5684.4,
+                          "critRate":  59.43
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  343312,
+                          "name":  "Furious Gaze",
+                          "count":  1995,
+                          "coverage":  39.89,
+                          "amount":  13786492,
+                          "average":  6910.5,
+                          "critRate":  55.14
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1252488,
+                          "name":  "Masterful Hunt",
+                          "count":  1632,
+                          "coverage":  32.63,
+                          "amount":  9212114,
+                          "average":  5644.7,
+                          "critRate":  53.68
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  427913,
+                          "name":  "Immolation Aura",
+                          "count":  1594,
+                          "coverage":  31.87,
+                          "amount":  12107143,
+                          "average":  7595.4,
+                          "critRate":  52.51
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  389890,
+                          "name":  "Tactical Retreat",
+                          "count":  1511,
+                          "coverage":  30.21,
+                          "amount":  9233707,
+                          "average":  6111,
+                          "critRate":  56.98
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1287665,
+                          "name":  "Rune of Lingering",
+                          "count":  1488,
+                          "coverage":  29.75,
+                          "amount":  9008015,
+                          "average":  6053.8,
+                          "critRate":  57.33
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1254331,
+                          "name":  "Echoing Roar",
+                          "count":  1231,
+                          "coverage":  24.62,
+                          "amount":  7684771,
+                          "average":  6242.7,
+                          "critRate":  59.38
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  432502,
+                          "name":  null,
+                          "count":  1151,
+                          "coverage":  23.02,
+                          "amount":  7156163,
+                          "average":  6217.3,
+                          "critRate":  53.95
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1252486,
+                          "name":  "Hasty Hunt",
+                          "count":  1122,
+                          "coverage":  22.44,
+                          "amount":  8472947,
+                          "average":  7551.6,
+                          "critRate":  53.3
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1254180,
+                          "name":  "Xathuux\u0027s Last Roar",
+                          "count":  1074,
+                          "coverage":  21.48,
+                          "amount":  6851046,
+                          "average":  6379,
+                          "critRate":  60.61
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  80353,
+                          "name":  null,
+                          "count":  883,
+                          "coverage":  17.66,
+                          "amount":  5760167,
+                          "average":  6523.4,
+                          "critRate":  55.95
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  163073,
+                          "name":  "Demon Soul",
+                          "count":  770,
+                          "coverage":  15.4,
+                          "amount":  6982203,
+                          "average":  9067.8,
+                          "critRate":  50.26
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1252487,
+                          "name":  "Focused Hunt",
+                          "count":  552,
+                          "coverage":  11.04,
+                          "amount":  3072852,
+                          "average":  5566.8,
+                          "critRate":  60.87
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1239091,
+                          "name":  null,
+                          "count":  405,
+                          "coverage":  8.1,
+                          "amount":  2306475,
+                          "average":  5695,
+                          "critRate":  52.84
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  452497,
+                          "name":  "Abyssal Gaze",
+                          "count":  309,
+                          "coverage":  6.18,
+                          "amount":  2410430,
+                          "average":  7800.7,
+                          "critRate":  51.13
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1297665,
+                          "name":  "Nalorakk\u0027s Rite",
+                          "count":  279,
+                          "coverage":  5.58,
+                          "amount":  1310246,
+                          "average":  4696.2,
+                          "critRate":  55.91
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  198013,
+                          "name":  "Eye Beam",
+                          "count":  278,
+                          "coverage":  5.56,
+                          "amount":  1602476,
+                          "average":  5764.3,
+                          "critRate":  61.87
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  212800,
+                          "name":  "Blur",
+                          "count":  205,
+                          "coverage":  4.1,
+                          "amount":  1175436,
+                          "average":  5733.8,
+                          "critRate":  49.27
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1236994,
+                          "name":  "Potion of Recklessness",
+                          "count":  164,
+                          "coverage":  3.28,
+                          "amount":  1693083,
+                          "average":  10323.7,
+                          "critRate":  73.17
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  188499,
+                          "name":  "Blade Dance",
+                          "count":  126,
+                          "coverage":  2.52,
+                          "amount":  635084,
+                          "average":  5040.3,
+                          "critRate":  55.56
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  370965,
+                          "name":  "The Hunt",
+                          "count":  42,
+                          "coverage":  0.84,
+                          "amount":  203029,
+                          "average":  4834,
+                          "critRate":  45.24
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1252489,
+                          "name":  "Versatile Hunt",
+                          "count":  33,
+                          "coverage":  0.66,
+                          "amount":  223785,
+                          "average":  6781.4,
+                          "critRate":  48.48
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1297655,
+                          "name":  "Jan\u0027alai\u0027s Rite",
+                          "count":  26,
+                          "coverage":  0.52,
+                          "amount":  300452,
+                          "average":  11555.8,
+                          "critRate":  88.46
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1235111,
+                          "name":  "Flask of the Shattered Sun",
+                          "count":  467,
+                          "coverage":  100,
+                          "amount":  42725371,
+                          "average":  91489,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  208628,
+                          "name":  "Exergy",
+                          "count":  451,
+                          "coverage":  96.57,
+                          "amount":  41068138,
+                          "average":  91060.2,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1287772,
+                          "name":  "Rune of Critical Power",
+                          "count":  427,
+                          "coverage":  91.43,
+                          "amount":  40288665,
+                          "average":  94352.8,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1229746,
+                          "name":  null,
+                          "count":  319,
+                          "coverage":  68.31,
+                          "amount":  30904170,
+                          "average":  96878.3,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  162264,
+                          "name":  "Metamorphosis",
+                          "count":  304,
+                          "coverage":  65.1,
+                          "amount":  31500700,
+                          "average":  103620.7,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  452416,
+                          "name":  "Demonsurge",
+                          "count":  289,
+                          "coverage":  61.88,
+                          "amount":  30672821,
+                          "average":  106134.3,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  343312,
+                          "name":  "Furious Gaze",
+                          "count":  281,
+                          "coverage":  60.17,
+                          "amount":  28858265,
+                          "average":  102698.5,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  428361,
+                          "name":  "Ragefire",
+                          "count":  276,
+                          "coverage":  59.1,
+                          "amount":  27104495,
+                          "average":  98204.7,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  390192,
+                          "name":  "Ragefire",
+                          "count":  268,
+                          "coverage":  57.39,
+                          "amount":  23116032,
+                          "average":  86253.9,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1297663,
+                          "name":  "Halazzi\u0027s Rite",
+                          "count":  251,
+                          "coverage":  53.75,
+                          "amount":  24883783,
+                          "average":  99138.6,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1232585,
+                          "name":  "Well Fed",
+                          "count":  207,
+                          "coverage":  44.33,
+                          "amount":  19103500,
+                          "average":  92287.4,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  391215,
+                          "name":  "Initiative",
+                          "count":  201,
+                          "coverage":  43.04,
+                          "amount":  15416192,
+                          "average":  76697.5,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1252488,
+                          "name":  "Masterful Hunt",
+                          "count":  194,
+                          "coverage":  41.54,
+                          "amount":  16747003,
+                          "average":  86324.8,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  389890,
+                          "name":  "Tactical Retreat",
+                          "count":  171,
+                          "coverage":  36.62,
+                          "amount":  14621207,
+                          "average":  85504.1,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1254331,
+                          "name":  "Echoing Roar",
+                          "count":  127,
+                          "coverage":  27.19,
+                          "amount":  9482398,
+                          "average":  74664.6,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  427912,
+                          "name":  "Immolation Aura",
+                          "count":  125,
+                          "coverage":  26.77,
+                          "amount":  13207244,
+                          "average":  105658,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  432502,
+                          "name":  null,
+                          "count":  123,
+                          "coverage":  26.34,
+                          "amount":  9963212,
+                          "average":  81001.7,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1252486,
+                          "name":  "Hasty Hunt",
+                          "count":  110,
+                          "coverage":  23.55,
+                          "amount":  11811603,
+                          "average":  107378.2,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1254180,
+                          "name":  "Xathuux\u0027s Last Roar",
+                          "count":  109,
+                          "coverage":  23.34,
+                          "amount":  8013275,
+                          "average":  73516.3,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  427913,
+                          "name":  "Immolation Aura",
+                          "count":  97,
+                          "coverage":  20.77,
+                          "amount":  11484109,
+                          "average":  118392.9,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1287665,
+                          "name":  "Rune of Lingering",
+                          "count":  93,
+                          "coverage":  19.91,
+                          "amount":  8238905,
+                          "average":  88590.4,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  163073,
+                          "name":  "Demon Soul",
+                          "count":  91,
+                          "coverage":  19.49,
+                          "amount":  11703948,
+                          "average":  128614.8,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  80353,
+                          "name":  null,
+                          "count":  73,
+                          "coverage":  15.63,
+                          "amount":  8015480,
+                          "average":  109801.1,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1252487,
+                          "name":  "Focused Hunt",
+                          "count":  61,
+                          "coverage":  13.06,
+                          "amount":  4142625,
+                          "average":  67911.9,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  198013,
+                          "name":  "Eye Beam",
+                          "count":  39,
+                          "coverage":  8.35,
+                          "amount":  3126471,
+                          "average":  80165.9,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1239091,
+                          "name":  null,
+                          "count":  21,
+                          "coverage":  4.5,
+                          "amount":  1498149,
+                          "average":  71340.4,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  258920,
+                          "name":  "Immolation Aura",
+                          "count":  19,
+                          "coverage":  4.07,
+                          "amount":  1684423,
+                          "average":  88653.8,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  212800,
+                          "name":  "Blur",
+                          "count":  17,
+                          "coverage":  3.64,
+                          "amount":  722044,
+                          "average":  42473.2,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  452497,
+                          "name":  "Abyssal Gaze",
+                          "count":  16,
+                          "coverage":  3.43,
+                          "amount":  1699502,
+                          "average":  106218.9,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1236994,
+                          "name":  "Potion of Recklessness",
+                          "count":  13,
+                          "coverage":  2.78,
+                          "amount":  653230,
+                          "average":  50248.5,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1297665,
+                          "name":  "Nalorakk\u0027s Rite",
+                          "count":  12,
+                          "coverage":  2.57,
+                          "amount":  1080289,
+                          "average":  90024.1,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1252489,
+                          "name":  "Versatile Hunt",
+                          "count":  4,
+                          "coverage":  0.86,
+                          "amount":  186152,
+                          "average":  46538,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  188499,
+                          "name":  "Blade Dance",
+                          "count":  4,
+                          "coverage":  0.86,
+                          "amount":  361867,
+                          "average":  90466.8,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1297655,
+                          "name":  "Jan\u0027alai\u0027s Rite",
+                          "count":  2,
+                          "coverage":  0.43,
+                          "amount":  79176,
+                          "average":  39588,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  370965,
+                          "name":  "The Hunt",
+                          "count":  1,
+                          "coverage":  0.21,
+                          "amount":  68057,
+                          "average":  68057,
+                          "critRate":  0
+                      }
+                  ]
+    },
+    {
+        "player":  "comparator",
+        "tickCount":  5524,
+        "rageCount":  560,
+        "buffs":  [
+                      {
+                          "phase":  "ticks",
+                          "id":  1232585,
+                          "name":  "Well Fed",
+                          "count":  5524,
+                          "coverage":  100,
+                          "amount":  48903756,
+                          "average":  8853,
+                          "critRate":  63.23
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1235111,
+                          "name":  "Flask of the Shattered Sun",
+                          "count":  5524,
+                          "coverage":  100,
+                          "amount":  48903756,
+                          "average":  8853,
+                          "critRate":  63.23
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  208628,
+                          "name":  "Exergy",
+                          "count":  4966,
+                          "coverage":  89.9,
+                          "amount":  45399221,
+                          "average":  9142,
+                          "critRate":  63.65
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1287772,
+                          "name":  "Rune of Critical Power",
+                          "count":  4420,
+                          "coverage":  80.01,
+                          "amount":  40048979,
+                          "average":  9060.9,
+                          "critRate":  62.78
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1229746,
+                          "name":  "Arcanoweave Insight",
+                          "count":  4180,
+                          "coverage":  75.67,
+                          "amount":  38385193,
+                          "average":  9183.1,
+                          "critRate":  64.55
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1241715,
+                          "name":  "Might of the Void",
+                          "count":  3705,
+                          "coverage":  67.07,
+                          "amount":  34942652,
+                          "average":  9431.2,
+                          "critRate":  64.02
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  162264,
+                          "name":  "Metamorphosis",
+                          "count":  3476,
+                          "coverage":  62.93,
+                          "amount":  35412299,
+                          "average":  10187.7,
+                          "critRate":  64.82
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  428361,
+                          "name":  "Ragefire",
+                          "count":  3270,
+                          "coverage":  59.2,
+                          "amount":  32693283,
+                          "average":  9997.9,
+                          "critRate":  64.56
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  452416,
+                          "name":  "Demonsurge",
+                          "count":  3234,
+                          "coverage":  58.54,
+                          "amount":  32852266,
+                          "average":  10158.4,
+                          "critRate":  64.94
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  427912,
+                          "name":  "Immolation Aura",
+                          "count":  3194,
+                          "coverage":  57.82,
+                          "amount":  31542528,
+                          "average":  9875.6,
+                          "critRate":  64.4
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  390192,
+                          "name":  "Ragefire",
+                          "count":  2710,
+                          "coverage":  49.06,
+                          "amount":  19149768,
+                          "average":  7066.3,
+                          "critRate":  62.36
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  258920,
+                          "name":  "Immolation Aura",
+                          "count":  2682,
+                          "coverage":  48.55,
+                          "amount":  18857089,
+                          "average":  7031,
+                          "critRate":  62.16
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  391215,
+                          "name":  "Initiative",
+                          "count":  2473,
+                          "coverage":  44.77,
+                          "amount":  21889267,
+                          "average":  8851.3,
+                          "critRate":  69.51
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  343312,
+                          "name":  "Furious Gaze",
+                          "count":  2449,
+                          "coverage":  44.33,
+                          "amount":  25596286,
+                          "average":  10451.7,
+                          "critRate":  64.19
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1287665,
+                          "name":  "Rune of Lingering",
+                          "count":  2366,
+                          "coverage":  42.83,
+                          "amount":  21882663,
+                          "average":  9248.8,
+                          "critRate":  63.95
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1297761,
+                          "name":  "Voracious Heart of Ula\u0027tek",
+                          "count":  2101,
+                          "coverage":  38.03,
+                          "amount":  23638514,
+                          "average":  11251.1,
+                          "critRate":  69.68
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1305376,
+                          "name":  "Devoured Strength",
+                          "count":  1931,
+                          "coverage":  34.96,
+                          "amount":  22286685,
+                          "average":  11541.5,
+                          "critRate":  68.82
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  389890,
+                          "name":  "Tactical Retreat",
+                          "count":  1728,
+                          "coverage":  31.28,
+                          "amount":  17933684,
+                          "average":  10378.3,
+                          "critRate":  66.32
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  427913,
+                          "name":  "Immolation Aura",
+                          "count":  1629,
+                          "coverage":  29.49,
+                          "amount":  19047508,
+                          "average":  11692.8,
+                          "critRate":  65.01
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1236994,
+                          "name":  "Potion of Recklessness",
+                          "count":  1117,
+                          "coverage":  20.22,
+                          "amount":  14868767,
+                          "average":  13311.3,
+                          "critRate":  84.42
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  212800,
+                          "name":  "Blur",
+                          "count":  801,
+                          "coverage":  14.5,
+                          "amount":  8234546,
+                          "average":  10280.3,
+                          "critRate":  67.17
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  163073,
+                          "name":  "Demon Soul",
+                          "count":  651,
+                          "coverage":  11.78,
+                          "amount":  9889699,
+                          "average":  15191.5,
+                          "critRate":  70.05
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  198013,
+                          "name":  "Eye Beam",
+                          "count":  338,
+                          "coverage":  6.12,
+                          "amount":  2646764,
+                          "average":  7830.7,
+                          "critRate":  69.82
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  452497,
+                          "name":  "Abyssal Gaze",
+                          "count":  309,
+                          "coverage":  5.59,
+                          "amount":  3291144,
+                          "average":  10651,
+                          "critRate":  72.17
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  1263768,
+                          "name":  "Light\u0027s Blessing",
+                          "count":  253,
+                          "coverage":  4.58,
+                          "amount":  2736285,
+                          "average":  10815.4,
+                          "critRate":  61.26
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  188499,
+                          "name":  "Blade Dance",
+                          "count":  195,
+                          "coverage":  3.53,
+                          "amount":  1245607,
+                          "average":  6387.7,
+                          "critRate":  63.59
+                      },
+                      {
+                          "phase":  "ticks",
+                          "id":  370965,
+                          "name":  "The Hunt",
+                          "count":  23,
+                          "coverage":  0.42,
+                          "amount":  210996,
+                          "average":  9173.7,
+                          "critRate":  86.96
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1235111,
+                          "name":  "Flask of the Shattered Sun",
+                          "count":  560,
+                          "coverage":  100,
+                          "amount":  70367175,
+                          "average":  125655.7,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1232585,
+                          "name":  "Well Fed",
+                          "count":  560,
+                          "coverage":  100,
+                          "amount":  70367175,
+                          "average":  125655.7,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  208628,
+                          "name":  "Exergy",
+                          "count":  531,
+                          "coverage":  94.82,
+                          "amount":  68879050,
+                          "average":  129715.7,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1287772,
+                          "name":  "Rune of Critical Power",
+                          "count":  481,
+                          "coverage":  85.89,
+                          "amount":  62122430,
+                          "average":  129152.7,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1229746,
+                          "name":  "Arcanoweave Insight",
+                          "count":  450,
+                          "coverage":  80.36,
+                          "amount":  58187292,
+                          "average":  129305.1,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  162264,
+                          "name":  "Metamorphosis",
+                          "count":  414,
+                          "coverage":  73.93,
+                          "amount":  58370835,
+                          "average":  140992.4,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  452416,
+                          "name":  "Demonsurge",
+                          "count":  393,
+                          "coverage":  70.18,
+                          "amount":  55889192,
+                          "average":  142211.7,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1241715,
+                          "name":  "Might of the Void",
+                          "count":  355,
+                          "coverage":  63.39,
+                          "amount":  47638233,
+                          "average":  134192.2,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  428361,
+                          "name":  "Ragefire",
+                          "count":  347,
+                          "coverage":  61.96,
+                          "amount":  44919530,
+                          "average":  129451.1,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  343312,
+                          "name":  "Furious Gaze",
+                          "count":  332,
+                          "coverage":  59.29,
+                          "amount":  47595820,
+                          "average":  143360.9,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  390192,
+                          "name":  "Ragefire",
+                          "count":  265,
+                          "coverage":  47.32,
+                          "amount":  22836599,
+                          "average":  86175.8,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  391215,
+                          "name":  "Initiative",
+                          "count":  243,
+                          "coverage":  43.39,
+                          "amount":  23839163,
+                          "average":  98103.6,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1287665,
+                          "name":  "Rune of Lingering",
+                          "count":  176,
+                          "coverage":  31.43,
+                          "amount":  20669330,
+                          "average":  117439.4,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1297761,
+                          "name":  "Voracious Heart of Ula\u0027tek",
+                          "count":  160,
+                          "coverage":  28.57,
+                          "amount":  19709607,
+                          "average":  123185,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  389890,
+                          "name":  "Tactical Retreat",
+                          "count":  159,
+                          "coverage":  28.39,
+                          "amount":  16591032,
+                          "average":  104346.1,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1305376,
+                          "name":  "Devoured Strength",
+                          "count":  158,
+                          "coverage":  28.21,
+                          "amount":  19670152,
+                          "average":  124494.6,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  212800,
+                          "name":  "Blur",
+                          "count":  129,
+                          "coverage":  23.04,
+                          "amount":  21117423,
+                          "average":  163701,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  427912,
+                          "name":  "Immolation Aura",
+                          "count":  116,
+                          "coverage":  20.71,
+                          "amount":  12584703,
+                          "average":  108488.8,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1236994,
+                          "name":  "Potion of Recklessness",
+                          "count":  96,
+                          "coverage":  17.14,
+                          "amount":  16193697,
+                          "average":  168684.3,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  427913,
+                          "name":  "Immolation Aura",
+                          "count":  96,
+                          "coverage":  17.14,
+                          "amount":  18659856,
+                          "average":  194373.5,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  163073,
+                          "name":  "Demon Soul",
+                          "count":  75,
+                          "coverage":  13.39,
+                          "amount":  18013905,
+                          "average":  240185.4,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  258920,
+                          "name":  "Immolation Aura",
+                          "count":  33,
+                          "coverage":  5.89,
+                          "amount":  2342130,
+                          "average":  70973.6,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  198013,
+                          "name":  "Eye Beam",
+                          "count":  25,
+                          "coverage":  4.46,
+                          "amount":  1490433,
+                          "average":  59617.3,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  188499,
+                          "name":  "Blade Dance",
+                          "count":  18,
+                          "coverage":  3.21,
+                          "amount":  1119242,
+                          "average":  62180.1,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  1263768,
+                          "name":  "Light\u0027s Blessing",
+                          "count":  17,
+                          "coverage":  3.04,
+                          "amount":  2027285,
+                          "average":  119252.1,
+                          "critRate":  0
+                      },
+                      {
+                          "phase":  "ragefire",
+                          "id":  452497,
+                          "name":  "Abyssal Gaze",
+                          "count":  12,
+                          "coverage":  2.14,
+                          "amount":  1786386,
+                          "average":  148865.5,
+                          "critRate":  0
+                      }
+                  ]
+    }
+]

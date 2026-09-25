@@ -1,0 +1,656 @@
+{
+  "reportReference": {
+    "origin": "https://www.warcraftlogs.com",
+    "region": "global",
+    "reportCode": "1hPRWD6AfTQFBazV",
+    "fight": null,
+    "canonicalUrl": "https://www.warcraftlogs.com/reports/1hPRWD6AfTQFBazV",
+    "inputWasUrl": false
+  },
+  "fight": {
+    "id": 3,
+    "name": "Kings' Rest",
+    "startTime": 12938830,
+    "endTime": 14239943,
+    "encounterID": 61762,
+    "originalEncounterID": null,
+    "kill": true,
+    "difficulty": 10,
+    "size": 5,
+    "inProgress": false,
+    "averageItemLevel": 316,
+    "friendlyPlayers": [
+      5,
+      79,
+      142,
+      143,
+      145
+    ],
+    "friendlySpecs": [
+      "Protection",
+      "Havoc",
+      "Arcane",
+      "BeastMastery",
+      "Restoration"
+    ],
+    "friendlyItemLevels": [
+      323,
+      313,
+      309,
+      323,
+      312
+    ],
+    "gameZone": {
+      "id": 1762,
+      "name": "Kings' Rest"
+    },
+    "maps": [
+      {
+        "id": 1004
+      }
+    ],
+    "keystoneLevel": 12,
+    "keystoneTime": 1322091,
+    "keystoneBonus": 2,
+    "keystoneAffixes": [
+      10,
+      9,
+      147
+    ],
+    "rating": 377.4599914550781,
+    "countReached": 609,
+    "countRequired": 608
+  },
+  "pulls": [
+    {
+      "id": 1,
+      "name": "Animated Guardian",
+      "startTime": 12961723,
+      "endTime": 13076398,
+      "encounterID": 0,
+      "kill": false,
+      "x": -269786,
+      "y": -98297,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 146,
+          "gameID": 133943,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 14,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 162,
+          "gameID": 134158,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 164,
+          "gameID": 134174,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 153,
+          "gameID": 133935,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 161,
+          "gameID": 134157,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Shadow-Borne Champion",
+      "startTime": 13088174,
+      "endTime": 13125805,
+      "encounterID": 0,
+      "kill": false,
+      "x": -265011,
+      "y": -108677,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 162,
+          "gameID": 134158,
+          "minimumInstanceID": 2,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 161,
+          "gameID": 134157,
+          "minimumInstanceID": 5,
+          "maximumInstanceID": 6,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "The Golden Serpent",
+      "startTime": 13140115,
+      "endTime": 13253372,
+      "encounterID": 2139,
+      "kill": true,
+      "x": -261517,
+      "y": -105883,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 168,
+          "gameID": 135322,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 170,
+          "gameID": 135406,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Guard Captain Atu",
+      "startTime": 13270079,
+      "endTime": 13319510,
+      "encounterID": 0,
+      "kill": false,
+      "x": -273580,
+      "y": -113483,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 172,
+          "gameID": 137473,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 171,
+          "gameID": 134331,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 173,
+          "gameID": 134251,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "King A'akul",
+      "startTime": 13324789,
+      "endTime": 13372425,
+      "encounterID": 0,
+      "kill": false,
+      "x": -275726,
+      "y": -113558,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 174,
+          "gameID": 137484,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 175,
+          "gameID": 137485,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Queen Patlaa",
+      "startTime": 13378781,
+      "endTime": 13417271,
+      "encounterID": 0,
+      "kill": false,
+      "x": -275688,
+      "y": -110823,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 176,
+          "gameID": 137486,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 177,
+          "gameID": 137487,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "King Timalji",
+      "startTime": 13423257,
+      "endTime": 13451590,
+      "encounterID": 0,
+      "kill": false,
+      "x": -273486,
+      "y": -110747,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 180,
+          "gameID": 137474,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 179,
+          "gameID": 137478,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Purification Construct",
+      "startTime": 13470821,
+      "endTime": 13595038,
+      "encounterID": 0,
+      "kill": false,
+      "x": -282357,
+      "y": -96903,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 181,
+          "gameID": 134739,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 184,
+          "gameID": 270502,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 183,
+          "gameID": 137969,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 182,
+          "gameID": 137989,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 17,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Mchimba the Embalmer",
+      "startTime": 13598150,
+      "endTime": 13704392,
+      "encounterID": 2142,
+      "kill": true,
+      "x": -282020,
+      "y": -81115,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 186,
+          "gameID": 134993,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 182,
+          "gameID": 137989,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 188,
+          "gameID": 273050,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Royal Berserker",
+      "startTime": 13714668,
+      "endTime": 13756488,
+      "encounterID": 0,
+      "kill": false,
+      "x": -290714,
+      "y": -80159,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 190,
+          "gameID": 135239,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 191,
+          "gameID": 135204,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 192,
+          "gameID": 135167,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Ghostly Brute",
+      "startTime": 13760860,
+      "endTime": 13846477,
+      "encounterID": 0,
+      "kill": false,
+      "x": -291206,
+      "y": -91063,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 190,
+          "gameID": 135239,
+          "minimumInstanceID": 3,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 191,
+          "gameID": 135204,
+          "minimumInstanceID": 3,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 195,
+          "gameID": 135192,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 196,
+          "gameID": 135231,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 192,
+          "gameID": 135167,
+          "minimumInstanceID": 3,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "The Council of Tribes",
+      "startTime": 13859971,
+      "endTime": 14015016,
+      "encounterID": 2140,
+      "kill": true,
+      "x": -289242,
+      "y": -111975,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 203,
+          "gameID": 135761,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 199,
+          "gameID": 269808,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 200,
+          "gameID": 269810,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 202,
+          "gameID": 135764,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 197,
+          "gameID": 269811,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 201,
+          "gameID": 135765,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Shadow of Zul",
+      "startTime": 14042695,
+      "endTime": 14089399,
+      "encounterID": 0,
+      "kill": false,
+      "x": -304401,
+      "y": -94432,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 204,
+          "gameID": 138489,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 207,
+          "gameID": 138493,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "name": "King Dazar",
+      "startTime": 14102183,
+      "endTime": 14239458,
+      "encounterID": 2143,
+      "kill": true,
+      "x": -313100,
+      "y": -94552,
+      "maps": [
+        {
+          "id": 1004
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 208,
+          "gameID": 136160,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 210,
+          "gameID": 136976,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 209,
+          "gameID": 136984,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    }
+  ]
+}

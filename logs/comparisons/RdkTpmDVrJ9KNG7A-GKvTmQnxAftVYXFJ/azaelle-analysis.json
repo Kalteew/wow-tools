@@ -1,0 +1,529 @@
+{
+  "capturedAt": "2026-09-24T18:44:03.2861293Z",
+  "source": "public_wcl_api_via_local_service",
+  "reportCode": "RdkTpmDVrJ9KNG7A",
+  "fightID": 1,
+  "actorID": 1,
+  "fightStartTime": 154984,
+  "fightDurationMs": 1699826,
+  "keystoneTimeMs": 1781183,
+  "empoweredEyeBeam": {
+    "abilityID": 1271144,
+    "applications": 22,
+    "removals": 22,
+    "refreshes": 0,
+    "windowsWithoutRayStart": 13,
+    "windowsWithRayStart": 9,
+    "eyeBeamStartsDuringBuff": 3,
+    "abyssalGazeStartsDuringBuff": 6,
+    "observation": "13 of 22 buff applications expired without Eye Beam or Abyssal Gaze beginning during the buff. Every such window had a ray shortly before the buff, and the next ray began after expiry. Buff uptime alone is not a performance indicator because successful consumption shortens it.",
+    "limitation": "This establishes missed empowerment windows, not the total DPS causally lost. Three late Abyssal Gaze channels begin during the buff and extend beyond its expiry; they are counted as started, not assumed wholly empowered.",
+    "windows": [
+      {
+        "buffAppliedReportMs": 187300,
+        "buffRemovedReportMs": 198773,
+        "buffDurationMs": 11473,
+        "fightRelativeAppliedMs": 32316,
+        "pullID": 1,
+        "pullName": "Bribed Guard",
+        "rayCastsStartedDuringBuff": 1,
+        "spellDuringBuff": [
+          "Abyssal Gaze"
+        ],
+        "previousRay": {
+          "timestamp": 183226,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 4074
+        },
+        "nextRay": {
+          "timestamp": 197450,
+          "ability": "Abyssal Gaze",
+          "afterApplicationMs": 10150
+        }
+      },
+      {
+        "buffAppliedReportMs": 261018,
+        "buffRemovedReportMs": 264082,
+        "buffDurationMs": 3064,
+        "fightRelativeAppliedMs": 106034,
+        "pullID": 2,
+        "pullName": "Bribed Guard",
+        "rayCastsStartedDuringBuff": 1,
+        "spellDuringBuff": [
+          "Eye Beam"
+        ],
+        "previousRay": {
+          "timestamp": 239193,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 21825
+        },
+        "nextRay": {
+          "timestamp": 262408,
+          "ability": "Eye Beam",
+          "afterApplicationMs": 1390
+        }
+      },
+      {
+        "buffAppliedReportMs": 353507,
+        "buffRemovedReportMs": 356043,
+        "buffDurationMs": 2536,
+        "fightRelativeAppliedMs": 198523,
+        "pullID": 3,
+        "pullName": "Massive Felwyrm",
+        "rayCastsStartedDuringBuff": 1,
+        "spellDuringBuff": [
+          "Abyssal Gaze"
+        ],
+        "previousRay": {
+          "timestamp": 338155,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 15352
+        },
+        "nextRay": {
+          "timestamp": 354248,
+          "ability": "Abyssal Gaze",
+          "afterApplicationMs": 741
+        }
+      },
+      {
+        "buffAppliedReportMs": 422797,
+        "buffRemovedReportMs": 434809,
+        "buffDurationMs": 12012,
+        "fightRelativeAppliedMs": 267813,
+        "pullID": 3,
+        "pullName": "Massive Felwyrm",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 420229,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 2568
+        },
+        "nextRay": {
+          "timestamp": 441388,
+          "ability": "Eye Beam",
+          "afterApplicationMs": 18591
+        }
+      },
+      {
+        "buffAppliedReportMs": 496499,
+        "buffRemovedReportMs": 508530,
+        "buffDurationMs": 12031,
+        "fightRelativeAppliedMs": 341515,
+        "pullID": 4,
+        "pullName": "Kystia Manaheart",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 493892,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 2607
+        },
+        "nextRay": {
+          "timestamp": 510471,
+          "ability": "Abyssal Gaze",
+          "afterApplicationMs": 13972
+        }
+      },
+      {
+        "buffAppliedReportMs": 558766,
+        "buffRemovedReportMs": 570765,
+        "buffDurationMs": 11999,
+        "fightRelativeAppliedMs": 403782,
+        "pullID": 4,
+        "pullName": "Kystia Manaheart",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 553681,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 5085
+        },
+        "nextRay": {
+          "timestamp": 576473,
+          "ability": "Eye Beam",
+          "afterApplicationMs": 17707
+        }
+      },
+      {
+        "buffAppliedReportMs": 627029,
+        "buffRemovedReportMs": 639026,
+        "buffDurationMs": 11997,
+        "fightRelativeAppliedMs": 472045,
+        "pullID": 4,
+        "pullName": "Kystia Manaheart",
+        "rayCastsStartedDuringBuff": 1,
+        "spellDuringBuff": [
+          "Abyssal Gaze"
+        ],
+        "previousRay": {
+          "timestamp": 624354,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 2675
+        },
+        "nextRay": {
+          "timestamp": 638295,
+          "ability": "Abyssal Gaze",
+          "afterApplicationMs": 11266
+        }
+      },
+      {
+        "buffAppliedReportMs": 747490,
+        "buffRemovedReportMs": 759487,
+        "buffDurationMs": 11997,
+        "fightRelativeAppliedMs": 592506,
+        "pullID": 8,
+        "pullName": "Zaen Bladesorrow",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 745048,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 2442
+        },
+        "nextRay": {
+          "timestamp": 761623,
+          "ability": "Abyssal Gaze",
+          "afterApplicationMs": 14133
+        }
+      },
+      {
+        "buffAppliedReportMs": 810655,
+        "buffRemovedReportMs": 822667,
+        "buffDurationMs": 12012,
+        "fightRelativeAppliedMs": 655671,
+        "pullID": 8,
+        "pullName": "Zaen Bladesorrow",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 808184,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 2471
+        },
+        "nextRay": {
+          "timestamp": 828715,
+          "ability": "Eye Beam",
+          "afterApplicationMs": 18060
+        }
+      },
+      {
+        "buffAppliedReportMs": 966663,
+        "buffRemovedReportMs": 969181,
+        "buffDurationMs": 2518,
+        "fightRelativeAppliedMs": 811679,
+        "pullID": 9,
+        "pullName": "Shivan Punisher",
+        "rayCastsStartedDuringBuff": 1,
+        "spellDuringBuff": [
+          "Abyssal Gaze"
+        ],
+        "previousRay": {
+          "timestamp": 952598,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 14065
+        },
+        "nextRay": {
+          "timestamp": 967501,
+          "ability": "Abyssal Gaze",
+          "afterApplicationMs": 838
+        }
+      },
+      {
+        "buffAppliedReportMs": 1028694,
+        "buffRemovedReportMs": 1040707,
+        "buffDurationMs": 12013,
+        "fightRelativeAppliedMs": 873710,
+        "pullID": 9,
+        "pullName": "Shivan Punisher",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 1021487,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 7207
+        },
+        "nextRay": {
+          "timestamp": 1045016,
+          "ability": "Eye Beam",
+          "afterApplicationMs": 16322
+        }
+      },
+      {
+        "buffAppliedReportMs": 1100118,
+        "buffRemovedReportMs": 1112100,
+        "buffDurationMs": 11982,
+        "fightRelativeAppliedMs": 945134,
+        "pullID": 10,
+        "pullName": "Felmaster Lucsei",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 1095926,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 4192
+        },
+        "nextRay": {
+          "timestamp": 1116891,
+          "ability": "Abyssal Gaze",
+          "afterApplicationMs": 16773
+        }
+      },
+      {
+        "buffAppliedReportMs": 1164657,
+        "buffRemovedReportMs": 1176671,
+        "buffDurationMs": 12014,
+        "fightRelativeAppliedMs": 1009673,
+        "pullID": 10,
+        "pullName": "Felmaster Lucsei",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 1159718,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 4939
+        },
+        "nextRay": {
+          "timestamp": 1180576,
+          "ability": "Eye Beam",
+          "afterApplicationMs": 15919
+        }
+      },
+      {
+        "buffAppliedReportMs": 1225253,
+        "buffRemovedReportMs": 1237264,
+        "buffDurationMs": 12011,
+        "fightRelativeAppliedMs": 1070269,
+        "pullID": 11,
+        "pullName": "Xathuux the Annihilator",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 1222689,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 2564
+        },
+        "nextRay": {
+          "timestamp": 1238471,
+          "ability": "Abyssal Gaze",
+          "afterApplicationMs": 13218
+        }
+      },
+      {
+        "buffAppliedReportMs": 1303378,
+        "buffRemovedReportMs": 1305805,
+        "buffDurationMs": 2427,
+        "fightRelativeAppliedMs": 1148394,
+        "pullID": 11,
+        "pullName": "Xathuux the Annihilator",
+        "rayCastsStartedDuringBuff": 1,
+        "spellDuringBuff": [
+          "Eye Beam"
+        ],
+        "previousRay": {
+          "timestamp": 1280604,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 22774
+        },
+        "nextRay": {
+          "timestamp": 1304213,
+          "ability": "Eye Beam",
+          "afterApplicationMs": 835
+        }
+      },
+      {
+        "buffAppliedReportMs": 1380227,
+        "buffRemovedReportMs": 1392236,
+        "buffDurationMs": 12009,
+        "fightRelativeAppliedMs": 1225243,
+        "pullID": 12,
+        "pullName": "Defiled Golem",
+        "rayCastsStartedDuringBuff": 1,
+        "spellDuringBuff": [
+          "Abyssal Gaze"
+        ],
+        "previousRay": {
+          "timestamp": 1377561,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 2666
+        },
+        "nextRay": {
+          "timestamp": 1390985,
+          "ability": "Abyssal Gaze",
+          "afterApplicationMs": 10758
+        }
+      },
+      {
+        "buffAppliedReportMs": 1490712,
+        "buffRemovedReportMs": 1502705,
+        "buffDurationMs": 11993,
+        "fightRelativeAppliedMs": 1335728,
+        "pullID": 12,
+        "pullName": "Defiled Golem",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 1488214,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 2498
+        },
+        "nextRay": {
+          "timestamp": 1519774,
+          "ability": "Eye Beam",
+          "afterApplicationMs": 29062
+        }
+      },
+      {
+        "buffAppliedReportMs": 1563598,
+        "buffRemovedReportMs": 1575582,
+        "buffDurationMs": 11984,
+        "fightRelativeAppliedMs": 1408614,
+        "pullID": 13,
+        "pullName": "Shivan Punisher",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 1557712,
+          "ability": "Abyssal Gaze",
+          "beforeApplicationMs": 5886
+        },
+        "nextRay": {
+          "timestamp": 1585965,
+          "ability": "Eye Beam",
+          "afterApplicationMs": 22367
+        }
+      },
+      {
+        "buffAppliedReportMs": 1634255,
+        "buffRemovedReportMs": 1646266,
+        "buffDurationMs": 12011,
+        "fightRelativeAppliedMs": 1479271,
+        "pullID": 14,
+        "pullName": "Defiled Golem",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 1631718,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 2537
+        },
+        "nextRay": {
+          "timestamp": 1654460,
+          "ability": "Eye Beam",
+          "afterApplicationMs": 20205
+        }
+      },
+      {
+        "buffAppliedReportMs": 1697279,
+        "buffRemovedReportMs": 1698728,
+        "buffDurationMs": 1449,
+        "fightRelativeAppliedMs": 1542295,
+        "pullID": 15,
+        "pullName": "Lithiel Cinderfury",
+        "rayCastsStartedDuringBuff": 1,
+        "spellDuringBuff": [
+          "Eye Beam"
+        ],
+        "previousRay": {
+          "timestamp": 1677779,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 19500
+        },
+        "nextRay": {
+          "timestamp": 1698595,
+          "ability": "Eye Beam",
+          "afterApplicationMs": 1316
+        }
+      },
+      {
+        "buffAppliedReportMs": 1773268,
+        "buffRemovedReportMs": 1785267,
+        "buffDurationMs": 11999,
+        "fightRelativeAppliedMs": 1618284,
+        "pullID": 15,
+        "pullName": "Lithiel Cinderfury",
+        "rayCastsStartedDuringBuff": 0,
+        "spellDuringBuff": [
+          null
+        ],
+        "previousRay": {
+          "timestamp": 1770443,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 2825
+        },
+        "nextRay": {
+          "timestamp": 1791043,
+          "ability": "Eye Beam",
+          "afterApplicationMs": 17775
+        }
+      },
+      {
+        "buffAppliedReportMs": 1835504,
+        "buffRemovedReportMs": 1847530,
+        "buffDurationMs": 12026,
+        "fightRelativeAppliedMs": 1680520,
+        "pullID": 15,
+        "pullName": "Lithiel Cinderfury",
+        "rayCastsStartedDuringBuff": 1,
+        "spellDuringBuff": [
+          "Abyssal Gaze"
+        ],
+        "previousRay": {
+          "timestamp": 1832774,
+          "ability": "Eye Beam",
+          "beforeApplicationMs": 2730
+        },
+        "nextRay": {
+          "timestamp": 1846873,
+          "ability": "Abyssal Gaze",
+          "afterApplicationMs": 11369
+        }
+      }
+    ]
+  },
+  "food": {
+    "abilityID": 1232585,
+    "applications": 1,
+    "bands": [
+      {
+        "startTime": 154985,
+        "endTime": 865819
+      }
+    ],
+    "uptimeMs": 710834,
+    "uptimePercent": 41.82,
+    "observation": "Well Fed ends 20 ms before the recorded first death and is never reapplied."
+  },
+  "rawFiles": [
+    "azaelle-buffs.json",
+    "azaelle-pulls.json",
+    "azaelle-opener-casts.json",
+    "azaelle-eye-beam-events.json",
+    "azaelle-abyssal-gaze-events.json",
+    "azaelle-empowered-buff-events.json"
+  ]
+}

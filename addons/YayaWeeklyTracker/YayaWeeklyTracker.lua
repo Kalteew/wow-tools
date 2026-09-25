@@ -355,6 +355,19 @@ runtimeState.baseProfessionToMidnightSkillLineID = {
     [393] = 2917, -- Skinning
     [197] = 2918, -- Tailoring
 }
+runtimeState.midnightProfessionEnumBySkillLineID = {
+    [2906] = 3,  -- Alchemy
+    [2907] = 1,  -- Blacksmithing
+    [2909] = 9,  -- Enchanting
+    [2910] = 8,  -- Engineering
+    [2912] = 4,  -- Herbalism
+    [2913] = 13, -- Inscription
+    [2914] = 12, -- Jewelcrafting
+    [2915] = 2,  -- Leatherworking
+    [2916] = 6,  -- Mining
+    [2917] = 11, -- Skinning
+    [2918] = 7,  -- Tailoring
+}
 -- Palier 2 : recettes apprises apres completion du petit noyau historique.
 -- Les recettes sans `itemID` sont reconnues par leur spellID, y compris quand
 -- le parchemin de recette dort dans les sacs.
@@ -483,6 +496,240 @@ runtimeState.midnightNewRecipeTrackingBySkillLineID = {
         { label = "Refulgent Razorstone", spellID = 1230760, voidlightMarlCost = 0 },
     },
 }
+-- Recettes dont l'apparition dans un patron order est deja confirmee. Les
+-- nouvelles recettes sont ajoutees dynamiquement depuis
+-- YayaCraftingOrdersDB.patronRecipeHistory plus bas.
+runtimeState.midnightConfirmedPatronRecipesBySkillLineID = {
+    [2913] = {
+        { label = "Gilded Eversong Book", spellID = 1248625, patronOrder = true, moxieCost = 150, mapID = 2395, x = 43.4, y = 47.4 },
+        { label = "Homely Sin'dorei Shelf", spellID = 1248622, patronOrder = true, moxieCost = 150, mapID = 2395, x = 43.4, y = 47.4 },
+        { label = "Thalassian Missive of Resourcefulness", spellID = 1230048, patronOrder = true, moxieCost = 150, mapID = 2395, x = 43.4, y = 47.4 },
+    },
+}
+runtimeState.midnightPatronRecipeSignatures = {}
+runtimeState.midnightRecipeSourceOptions = {
+    knowledge = { optionKey = "trackRecipeSourceKnowledge" },
+    reputation = { optionKey = "trackRecipeSourceReputation" },
+    pvp = { optionKey = "trackRecipeSourcePvP" },
+    drop = { optionKey = "trackRecipeSourceDrop" },
+    discovery = { optionKey = "trackRecipeSourceDiscovery" },
+    trainer = { optionKey = "trackRecipeSourceTrainer" },
+    cauldron = { optionKey = "trackRecipeSourceCauldron" },
+    professionVendor = { optionKey = "trackRecipeSourceProfessionVendor" },
+}
+-- Source d'obtention des recettes suivies. Les options filtrent ce champ, pas
+-- les noms ni les coordonnees : une recette peut donc changer de libelle sans
+-- perdre son reglage. Les recettes dynamiques de patron order restent marquees
+-- par `patronOrder` quand aucun spellID n'est classe ici, afin de ne pas les
+-- masquer silencieusement tant que Blizzard ou YayaQueue n'a pas ete audite.
+runtimeState.midnightRecipeAcquisitionTypeBySpellID = {
+    [1230859] = "reputation", -- Potion of Recklessness
+    [1230883] = "pvp", -- Vicious Thalassian Flask of Honor
+    -- Tout l'equipement Thalassian Competitor est vendu contre de l'Honneur.
+    [1229634] = "pvp", [1229631] = "pvp", [1229636] = "pvp", [1229635] = "pvp",
+    [1229637] = "pvp", [1229638] = "pvp", [1229645] = "pvp", [1229642] = "pvp",
+    [1229644] = "pvp", [1229641] = "pvp", [1229640] = "pvp", [1229643] = "pvp",
+    [1229639] = "pvp", [1229632] = "pvp", [1229633] = "pvp", [1229630] = "pvp",
+    [1229912] = "pvp", [1229908] = "pvp", [1261490] = "pvp", [1229913] = "pvp",
+    [1229909] = "pvp", [1261491] = "pvp", [1261492] = "pvp", [1229914] = "pvp",
+    [1229910] = "pvp", [1229915] = "pvp", [1261493] = "pvp", [1229911] = "pvp",
+    [1282457] = "pvp", [1260760] = "pvp", [1230067] = "pvp", [1230068] = "pvp",
+    [1230064] = "pvp", [1230069] = "pvp", [1230066] = "pvp", [1230065] = "pvp",
+    [1230504] = "pvp", [1230503] = "pvp", [1230502] = "pvp", [1230501] = "pvp",
+    [1230500] = "pvp", [1237523] = "pvp", [1237527] = "pvp",
+    [1237525] = "pvp", [1237526] = "pvp", [1237522] = "pvp", [1237524] = "pvp",
+    [1237521] = "pvp", [1237520] = "pvp", [1237496] = "pvp", [1237490] = "pvp",
+    [1237491] = "pvp", [1237492] = "pvp", [1237493] = "pvp", [1237495] = "pvp",
+    [1237494] = "pvp", [1237497] = "pvp", [1228989] = "pvp", [1228990] = "pvp",
+    [1228991] = "pvp", [1228992] = "pvp", [1228993] = "pvp", [1228994] = "pvp",
+    [1228995] = "pvp", [1228996] = "pvp", [1228997] = "pvp",
+    -- Contrats et recettes de reputation.
+    [1230051] = "reputation", [1230052] = "reputation", [1230053] = "reputation", [1230054] = "reputation",
+    [1236063] = "reputation", [1236065] = "reputation", [1236068] = "reputation",
+    [1236081] = "reputation", [1236089] = "reputation", [1236093] = "reputation", [1236095] = "reputation",
+    [1246907] = "reputation", [1246940] = "reputation", [1248621] = "reputation", [1248630] = "reputation",
+    [1281342] = "reputation", [1281349] = "reputation",
+    -- Knowledge de specialisation.
+    [1228984] = "knowledge", [1228985] = "knowledge", [1228986] = "knowledge", [1228988] = "knowledge",
+    [1229598] = "knowledge", [1229599] = "knowledge", [1229600] = "knowledge", [1229601] = "knowledge",
+    [1229603] = "knowledge", [1229604] = "knowledge", [1229605] = "knowledge",
+    [1229646] = "knowledge", [1229656] = "knowledge", [1229657] = "knowledge", [1229659] = "knowledge",
+    [1229661] = "knowledge", [1229663] = "knowledge", [1229664] = "knowledge",
+    [1229665] = "knowledge", [1229667] = "knowledge", [1229668] = "knowledge",
+    [1229870] = "knowledge", [1229871] = "knowledge", [1229872] = "knowledge", [1229873] = "knowledge",
+    [1229874] = "knowledge", [1229875] = "knowledge", [1229876] = "knowledge", [1229877] = "knowledge",
+    [1229878] = "knowledge", [1229879] = "knowledge", [1229880] = "knowledge", [1229881] = "knowledge",
+    [1229897] = "knowledge", [1229907] = "knowledge", [1230023] = "knowledge", [1230024] = "knowledge",
+    [1230025] = "knowledge", [1230059] = "knowledge", [1230060] = "knowledge", [1230061] = "knowledge",
+    [1230062] = "knowledge", [1230071] = "knowledge", [1230074] = "knowledge", [1230075] = "knowledge",
+    [1230076] = "knowledge", [1230077] = "knowledge", [1230444] = "knowledge", [1230469] = "knowledge",
+    [1230486] = "knowledge", [1230857] = "knowledge", [1230858] = "knowledge", [1230867] = "knowledge",
+    [1230870] = "knowledge", [1230875] = "knowledge", [1230885] = "knowledge", [1236487] = "knowledge",
+    [1236490] = "knowledge", [1237506] = "knowledge", [1237508] = "knowledge", [1237511] = "knowledge",
+    [1237513] = "knowledge", [1237514] = "knowledge", [1237535] = "knowledge", [1237536] = "knowledge",
+    [1237539] = "knowledge", [1237541] = "knowledge",
+    -- Decouvertes, recyclage et traites.
+    [1229882] = "discovery", [1229883] = "discovery", [1229884] = "discovery", [1229885] = "discovery",
+    [1229886] = "discovery", [1229887] = "discovery", [1229888] = "discovery", [1229889] = "discovery",
+    [1229890] = "discovery", [1229891] = "discovery", [1229892] = "discovery", [1229893] = "discovery",
+    [1230026] = "discovery", [1230027] = "discovery", [1230028] = "discovery", [1230029] = "discovery",
+    [1230030] = "discovery", [1230031] = "discovery", [1230032] = "discovery", [1230033] = "discovery",
+    [1230034] = "discovery", [1230035] = "discovery", [1230036] = "discovery", [1248616] = "discovery",
+    -- Drops et decor de donjon/tresor.
+    [1230766] = "drop", [1230768] = "drop", [1236100] = "drop", [1237578] = "drop",
+    [1246903] = "drop", [1246939] = "drop", [1248620] = "drop",
+    -- Vendeurs de metier / Moxie.
+    [1228966] = "professionVendor", [1229648] = "professionVendor", [1229649] = "professionVendor",
+    [1229650] = "professionVendor", [1229651] = "professionVendor", [1229652] = "professionVendor",
+    [1229654] = "professionVendor", [1230043] = "professionVendor", [1230044] = "professionVendor",
+    [1230045] = "professionVendor", [1230046] = "professionVendor", [1230047] = "professionVendor",
+    [1230048] = "professionVendor", [1230049] = "professionVendor", [1230495] = "professionVendor",
+    [1230496] = "professionVendor", [1230498] = "professionVendor", [1233135] = "professionVendor",
+    [1233137] = "professionVendor", [1236488] = "professionVendor", [1237553] = "professionVendor",
+    [1237561] = "professionVendor", [1237564] = "professionVendor", [1237571] = "professionVendor",
+    [1246902] = "professionVendor", [1246906] = "professionVendor", [1248619] = "professionVendor",
+    [1248622] = "professionVendor", [1248625] = "professionVendor", [1262905] = "professionVendor",
+    [1264527] = "professionVendor", [1264550] = "professionVendor", [1264651] = "professionVendor",
+    [1265906] = "professionVendor", [1279123] = "professionVendor", [1279125] = "professionVendor",
+    [1279128] = "professionVendor", [1281348] = "professionVendor",
+    [1236078] = "reputation", -- Enchant Tool - Haranir Multicrafting
+    [1236464] = "reputation", -- Gleeful Glamour - Haranir
+    [1289744] = "reputation", -- Concentrated Silvermoon Health Potion
+    [1236060] = "knowledge", -- Enchant Ring - Zul'jin's Mastery (Amani Augments)
+    [1230864] = "reputation", -- Amani Extract
+    [1230873] = "reputation", -- Haranir Phial of Perception
+    [1233133] = "reputation", -- Rootbound Vat
+    [1246909] = "reputation", -- Self-Pouring Thalassian Sunwine
+    [1230874] = "knowledge", -- Cauldron of Sin'dorei Flasks
+    [1233132] = "drop", -- Entropic Illuminant (Voidstorm treasure)
+    [1233136] = "drop", -- Riftstone (Heavy Trunk / delve)
+    [1233138] = "drop", -- Silvermoon Spire Fountain (Heavy Trunk / delve)
+    [1230869] = "cauldron", -- Light's Potential
+    [1230863] = "cauldron", -- Potion of Zealotry
+    [1230865] = "cauldron", -- Lightfused Mana Potion
+    [1230862] = "cauldron", -- Potion of Devoured Dreams
+    [1230860] = "cauldron", -- Draught of Rampant Abandon
+    [1230872] = "cauldron", -- Haranir Phial of Ingenuity
+    [1230877] = "cauldron", -- Flask of the Blood Knights
+    [1230876] = "cauldron", -- Flask of the Magisters
+    [1230878] = "cauldron", -- Flask of the Shattered Sun
+    [1230892] = "cauldron", -- Bouquet of Herbs
+    [1230890] = "cauldron", -- Transmute: Mote of Light
+    [1230889] = "cauldron", -- Transmute: Mote of Primal Energy
+    [1230888] = "cauldron", -- Transmute: Mote of Pure Void
+    [1230861] = "cauldron", -- Primal Philosopher's Stone
+    [1233137] = "professionVendor", -- Haranir Preserving Agents
+    [1233135] = "professionVendor", -- Sunsmoke Censer
+    [1236489] = "professionVendor", -- Thalassian Spellweaver's Wand
+
+    [1230018] = "trainer", -- Codified Azeroot
+    [1230019] = "trainer", -- Soul Cipher
+    [1230016] = "trainer", -- Sienna Ink
+    [1230017] = "trainer", -- Munsell Ink
+    [1230055] = "trainer", -- Faunatender's Baton
+    [1230058] = "trainer", -- Faunatender's Trust
+    [1230056] = "trainer", -- Floratender's Crutch
+    [1230057] = "trainer", -- Rootwarden's Lamp
+    [1230038] = "trainer", -- Thalassian Missive of the Peerless
+    [1230037] = "trainer", -- Thalassian Missive of the Quickblade
+    [1230040] = "trainer", -- Thalassian Missive of the Fireflash
+    [1230039] = "trainer", -- Thalassian Missive of the Harmonious
+    [1230042] = "trainer", -- Thalassian Missive of the Aurora
+    [1230041] = "trainer", -- Thalassian Missive of the Feverflare
+    [1230021] = "trainer", -- Hobbyist Alchemist's Mixing Rod
+    [1230020] = "trainer", -- Hobbyist Rolling Pin
+    [1230022] = "trainer", -- Hobbyist Scribe's Quill
+    [1230050] = "trainer", -- Vantus Rune: Radiant
+
+    [1236486] = "trainer", -- Runed Refulgent Copper Rod
+    [1236491] = "trainer", -- Thalassian Phoenix Oil
+    [1236070] = "trainer", -- Enchant Helm - Blessing of Speed
+    [1236055] = "trainer", -- Enchant Helm - Hex of Leeching
+    [1236083] = "trainer", -- Enchant Helm - Rune of Avoidance
+    [1236073] = "trainer", -- Enchant Ring - Nature's Wrath
+    [1236087] = "trainer", -- Enchant Ring - Thalassian Versatility
+    [1236090] = "trainer", -- Enchant Shoulders - Thalassian Recovery
+    [1236061] = "trainer", -- Enchant Shoulders - Flight of the Eagle
+    [1236075] = "trainer", -- Enchant Shoulders - Nature's Grace
+    [1236097] = "trainer", -- Enchant Weapon - Arcane Mastery
+    [1236067] = "trainer", -- Enchant Weapon - Berserker's Rage
+    [1236066] = "trainer", -- Enchant Weapon - Jan'alai's Precision
+    [1236080] = "trainer", -- Enchant Weapon - Worldsoul Aegis
+    [1236098] = "trainer", -- Illusory Adornment - Blooming Light
+    [1236461] = "trainer", -- Gleeful Glamour - Blood Elf
+    [1236463] = "trainer", -- Gleeful Glamour - Dark Iron Dwarf
+    [1236465] = "trainer", -- Gleeful Glamour - Draenei
+    [1236466] = "trainer", -- Gleeful Glamour - Dwarf
+    [1236594] = "trainer", -- Gleeful Glamour - Earthen
+    [1236467] = "trainer", -- Gleeful Glamour - Gnome
+    [1236468] = "trainer", -- Gleeful Glamour - Goblin
+    [1236469] = "trainer", -- Gleeful Glamour - Highmountain Tauren
+    [1236470] = "trainer", -- Gleeful Glamour - Human
+    [1236471] = "trainer", -- Gleeful Glamour - Kul Tiran
+    [1236472] = "trainer", -- Gleeful Glamour - Lightforged Draenei
+    [1236473] = "trainer", -- Gleeful Glamour - Mag'har Orc
+    [1236474] = "trainer", -- Gleeful Glamour - Mechagnome
+    [1236475] = "trainer", -- Gleeful Glamour - Night Elf
+    [1236476] = "trainer", -- Gleeful Glamour - Nightborne
+    [1236477] = "trainer", -- Gleeful Glamour - Orc
+    [1236478] = "trainer", -- Gleeful Glamour - Pandaren
+    [1236479] = "trainer", -- Gleeful Glamour - Tauren
+    [1236480] = "trainer", -- Gleeful Glamour - Troll
+    [1236481] = "trainer", -- Gleeful Glamour - Undead
+    [1236482] = "trainer", -- Gleeful Glamour - Void Elf
+    [1236483] = "trainer", -- Gleeful Glamour - Vulpera
+    [1236484] = "trainer", -- Gleeful Glamour - Worgen
+    [1236485] = "trainer", -- Gleeful Glamour - Zandalari Troll
+
+    [1230763] = "trainer", -- Sterling Alloy
+    [1230762] = "trainer", -- Gloaming Alloy
+    [1230761] = "trainer", -- Refulgent Copper Ingot
+    [1229624] = "trainer", -- Blood-Tempered Leggings
+    [1229622] = "trainer", -- Blood-Tempered Pauldrons
+    [1229629] = "trainer", -- Blood-Tempered Greaves
+    [1229625] = "trainer", -- Blood-Tempered Basinet
+    [1229621] = "trainer", -- Blood-Tempered Gauntlets
+    [1229626] = "trainer", -- Blood-Tempered Bulwark
+    [1229627] = "trainer", -- Blood-Tempered Greatbelt
+    [1229623] = "trainer", -- Blood-Tempered Bracers
+    [1229628] = "trainer", -- Blood-Tempered Chestplate
+    [1229616] = "trainer", -- Dawnforged War Mace
+    [1229617] = "trainer", -- Primalforged Knuckles
+    [1229618] = "trainer", -- Dawnforged Long Blade
+    [1229615] = "trainer", -- Dawnforged Splitter
+    [1229619] = "trainer", -- Dawnforged Edge
+    [1229620] = "trainer", -- Dawnforged Ritual Knife
+    [1229614] = "trainer", -- Primalforged Heavy Axe
+    [1229606] = "trainer", -- Thalassian Blacksmith's Hammer
+    [1229611] = "trainer", -- Thalassian Blacksmith's Toolbox
+    [1229607] = "trainer", -- Thalassian Leatherworker's Knife
+    [1229612] = "trainer", -- Thalassian Leatherworker's Toolset
+    [1229613] = "trainer", -- Thalassian Needle Set
+    [1229609] = "trainer", -- Thalassian Pickaxe
+    [1229610] = "trainer", -- Thalassian Sickle
+    [1229608] = "trainer", -- Thalassian Skinning Knife
+    [1230759] = "trainer", -- Refulgent Weightstone
+    [1230760] = "trainer", -- Refulgent Razorstone
+}
+-- Les recettes de trainer portent le code source 6 dans le catalogue local.
+-- Cela couvre aussi les patrons apparus dynamiquement depuis l'historique des
+-- commandes, pas seulement le palier statique de YWT.
+for _, spellID in ipairs({
+    1228941, 1228951, 1228954, 1228955, 1228956, 1228957, 1228959, 1228969, 1228973, 1228977,
+    1229606, 1229608, 1229609, 1229610, 1229611, 1229612, 1229615, 1229616, 1229617, 1229618,
+    1229619, 1229620, 1229621, 1229622, 1229625, 1229626, 1229627, 1229628, 1229629,
+    1229755, 1229853, 1229857, 1229859, 1229864, 1229866, 1229899, 1229900, 1229904, 1229936, 1229937,
+    1230016, 1230017, 1230018, 1230019, 1230020, 1230021, 1230022, 1230037, 1230038, 1230039,
+    1230040, 1230041, 1230042, 1230050, 1230055, 1230056, 1230057, 1230058,
+    1230440, 1230441, 1230446, 1230448, 1230463, 1230493, 1230758, 1230759, 1230760, 1230761,
+    1230762, 1230763, 1230764, 1230854, 1230855, 1230866, 1230868, 1230886, 1236098,
+    1236461, 1236463, 1236465, 1236466, 1236467, 1236468, 1236469, 1236470, 1236471, 1236472,
+    1236473, 1236474, 1236475, 1236476, 1236477, 1236478, 1236479, 1236480, 1236481, 1236482,
+    1236483, 1236484, 1236485, 1236491, 1236594, 1237503, 1237548, 1237551, 1237575, 1246895,
+    1246904, 1280546,
+}) do
+    runtimeState.midnightRecipeAcquisitionTypeBySpellID[spellID] = "trainer"
+end
 local ARTISAN_CONSORTIUM_PAYOUT_ITEM_IDS = {
     [227713] = true,
     [246585] = true,
@@ -1266,6 +1513,14 @@ local TRACKER_DEFAULTS = {
     autoBuyAbundanceEnchantingBags = false,
     autoBuyAbundanceFusedVitality = false,
     autoOpenContainers = false,
+    trackRecipeSourceKnowledge = false,
+    trackRecipeSourceReputation = false,
+    trackRecipeSourcePvP = false,
+    trackRecipeSourceDrop = false,
+    trackRecipeSourceDiscovery = false,
+    trackRecipeSourceTrainer = true,
+    trackRecipeSourceCauldron = true,
+    trackRecipeSourceProfessionVendor = true,
     trackRecipePotionRecklessness = true,
     trackRecipeViciousThalassianFlaskHonor = true,
     trackRecipeHaranirMulticrafting = true,
@@ -1367,6 +1622,22 @@ runtimeState.trackingOptions = {
     { category = "Marchand Abondance", key = "autoBuyAbundanceEnchantingBags", label = "Acheter automatiquement les sacs de matériaux d'enchantement" },
     { category = "Marchand Abondance", key = "autoBuyAbundanceFusedVitality", label = "Acheter automatiquement les Fused Vitality" },
     { category = "Conteneurs", key = "autoOpenContainers", effect = "autoopen", label = "Proposer l'ouverture securisee des conteneurs YWT" },
+    { category = "Recettes Midnight", key = "trackRecipeSourceKnowledge", default = false, effect = "recipes",
+        label = "Recettes apprises par les talents de connaissance" },
+    { category = "Recettes Midnight", key = "trackRecipeSourceReputation", default = false, effect = "recipes",
+        label = "Recettes des vendeurs de reputation" },
+    { category = "Recettes Midnight", key = "trackRecipeSourcePvP", default = false, effect = "recipes",
+        label = "Recettes des vendeurs PvP" },
+    { category = "Recettes Midnight", key = "trackRecipeSourceDrop", default = false, effect = "recipes",
+        label = "Recettes des tresors et des donjons" },
+    { category = "Recettes Midnight", key = "trackRecipeSourceDiscovery", default = false, effect = "recipes",
+        label = "Recettes decouvertes ou recyclees" },
+    { category = "Recettes Midnight", key = "trackRecipeSourceTrainer", default = true, effect = "recipes",
+        label = "Recettes du trainer classique" },
+    { category = "Recettes Midnight", key = "trackRecipeSourceCauldron", default = true, effect = "recipes",
+        label = "Recettes du chaudron de l'alchimie" },
+    { category = "Recettes Midnight", key = "trackRecipeSourceProfessionVendor", default = true, effect = "recipes",
+        label = "Recettes du vendeur de metier" },
     { category = "Recettes Midnight", key = "trackRecipePotionRecklessness", label = "Potion of Recklessness" },
     { category = "Recettes Midnight", key = "trackRecipeViciousThalassianFlaskHonor", label = "Vicious Thalassian Flask of Honor" },
     { category = "Recettes Midnight", key = "trackRecipeHaranirMulticrafting", label = "Enchant Tool - Haranir Multicrafting" },
@@ -1772,6 +2043,15 @@ local function GetAccountDB()
             or YayaWeeklyTrackerAccountDB.trackProfessionTools ~= false
             or YayaWeeklyTrackerAccountDB.trackProfessionToolEnchants ~= false
         YayaWeeklyTrackerAccountDB.trackProfessionGear = merged
+    end
+    -- Avant 0.9.20, le descripteur du reglage PvP avait par erreur un defaut
+    -- actif et l'a donc persiste dans les comptes existants. Revenir au nouveau
+    -- defaut une seule fois, sans toucher aux comptes qui l'avaient deja coupe.
+    if YayaWeeklyTrackerAccountDB.midnightRecipeSourceDefaultsVersion == nil then
+        YayaWeeklyTrackerAccountDB.midnightRecipeSourceDefaultsVersion = 1
+        if YayaWeeklyTrackerAccountDB.trackRecipeSourcePvP == true then
+            YayaWeeklyTrackerAccountDB.trackRecipeSourcePvP = TRACKER_DEFAULTS.trackRecipeSourcePvP
+        end
     end
     -- Defaut du descripteur d'abord, TRACKER_DEFAULTS en repli ; une cle sans
     -- defaut (professionOrder) n'est pas ecrite, son lecteur normalise nil.
@@ -2380,6 +2660,9 @@ trackerUI.ApplySettingChange = function(key, value, descriptor)
         end
     elseif effect == "gear" then
         trackerUI.InvalidateToolEnchantCache()
+    elseif effect == "recipes" then
+        trackerUI.InvalidateMidnightRecipeItemCache()
+        trackerUI.RetriggerMidnightTreasureWaypoints()
     elseif effect == "waypoints" then
         trackerUI.RetriggerMidnightTreasureWaypoints()
     elseif effect == "professions" then
@@ -7046,11 +7329,145 @@ trackerUI.GetRecipeKnownFromTooltip = function(itemID)
     return false
 end
 
+trackerUI.GetMidnightRecipeAcquisitionType = function(recipe)
+    if type(recipe) ~= "table" then
+        return "trainer"
+    end
+    if recipe.acquisitionType then
+        return recipe.acquisitionType
+    end
+    if recipe.knowledge then
+        return "knowledge"
+    end
+    if recipe.reputation then
+        return "reputation"
+    end
+    if recipe.pvp then
+        return "pvp"
+    end
+    if recipe.cauldron then
+        return "cauldron"
+    end
+    if recipe.professionVendor then
+        return "professionVendor"
+    end
+    if recipe.trainer then
+        return "trainer"
+    end
+    local spellID = tonumber(recipe.spellID)
+    local configuredType = spellID
+        and runtimeState.midnightRecipeAcquisitionTypeBySpellID[spellID]
+        or nil
+    if configuredType then
+        return configuredType
+    end
+    if recipe.patronOrder then
+        return "patronOrder"
+    end
+    if recipe.auctionHouse then
+        return "auctionHouse"
+    end
+    if not recipe.itemID then
+        return "trainer"
+    end
+    return "professionVendor"
+end
+
+trackerUI.IsMidnightRecipeSourceTracked = function(recipe)
+    local sourceType = trackerUI.GetMidnightRecipeAcquisitionType(recipe)
+    local sourceOption = runtimeState.midnightRecipeSourceOptions
+        and runtimeState.midnightRecipeSourceOptions[sourceType]
+    return not sourceOption or GetAccountDB()[sourceOption.optionKey] ~= false
+end
+
 trackerUI.GetMidnightRecipeCacheKey = function(recipe)
     if not recipe then
         return "none"
     end
     return recipe.itemID or ("spell:" .. tostring(recipe.spellID))
+end
+
+trackerUI.GetMidnightPatronRecipeDefinitions = function(skillLineID)
+    local recipes = {}
+    local seen = {}
+    local signatureParts = {}
+    local function AddRecipe(recipe)
+        local spellID = tonumber(recipe and recipe.spellID)
+        if not spellID or seen[spellID] then
+            return
+        end
+        seen[spellID] = true
+        recipes[#recipes + 1] = recipe
+        signatureParts[#signatureParts + 1] = tostring(spellID)
+    end
+
+    for _, recipe in ipairs(
+        runtimeState.midnightConfirmedPatronRecipesBySkillLineID[skillLineID] or EMPTY_TABLE
+    ) do
+        AddRecipe(recipe)
+    end
+
+    local history = _G.YayaCraftingOrdersDB
+        and _G.YayaCraftingOrdersDB.patronRecipeHistory
+    for recipeID, entry in pairs(history and history.recipes or EMPTY_TABLE) do
+        local matchesProfession = false
+        local spellID = tonumber(type(entry) == "table" and (entry.recipeID or recipeID) or recipeID)
+        local recipeProfessionID
+        if spellID and C_TradeSkillUI and type(C_TradeSkillUI.GetProfessionInfoByRecipeID) == "function" then
+            local ok, info = pcall(C_TradeSkillUI.GetProfessionInfoByRecipeID, spellID)
+            if ok and type(info) == "table" then
+                recipeProfessionID = tonumber(info.professionID or info.skillLineID)
+            end
+        end
+        if recipeProfessionID then
+            matchesProfession = recipeProfessionID == skillLineID
+                or runtimeState.baseProfessionToMidnightSkillLineID[recipeProfessionID] == skillLineID
+                or recipeProfessionID == runtimeState.midnightProfessionEnumBySkillLineID[skillLineID]
+        end
+        if not recipeProfessionID and type(entry) == "table" and entry.professionID then
+            local savedProfessionID = tonumber(entry.professionID)
+            matchesProfession = savedProfessionID == skillLineID
+                or runtimeState.baseProfessionToMidnightSkillLineID[savedProfessionID] == skillLineID
+                or savedProfessionID == runtimeState.midnightProfessionEnumBySkillLineID[skillLineID]
+        end
+        for professionID in pairs(type(entry) == "table" and entry.professions or EMPTY_TABLE) do
+            if recipeProfessionID then
+                break
+            end
+            professionID = tonumber(professionID)
+            if professionID == skillLineID
+                or runtimeState.baseProfessionToMidnightSkillLineID[professionID] == skillLineID
+                or professionID == runtimeState.midnightProfessionEnumBySkillLineID[skillLineID]
+            then
+                matchesProfession = true
+                break
+            end
+        end
+        if matchesProfession and type(entry) == "table" and next(entry.orderIDs or EMPTY_TABLE) then
+            if spellID then
+                AddRecipe({
+                    label = entry.recipeName or ("Recette " .. tostring(spellID)),
+                    spellID = spellID,
+                    patronOrder = true,
+                    voidlightMarlCost = 0,
+                })
+                signatureParts[#signatureParts + 1] = table.concat({
+                    tostring(spellID),
+                    tostring(entry.lastSeenAt or 0),
+                    tostring(entry.seenCount or 0),
+                }, ":")
+            end
+        end
+    end
+
+    table.sort(signatureParts)
+    local signature = table.concat(signatureParts, ",")
+    if runtimeState.midnightPatronRecipeSignatures[skillLineID] ~= signature then
+        runtimeState.midnightPatronRecipeSignatures[skillLineID] = signature
+        midnightCaches.recipeItemsDirty = true
+        DebugLog("Patron recipe catalog[%s] = %d", tostring(skillLineID), #recipes)
+    end
+    return recipes
 end
 
 trackerUI.GetMidnightRecipeDefinitions = function(skillLineID)
@@ -7061,6 +7478,9 @@ trackerUI.GetMidnightRecipeDefinitions = function(skillLineID)
         recipes[#recipes + 1] = recipe
     end
     for _, recipe in ipairs(newRecipes or EMPTY_TABLE) do
+        recipes[#recipes + 1] = recipe
+    end
+    for _, recipe in ipairs(trackerUI.GetMidnightPatronRecipeDefinitions(skillLineID)) do
         recipes[#recipes + 1] = recipe
     end
     return recipes
@@ -7147,7 +7567,9 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
     for _, row in ipairs(trackedRows or EMPTY_TABLE) do
         local recipes = trackerUI.GetMidnightRecipeDefinitions(row.skillLineID)
         for _, recipe in ipairs(recipes) do
-            if GetAccountDB()[recipe.optionKey] ~= false then
+            if GetAccountDB()[recipe.optionKey] ~= false
+                and trackerUI.IsMidnightRecipeSourceTracked(recipe)
+            then
                 local known = IsMidnightRecipeKnown(recipe)
                 if known == nil then
                     runtimeState.midnightRecipeStatePending = true
@@ -7249,7 +7671,8 @@ trackerUI.GetMidnightRecipeStatus = function(row)
     local skillLineID = row and row.skillLineID
     local existingRecipes = skillLineID and MIDNIGHT_RECIPE_TRACKING_BY_SKILL_LINE_ID[skillLineID]
     local newRecipes = skillLineID and runtimeState.midnightNewRecipeTrackingBySkillLineID[skillLineID]
-    if not existingRecipes and not newRecipes then
+    local patronRecipes = skillLineID and trackerUI.GetMidnightPatronRecipeDefinitions(skillLineID)
+    if not existingRecipes and not newRecipes and not patronRecipes then
         return result
     end
 
@@ -7267,6 +7690,9 @@ trackerUI.GetMidnightRecipeStatus = function(row)
         local requiresAbundance = recipe.abundance == true
             or (tonumber(recipe.abundanceCost) or 0) > 0
         if accountDB[recipe.optionKey] == false then
+            return true
+        end
+        if not trackerUI.IsMidnightRecipeSourceTracked(recipe) then
             return true
         end
         if requiresAbundance and playerLevel < runtimeState.minimumMidnightAbundanceLevel then
@@ -7314,6 +7740,9 @@ trackerUI.GetMidnightRecipeStatus = function(row)
         for _, recipe in ipairs(newRecipes or EMPTY_TABLE) do
             EvaluateRecipe(recipe, true)
         end
+        for _, recipe in ipairs(patronRecipes or EMPTY_TABLE) do
+            EvaluateRecipe(recipe, true)
+        end
     end
 
     if result.requiredMoxie > 0 then
@@ -7355,7 +7784,10 @@ trackerUI.BuildMidnightKnowledgeBookWaypointPlan = function(trackedRows)
         local affordableMoxie = recipeStatus.currentMoxie or 0
         for _, recipe in ipairs(wantRecipes and recipeStatus.missingRecipes or EMPTY_TABLE) do
             local moxieCost = recipe.moxieCost or MIDNIGHT_RECIPE_MOXIE_COST
-            if not recipe.auctionHouse and recipe.mapID and affordableMoxie >= moxieCost then
+            if not recipe.auctionHouse
+                and recipe.mapID
+                and affordableMoxie >= moxieCost
+            then
                 affordableMoxie = affordableMoxie - moxieCost
                 local key = ("%s:%s:%s:%s"):format(recipe.mapID, recipe.x, recipe.y, recipe.label)
                 if not seen[key] then
@@ -7654,9 +8086,11 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     end
 
     local recipeStatus = trackerUI.GetMidnightRecipeStatus(row)
-    local vendorRecipes, auctionRecipes = {}, {}
+    local vendorRecipes, auctionRecipes, patronRecipes = {}, {}, {}
     for _, recipe in ipairs(recipeStatus.missingRecipes) do
-        local bucket = recipe.auctionHouse and auctionRecipes or vendorRecipes
+        local bucket = recipe.patronOrder
+            and patronRecipes
+            or (recipe.auctionHouse and auctionRecipes or vendorRecipes)
         bucket[#bucket + 1] = recipe.label
     end
     if #vendorRecipes > 0 then
@@ -7671,6 +8105,13 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         Push(oneTimeTokens,
             ("recHV%sx%d"):format(NB, #auctionRecipes),
             ("Recettes a l'hotel des ventes : %s"):format(table.concat(auctionRecipes, ", ")),
+            "category")
+    end
+    if #patronRecipes > 0 then
+        table.sort(patronRecipes)
+        Push(oneTimeTokens,
+            ("patron%sx%d"):format(NB, #patronRecipes),
+            ("Recettes susceptibles de tomber en patron order : %s"):format(table.concat(patronRecipes, ", ")),
             "category")
     end
 
@@ -7867,6 +8308,8 @@ runtimeState.testSeams = {
     GetRecipeStatus = trackerUI.GetMidnightRecipeStatus,
     FindRecipeItems = trackerUI.FindMidnightRecipeInBags,
     InvalidateRecipeItems = trackerUI.InvalidateMidnightRecipeItemCache,
+    GetRecipeAcquisitionType = trackerUI.GetMidnightRecipeAcquisitionType,
+    IsRecipeSourceTracked = trackerUI.IsMidnightRecipeSourceTracked,
 }
 
 trackerUI.NotifyContainerOpening = function(button, _, down)

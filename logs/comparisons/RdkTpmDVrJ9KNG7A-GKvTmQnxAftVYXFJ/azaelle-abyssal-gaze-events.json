@@ -1,0 +1,528 @@
+{
+  "reportReference": {
+    "origin": "https://www.warcraftlogs.com",
+    "region": "global",
+    "reportCode": "RdkTpmDVrJ9KNG7A",
+    "fight": null,
+    "canonicalUrl": "https://www.warcraftlogs.com/reports/RdkTpmDVrJ9KNG7A",
+    "inputWasUrl": false
+  },
+  "fight": {
+    "id": 1,
+    "name": "Murder Row",
+    "startTime": 154984,
+    "endTime": 1854810,
+    "encounterID": 12813,
+    "originalEncounterID": null,
+    "kill": true,
+    "difficulty": 10,
+    "size": 5,
+    "inProgress": false,
+    "averageItemLevel": 322,
+    "friendlyPlayers": [
+      2,
+      4,
+      1,
+      5,
+      3
+    ],
+    "friendlySpecs": [
+      "Holy",
+      "Protection",
+      "Havoc",
+      "Demonology",
+      "Arcane"
+    ],
+    "friendlyItemLevels": [
+      322,
+      324,
+      315,
+      326,
+      323
+    ],
+    "gameZone": {
+      "id": 2813,
+      "name": "Murder Row"
+    },
+    "maps": [
+      {
+        "id": 2433
+      },
+      {
+        "id": 2435
+      },
+      {
+        "id": 2434
+      }
+    ],
+    "keystoneLevel": 16,
+    "keystoneTime": 1781183,
+    "keystoneBonus": 1,
+    "keystoneAffixes": [
+      9,
+      10,
+      147
+    ],
+    "rating": 429.760009765625,
+    "countReached": 668,
+    "countRequired": 655
+  },
+  "query": {
+    "dataType": "Casts",
+    "sourceID": 1,
+    "targetID": null,
+    "abilityID": 452497,
+    "startTime": 154984,
+    "endTime": 1854810,
+    "initialCursor": null
+  },
+  "events": [
+    {
+      "timestamp": 197450,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 354248,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 510471,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 638295,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 761623,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 967501,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1116891,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1238471,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1259338,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1390985,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1411919,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1536795,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1557712,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1720655,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1741073,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1846873,
+      "type": "cast",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Environment",
+        "id": -1,
+        "guid": 0,
+        "type": "NPC",
+        "icon": "NPC"
+      },
+      "ability": {
+        "name": "Abyssal Gaze",
+        "guid": 452497,
+        "type": 124,
+        "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+      },
+      "fight": 1
+    }
+  ],
+  "pagination": {
+    "count": 16,
+    "pagesFetched": 1,
+    "nextPageTimestamp": null,
+    "hasMore": false,
+    "stopReason": "complete",
+    "cursorMayRepeat": false
+  },
+  "budget": {
+    "maxEvents": 1000,
+    "pageSize": 500,
+    "maxPages": 5,
+    "maxPayloadBytes": 500000
+  },
+  "warnings": []
+}

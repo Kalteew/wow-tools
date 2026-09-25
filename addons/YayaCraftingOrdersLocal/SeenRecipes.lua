@@ -72,8 +72,22 @@ function Seen:EnsureDatabase()
 
 	db.patronRecipeHistory = type(db.patronRecipeHistory) == "table" and db.patronRecipeHistory or {}
 	local history = db.patronRecipeHistory
-	history.version = 1
+	local historyVersion = tonumber(history.version) or 1
 	history.recipes = type(history.recipes) == "table" and history.recipes or {}
+	if historyVersion < 2 then
+		for _, entry in pairs(history.recipes) do
+			if type(entry) == "table" then
+				-- Les anciennes versions pouvaient associer l'order au metier
+				-- ouvert plutot qu'au metier de la recette. Les orders restent
+				-- conserves et seront reappris avec l'ID fiable au prochain scan.
+				entry.professionID = nil
+				entry.professions = {}
+			end
+		end
+		history.version = 2
+	else
+		history.version = historyVersion
+	end
 	return history
 end
 
@@ -93,6 +107,7 @@ function Seen:Observe(recipeID, recipeName, professionID, source, orderID, obser
 		entry = {
 			recipeID = recipeID,
 			recipeName = recipeName,
+			professionID = nil,
 			professions = {},
 			sources = {},
 			orderIDs = {},
@@ -111,6 +126,13 @@ function Seen:Observe(recipeID, recipeName, professionID, source, orderID, obser
 
 	professionID = NormalizeProfessionID(professionID)
 	if professionID then
+		-- Une recette appartient a un seul metier. Les anciennes versions
+		-- pouvaient enregistrer le metier actuellement affiche au lieu de celui
+		-- de la recette : une observation live fiable doit donc nettoyer ce bruit.
+		if source == "jeu" then
+			entry.professions = {}
+		end
+		entry.professionID = professionID
 		entry.professions[professionID] = true
 	end
 	if source and source ~= "" then
@@ -190,16 +212,18 @@ end
 
 function Seen:GetCurrentProfessionID(recipeID)
 	local professionID
-	if ns.BrowsePane and type(ns.BrowsePane.GetCurrentProfessionID) == "function" then
-		local ok, value = pcall(ns.BrowsePane.GetCurrentProfessionID, ns.BrowsePane)
-		if ok then
-			professionID = value
-		end
-	end
-	if not professionID and recipeID and C_TradeSkillUI and type(C_TradeSkillUI.GetProfessionInfoByRecipeID) == "function" then
+	-- L'ID de recette est la source de verite. Le metier affiche n'est qu'un
+	-- repli : ScanLive parcourt parfois des orders d'un autre onglet.
+	if recipeID and C_TradeSkillUI and type(C_TradeSkillUI.GetProfessionInfoByRecipeID) == "function" then
 		local ok, info = pcall(C_TradeSkillUI.GetProfessionInfoByRecipeID, recipeID)
 		if ok and type(info) == "table" then
 			professionID = info.professionID or info.skillLineID
+		end
+	end
+	if not professionID and ns.BrowsePane and type(ns.BrowsePane.GetCurrentProfessionID) == "function" then
+		local ok, value = pcall(ns.BrowsePane.GetCurrentProfessionID, ns.BrowsePane)
+		if ok then
+			professionID = value
 		end
 	end
 	return NormalizeProfessionID(professionID)

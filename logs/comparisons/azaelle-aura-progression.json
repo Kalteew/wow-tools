@@ -1,0 +1,90 @@
+{
+  "capturedAt": "2026-09-25",
+  "subject": "Azaelle / Azåelle / Azael",
+  "scope": "Raw aura breakdowns available locally, deduplicated to distinct runs",
+  "method": {
+    "ragefireAverage": "Ragefire total damage divided by Ragefire impact count",
+    "auraAverage": "Immolation Aura composite total divided by all Aura and Ragefire impacts",
+    "directAuraAverage": "Direct Immolation Aura subentries only, excluding Ragefire",
+    "deduplication": "Identical report snapshots with the same date, dungeon, key, stats and impact counts collapsed to one run",
+    "limitation": "The broader 52-snapshot index does not contain raw Ragefire and direct-Aura subentries for every snapshot."
+  },
+  "runs": [
+    {
+      "date": "2026-09-22",
+      "dungeon": "Den of Nalorakk",
+      "keyLevel": 15,
+      "stats": {"crit": 1180, "mastery": 969, "haste": 185, "versatility": 416},
+      "immolationAuraCasts": 48,
+      "auraImpacts": 5584,
+      "auraAverage": 14150.34,
+      "ragefireImpacts": 426,
+      "ragefireAverage": 101471.06,
+      "directAuraAverage": 6938.5
+    },
+    {
+      "date": "2026-09-22",
+      "dungeon": "Kings' Rest",
+      "keyLevel": 12,
+      "stats": {"crit": 1180, "mastery": 969, "haste": 185, "versatility": 416},
+      "immolationAuraCasts": 42,
+      "auraImpacts": 2885,
+      "auraAverage": 11852.95,
+      "ragefireImpacts": 197,
+      "ragefireAverage": 74204.59,
+      "directAuraAverage": 7283.28
+    },
+    {
+      "date": "2026-09-23",
+      "dungeon": "Murder Row",
+      "keyLevel": 15,
+      "stats": {"crit": 1180, "mastery": 969, "haste": 185, "versatility": 416},
+      "immolationAuraCasts": 49,
+      "auraImpacts": 4900,
+      "auraAverage": 12535.14,
+      "ragefireImpacts": 381,
+      "ragefireAverage": 82075.78,
+      "directAuraAverage": 6672.12
+    },
+    {
+      "date": "2026-09-23",
+      "dungeon": "Temple of Sethraliss",
+      "keyLevel": 15,
+      "stats": {"crit": 1180, "mastery": 969, "haste": 185, "versatility": 416},
+      "immolationAuraCasts": 48,
+      "auraImpacts": 7000,
+      "auraAverage": 12785.31,
+      "ragefireImpacts": 578,
+      "ragefireAverage": 87232.72,
+      "directAuraAverage": 6084.81
+    },
+    {
+      "date": "2026-09-24",
+      "dungeon": "Murder Row",
+      "keyLevel": 16,
+      "stats": {"crit": 1181, "mastery": 929, "haste": 185, "versatility": 478},
+      "immolationAuraCasts": 55,
+      "auraImpacts": 6034,
+      "auraAverage": 13440.31,
+      "ragefireImpacts": 467,
+      "ragefireAverage": 92426.41,
+      "directAuraAverage": 6814.39
+    }
+  ],
+  "interpretation": {
+    "sameStatsRange": {
+      "ragefireAverageMin": 74204.59,
+      "ragefireAverageMax": 101471.06,
+      "ragefireSpreadPercentOfMin": 36.74,
+      "auraAverageMin": 11852.95,
+      "auraAverageMax": 14150.34,
+      "auraSpreadPercentOfMin": 19.38
+    },
+    "murderRowPlus15ToPlus16": {
+      "ragefireAverageChangePercent": 12.61,
+      "auraAverageChangePercent": 7.22,
+      "note": "Not a clean stat-scaling measurement: Crit changes by +1, Mastery by -40 and Versatility by +62, while key, route, pulls, buffs and deaths also differ."
+    },
+    "conclusion": "No monotonic progression attributable to stats is established. With nearly identical stats, dungeon and pull context changes Ragefire average impact by about 37% and composite Aura average by about 19%."
+  }
+}

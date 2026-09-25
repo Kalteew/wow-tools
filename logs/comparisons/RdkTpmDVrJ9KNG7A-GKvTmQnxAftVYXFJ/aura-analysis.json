@@ -1,0 +1,32 @@
+{
+  "capturedAt": "2026-09-24T19:45:52.5402111Z",
+  "source": "existing_wcl_damage_tables",
+  "comparison": [
+    {
+      "player": "Azaelle",
+      "casts": 55,
+      "auraTotal": 81098854,
+      "ragefireTotal": 43163134,
+      "ragefireHits": 467,
+      "ragefireAverage": 92426.41113490364,
+      "otherAuraTotal": 37935720,
+      "otherAuraHits": 5567.0,
+      "otherAuraCritPercent": 55.038620441889705,
+      "otherAuraAverage": 6814.39195257769
+    },
+    {
+      "player": "Comparator",
+      "casts": 53,
+      "auraTotal": 127993221,
+      "ragefireTotal": 70456644,
+      "ragefireHits": 560,
+      "ragefireAverage": 125815.43571428572,
+      "otherAuraTotal": 57536577,
+      "otherAuraHits": 6060.0,
+      "otherAuraCritPercent": 62.95379537953795,
+      "otherAuraAverage": 9494.484653465346
+    }
+  ],
+  "ragefireFractionOfTotalAuraGap": 0.5820210772863188,
+  "limitation": "Hit counts are damage impacts, not unique targets. Pack sizes, route, durations, gear and buffs differ; averages do not prove a positioning error."
+}

@@ -1,0 +1,624 @@
+{
+  "reportReference": {
+    "origin": "https://www.warcraftlogs.com",
+    "region": "global",
+    "reportCode": "6dHGQ8PjDVq4Wtwa",
+    "fight": null,
+    "canonicalUrl": "https://www.warcraftlogs.com/reports/6dHGQ8PjDVq4Wtwa",
+    "inputWasUrl": false
+  },
+  "fight": {
+    "id": 2,
+    "name": "Temple of Sethraliss",
+    "startTime": 959112,
+    "endTime": 2546069,
+    "encounterID": 61877,
+    "originalEncounterID": null,
+    "kill": true,
+    "difficulty": 10,
+    "size": 5,
+    "inProgress": false,
+    "averageItemLevel": 320,
+    "friendlyPlayers": [
+      2,
+      4,
+      1,
+      61,
+      63
+    ],
+    "friendlySpecs": [
+      "Holy",
+      "Protection",
+      "Havoc",
+      "Demonology",
+      "Arcane"
+    ],
+    "friendlyItemLevels": [
+      322,
+      323,
+      313,
+      323,
+      319
+    ],
+    "gameZone": {
+      "id": 1877,
+      "name": "Temple of Sethraliss"
+    },
+    "maps": [
+      {
+        "id": 1038
+      },
+      {
+        "id": 1043
+      }
+    ],
+    "keystoneLevel": 15,
+    "keystoneTime": 1668094,
+    "keystoneBonus": 1,
+    "keystoneAffixes": [
+      10,
+      9,
+      147
+    ],
+    "rating": 414.9200134277344,
+    "countReached": 656,
+    "countRequired": 687
+  },
+  "pulls": [
+    {
+      "id": 1,
+      "name": "Sandfury Stonefist",
+      "startTime": 969469,
+      "endTime": 1106524,
+      "encounterID": 0,
+      "kill": false,
+      "x": -314704,
+      "y": 323481,
+      "maps": [
+        {
+          "id": 1038
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 12,
+          "gameID": 134602,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 6,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 10,
+          "gameID": 134616,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 8,
+          "gameID": 134600,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 5,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 13,
+          "gameID": 134617,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 9,
+          "gameID": 134990,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 14,
+          "gameID": 134991,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Adderis and Aspix",
+      "startTime": 1106615,
+      "endTime": 1277269,
+      "encounterID": 2124,
+      "kill": true,
+      "x": -317463,
+      "y": 335545,
+      "maps": [
+        {
+          "id": 1038
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 33,
+          "gameID": 262822,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 32,
+          "gameID": 262530,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 12,
+          "gameID": 134602,
+          "minimumInstanceID": 6,
+          "maximumInstanceID": 6,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 8,
+          "gameID": 134600,
+          "minimumInstanceID": 5,
+          "maximumInstanceID": 5,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 14,
+          "gameID": 134991,
+          "minimumInstanceID": 3,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Sand-Sworn Rider",
+      "startTime": 1290390,
+      "endTime": 1394303,
+      "encounterID": 0,
+      "kill": false,
+      "x": -327145,
+      "y": 339294,
+      "maps": [
+        {
+          "id": 1038
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 85,
+          "gameID": 135846,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 82,
+          "gameID": 134629,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 84,
+          "gameID": 135562,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 8,
+          "gameID": 134600,
+          "minimumInstanceID": 6,
+          "maximumInstanceID": 7,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 9,
+          "gameID": 134990,
+          "minimumInstanceID": 4,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Sand-Sworn Rider",
+      "startTime": 1397640,
+      "endTime": 1523883,
+      "encounterID": 0,
+      "kill": false,
+      "x": -342100,
+      "y": 349518,
+      "maps": [
+        {
+          "id": 1038
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 88,
+          "gameID": 139425,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 85,
+          "gameID": 135846,
+          "minimumInstanceID": 3,
+          "maximumInstanceID": 7,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 82,
+          "gameID": 134629,
+          "minimumInstanceID": 3,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 84,
+          "gameID": 135562,
+          "minimumInstanceID": 3,
+          "maximumInstanceID": 6,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 8,
+          "gameID": 134600,
+          "minimumInstanceID": 8,
+          "maximumInstanceID": 8,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 89,
+          "gameID": 134364,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Merektha",
+      "startTime": 1528314,
+      "endTime": 1715808,
+      "encounterID": 2125,
+      "kill": true,
+      "x": -342429,
+      "y": 354664,
+      "maps": [
+        {
+          "id": 1038
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 96,
+          "gameID": 263383,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 16,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 105,
+          "gameID": 134390,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 102,
+          "gameID": 134389,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 91,
+          "gameID": 133384,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Agitated Nimbus",
+      "startTime": 1722775,
+      "endTime": 1786844,
+      "encounterID": 0,
+      "kill": false,
+      "x": -335451,
+      "y": 357383,
+      "maps": [
+        {
+          "id": 1038
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 111,
+          "gameID": 134691,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 109,
+          "gameID": 265057,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 110,
+          "gameID": 134599,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 108,
+          "gameID": 136076,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Agitated Nimbus",
+      "startTime": 1795463,
+      "endTime": 1955077,
+      "encounterID": 0,
+      "kill": false,
+      "x": -334406,
+      "y": 363763,
+      "maps": [
+        {
+          "id": 1038
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 111,
+          "gameID": 134691,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 6,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 110,
+          "gameID": 134599,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 108,
+          "gameID": 136076,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Galvazzt",
+      "startTime": 1962315,
+      "endTime": 2117682,
+      "encounterID": 2126,
+      "kill": true,
+      "x": -340809,
+      "y": 370550,
+      "maps": [
+        {
+          "id": 1038
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 113,
+          "gameID": 263658,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Unknown",
+      "startTime": 2124980,
+      "endTime": 2135663,
+      "encounterID": 0,
+      "kill": false,
+      "x": -2147483648,
+      "y": -2147483648,
+      "maps": [
+        {
+          "id": 1043
+        }
+      ],
+      "enemyNPCs": []
+    },
+    {
+      "id": 10,
+      "name": "Spark Channeler",
+      "startTime": 2146816,
+      "endTime": 2161943,
+      "encounterID": 0,
+      "kill": false,
+      "x": -348324,
+      "y": 386827,
+      "maps": [
+        {
+          "id": 1043
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 117,
+          "gameID": 139110,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Orb Watcher",
+      "startTime": 2171156,
+      "endTime": 2369161,
+      "encounterID": 0,
+      "kill": false,
+      "x": -345334,
+      "y": 392906,
+      "maps": [
+        {
+          "id": 1043
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 120,
+          "gameID": 135971,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 74,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 122,
+          "gameID": 136250,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 123,
+          "gameID": 268317,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 119,
+          "gameID": 135007,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 121,
+          "gameID": 269227,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Avatar of Sethraliss",
+      "startTime": 2372445,
+      "endTime": 2545841,
+      "encounterID": 2127,
+      "kill": true,
+      "x": -367664,
+      "y": 414704,
+      "maps": [
+        {
+          "id": 1043
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 124,
+          "gameID": 268344,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 130,
+          "gameID": 268729,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 36,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 126,
+          "gameID": 268427,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 127,
+          "gameID": 268491,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    }
+  ]
+}

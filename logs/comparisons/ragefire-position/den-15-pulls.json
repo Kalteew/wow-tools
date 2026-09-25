@@ -1,0 +1,793 @@
+{
+  "reportReference": {
+    "origin": "https://www.warcraftlogs.com",
+    "region": "global",
+    "reportCode": "1hPRWD6AfTQFBazV",
+    "fight": null,
+    "canonicalUrl": "https://www.warcraftlogs.com/reports/1hPRWD6AfTQFBazV",
+    "inputWasUrl": false
+  },
+  "fight": {
+    "id": 2,
+    "name": "Den of Nalorakk",
+    "startTime": 10698032,
+    "endTime": 12242458,
+    "encounterID": 12825,
+    "originalEncounterID": null,
+    "kill": true,
+    "difficulty": 10,
+    "size": 5,
+    "inProgress": false,
+    "averageItemLevel": 321,
+    "friendlyPlayers": [
+      3,
+      80,
+      5,
+      79,
+      81
+    ],
+    "friendlySpecs": [
+      "Holy",
+      "Elemental",
+      "Protection",
+      "Havoc",
+      "Balance"
+    ],
+    "friendlyItemLevels": [
+      322,
+      324,
+      323,
+      313,
+      323
+    ],
+    "gameZone": {
+      "id": 2825,
+      "name": "Den of Nalorakk"
+    },
+    "maps": [
+      {
+        "id": 2564
+      },
+      {
+        "id": 2514
+      },
+      {
+        "id": 2564
+      },
+      {
+        "id": 2513
+      }
+    ],
+    "keystoneLevel": 15,
+    "keystoneTime": 1565327,
+    "keystoneBonus": 1,
+    "keystoneAffixes": [
+      10,
+      9,
+      147
+    ],
+    "rating": 416.92999267578125,
+    "countReached": 763,
+    "countRequired": 729
+  },
+  "pulls": [
+    {
+      "id": 1,
+      "name": "Spirit of Hunger",
+      "startTime": 10721247,
+      "endTime": 10852759,
+      "encounterID": 0,
+      "kill": false,
+      "x": 497771,
+      "y": 429543,
+      "maps": [
+        {
+          "id": 2514
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 91,
+          "gameID": 241809,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 84,
+          "gameID": 241808,
+          "minimumInstanceID": 4,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 86,
+          "gameID": 241814,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 82,
+          "gameID": 241813,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 14,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 85,
+          "gameID": 245752,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 88,
+          "gameID": 241816,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 87,
+          "gameID": 245855,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 92,
+          "gameID": 245567,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Spirit of Hunger",
+      "startTime": 10867172,
+      "endTime": 10913451,
+      "encounterID": 0,
+      "kill": false,
+      "x": 515272,
+      "y": 416485,
+      "maps": [
+        {
+          "id": 2514
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 91,
+          "gameID": 241809,
+          "minimumInstanceID": 3,
+          "maximumInstanceID": 6,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 84,
+          "gameID": 241808,
+          "minimumInstanceID": 8,
+          "maximumInstanceID": 8,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 86,
+          "gameID": 241814,
+          "minimumInstanceID": 2,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 82,
+          "gameID": 241813,
+          "minimumInstanceID": 14,
+          "maximumInstanceID": 14,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 87,
+          "gameID": 245855,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 92,
+          "gameID": 245567,
+          "minimumInstanceID": 3,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Territorial Matriarch",
+      "startTime": 10921994,
+      "endTime": 10976112,
+      "encounterID": 0,
+      "kill": false,
+      "x": 506264,
+      "y": 419478,
+      "maps": [
+        {
+          "id": 2514
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 91,
+          "gameID": 241809,
+          "minimumInstanceID": 7,
+          "maximumInstanceID": 10,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 84,
+          "gameID": 241808,
+          "minimumInstanceID": 3,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 86,
+          "gameID": 241814,
+          "minimumInstanceID": 5,
+          "maximumInstanceID": 5,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 82,
+          "gameID": 241813,
+          "minimumInstanceID": 7,
+          "maximumInstanceID": 7,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 88,
+          "gameID": 241816,
+          "minimumInstanceID": 5,
+          "maximumInstanceID": 6,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Territorial Matriarch",
+      "startTime": 11003370,
+      "endTime": 11024888,
+      "encounterID": 0,
+      "kill": false,
+      "x": 514542,
+      "y": 421879,
+      "maps": [
+        {
+          "id": 2514
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 91,
+          "gameID": 241809,
+          "minimumInstanceID": 11,
+          "maximumInstanceID": 12,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 84,
+          "gameID": 241808,
+          "minimumInstanceID": 7,
+          "maximumInstanceID": 7,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 88,
+          "gameID": 241816,
+          "minimumInstanceID": 7,
+          "maximumInstanceID": 9,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "The Hoardmonger",
+      "startTime": 11024906,
+      "endTime": 11179722,
+      "encounterID": 3207,
+      "kill": true,
+      "x": 522732,
+      "y": 424542,
+      "maps": [
+        {
+          "id": 2514
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 91,
+          "gameID": 241809,
+          "minimumInstanceID": 11,
+          "maximumInstanceID": 12,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 84,
+          "gameID": 241808,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 7,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 90,
+          "gameID": 241812,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 88,
+          "gameID": 241816,
+          "minimumInstanceID": 7,
+          "maximumInstanceID": 9,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Thornclaw Gatherer",
+      "startTime": 11193823,
+      "endTime": 11252855,
+      "encounterID": 0,
+      "kill": false,
+      "x": 543550,
+      "y": 423014,
+      "maps": [
+        {
+          "id": 2514
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 86,
+          "gameID": 241814,
+          "minimumInstanceID": 6,
+          "maximumInstanceID": 8,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 82,
+          "gameID": 241813,
+          "minimumInstanceID": 15,
+          "maximumInstanceID": 21,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 88,
+          "gameID": 241816,
+          "minimumInstanceID": 10,
+          "maximumInstanceID": 11,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Territorial Matriarch",
+      "startTime": 11267320,
+      "endTime": 11451564,
+      "encounterID": 0,
+      "kill": false,
+      "x": 564622,
+      "y": 420293,
+      "maps": [
+        {
+          "id": 2514
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 103,
+          "gameID": 241874,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 19,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 91,
+          "gameID": 241809,
+          "minimumInstanceID": 13,
+          "maximumInstanceID": 17,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 84,
+          "gameID": 241808,
+          "minimumInstanceID": 12,
+          "maximumInstanceID": 18,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 104,
+          "gameID": 241872,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 105,
+          "gameID": 241911,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 106,
+          "gameID": 241876,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 88,
+          "gameID": 241816,
+          "minimumInstanceID": 12,
+          "maximumInstanceID": 12,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Avatar of Determination",
+      "startTime": 11460444,
+      "endTime": 11566770,
+      "encounterID": 0,
+      "kill": false,
+      "x": 533439,
+      "y": 450643,
+      "maps": [
+        {
+          "id": 2514
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 105,
+          "gameID": 241911,
+          "minimumInstanceID": 2,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 106,
+          "gameID": 241876,
+          "minimumInstanceID": 4,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 102,
+          "gameID": 250478,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 108,
+          "gameID": 241869,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Sentinel of Winter",
+      "startTime": 11576192,
+      "endTime": 11741175,
+      "encounterID": 3208,
+      "kill": true,
+      "x": 520847,
+      "y": 458352,
+      "maps": [
+        {
+          "id": 2514
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 118,
+          "gameID": 244759,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 6,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 116,
+          "gameID": 244100,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Grizzled Warbringer",
+      "startTime": 11770423,
+      "endTime": 11833818,
+      "encounterID": 0,
+      "kill": false,
+      "x": 488828,
+      "y": 461871,
+      "maps": [
+        {
+          "id": 2513
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 124,
+          "gameID": 245139,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 2,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 123,
+          "gameID": 245143,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 125,
+          "gameID": 245146,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 126,
+          "gameID": 248666,
+          "minimumInstanceID": 2,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Ruthless Totemcaller",
+      "startTime": 11840941,
+      "endTime": 11884513,
+      "encounterID": 0,
+      "kill": false,
+      "x": 487429,
+      "y": 473880,
+      "maps": [
+        {
+          "id": 2513
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 124,
+          "gameID": 245139,
+          "minimumInstanceID": 3,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 123,
+          "gameID": 245143,
+          "minimumInstanceID": 2,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 129,
+          "gameID": 245190,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 126,
+          "gameID": 248666,
+          "minimumInstanceID": 4,
+          "maximumInstanceID": 8,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 128,
+          "gameID": 245145,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Grizzled Warbringer",
+      "startTime": 11890854,
+      "endTime": 11992337,
+      "encounterID": 0,
+      "kill": false,
+      "x": 486447,
+      "y": 485912,
+      "maps": [
+        {
+          "id": 2513
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 124,
+          "gameID": 245139,
+          "minimumInstanceID": 4,
+          "maximumInstanceID": 5,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 123,
+          "gameID": 245143,
+          "minimumInstanceID": 4,
+          "maximumInstanceID": 5,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 129,
+          "gameID": 245190,
+          "minimumInstanceID": 4,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 126,
+          "gameID": 248666,
+          "minimumInstanceID": 9,
+          "maximumInstanceID": 15,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 125,
+          "gameID": 245146,
+          "minimumInstanceID": 2,
+          "maximumInstanceID": 3,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 128,
+          "gameID": 245145,
+          "minimumInstanceID": 4,
+          "maximumInstanceID": 4,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Loa Speaker Nanea",
+      "startTime": 12007831,
+      "endTime": 12057771,
+      "encounterID": 0,
+      "kill": false,
+      "x": 485014,
+      "y": 498278,
+      "maps": [
+        {
+          "id": 2513
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 130,
+          "gameID": 244889,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        },
+        {
+          "id": 131,
+          "gameID": 272074,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 6,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Nalorakk",
+      "startTime": 12084881,
+      "endTime": 12241891,
+      "encounterID": 3209,
+      "kill": true,
+      "x": 484600,
+      "y": 501596,
+      "maps": [
+        {
+          "id": 2513
+        }
+      ],
+      "enemyNPCs": [
+        {
+          "id": 122,
+          "gameID": 246404,
+          "minimumInstanceID": 1,
+          "maximumInstanceID": 1,
+          "minimumInstanceGroupID": null,
+          "maximumInstanceGroupID": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,5061 @@
+{
+  "dataType": "Buffs",
+  "fightID": 3,
+  "filter": {
+    "targetID": 79
+  },
+  "data": {
+    "data": {
+      "auras": [
+        {
+          "name": "First In, Last Out",
+          "guid": 1266619,
+          "type": 1,
+          "abilityIcon": "ability_demonhunter_demonictrample.jpg",
+          "totalUptime": 179246,
+          "totalUses": 68,
+          "bands": [
+            {
+              "startTime": 12973801,
+              "endTime": 12975586
+            },
+            {
+              "startTime": 13055965,
+              "endTime": 13061467
+            },
+            {
+              "startTime": 13089710,
+              "endTime": 13097918
+            },
+            {
+              "startTime": 13140849,
+              "endTime": 13147137
+            },
+            {
+              "startTime": 13257882,
+              "endTime": 13268894
+            },
+            {
+              "startTime": 13325307,
+              "endTime": 13330711
+            },
+            {
+              "startTime": 13379007,
+              "endTime": 13387203
+            },
+            {
+              "startTime": 13407745,
+              "endTime": 13410030
+            },
+            {
+              "startTime": 13423456,
+              "endTime": 13431649
+            },
+            {
+              "startTime": 13452502,
+              "endTime": 13461694
+            },
+            {
+              "startTime": 13467837,
+              "endTime": 13475710
+            },
+            {
+              "startTime": 13560735,
+              "endTime": 13564744
+            },
+            {
+              "startTime": 13707664,
+              "endTime": 13718064
+            },
+            {
+              "startTime": 13761858,
+              "endTime": 13763390
+            },
+            {
+              "startTime": 13795207,
+              "endTime": 13802988
+            },
+            {
+              "startTime": 13852031,
+              "endTime": 13860246
+            },
+            {
+              "startTime": 13860459,
+              "endTime": 13868700
+            },
+            {
+              "startTime": 13898485,
+              "endTime": 13906689
+            },
+            {
+              "startTime": 13977277,
+              "endTime": 13980404
+            },
+            {
+              "startTime": 13982068,
+              "endTime": 13990274
+            },
+            {
+              "startTime": 14017685,
+              "endTime": 14028298
+            },
+            {
+              "startTime": 14031817,
+              "endTime": 14040008
+            },
+            {
+              "startTime": 14042781,
+              "endTime": 14050971
+            },
+            {
+              "startTime": 14092082,
+              "endTime": 14092388
+            },
+            {
+              "startTime": 14094497,
+              "endTime": 14102689
+            },
+            {
+              "startTime": 14154394,
+              "endTime": 14162588
+            },
+            {
+              "startTime": 14182123,
+              "endTime": 14182598
+            },
+            {
+              "startTime": 14229159,
+              "endTime": 14230591
+            }
+          ]
+        },
+        {
+          "name": "Initiative",
+          "guid": 391215,
+          "type": 1,
+          "abilityIcon": "ability_rogue_surpriseattack.jpg",
+          "totalUptime": 370724,
+          "totalUses": 195,
+          "bands": [
+            {
+              "startTime": 12996886,
+              "endTime": 13001896
+            },
+            {
+              "startTime": 13017372,
+              "endTime": 13022370
+            },
+            {
+              "startTime": 13024852,
+              "endTime": 13038792
+            },
+            {
+              "startTime": 13049001,
+              "endTime": 13055993
+            },
+            {
+              "startTime": 13057996,
+              "endTime": 13062982
+            },
+            {
+              "startTime": 13089727,
+              "endTime": 13097242
+            },
+            {
+              "startTime": 13113209,
+              "endTime": 13118205
+            },
+            {
+              "startTime": 13140868,
+              "endTime": 13148271
+            },
+            {
+              "startTime": 13183057,
+              "endTime": 13188061
+            },
+            {
+              "startTime": 13206013,
+              "endTime": 13212006
+            },
+            {
+              "startTime": 13228342,
+              "endTime": 13233343
+            },
+            {
+              "startTime": 13271423,
+              "endTime": 13278305
+            },
+            {
+              "startTime": 13294596,
+              "endTime": 13299606
+            },
+            {
+              "startTime": 13325338,
+              "endTime": 13332845
+            },
+            {
+              "startTime": 13350230,
+              "endTime": 13355236
+            },
+            {
+              "startTime": 13379023,
+              "endTime": 13386137
+            },
+            {
+              "startTime": 13402869,
+              "endTime": 13407879
+            },
+            {
+              "startTime": 13423472,
+              "endTime": 13431971
+            },
+            {
+              "startTime": 13474385,
+              "endTime": 13481769
+            },
+            {
+              "startTime": 13498907,
+              "endTime": 13511924
+            },
+            {
+              "startTime": 13513369,
+              "endTime": 13527732
+            },
+            {
+              "startTime": 13543679,
+              "endTime": 13548852
+            },
+            {
+              "startTime": 13560760,
+              "endTime": 13574551
+            },
+            {
+              "startTime": 13601716,
+              "endTime": 13612083
+            },
+            {
+              "startTime": 13628032,
+              "endTime": 13633040
+            },
+            {
+              "startTime": 13634286,
+              "endTime": 13639293
+            },
+            {
+              "startTime": 13640278,
+              "endTime": 13645293
+            },
+            {
+              "startTime": 13648789,
+              "endTime": 13653795
+            },
+            {
+              "startTime": 13672318,
+              "endTime": 13677335
+            },
+            {
+              "startTime": 13693734,
+              "endTime": 13698725
+            },
+            {
+              "startTime": 13699724,
+              "endTime": 13708148
+            },
+            {
+              "startTime": 13716705,
+              "endTime": 13727400
+            },
+            {
+              "startTime": 13747434,
+              "endTime": 13752448
+            },
+            {
+              "startTime": 13762381,
+              "endTime": 13767508
+            },
+            {
+              "startTime": 13768386,
+              "endTime": 13774186
+            },
+            {
+              "startTime": 13775647,
+              "endTime": 13780660
+            },
+            {
+              "startTime": 13790672,
+              "endTime": 13795702
+            },
+            {
+              "startTime": 13796984,
+              "endTime": 13805190
+            },
+            {
+              "startTime": 13812941,
+              "endTime": 13817959
+            },
+            {
+              "startTime": 13861108,
+              "endTime": 13868001
+            },
+            {
+              "startTime": 13884482,
+              "endTime": 13889493
+            },
+            {
+              "startTime": 13899015,
+              "endTime": 13904025
+            },
+            {
+              "startTime": 13905449,
+              "endTime": 13910444
+            },
+            {
+              "startTime": 13927571,
+              "endTime": 13932567
+            },
+            {
+              "startTime": 13954905,
+              "endTime": 13961879
+            },
+            {
+              "startTime": 13988380,
+              "endTime": 13993384
+            },
+            {
+              "startTime": 14010898,
+              "endTime": 14015896
+            },
+            {
+              "startTime": 14043414,
+              "endTime": 14052339
+            },
+            {
+              "startTime": 14060535,
+              "endTime": 14065552
+            },
+            {
+              "startTime": 14068947,
+              "endTime": 14073977
+            },
+            {
+              "startTime": 14103859,
+              "endTime": 14108848
+            },
+            {
+              "startTime": 14110749,
+              "endTime": 14115758
+            },
+            {
+              "startTime": 14143017,
+              "endTime": 14148021
+            },
+            {
+              "startTime": 14149022,
+              "endTime": 14154037
+            },
+            {
+              "startTime": 14168193,
+              "endTime": 14173196
+            },
+            {
+              "startTime": 14189433,
+              "endTime": 14194422
+            },
+            {
+              "startTime": 14215904,
+              "endTime": 14220896
+            },
+            {
+              "startTime": 14236405,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "The Hunt",
+          "guid": 370965,
+          "type": 124,
+          "abilityIcon": "inv_ability_demonhunter_thehunt.jpg",
+          "totalUptime": 2257,
+          "totalUses": 17,
+          "bands": [
+            {
+              "startTime": 12988387,
+              "endTime": 12988588
+            },
+            {
+              "startTime": 13060396,
+              "endTime": 13060547
+            },
+            {
+              "startTime": 13161044,
+              "endTime": 13161303
+            },
+            {
+              "startTime": 13230628,
+              "endTime": 13230695
+            },
+            {
+              "startTime": 13307237,
+              "endTime": 13307392
+            },
+            {
+              "startTime": 13383645,
+              "endTime": 13383863
+            },
+            {
+              "startTime": 13502307,
+              "endTime": 13502322
+            },
+            {
+              "startTime": 13572340,
+              "endTime": 13572460
+            },
+            {
+              "startTime": 13633022,
+              "endTime": 13633040
+            },
+            {
+              "startTime": 13695921,
+              "endTime": 13696059
+            },
+            {
+              "startTime": 13774439,
+              "endTime": 13774611
+            },
+            {
+              "startTime": 13837331,
+              "endTime": 13837376
+            },
+            {
+              "startTime": 13909476,
+              "endTime": 13909477
+            },
+            {
+              "startTime": 13992776,
+              "endTime": 13993270
+            },
+            {
+              "startTime": 14071893,
+              "endTime": 14072077
+            },
+            {
+              "startTime": 14152194,
+              "endTime": 14152212
+            },
+            {
+              "startTime": 14218296,
+              "endTime": 14218297
+            }
+          ]
+        },
+        {
+          "name": "Immolation Aura",
+          "guid": 427913,
+          "type": 4,
+          "abilityIcon": "ability_demonhunter_immolation.jpg",
+          "totalUptime": 160227,
+          "totalUses": 16,
+          "bands": [
+            {
+              "startTime": 13033147,
+              "endTime": 13043172
+            },
+            {
+              "startTime": 13162753,
+              "endTime": 13172781
+            },
+            {
+              "startTime": 13173013,
+              "endTime": 13183039
+            },
+            {
+              "startTime": 13286721,
+              "endTime": 13296730
+            },
+            {
+              "startTime": 13586411,
+              "endTime": 13596433
+            },
+            {
+              "startTime": 13596685,
+              "endTime": 13606698
+            },
+            {
+              "startTime": 13606945,
+              "endTime": 13616956
+            },
+            {
+              "startTime": 13726560,
+              "endTime": 13736569
+            },
+            {
+              "startTime": 13832830,
+              "endTime": 13842824
+            },
+            {
+              "startTime": 13843090,
+              "endTime": 13853098
+            },
+            {
+              "startTime": 13853348,
+              "endTime": 13863365
+            },
+            {
+              "startTime": 13972177,
+              "endTime": 13982200
+            },
+            {
+              "startTime": 13982443,
+              "endTime": 13992472
+            },
+            {
+              "startTime": 14129744,
+              "endTime": 14139747
+            },
+            {
+              "startTime": 14139999,
+              "endTime": 14150007
+            },
+            {
+              "startTime": 14227473,
+              "endTime": 14237475
+            }
+          ]
+        },
+        {
+          "name": "Versatile Hunt",
+          "guid": 1252489,
+          "type": 1,
+          "abilityIcon": "inv_eyeofnzothpet.jpg",
+          "totalUptime": 640565,
+          "totalUses": 59,
+          "bands": [
+            {
+              "startTime": 12989038,
+              "endTime": 13046530
+            },
+            {
+              "startTime": 13064072,
+              "endTime": 13079082
+            },
+            {
+              "startTime": 13101073,
+              "endTime": 13136491
+            },
+            {
+              "startTime": 13272655,
+              "endTime": 13288418
+            },
+            {
+              "startTime": 13292554,
+              "endTime": 13328285
+            },
+            {
+              "startTime": 13333314,
+              "endTime": 13361475
+            },
+            {
+              "startTime": 13367514,
+              "endTime": 13385380
+            },
+            {
+              "startTime": 13386070,
+              "endTime": 13411441
+            },
+            {
+              "startTime": 13423471,
+              "endTime": 13451818
+            },
+            {
+              "startTime": 13477118,
+              "endTime": 13492111
+            },
+            {
+              "startTime": 13514780,
+              "endTime": 13529789
+            },
+            {
+              "startTime": 13549607,
+              "endTime": 13564597
+            },
+            {
+              "startTime": 13578079,
+              "endTime": 13593063
+            },
+            {
+              "startTime": 13723691,
+              "endTime": 13767108
+            },
+            {
+              "startTime": 13790441,
+              "endTime": 13810222
+            },
+            {
+              "startTime": 13812830,
+              "endTime": 13853832
+            },
+            {
+              "startTime": 13865134,
+              "endTime": 13883297
+            },
+            {
+              "startTime": 13909477,
+              "endTime": 13924508
+            },
+            {
+              "startTime": 13932601,
+              "endTime": 13969874
+            },
+            {
+              "startTime": 13969956,
+              "endTime": 13990297
+            },
+            {
+              "startTime": 13992777,
+              "endTime": 14029921
+            },
+            {
+              "startTime": 14116909,
+              "endTime": 14150402
+            },
+            {
+              "startTime": 14168193,
+              "endTime": 14183207
+            },
+            {
+              "startTime": 14185462,
+              "endTime": 14211221
+            },
+            {
+              "startTime": 14222532,
+              "endTime": 14237544
+            }
+          ]
+        },
+        {
+          "name": "Akil'zon's Rite",
+          "guid": 1297664,
+          "type": 64,
+          "abilityIcon": "inv_10_enchanting2_magicswirl_blue.jpg",
+          "totalUptime": 60023,
+          "totalUses": 4,
+          "bands": [
+            {
+              "startTime": 13549607,
+              "endTime": 13564615
+            },
+            {
+              "startTime": 13909493,
+              "endTime": 13924509
+            },
+            {
+              "startTime": 14123435,
+              "endTime": 14138435
+            },
+            {
+              "startTime": 14144653,
+              "endTime": 14159652
+            }
+          ]
+        },
+        {
+          "name": "Immolation Aura",
+          "guid": 427912,
+          "type": 4,
+          "abilityIcon": "ability_demonhunter_immolation.jpg",
+          "totalUptime": 250654,
+          "totalUses": 26,
+          "bands": [
+            {
+              "startTime": 12981444,
+              "endTime": 12991458
+            },
+            {
+              "startTime": 13032746,
+              "endTime": 13042736
+            },
+            {
+              "startTime": 13047948,
+              "endTime": 13057956
+            },
+            {
+              "startTime": 13161601,
+              "endTime": 13171611
+            },
+            {
+              "startTime": 13187254,
+              "endTime": 13197259
+            },
+            {
+              "startTime": 13241584,
+              "endTime": 13251595
+            },
+            {
+              "startTime": 13285565,
+              "endTime": 13295574
+            },
+            {
+              "startTime": 13308856,
+              "endTime": 13318865
+            },
+            {
+              "startTime": 13319115,
+              "endTime": 13329109
+            },
+            {
+              "startTime": 13344274,
+              "endTime": 13354270
+            },
+            {
+              "startTime": 13354536,
+              "endTime": 13364526
+            },
+            {
+              "startTime": 13439563,
+              "endTime": 13440149
+            },
+            {
+              "startTime": 13475729,
+              "endTime": 13485721
+            },
+            {
+              "startTime": 13585311,
+              "endTime": 13595317
+            },
+            {
+              "startTime": 13607747,
+              "endTime": 13617756
+            },
+            {
+              "startTime": 13618013,
+              "endTime": 13628032
+            },
+            {
+              "startTime": 13718096,
+              "endTime": 13728098
+            },
+            {
+              "startTime": 13779326,
+              "endTime": 13789332
+            },
+            {
+              "startTime": 13832152,
+              "endTime": 13842156
+            },
+            {
+              "startTime": 13874457,
+              "endTime": 13884466
+            },
+            {
+              "startTime": 13914427,
+              "endTime": 13924424
+            },
+            {
+              "startTime": 13971062,
+              "endTime": 13981083
+            },
+            {
+              "startTime": 13995151,
+              "endTime": 14005149
+            },
+            {
+              "startTime": 14128673,
+              "endTime": 14138634
+            },
+            {
+              "startTime": 14152860,
+              "endTime": 14162855
+            },
+            {
+              "startTime": 14218750,
+              "endTime": 14228763
+            }
+          ]
+        },
+        {
+          "name": "Eye Beam",
+          "guid": 198013,
+          "type": 124,
+          "abilityIcon": "ability_demonhunter_eyebeam.jpg",
+          "totalUptime": 64726,
+          "totalUses": 82,
+          "bands": [
+            {
+              "startTime": 12982798,
+              "endTime": 12982967
+            },
+            {
+              "startTime": 12982968,
+              "endTime": 12984485
+            },
+            {
+              "startTime": 13016888,
+              "endTime": 13017101
+            },
+            {
+              "startTime": 13017101,
+              "endTime": 13018573
+            },
+            {
+              "startTime": 13057780,
+              "endTime": 13057894
+            },
+            {
+              "startTime": 13057894,
+              "endTime": 13059022
+            },
+            {
+              "startTime": 13091912,
+              "endTime": 13092063
+            },
+            {
+              "startTime": 13092063,
+              "endTime": 13093576
+            },
+            {
+              "startTime": 13114257,
+              "endTime": 13114466
+            },
+            {
+              "startTime": 13114466,
+              "endTime": 13115937
+            },
+            {
+              "startTime": 13142797,
+              "endTime": 13142977
+            },
+            {
+              "startTime": 13142977,
+              "endTime": 13144467
+            },
+            {
+              "startTime": 13205731,
+              "endTime": 13205898
+            },
+            {
+              "startTime": 13205898,
+              "endTime": 13207416
+            },
+            {
+              "startTime": 13227869,
+              "endTime": 13228003
+            },
+            {
+              "startTime": 13228003,
+              "endTime": 13229445
+            },
+            {
+              "startTime": 13248975,
+              "endTime": 13249138
+            },
+            {
+              "startTime": 13249138,
+              "endTime": 13250662
+            },
+            {
+              "startTime": 13272939,
+              "endTime": 13273088
+            },
+            {
+              "startTime": 13273088,
+              "endTime": 13274619
+            },
+            {
+              "startTime": 13327525,
+              "endTime": 13327652
+            },
+            {
+              "startTime": 13327652,
+              "endTime": 13329190
+            },
+            {
+              "startTime": 13349767,
+              "endTime": 13349930
+            },
+            {
+              "startTime": 13349930,
+              "endTime": 13351362
+            },
+            {
+              "startTime": 13380788,
+              "endTime": 13380966
+            },
+            {
+              "startTime": 13380966,
+              "endTime": 13382464
+            },
+            {
+              "startTime": 13402736,
+              "endTime": 13402902
+            },
+            {
+              "startTime": 13402902,
+              "endTime": 13404405
+            },
+            {
+              "startTime": 13426477,
+              "endTime": 13426632
+            },
+            {
+              "startTime": 13426632,
+              "endTime": 13428145
+            },
+            {
+              "startTime": 13477096,
+              "endTime": 13477280
+            },
+            {
+              "startTime": 13477280,
+              "endTime": 13478764
+            },
+            {
+              "startTime": 13499167,
+              "endTime": 13499352
+            },
+            {
+              "startTime": 13499352,
+              "endTime": 13500859
+            },
+            {
+              "startTime": 13520712,
+              "endTime": 13520889
+            },
+            {
+              "startTime": 13520889,
+              "endTime": 13521299
+            },
+            {
+              "startTime": 13544136,
+              "endTime": 13544325
+            },
+            {
+              "startTime": 13544325,
+              "endTime": 13544409
+            },
+            {
+              "startTime": 13566030,
+              "endTime": 13566230
+            },
+            {
+              "startTime": 13566230,
+              "endTime": 13567705
+            },
+            {
+              "startTime": 13627583,
+              "endTime": 13627783
+            },
+            {
+              "startTime": 13627783,
+              "endTime": 13629001
+            },
+            {
+              "startTime": 13648906,
+              "endTime": 13649113
+            },
+            {
+              "startTime": 13649113,
+              "endTime": 13650211
+            },
+            {
+              "startTime": 13671847,
+              "endTime": 13672027
+            },
+            {
+              "startTime": 13672027,
+              "endTime": 13673514
+            },
+            {
+              "startTime": 13693259,
+              "endTime": 13693421
+            },
+            {
+              "startTime": 13693421,
+              "endTime": 13694935
+            },
+            {
+              "startTime": 13747548,
+              "endTime": 13747746
+            },
+            {
+              "startTime": 13747746,
+              "endTime": 13749237
+            },
+            {
+              "startTime": 13768712,
+              "endTime": 13768920
+            },
+            {
+              "startTime": 13768920,
+              "endTime": 13770416
+            },
+            {
+              "startTime": 13791122,
+              "endTime": 13791394
+            },
+            {
+              "startTime": 13791394,
+              "endTime": 13792807
+            },
+            {
+              "startTime": 13813140,
+              "endTime": 13813255
+            },
+            {
+              "startTime": 13813255,
+              "endTime": 13814809
+            },
+            {
+              "startTime": 13862762,
+              "endTime": 13862908
+            },
+            {
+              "startTime": 13862908,
+              "endTime": 13864508
+            },
+            {
+              "startTime": 13884253,
+              "endTime": 13884410
+            },
+            {
+              "startTime": 13884410,
+              "endTime": 13885934
+            },
+            {
+              "startTime": 13905637,
+              "endTime": 13905794
+            },
+            {
+              "startTime": 13905794,
+              "endTime": 13907323
+            },
+            {
+              "startTime": 13928245,
+              "endTime": 13928384
+            },
+            {
+              "startTime": 13928384,
+              "endTime": 13929931
+            },
+            {
+              "startTime": 13956393,
+              "endTime": 13956573
+            },
+            {
+              "startTime": 13956574,
+              "endTime": 13958075
+            },
+            {
+              "startTime": 14010413,
+              "endTime": 14010540
+            },
+            {
+              "startTime": 14010540,
+              "endTime": 14012098
+            },
+            {
+              "startTime": 14046984,
+              "endTime": 14047172
+            },
+            {
+              "startTime": 14047172,
+              "endTime": 14048668
+            },
+            {
+              "startTime": 14069190,
+              "endTime": 14069353
+            },
+            {
+              "startTime": 14069353,
+              "endTime": 14070875
+            },
+            {
+              "startTime": 14105226,
+              "endTime": 14105359
+            },
+            {
+              "startTime": 14105359,
+              "endTime": 14106885
+            },
+            {
+              "startTime": 14167709,
+              "endTime": 14167858
+            },
+            {
+              "startTime": 14167858,
+              "endTime": 14169379
+            },
+            {
+              "startTime": 14189058,
+              "endTime": 14189244
+            },
+            {
+              "startTime": 14189244,
+              "endTime": 14190732
+            },
+            {
+              "startTime": 14215424,
+              "endTime": 14215623
+            },
+            {
+              "startTime": 14215623,
+              "endTime": 14217096
+            },
+            {
+              "startTime": 14237149,
+              "endTime": 14237314
+            },
+            {
+              "startTime": 14237314,
+              "endTime": 14238430
+            }
+          ]
+        },
+        {
+          "name": "Well Fed",
+          "guid": 1294727,
+          "type": 1,
+          "abilityIcon": "spell_misc_food.jpg",
+          "totalUptime": 501319,
+          "totalUses": 1,
+          "bands": [
+            {
+              "startTime": 12938830,
+              "endTime": 13440149
+            }
+          ]
+        },
+        {
+          "name": "Blur",
+          "guid": 212800,
+          "type": 1,
+          "abilityIcon": "ability_demonhunter_blur.jpg",
+          "totalUptime": 30014,
+          "totalUses": 3,
+          "bands": [
+            {
+              "startTime": 13552689,
+              "endTime": 13562688
+            },
+            {
+              "startTime": 13636988,
+              "endTime": 13646993
+            },
+            {
+              "startTime": 13950200,
+              "endTime": 13960210
+            }
+          ]
+        },
+        {
+          "name": "Empowered Eye Beam",
+          "guid": 1271144,
+          "type": 1,
+          "abilityIcon": "ability_demonhunter_eyebeam.jpg",
+          "totalUptime": 200379,
+          "totalUses": 17,
+          "bands": [
+            {
+              "startTime": 12988386,
+              "endTime": 13000418
+            },
+            {
+              "startTime": 13060396,
+              "endTime": 13072367
+            },
+            {
+              "startTime": 13161044,
+              "endTime": 13173047
+            },
+            {
+              "startTime": 13230628,
+              "endTime": 13242569
+            },
+            {
+              "startTime": 13307237,
+              "endTime": 13319247
+            },
+            {
+              "startTime": 13383644,
+              "endTime": 13395647
+            },
+            {
+              "startTime": 13502307,
+              "endTime": 13514307
+            },
+            {
+              "startTime": 13572340,
+              "endTime": 13582777
+            },
+            {
+              "startTime": 13633022,
+              "endTime": 13645064
+            },
+            {
+              "startTime": 13695921,
+              "endTime": 13705705
+            },
+            {
+              "startTime": 13774439,
+              "endTime": 13786444
+            },
+            {
+              "startTime": 13837331,
+              "endTime": 13849462
+            },
+            {
+              "startTime": 13909476,
+              "endTime": 13921482
+            },
+            {
+              "startTime": 13992776,
+              "endTime": 14004788
+            },
+            {
+              "startTime": 14071893,
+              "endTime": 14083888
+            },
+            {
+              "startTime": 14152194,
+              "endTime": 14164209
+            },
+            {
+              "startTime": 14218296,
+              "endTime": 14230288
+            }
+          ]
+        },
+        {
+          "name": "Demon Muzzle",
+          "guid": 1266616,
+          "type": 126,
+          "abilityIcon": "spell_warlock_demonicservitude.jpg",
+          "totalUptime": 48063,
+          "totalUses": 4,
+          "bands": [
+            {
+              "startTime": 13041213,
+              "endTime": 13053203
+            },
+            {
+              "startTime": 13287072,
+              "endTime": 13299079
+            },
+            {
+              "startTime": 13780613,
+              "endTime": 13792633
+            },
+            {
+              "startTime": 14128333,
+              "endTime": 14140379
+            }
+          ]
+        },
+        {
+          "name": "Potion of Recklessness",
+          "guid": 1236994,
+          "type": 32,
+          "abilityIcon": "inv_12_profession_alchemy_voidpotion_red.jpg",
+          "totalUptime": 60010,
+          "totalUses": 2,
+          "bands": [
+            {
+              "startTime": 13144807,
+              "endTime": 13174815
+            },
+            {
+              "startTime": 13699857,
+              "endTime": 13729859
+            }
+          ]
+        },
+        {
+          "name": "Immolation Aura",
+          "guid": 258920,
+          "type": 4,
+          "abilityIcon": "ability_demonhunter_immolation.jpg",
+          "totalUptime": 558021,
+          "totalUses": 57,
+          "bands": [
+            {
+              "startTime": 12938830,
+              "endTime": 12941171
+            },
+            {
+              "startTime": 12980063,
+              "endTime": 12990079
+            },
+            {
+              "startTime": 13004533,
+              "endTime": 13014554
+            },
+            {
+              "startTime": 13022463,
+              "endTime": 13032485
+            },
+            {
+              "startTime": 13065365,
+              "endTime": 13075367
+            },
+            {
+              "startTime": 13090204,
+              "endTime": 13100231
+            },
+            {
+              "startTime": 13106177,
+              "endTime": 13116186
+            },
+            {
+              "startTime": 13116439,
+              "endTime": 13126477
+            },
+            {
+              "startTime": 13141347,
+              "endTime": 13151342
+            },
+            {
+              "startTime": 13203979,
+              "endTime": 13213971
+            },
+            {
+              "startTime": 13221480,
+              "endTime": 13231490
+            },
+            {
+              "startTime": 13231741,
+              "endTime": 13241751
+            },
+            {
+              "startTime": 13271282,
+              "endTime": 13281275
+            },
+            {
+              "startTime": 13325821,
+              "endTime": 13335840
+            },
+            {
+              "startTime": 13336060,
+              "endTime": 13346082
+            },
+            {
+              "startTime": 13364828,
+              "endTime": 13374838
+            },
+            {
+              "startTime": 13375072,
+              "endTime": 13385089
+            },
+            {
+              "startTime": 13393845,
+              "endTime": 13403839
+            },
+            {
+              "startTime": 13412163,
+              "endTime": 13422154
+            },
+            {
+              "startTime": 13429296,
+              "endTime": 13439294
+            },
+            {
+              "startTime": 13474342,
+              "endTime": 13484351
+            },
+            {
+              "startTime": 13496881,
+              "endTime": 13506889
+            },
+            {
+              "startTime": 13517708,
+              "endTime": 13527693
+            },
+            {
+              "startTime": 13538804,
+              "endTime": 13548818
+            },
+            {
+              "startTime": 13563521,
+              "endTime": 13573532
+            },
+            {
+              "startTime": 13576681,
+              "endTime": 13586687
+            },
+            {
+              "startTime": 13631255,
+              "endTime": 13641237
+            },
+            {
+              "startTime": 13643772,
+              "endTime": 13653762
+            },
+            {
+              "startTime": 13655553,
+              "endTime": 13665539
+            },
+            {
+              "startTime": 13674037,
+              "endTime": 13684041
+            },
+            {
+              "startTime": 13697471,
+              "endTime": 13707481
+            },
+            {
+              "startTime": 13737409,
+              "endTime": 13748422
+            },
+            {
+              "startTime": 13748684,
+              "endTime": 13758685
+            },
+            {
+              "startTime": 13762349,
+              "endTime": 13772356
+            },
+            {
+              "startTime": 13772608,
+              "endTime": 13782619
+            },
+            {
+              "startTime": 13801669,
+              "endTime": 13811674
+            },
+            {
+              "startTime": 13822558,
+              "endTime": 13832554
+            },
+            {
+              "startTime": 13860968,
+              "endTime": 13870972
+            },
+            {
+              "startTime": 13871235,
+              "endTime": 13881244
+            },
+            {
+              "startTime": 13903417,
+              "endTime": 13913413
+            },
+            {
+              "startTime": 13913680,
+              "endTime": 13923673
+            },
+            {
+              "startTime": 13932806,
+              "endTime": 13942811
+            },
+            {
+              "startTime": 13943062,
+              "endTime": 13953071
+            },
+            {
+              "startTime": 13954874,
+              "endTime": 13964877
+            },
+            {
+              "startTime": 14012614,
+              "endTime": 14022625
+            },
+            {
+              "startTime": 14043298,
+              "endTime": 14053291
+            },
+            {
+              "startTime": 14055508,
+              "endTime": 14065521
+            },
+            {
+              "startTime": 14072743,
+              "endTime": 14082739
+            },
+            {
+              "startTime": 14103841,
+              "endTime": 14113842
+            },
+            {
+              "startTime": 14115729,
+              "endTime": 14125728
+            },
+            {
+              "startTime": 14172129,
+              "endTime": 14182141
+            },
+            {
+              "startTime": 14182411,
+              "endTime": 14192402
+            },
+            {
+              "startTime": 14194486,
+              "endTime": 14204483
+            },
+            {
+              "startTime": 14204752,
+              "endTime": 14214754
+            },
+            {
+              "startTime": 14215007,
+              "endTime": 14225004
+            },
+            {
+              "startTime": 14225251,
+              "endTime": 14235260
+            },
+            {
+              "startTime": 14235527,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Jan'alai's Rite",
+          "guid": 1297655,
+          "type": 64,
+          "abilityIcon": "inv_10_enchanting2_magicswirl_red.jpg",
+          "totalUptime": 60031,
+          "totalUses": 4,
+          "bands": [
+            {
+              "startTime": 13225620,
+              "endTime": 13240639
+            },
+            {
+              "startTime": 13345966,
+              "endTime": 13360973
+            },
+            {
+              "startTime": 13513666,
+              "endTime": 13528670
+            },
+            {
+              "startTime": 13912142,
+              "endTime": 13927143
+            }
+          ]
+        },
+        {
+          "name": "Halazzi's Rite",
+          "guid": 1297663,
+          "type": 64,
+          "abilityIcon": "inv_10_enchanting2_magicswirl_bronze.jpg",
+          "totalUptime": 646051,
+          "totalUses": 109,
+          "bands": [
+            {
+              "startTime": 12999787,
+              "endTime": 13014781
+            },
+            {
+              "startTime": 13024491,
+              "endTime": 13039507
+            },
+            {
+              "startTime": 13047949,
+              "endTime": 13062965
+            },
+            {
+              "startTime": 13089710,
+              "endTime": 13104727
+            },
+            {
+              "startTime": 13140868,
+              "endTime": 13155879
+            },
+            {
+              "startTime": 13162753,
+              "endTime": 13177767
+            },
+            {
+              "startTime": 13178852,
+              "endTime": 13193854
+            },
+            {
+              "startTime": 13194386,
+              "endTime": 13209399
+            },
+            {
+              "startTime": 13225620,
+              "endTime": 13242619
+            },
+            {
+              "startTime": 13271283,
+              "endTime": 13286299
+            },
+            {
+              "startTime": 13297294,
+              "endTime": 13316229
+            },
+            {
+              "startTime": 13316978,
+              "endTime": 13331998
+            },
+            {
+              "startTime": 13339746,
+              "endTime": 13360958
+            },
+            {
+              "startTime": 13363462,
+              "endTime": 13378492
+            },
+            {
+              "startTime": 13386372,
+              "endTime": 13401390
+            },
+            {
+              "startTime": 13405873,
+              "endTime": 13422796
+            },
+            {
+              "startTime": 13426062,
+              "endTime": 13440149
+            },
+            {
+              "startTime": 13513338,
+              "endTime": 13534043
+            },
+            {
+              "startTime": 13537447,
+              "endTime": 13564597
+            },
+            {
+              "startTime": 13573144,
+              "endTime": 13596530
+            },
+            {
+              "startTime": 13623429,
+              "endTime": 13644571
+            },
+            {
+              "startTime": 13680938,
+              "endTime": 13696271
+            },
+            {
+              "startTime": 13716705,
+              "endTime": 13731705
+            },
+            {
+              "startTime": 13752230,
+              "endTime": 13767259
+            },
+            {
+              "startTime": 13801701,
+              "endTime": 13850830
+            },
+            {
+              "startTime": 13866247,
+              "endTime": 13899047
+            },
+            {
+              "startTime": 13909477,
+              "endTime": 13944968
+            },
+            {
+              "startTime": 13950200,
+              "endTime": 13965265
+            },
+            {
+              "startTime": 13987659,
+              "endTime": 14002673
+            },
+            {
+              "startTime": 14055509,
+              "endTime": 14084689
+            },
+            {
+              "startTime": 14123417,
+              "endTime": 14143351
+            },
+            {
+              "startTime": 14144641,
+              "endTime": 14170927
+            },
+            {
+              "startTime": 14204329,
+              "endTime": 14219334
+            },
+            {
+              "startTime": 14237864,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Metamorphosis",
+          "guid": 162264,
+          "type": 127,
+          "abilityIcon": "ability_demonhunter_metamorphasisdps.jpg",
+          "totalUptime": 549302,
+          "totalUses": 51,
+          "bands": [
+            {
+              "startTime": 12938830,
+              "endTime": 12956371
+            },
+            {
+              "startTime": 12982798,
+              "endTime": 12989489
+            },
+            {
+              "startTime": 13016888,
+              "endTime": 13023573
+            },
+            {
+              "startTime": 13027203,
+              "endTime": 13053568
+            },
+            {
+              "startTime": 13057779,
+              "endTime": 13064016
+            },
+            {
+              "startTime": 13091911,
+              "endTime": 13098586
+            },
+            {
+              "startTime": 13114257,
+              "endTime": 13120926
+            },
+            {
+              "startTime": 13142796,
+              "endTime": 13149471
+            },
+            {
+              "startTime": 13156998,
+              "endTime": 13191566
+            },
+            {
+              "startTime": 13205730,
+              "endTime": 13212420
+            },
+            {
+              "startTime": 13227869,
+              "endTime": 13235211
+            },
+            {
+              "startTime": 13248975,
+              "endTime": 13255646
+            },
+            {
+              "startTime": 13272938,
+              "endTime": 13279624
+            },
+            {
+              "startTime": 13281162,
+              "endTime": 13314550
+            },
+            {
+              "startTime": 13327525,
+              "endTime": 13334181
+            },
+            {
+              "startTime": 13349766,
+              "endTime": 13356354
+            },
+            {
+              "startTime": 13380787,
+              "endTime": 13387468
+            },
+            {
+              "startTime": 13402736,
+              "endTime": 13409417
+            },
+            {
+              "startTime": 13426477,
+              "endTime": 13433624
+            },
+            {
+              "startTime": 13437321,
+              "endTime": 13440149
+            },
+            {
+              "startTime": 13477096,
+              "endTime": 13483766
+            },
+            {
+              "startTime": 13499167,
+              "endTime": 13505862
+            },
+            {
+              "startTime": 13520711,
+              "endTime": 13527290
+            },
+            {
+              "startTime": 13544136,
+              "endTime": 13550821
+            },
+            {
+              "startTime": 13566030,
+              "endTime": 13572709
+            },
+            {
+              "startTime": 13579519,
+              "endTime": 13613070
+            },
+            {
+              "startTime": 13627583,
+              "endTime": 13633880
+            },
+            {
+              "startTime": 13648906,
+              "endTime": 13655213
+            },
+            {
+              "startTime": 13671846,
+              "endTime": 13679486
+            },
+            {
+              "startTime": 13693258,
+              "endTime": 13700692
+            },
+            {
+              "startTime": 13702461,
+              "endTime": 13736093
+            },
+            {
+              "startTime": 13747548,
+              "endTime": 13754231
+            },
+            {
+              "startTime": 13768712,
+              "endTime": 13775390
+            },
+            {
+              "startTime": 13791122,
+              "endTime": 13797821
+            },
+            {
+              "startTime": 13813140,
+              "endTime": 13819823
+            },
+            {
+              "startTime": 13827560,
+              "endTime": 13854316
+            },
+            {
+              "startTime": 13862762,
+              "endTime": 13869455
+            },
+            {
+              "startTime": 13884253,
+              "endTime": 13891122
+            },
+            {
+              "startTime": 13905637,
+              "endTime": 13912305
+            },
+            {
+              "startTime": 13928245,
+              "endTime": 13934939
+            },
+            {
+              "startTime": 13956393,
+              "endTime": 13963065
+            },
+            {
+              "startTime": 13964001,
+              "endTime": 13997392
+            },
+            {
+              "startTime": 14010413,
+              "endTime": 14017109
+            },
+            {
+              "startTime": 14046983,
+              "endTime": 14054092
+            },
+            {
+              "startTime": 14069190,
+              "endTime": 14075966
+            },
+            {
+              "startTime": 14105226,
+              "endTime": 14111903
+            },
+            {
+              "startTime": 14123415,
+              "endTime": 14156932
+            },
+            {
+              "startTime": 14167708,
+              "endTime": 14174384
+            },
+            {
+              "startTime": 14189058,
+              "endTime": 14195746
+            },
+            {
+              "startTime": 14215423,
+              "endTime": 14223672
+            },
+            {
+              "startTime": 14237148,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Tactical Retreat",
+          "guid": 389890,
+          "type": 1,
+          "abilityIcon": "ability_demonhunter_vengefulretreat2.jpg",
+          "totalUptime": 473778,
+          "totalUses": 48,
+          "bands": [
+            {
+              "startTime": 12970634,
+              "endTime": 12980642
+            },
+            {
+              "startTime": 12995795,
+              "endTime": 13005802
+            },
+            {
+              "startTime": 13016474,
+              "endTime": 13026479
+            },
+            {
+              "startTime": 13057358,
+              "endTime": 13067370
+            },
+            {
+              "startTime": 13091212,
+              "endTime": 13101206
+            },
+            {
+              "startTime": 13112989,
+              "endTime": 13122994
+            },
+            {
+              "startTime": 13142352,
+              "endTime": 13152352
+            },
+            {
+              "startTime": 13182631,
+              "endTime": 13192585
+            },
+            {
+              "startTime": 13205378,
+              "endTime": 13215363
+            },
+            {
+              "startTime": 13227620,
+              "endTime": 13237613
+            },
+            {
+              "startTime": 13248694,
+              "endTime": 13258667
+            },
+            {
+              "startTime": 13272635,
+              "endTime": 13282629
+            },
+            {
+              "startTime": 13294492,
+              "endTime": 13304499
+            },
+            {
+              "startTime": 13327106,
+              "endTime": 13337110
+            },
+            {
+              "startTime": 13349405,
+              "endTime": 13359409
+            },
+            {
+              "startTime": 13380431,
+              "endTime": 13390428
+            },
+            {
+              "startTime": 13402371,
+              "endTime": 13412354
+            },
+            {
+              "startTime": 13426061,
+              "endTime": 13436060
+            },
+            {
+              "startTime": 13476378,
+              "endTime": 13486404
+            },
+            {
+              "startTime": 13498736,
+              "endTime": 13508736
+            },
+            {
+              "startTime": 13520371,
+              "endTime": 13530366
+            },
+            {
+              "startTime": 13543451,
+              "endTime": 13553442
+            },
+            {
+              "startTime": 13564805,
+              "endTime": 13574816
+            },
+            {
+              "startTime": 13603523,
+              "endTime": 13613532
+            },
+            {
+              "startTime": 13627351,
+              "endTime": 13637342
+            },
+            {
+              "startTime": 13648555,
+              "endTime": 13658548
+            },
+            {
+              "startTime": 13671397,
+              "endTime": 13681392
+            },
+            {
+              "startTime": 13692868,
+              "endTime": 13702862
+            },
+            {
+              "startTime": 13719711,
+              "endTime": 13729715
+            },
+            {
+              "startTime": 13747143,
+              "endTime": 13757146
+            },
+            {
+              "startTime": 13768234,
+              "endTime": 13778239
+            },
+            {
+              "startTime": 13790546,
+              "endTime": 13800559
+            },
+            {
+              "startTime": 13812829,
+              "endTime": 13822814
+            },
+            {
+              "startTime": 13862356,
+              "endTime": 13872353
+            },
+            {
+              "startTime": 13884012,
+              "endTime": 13894008
+            },
+            {
+              "startTime": 13904891,
+              "endTime": 13914881
+            },
+            {
+              "startTime": 13926896,
+              "endTime": 13936822
+            },
+            {
+              "startTime": 13955955,
+              "endTime": 13965967
+            },
+            {
+              "startTime": 13987658,
+              "endTime": 13997666
+            },
+            {
+              "startTime": 14010063,
+              "endTime": 14020056
+            },
+            {
+              "startTime": 14046749,
+              "endTime": 14056744
+            },
+            {
+              "startTime": 14068255,
+              "endTime": 14078250
+            },
+            {
+              "startTime": 14090780,
+              "endTime": 14100788
+            },
+            {
+              "startTime": 14142506,
+              "endTime": 14152509
+            },
+            {
+              "startTime": 14167327,
+              "endTime": 14177319
+            },
+            {
+              "startTime": 14188737,
+              "endTime": 14198757
+            },
+            {
+              "startTime": 14215056,
+              "endTime": 14225061
+            },
+            {
+              "startTime": 14236044,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Exergy",
+          "guid": 208628,
+          "type": 1,
+          "abilityIcon": "ability_foundryraid_demolition.jpg",
+          "totalUptime": 1160949,
+          "totalUses": 65,
+          "bands": [
+            {
+              "startTime": 12970634,
+              "endTime": 13045807
+            },
+            {
+              "startTime": 13057358,
+              "endTime": 13090374
+            },
+            {
+              "startTime": 13091212,
+              "endTime": 13111215
+            },
+            {
+              "startTime": 13112989,
+              "endTime": 13132988
+            },
+            {
+              "startTime": 13142353,
+              "endTime": 13377108
+            },
+            {
+              "startTime": 13380431,
+              "endTime": 13440149
+            },
+            {
+              "startTime": 13476379,
+              "endTime": 13496386
+            },
+            {
+              "startTime": 13498737,
+              "endTime": 13602356
+            },
+            {
+              "startTime": 13603524,
+              "endTime": 13623528
+            },
+            {
+              "startTime": 13627351,
+              "endTime": 13745917
+            },
+            {
+              "startTime": 13747143,
+              "endTime": 13767149
+            },
+            {
+              "startTime": 13768235,
+              "endTime": 13981951
+            },
+            {
+              "startTime": 13987659,
+              "endTime": 14040059
+            },
+            {
+              "startTime": 14046749,
+              "endTime": 14066742
+            },
+            {
+              "startTime": 14068255,
+              "endTime": 14120793
+            },
+            {
+              "startTime": 14142507,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Rune of Void-Tainted Shell",
+          "guid": 1287955,
+          "type": 106,
+          "abilityIcon": "ability_rhyolith_magmaflow_wave.jpg",
+          "totalUptime": 190036,
+          "totalUses": 19,
+          "bands": [
+            {
+              "startTime": 12972593,
+              "endTime": 12982582
+            },
+            {
+              "startTime": 13037213,
+              "endTime": 13047220
+            },
+            {
+              "startTime": 13099973,
+              "endTime": 13109966
+            },
+            {
+              "startTime": 13149148,
+              "endTime": 13159149
+            },
+            {
+              "startTime": 13276695,
+              "endTime": 13286685
+            },
+            {
+              "startTime": 13343594,
+              "endTime": 13353602
+            },
+            {
+              "startTime": 13475748,
+              "endTime": 13485740
+            },
+            {
+              "startTime": 13508564,
+              "endTime": 13518552
+            },
+            {
+              "startTime": 13623148,
+              "endTime": 13633143
+            },
+            {
+              "startTime": 13672078,
+              "endTime": 13682079
+            },
+            {
+              "startTime": 13718064,
+              "endTime": 13728067
+            },
+            {
+              "startTime": 13749087,
+              "endTime": 13759126
+            },
+            {
+              "startTime": 13803355,
+              "endTime": 13813364
+            },
+            {
+              "startTime": 13933236,
+              "endTime": 13943244
+            },
+            {
+              "startTime": 13972308,
+              "endTime": 13982301
+            },
+            {
+              "startTime": 14064103,
+              "endTime": 14074109
+            },
+            {
+              "startTime": 14138219,
+              "endTime": 14148227
+            },
+            {
+              "startTime": 14179582,
+              "endTime": 14189579
+            },
+            {
+              "startTime": 14211020,
+              "endTime": 14221029
+            }
+          ]
+        },
+        {
+          "name": "Ragefire",
+          "guid": 428361,
+          "type": 1,
+          "abilityIcon": "spell_fire_fireballgreen.jpg",
+          "totalUptime": 249579,
+          "totalUses": 26,
+          "bands": [
+            {
+              "startTime": 12981570,
+              "endTime": 12991659
+            },
+            {
+              "startTime": 13032872,
+              "endTime": 13042958
+            },
+            {
+              "startTime": 13048088,
+              "endTime": 13058171
+            },
+            {
+              "startTime": 13161738,
+              "endTime": 13171811
+            },
+            {
+              "startTime": 13189279,
+              "endTime": 13197454
+            },
+            {
+              "startTime": 13241751,
+              "endTime": 13251795
+            },
+            {
+              "startTime": 13285708,
+              "endTime": 13295778
+            },
+            {
+              "startTime": 13308991,
+              "endTime": 13319054
+            },
+            {
+              "startTime": 13319231,
+              "endTime": 13329323
+            },
+            {
+              "startTime": 13344408,
+              "endTime": 13354472
+            },
+            {
+              "startTime": 13354661,
+              "endTime": 13364744
+            },
+            {
+              "startTime": 13439694,
+              "endTime": 13440149
+            },
+            {
+              "startTime": 13475849,
+              "endTime": 13485938
+            },
+            {
+              "startTime": 13585446,
+              "endTime": 13595532
+            },
+            {
+              "startTime": 13607879,
+              "endTime": 13617951
+            },
+            {
+              "startTime": 13618141,
+              "endTime": 13628223
+            },
+            {
+              "startTime": 13718218,
+              "endTime": 13728308
+            },
+            {
+              "startTime": 13779455,
+              "endTime": 13789531
+            },
+            {
+              "startTime": 13832279,
+              "endTime": 13842365
+            },
+            {
+              "startTime": 13874594,
+              "endTime": 13884666
+            },
+            {
+              "startTime": 13914547,
+              "endTime": 13924624
+            },
+            {
+              "startTime": 13972107,
+              "endTime": 13981273
+            },
+            {
+              "startTime": 13995286,
+              "endTime": 14005364
+            },
+            {
+              "startTime": 14128753,
+              "endTime": 14138836
+            },
+            {
+              "startTime": 14152989,
+              "endTime": 14163054
+            },
+            {
+              "startTime": 14218876,
+              "endTime": 14228956
+            }
+          ]
+        },
+        {
+          "name": "Hasty Hunt",
+          "guid": 1252486,
+          "type": 1,
+          "abilityIcon": "inv_eyeofnzothpet.jpg",
+          "totalUptime": 15026,
+          "totalUses": 1,
+          "bands": [
+            {
+              "startTime": 13049233,
+              "endTime": 13064259
+            }
+          ]
+        },
+        {
+          "name": "Furious Gaze",
+          "guid": 343312,
+          "type": 1,
+          "abilityIcon": "spell_warlock_soulburn.jpg",
+          "totalUptime": 417516,
+          "totalUses": 53,
+          "bands": [
+            {
+              "startTime": 12984485,
+              "endTime": 12992492
+            },
+            {
+              "startTime": 13018573,
+              "endTime": 13026579
+            },
+            {
+              "startTime": 13030218,
+              "endTime": 13038235
+            },
+            {
+              "startTime": 13059022,
+              "endTime": 13067023
+            },
+            {
+              "startTime": 13093576,
+              "endTime": 13101589
+            },
+            {
+              "startTime": 13115937,
+              "endTime": 13123937
+            },
+            {
+              "startTime": 13144467,
+              "endTime": 13152466
+            },
+            {
+              "startTime": 13160197,
+              "endTime": 13168211
+            },
+            {
+              "startTime": 13184747,
+              "endTime": 13192749
+            },
+            {
+              "startTime": 13207416,
+              "endTime": 13215403
+            },
+            {
+              "startTime": 13229445,
+              "endTime": 13237447
+            },
+            {
+              "startTime": 13250662,
+              "endTime": 13258650
+            },
+            {
+              "startTime": 13274619,
+              "endTime": 13282629
+            },
+            {
+              "startTime": 13284236,
+              "endTime": 13292241
+            },
+            {
+              "startTime": 13306108,
+              "endTime": 13314109
+            },
+            {
+              "startTime": 13329190,
+              "endTime": 13337202
+            },
+            {
+              "startTime": 13351362,
+              "endTime": 13359360
+            },
+            {
+              "startTime": 13382464,
+              "endTime": 13390459
+            },
+            {
+              "startTime": 13404405,
+              "endTime": 13412419
+            },
+            {
+              "startTime": 13428145,
+              "endTime": 13436147
+            },
+            {
+              "startTime": 13478764,
+              "endTime": 13486757
+            },
+            {
+              "startTime": 13500859,
+              "endTime": 13508872
+            },
+            {
+              "startTime": 13567705,
+              "endTime": 13575726
+            },
+            {
+              "startTime": 13582778,
+              "endTime": 13590764
+            },
+            {
+              "startTime": 13605710,
+              "endTime": 13613710
+            },
+            {
+              "startTime": 13629001,
+              "endTime": 13636908
+            },
+            {
+              "startTime": 13650211,
+              "endTime": 13658231
+            },
+            {
+              "startTime": 13673514,
+              "endTime": 13681519
+            },
+            {
+              "startTime": 13694935,
+              "endTime": 13702922
+            },
+            {
+              "startTime": 13705705,
+              "endTime": 13713712
+            },
+            {
+              "startTime": 13726307,
+              "endTime": 13734307
+            },
+            {
+              "startTime": 13749237,
+              "endTime": 13757239
+            },
+            {
+              "startTime": 13770416,
+              "endTime": 13778398
+            },
+            {
+              "startTime": 13792807,
+              "endTime": 13800802
+            },
+            {
+              "startTime": 13814809,
+              "endTime": 13822814
+            },
+            {
+              "startTime": 13830715,
+              "endTime": 13838723
+            },
+            {
+              "startTime": 13864508,
+              "endTime": 13872454
+            },
+            {
+              "startTime": 13885934,
+              "endTime": 13893941
+            },
+            {
+              "startTime": 13907323,
+              "endTime": 13915318
+            },
+            {
+              "startTime": 13929931,
+              "endTime": 13937938
+            },
+            {
+              "startTime": 13958075,
+              "endTime": 13966068
+            },
+            {
+              "startTime": 13967134,
+              "endTime": 13975134
+            },
+            {
+              "startTime": 13991246,
+              "endTime": 13999252
+            },
+            {
+              "startTime": 14012098,
+              "endTime": 14020087
+            },
+            {
+              "startTime": 14048669,
+              "endTime": 14056677
+            },
+            {
+              "startTime": 14070875,
+              "endTime": 14078869
+            },
+            {
+              "startTime": 14106885,
+              "endTime": 14114901
+            },
+            {
+              "startTime": 14127001,
+              "endTime": 14134993
+            },
+            {
+              "startTime": 14147588,
+              "endTime": 14155611
+            },
+            {
+              "startTime": 14169379,
+              "endTime": 14177396
+            },
+            {
+              "startTime": 14190732,
+              "endTime": 14198741
+            },
+            {
+              "startTime": 14217096,
+              "endTime": 14225093
+            },
+            {
+              "startTime": 14238430,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Ragefire",
+          "guid": 428363,
+          "type": 1,
+          "abilityIcon": "spell_fire_fireballgreen.jpg",
+          "totalUptime": 30267,
+          "totalUses": 3,
+          "bands": [
+            {
+              "startTime": 13034138,
+              "endTime": 13044242
+            },
+            {
+              "startTime": 13587076,
+              "endTime": 13597157
+            },
+            {
+              "startTime": 13833396,
+              "endTime": 13843478
+            }
+          ]
+        },
+        {
+          "name": "Deflecting Dance",
+          "guid": 427901,
+          "type": 1,
+          "abilityIcon": "ability_ironmaidens_bladerush.jpg",
+          "totalUptime": 167567,
+          "totalUses": 155,
+          "bands": [
+            {
+              "startTime": 12984983,
+              "endTime": 12986101
+            },
+            {
+              "startTime": 12986101,
+              "endTime": 12987204
+            },
+            {
+              "startTime": 12997867,
+              "endTime": 12998965
+            },
+            {
+              "startTime": 13007287,
+              "endTime": 13008379
+            },
+            {
+              "startTime": 13019028,
+              "endTime": 13020997
+            },
+            {
+              "startTime": 13030648,
+              "endTime": 13032614
+            },
+            {
+              "startTime": 13039069,
+              "endTime": 13040218
+            },
+            {
+              "startTime": 13044592,
+              "endTime": 13045693
+            },
+            {
+              "startTime": 13061935,
+              "endTime": 13064086
+            },
+            {
+              "startTime": 13072010,
+              "endTime": 13073121
+            },
+            {
+              "startTime": 13093928,
+              "endTime": 13096135
+            },
+            {
+              "startTime": 13104201,
+              "endTime": 13105304
+            },
+            {
+              "startTime": 13116455,
+              "endTime": 13117572
+            },
+            {
+              "startTime": 13117572,
+              "endTime": 13118672
+            },
+            {
+              "startTime": 13146359,
+              "endTime": 13147453
+            },
+            {
+              "startTime": 13147505,
+              "endTime": 13148621
+            },
+            {
+              "startTime": 13163905,
+              "endTime": 13165022
+            },
+            {
+              "startTime": 13165057,
+              "endTime": 13166156
+            },
+            {
+              "startTime": 13173530,
+              "endTime": 13174632
+            },
+            {
+              "startTime": 13181271,
+              "endTime": 13182390
+            },
+            {
+              "startTime": 13189463,
+              "endTime": 13191672
+            },
+            {
+              "startTime": 13199875,
+              "endTime": 13200979
+            },
+            {
+              "startTime": 13208733,
+              "endTime": 13209852
+            },
+            {
+              "startTime": 13209869,
+              "endTime": 13210972
+            },
+            {
+              "startTime": 13217388,
+              "endTime": 13218476
+            },
+            {
+              "startTime": 13232125,
+              "endTime": 13233237
+            },
+            {
+              "startTime": 13234213,
+              "endTime": 13235332
+            },
+            {
+              "startTime": 13242951,
+              "endTime": 13244054
+            },
+            {
+              "startTime": 13251578,
+              "endTime": 13252680
+            },
+            {
+              "startTime": 13252696,
+              "endTime": 13253799
+            },
+            {
+              "startTime": 13275237,
+              "endTime": 13276354
+            },
+            {
+              "startTime": 13276354,
+              "endTime": 13276673
+            },
+            {
+              "startTime": 13284456,
+              "endTime": 13285563
+            },
+            {
+              "startTime": 13287821,
+              "endTime": 13288920
+            },
+            {
+              "startTime": 13297292,
+              "endTime": 13298395
+            },
+            {
+              "startTime": 13309955,
+              "endTime": 13311056
+            },
+            {
+              "startTime": 13311056,
+              "endTime": 13312174
+            },
+            {
+              "startTime": 13319699,
+              "endTime": 13320801
+            },
+            {
+              "startTime": 13330093,
+              "endTime": 13331200
+            },
+            {
+              "startTime": 13331200,
+              "endTime": 13332331
+            },
+            {
+              "startTime": 13339728,
+              "endTime": 13340851
+            },
+            {
+              "startTime": 13353136,
+              "endTime": 13355270
+            },
+            {
+              "startTime": 13362091,
+              "endTime": 13363196
+            },
+            {
+              "startTime": 13371684,
+              "endTime": 13372785
+            },
+            {
+              "startTime": 13385250,
+              "endTime": 13387469
+            },
+            {
+              "startTime": 13395197,
+              "endTime": 13396312
+            },
+            {
+              "startTime": 13405840,
+              "endTime": 13406957
+            },
+            {
+              "startTime": 13408243,
+              "endTime": 13409353
+            },
+            {
+              "startTime": 13416966,
+              "endTime": 13418066
+            },
+            {
+              "startTime": 13431521,
+              "endTime": 13432621
+            },
+            {
+              "startTime": 13432621,
+              "endTime": 13433732
+            },
+            {
+              "startTime": 13479580,
+              "endTime": 13480688
+            },
+            {
+              "startTime": 13480688,
+              "endTime": 13481798
+            },
+            {
+              "startTime": 13493285,
+              "endTime": 13494381
+            },
+            {
+              "startTime": 13502722,
+              "endTime": 13504937
+            },
+            {
+              "startTime": 13516354,
+              "endTime": 13517463
+            },
+            {
+              "startTime": 13524409,
+              "endTime": 13525533
+            },
+            {
+              "startTime": 13533206,
+              "endTime": 13534319
+            },
+            {
+              "startTime": 13547270,
+              "endTime": 13548357
+            },
+            {
+              "startTime": 13568268,
+              "endTime": 13569371
+            },
+            {
+              "startTime": 13569371,
+              "endTime": 13570480
+            },
+            {
+              "startTime": 13578076,
+              "endTime": 13579152
+            },
+            {
+              "startTime": 13583091,
+              "endTime": 13584188
+            },
+            {
+              "startTime": 13584207,
+              "endTime": 13585311
+            },
+            {
+              "startTime": 13592997,
+              "endTime": 13594115
+            },
+            {
+              "startTime": 13601856,
+              "endTime": 13602957
+            },
+            {
+              "startTime": 13609373,
+              "endTime": 13610476
+            },
+            {
+              "startTime": 13610476,
+              "endTime": 13611599
+            },
+            {
+              "startTime": 13619432,
+              "endTime": 13620543
+            },
+            {
+              "startTime": 13629540,
+              "endTime": 13631509
+            },
+            {
+              "startTime": 13636884,
+              "endTime": 13637941
+            },
+            {
+              "startTime": 13644822,
+              "endTime": 13645946
+            },
+            {
+              "startTime": 13651941,
+              "endTime": 13653890
+            },
+            {
+              "startTime": 13660935,
+              "endTime": 13662034
+            },
+            {
+              "startTime": 13670084,
+              "endTime": 13671179
+            },
+            {
+              "startTime": 13678493,
+              "endTime": 13679589
+            },
+            {
+              "startTime": 13679589,
+              "endTime": 13680706
+            },
+            {
+              "startTime": 13690414,
+              "endTime": 13691516
+            },
+            {
+              "startTime": 13699706,
+              "endTime": 13700804
+            },
+            {
+              "startTime": 13700804,
+              "endTime": 13701893
+            },
+            {
+              "startTime": 13722364,
+              "endTime": 13723476
+            },
+            {
+              "startTime": 13730020,
+              "endTime": 13731119
+            },
+            {
+              "startTime": 13732244,
+              "endTime": 13733337
+            },
+            {
+              "startTime": 13742718,
+              "endTime": 13743793
+            },
+            {
+              "startTime": 13751195,
+              "endTime": 13752212
+            },
+            {
+              "startTime": 13752228,
+              "endTime": 13753330
+            },
+            {
+              "startTime": 13764216,
+              "endTime": 13765318
+            },
+            {
+              "startTime": 13775930,
+              "endTime": 13777024
+            },
+            {
+              "startTime": 13777923,
+              "endTime": 13779023
+            },
+            {
+              "startTime": 13787534,
+              "endTime": 13788623
+            },
+            {
+              "startTime": 13797941,
+              "endTime": 13799049
+            },
+            {
+              "startTime": 13799219,
+              "endTime": 13800321
+            },
+            {
+              "startTime": 13811109,
+              "endTime": 13812201
+            },
+            {
+              "startTime": 13820019,
+              "endTime": 13821120
+            },
+            {
+              "startTime": 13821284,
+              "endTime": 13822393
+            },
+            {
+              "startTime": 13831035,
+              "endTime": 13832152
+            },
+            {
+              "startTime": 13834355,
+              "endTime": 13835032
+            },
+            {
+              "startTime": 13841330,
+              "endTime": 13842433
+            },
+            {
+              "startTime": 13865132,
+              "endTime": 13866229
+            },
+            {
+              "startTime": 13866246,
+              "endTime": 13867348
+            },
+            {
+              "startTime": 13876507,
+              "endTime": 13877608
+            },
+            {
+              "startTime": 13888741,
+              "endTime": 13889856
+            },
+            {
+              "startTime": 13890108,
+              "endTime": 13891209
+            },
+            {
+              "startTime": 13900682,
+              "endTime": 13901785
+            },
+            {
+              "startTime": 13909896,
+              "endTime": 13912100
+            },
+            {
+              "startTime": 13919536,
+              "endTime": 13920642
+            },
+            {
+              "startTime": 13930580,
+              "endTime": 13931704
+            },
+            {
+              "startTime": 13931704,
+              "endTime": 13932805
+            },
+            {
+              "startTime": 13939975,
+              "endTime": 13941076
+            },
+            {
+              "startTime": 13958458,
+              "endTime": 13959543
+            },
+            {
+              "startTime": 13959560,
+              "endTime": 13960663
+            },
+            {
+              "startTime": 13967725,
+              "endTime": 13969956
+            },
+            {
+              "startTime": 13975650,
+              "endTime": 13976732
+            },
+            {
+              "startTime": 13982846,
+              "endTime": 13983930
+            },
+            {
+              "startTime": 13996249,
+              "endTime": 13997352
+            },
+            {
+              "startTime": 13997553,
+              "endTime": 13998651
+            },
+            {
+              "startTime": 14007009,
+              "endTime": 14008110
+            },
+            {
+              "startTime": 14015142,
+              "endTime": 14016270
+            },
+            {
+              "startTime": 14045264,
+              "endTime": 14046366
+            },
+            {
+              "startTime": 14053075,
+              "endTime": 14054178
+            },
+            {
+              "startTime": 14054192,
+              "endTime": 14055296
+            },
+            {
+              "startTime": 14063855,
+              "endTime": 14064952
+            },
+            {
+              "startTime": 14073861,
+              "endTime": 14074964
+            },
+            {
+              "startTime": 14074964,
+              "endTime": 14076060
+            },
+            {
+              "startTime": 14084956,
+              "endTime": 14086058
+            },
+            {
+              "startTime": 14107298,
+              "endTime": 14108397
+            },
+            {
+              "startTime": 14110567,
+              "endTime": 14111684
+            },
+            {
+              "startTime": 14127001,
+              "endTime": 14128108
+            },
+            {
+              "startTime": 14130928,
+              "endTime": 14132039
+            },
+            {
+              "startTime": 14138981,
+              "endTime": 14140082
+            },
+            {
+              "startTime": 14150207,
+              "endTime": 14151310
+            },
+            {
+              "startTime": 14155912,
+              "endTime": 14157021
+            },
+            {
+              "startTime": 14169911,
+              "endTime": 14171029
+            },
+            {
+              "startTime": 14171029,
+              "endTime": 14172128
+            },
+            {
+              "startTime": 14180419,
+              "endTime": 14181528
+            },
+            {
+              "startTime": 14192260,
+              "endTime": 14193368
+            },
+            {
+              "startTime": 14193386,
+              "endTime": 14194486
+            },
+            {
+              "startTime": 14201560,
+              "endTime": 14202658
+            },
+            {
+              "startTime": 14213627,
+              "endTime": 14214741
+            },
+            {
+              "startTime": 14221813,
+              "endTime": 14223772
+            },
+            {
+              "startTime": 14232650,
+              "endTime": 14233740
+            },
+            {
+              "startTime": 14239822,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Rune of Critical Power",
+          "guid": 1287772,
+          "type": 1,
+          "abilityIcon": "spell_mage_overpowered.jpg",
+          "totalUptime": 1001829,
+          "totalUses": 293,
+          "stackUptime": [
+            299284,
+            447934,
+            287950,
+            162874,
+            63953,
+            31760,
+            7358
+          ],
+          "bands": [
+            {
+              "startTime": 12980595,
+              "endTime": 13068137
+            },
+            {
+              "startTime": 13071591,
+              "endTime": 13081617
+            },
+            {
+              "startTime": 13089727,
+              "endTime": 13099723
+            },
+            {
+              "startTime": 13101489,
+              "endTime": 13128450
+            },
+            {
+              "startTime": 13140868,
+              "endTime": 13167941
+            },
+            {
+              "startTime": 13168572,
+              "endTime": 13178558
+            },
+            {
+              "startTime": 13183195,
+              "endTime": 13193200
+            },
+            {
+              "startTime": 13194719,
+              "endTime": 13204712
+            },
+            {
+              "startTime": 13211012,
+              "endTime": 13228773
+            },
+            {
+              "startTime": 13233196,
+              "endTime": 13260067
+            },
+            {
+              "startTime": 13273408,
+              "endTime": 13283423
+            },
+            {
+              "startTime": 13286552,
+              "endTime": 13296548
+            },
+            {
+              "startTime": 13298518,
+              "endTime": 13310922
+            },
+            {
+              "startTime": 13311831,
+              "endTime": 13322216
+            },
+            {
+              "startTime": 13328286,
+              "endTime": 13342142
+            },
+            {
+              "startTime": 13347756,
+              "endTime": 13357741
+            },
+            {
+              "startTime": 13359540,
+              "endTime": 13377891
+            },
+            {
+              "startTime": 13379023,
+              "endTime": 13389031
+            },
+            {
+              "startTime": 13394405,
+              "endTime": 13409669
+            },
+            {
+              "startTime": 13411227,
+              "endTime": 13421236
+            },
+            {
+              "startTime": 13423472,
+              "endTime": 13440149
+            },
+            {
+              "startTime": 13477452,
+              "endTime": 13487439
+            },
+            {
+              "startTime": 13491765,
+              "endTime": 13501775
+            },
+            {
+              "startTime": 13504424,
+              "endTime": 13527601
+            },
+            {
+              "startTime": 13527751,
+              "endTime": 13596313
+            },
+            {
+              "startTime": 13603924,
+              "endTime": 13617920
+            },
+            {
+              "startTime": 13622937,
+              "endTime": 13661935
+            },
+            {
+              "startTime": 13663920,
+              "endTime": 13680888
+            },
+            {
+              "startTime": 13688898,
+              "endTime": 13706425
+            },
+            {
+              "startTime": 13720663,
+              "endTime": 13734102
+            },
+            {
+              "startTime": 13736138,
+              "endTime": 13755085
+            },
+            {
+              "startTime": 13763107,
+              "endTime": 13777086
+            },
+            {
+              "startTime": 13778413,
+              "endTime": 13854937
+            },
+            {
+              "startTime": 13863272,
+              "endTime": 13873259
+            },
+            {
+              "startTime": 13876557,
+              "endTime": 13887535
+            },
+            {
+              "startTime": 13889535,
+              "endTime": 13909325
+            },
+            {
+              "startTime": 13914080,
+              "endTime": 13924087
+            },
+            {
+              "startTime": 13927571,
+              "endTime": 13944178
+            },
+            {
+              "startTime": 13945766,
+              "endTime": 13955772
+            },
+            {
+              "startTime": 13956307,
+              "endTime": 14021506
+            },
+            {
+              "startTime": 14047316,
+              "endTime": 14085007
+            },
+            {
+              "startTime": 14105695,
+              "endTime": 14161267
+            },
+            {
+              "startTime": 14166206,
+              "endTime": 14179118
+            },
+            {
+              "startTime": 14182141,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Flask of the Shattered Sun",
+          "guid": 1235111,
+          "type": 8,
+          "abilityIcon": "inv_12_profession_alchemy_flask_sindoreipotion_red--.jpg",
+          "totalUptime": 1234350,
+          "totalUses": 1,
+          "bands": [
+            {
+              "startTime": 12938830,
+              "endTime": 14173180
+            }
+          ]
+        },
+        {
+          "name": "Cycle of Hatred",
+          "guid": 1214887,
+          "type": 1,
+          "abilityIcon": "ability_ironmaidens_whirlofblood.jpg",
+          "totalUptime": 1257123,
+          "totalUses": 4,
+          "stackUptime": [
+            43990,
+            7082,
+            27006,
+            8574,
+            1214461
+          ],
+          "bands": [
+            {
+              "startTime": 12982820,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Nalorakk's Rite",
+          "guid": 1297665,
+          "type": 64,
+          "abilityIcon": "inv_10_enchanting2_magicswirl_green.jpg",
+          "totalUptime": 45012,
+          "totalUses": 3,
+          "bands": [
+            {
+              "startTime": 12999787,
+              "endTime": 13014798
+            },
+            {
+              "startTime": 13227637,
+              "endTime": 13242635
+            },
+            {
+              "startTime": 13623447,
+              "endTime": 13638450
+            }
+          ]
+        },
+        {
+          "name": "Immolation Aura",
+          "guid": 427914,
+          "type": 4,
+          "abilityIcon": "ability_demonhunter_immolation.jpg",
+          "totalUptime": 30008,
+          "totalUses": 3,
+          "bands": [
+            {
+              "startTime": 13034017,
+              "endTime": 13044018
+            },
+            {
+              "startTime": 13586944,
+              "endTime": 13596951
+            },
+            {
+              "startTime": 13833264,
+              "endTime": 13843264
+            }
+          ]
+        },
+        {
+          "name": "Xathuux's Last Roar",
+          "guid": 1254180,
+          "type": 1,
+          "abilityIcon": "ability_bossfellord_felspike.jpg",
+          "totalUptime": 390021,
+          "totalUses": 13,
+          "bands": [
+            {
+              "startTime": 13001450,
+              "endTime": 13031456
+            },
+            {
+              "startTime": 13229477,
+              "endTime": 13259483
+            },
+            {
+              "startTime": 13290368,
+              "endTime": 13320367
+            },
+            {
+              "startTime": 13403218,
+              "endTime": 13433230
+            },
+            {
+              "startTime": 13606645,
+              "endTime": 13636654
+            },
+            {
+              "startTime": 13649305,
+              "endTime": 13679304
+            },
+            {
+              "startTime": 13682526,
+              "endTime": 13712521
+            },
+            {
+              "startTime": 13733376,
+              "endTime": 13763360
+            },
+            {
+              "startTime": 13882014,
+              "endTime": 13912010
+            },
+            {
+              "startTime": 13916934,
+              "endTime": 13946930
+            },
+            {
+              "startTime": 14066608,
+              "endTime": 14096617
+            },
+            {
+              "startTime": 14173264,
+              "endTime": 14203262
+            },
+            {
+              "startTime": 14205683,
+              "endTime": 14235695
+            }
+          ]
+        },
+        {
+          "name": "Eternal Hunt",
+          "guid": 1271092,
+          "type": 1,
+          "abilityIcon": "inv12_apextalent_demonhunter_eternalhunt.jpg",
+          "totalUptime": 147044,
+          "totalUses": 53,
+          "bands": [
+            {
+              "startTime": 12984485,
+              "endTime": 12985535
+            },
+            {
+              "startTime": 13018573,
+              "endTime": 13019573
+            },
+            {
+              "startTime": 13030218,
+              "endTime": 13031200
+            },
+            {
+              "startTime": 13059022,
+              "endTime": 13062470
+            },
+            {
+              "startTime": 13093576,
+              "endTime": 13094482
+            },
+            {
+              "startTime": 13115937,
+              "endTime": 13117021
+            },
+            {
+              "startTime": 13144467,
+              "endTime": 13146920
+            },
+            {
+              "startTime": 13160197,
+              "endTime": 13164467
+            },
+            {
+              "startTime": 13184747,
+              "endTime": 13190030
+            },
+            {
+              "startTime": 13207416,
+              "endTime": 13209300
+            },
+            {
+              "startTime": 13229446,
+              "endTime": 13232683
+            },
+            {
+              "startTime": 13250662,
+              "endTime": 13252129
+            },
+            {
+              "startTime": 13274619,
+              "endTime": 13275809
+            },
+            {
+              "startTime": 13284236,
+              "endTime": 13285013
+            },
+            {
+              "startTime": 13306108,
+              "endTime": 13310541
+            },
+            {
+              "startTime": 13329190,
+              "endTime": 13330659
+            },
+            {
+              "startTime": 13351362,
+              "endTime": 13353684
+            },
+            {
+              "startTime": 13382464,
+              "endTime": 13385803
+            },
+            {
+              "startTime": 13404405,
+              "endTime": 13406422
+            },
+            {
+              "startTime": 13428145,
+              "endTime": 13432075
+            },
+            {
+              "startTime": 13478764,
+              "endTime": 13480130
+            },
+            {
+              "startTime": 13500859,
+              "endTime": 13503274
+            },
+            {
+              "startTime": 13567705,
+              "endTime": 13568818
+            },
+            {
+              "startTime": 13582778,
+              "endTime": 13583638
+            },
+            {
+              "startTime": 13605710,
+              "endTime": 13609930
+            },
+            {
+              "startTime": 13629001,
+              "endTime": 13630108
+            },
+            {
+              "startTime": 13650211,
+              "endTime": 13652478
+            },
+            {
+              "startTime": 13673515,
+              "endTime": 13679036
+            },
+            {
+              "startTime": 13694935,
+              "endTime": 13700248
+            },
+            {
+              "startTime": 13705705,
+              "endTime": 13713712
+            },
+            {
+              "startTime": 13726307,
+              "endTime": 13730562
+            },
+            {
+              "startTime": 13749237,
+              "endTime": 13751667
+            },
+            {
+              "startTime": 13770416,
+              "endTime": 13776469
+            },
+            {
+              "startTime": 13792807,
+              "endTime": 13798495
+            },
+            {
+              "startTime": 13814809,
+              "endTime": 13820579
+            },
+            {
+              "startTime": 13830715,
+              "endTime": 13831591
+            },
+            {
+              "startTime": 13864508,
+              "endTime": 13865671
+            },
+            {
+              "startTime": 13885934,
+              "endTime": 13889292
+            },
+            {
+              "startTime": 13907323,
+              "endTime": 13910444
+            },
+            {
+              "startTime": 13929931,
+              "endTime": 13931147
+            },
+            {
+              "startTime": 13958075,
+              "endTime": 13958992
+            },
+            {
+              "startTime": 13967134,
+              "endTime": 13968288
+            },
+            {
+              "startTime": 13991246,
+              "endTime": 13996810
+            },
+            {
+              "startTime": 14012098,
+              "endTime": 14015706
+            },
+            {
+              "startTime": 14048669,
+              "endTime": 14053626
+            },
+            {
+              "startTime": 14070875,
+              "endTime": 14074395
+            },
+            {
+              "startTime": 14106885,
+              "endTime": 14107846
+            },
+            {
+              "startTime": 14127001,
+              "endTime": 14127564
+            },
+            {
+              "startTime": 14147588,
+              "endTime": 14150758
+            },
+            {
+              "startTime": 14169379,
+              "endTime": 14170478
+            },
+            {
+              "startTime": 14190732,
+              "endTime": 14192821
+            },
+            {
+              "startTime": 14217096,
+              "endTime": 14222365
+            },
+            {
+              "startTime": 14238430,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Abyssal Gaze",
+          "guid": 452497,
+          "type": 124,
+          "abilityIcon": "spell_shadow_demonicfortitude.jpg",
+          "totalUptime": 25077,
+          "totalUses": 15,
+          "bands": [
+            {
+              "startTime": 13028853,
+              "endTime": 13030218
+            },
+            {
+              "startTime": 13158365,
+              "endTime": 13160197
+            },
+            {
+              "startTime": 13182991,
+              "endTime": 13184747
+            },
+            {
+              "startTime": 13282613,
+              "endTime": 13284236
+            },
+            {
+              "startTime": 13304332,
+              "endTime": 13306107
+            },
+            {
+              "startTime": 13438727,
+              "endTime": 13439547
+            },
+            {
+              "startTime": 13581001,
+              "endTime": 13582778
+            },
+            {
+              "startTime": 13603942,
+              "endTime": 13605710
+            },
+            {
+              "startTime": 13703860,
+              "endTime": 13705704
+            },
+            {
+              "startTime": 13724458,
+              "endTime": 13726307
+            },
+            {
+              "startTime": 13828955,
+              "endTime": 13830715
+            },
+            {
+              "startTime": 13965529,
+              "endTime": 13967134
+            },
+            {
+              "startTime": 13989495,
+              "endTime": 13991246
+            },
+            {
+              "startTime": 14125216,
+              "endTime": 14127001
+            },
+            {
+              "startTime": 14145821,
+              "endTime": 14147588
+            }
+          ]
+        },
+        {
+          "name": "Ragefire",
+          "guid": 390192,
+          "type": 1,
+          "abilityIcon": "spell_fire_fireballgreen.jpg",
+          "totalUptime": 532358,
+          "totalUses": 56,
+          "bands": [
+            {
+              "startTime": 12980190,
+              "endTime": 12990276
+            },
+            {
+              "startTime": 13004659,
+              "endTime": 13014747
+            },
+            {
+              "startTime": 13022589,
+              "endTime": 13032707
+            },
+            {
+              "startTime": 13065482,
+              "endTime": 13075567
+            },
+            {
+              "startTime": 13090345,
+              "endTime": 13100431
+            },
+            {
+              "startTime": 13107194,
+              "endTime": 13116391
+            },
+            {
+              "startTime": 13116571,
+              "endTime": 13126652
+            },
+            {
+              "startTime": 13142366,
+              "endTime": 13151544
+            },
+            {
+              "startTime": 13205013,
+              "endTime": 13214172
+            },
+            {
+              "startTime": 13221614,
+              "endTime": 13231690
+            },
+            {
+              "startTime": 13231877,
+              "endTime": 13241958
+            },
+            {
+              "startTime": 13272299,
+              "endTime": 13281478
+            },
+            {
+              "startTime": 13325977,
+              "endTime": 13336019
+            },
+            {
+              "startTime": 13336192,
+              "endTime": 13346275
+            },
+            {
+              "startTime": 13364962,
+              "endTime": 13375038
+            },
+            {
+              "startTime": 13381129,
+              "endTime": 13385380
+            },
+            {
+              "startTime": 13393979,
+              "endTime": 13404053
+            },
+            {
+              "startTime": 13413214,
+              "endTime": 13422371
+            },
+            {
+              "startTime": 13429413,
+              "endTime": 13439494
+            },
+            {
+              "startTime": 13474470,
+              "endTime": 13484561
+            },
+            {
+              "startTime": 13497900,
+              "endTime": 13507087
+            },
+            {
+              "startTime": 13517831,
+              "endTime": 13527901
+            },
+            {
+              "startTime": 13538931,
+              "endTime": 13549003
+            },
+            {
+              "startTime": 13563651,
+              "endTime": 13573747
+            },
+            {
+              "startTime": 13576808,
+              "endTime": 13586911
+            },
+            {
+              "startTime": 13631395,
+              "endTime": 13641442
+            },
+            {
+              "startTime": 13643894,
+              "endTime": 13653964
+            },
+            {
+              "startTime": 13657572,
+              "endTime": 13665738
+            },
+            {
+              "startTime": 13676067,
+              "endTime": 13684258
+            },
+            {
+              "startTime": 13698508,
+              "endTime": 13707682
+            },
+            {
+              "startTime": 13737557,
+              "endTime": 13748648
+            },
+            {
+              "startTime": 13748821,
+              "endTime": 13758885
+            },
+            {
+              "startTime": 13762494,
+              "endTime": 13772558
+            },
+            {
+              "startTime": 13772741,
+              "endTime": 13782811
+            },
+            {
+              "startTime": 13801802,
+              "endTime": 13811870
+            },
+            {
+              "startTime": 13824590,
+              "endTime": 13832744
+            },
+            {
+              "startTime": 13861108,
+              "endTime": 13871187
+            },
+            {
+              "startTime": 13874256,
+              "endTime": 13881445
+            },
+            {
+              "startTime": 13903543,
+              "endTime": 13913612
+            },
+            {
+              "startTime": 13914696,
+              "endTime": 13923892
+            },
+            {
+              "startTime": 13932957,
+              "endTime": 13943010
+            },
+            {
+              "startTime": 13944094,
+              "endTime": 13953274
+            },
+            {
+              "startTime": 13955011,
+              "endTime": 13965089
+            },
+            {
+              "startTime": 14014651,
+              "endTime": 14022824
+            },
+            {
+              "startTime": 14043414,
+              "endTime": 14053492
+            },
+            {
+              "startTime": 14055643,
+              "endTime": 14065737
+            },
+            {
+              "startTime": 14072883,
+              "endTime": 14082954
+            },
+            {
+              "startTime": 14103959,
+              "endTime": 14114040
+            },
+            {
+              "startTime": 14117759,
+              "endTime": 14125933
+            },
+            {
+              "startTime": 14172262,
+              "endTime": 14182332
+            },
+            {
+              "startTime": 14182516,
+              "endTime": 14192604
+            },
+            {
+              "startTime": 14194605,
+              "endTime": 14204687
+            },
+            {
+              "startTime": 14204872,
+              "endTime": 14214956
+            },
+            {
+              "startTime": 14215140,
+              "endTime": 14225218
+            },
+            {
+              "startTime": 14225393,
+              "endTime": 14235469
+            },
+            {
+              "startTime": 14236534,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Echoing Roar",
+          "guid": 1254331,
+          "type": 1,
+          "abilityIcon": "spell_necro_deathlyecho.jpg",
+          "totalUptime": 441035,
+          "totalUses": 927,
+          "stackUptime": [
+            860078,
+            8827,
+            2861,
+            5354,
+            3363,
+            420630
+          ],
+          "bands": [
+            {
+              "startTime": 13003217,
+              "endTime": 13039452
+            },
+            {
+              "startTime": 13229477,
+              "endTime": 13259634
+            },
+            {
+              "startTime": 13291176,
+              "endTime": 13326655
+            },
+            {
+              "startTime": 13403218,
+              "endTime": 13440149
+            },
+            {
+              "startTime": 13607097,
+              "endTime": 13644403
+            },
+            {
+              "startTime": 13649305,
+              "endTime": 13712406
+            },
+            {
+              "startTime": 13733686,
+              "endTime": 13771072
+            },
+            {
+              "startTime": 13882325,
+              "endTime": 13896736
+            },
+            {
+              "startTime": 13899015,
+              "endTime": 13952422
+            },
+            {
+              "startTime": 14066921,
+              "endTime": 14097167
+            },
+            {
+              "startTime": 14173567,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Demonsurge",
+          "guid": 452416,
+          "type": 126,
+          "abilityIcon": "inv_ability_felscarreddemonhunter_demonsurge.jpg",
+          "totalUptime": 522345,
+          "totalUses": 160,
+          "stackUptime": [
+            778768,
+            213288,
+            131251,
+            39681,
+            26327,
+            111798
+          ],
+          "bands": [
+            {
+              "startTime": 12938830,
+              "endTime": 12952064
+            },
+            {
+              "startTime": 12983274,
+              "endTime": 12989489
+            },
+            {
+              "startTime": 13017354,
+              "endTime": 13023619
+            },
+            {
+              "startTime": 13027924,
+              "endTime": 13052823
+            },
+            {
+              "startTime": 13058226,
+              "endTime": 13064016
+            },
+            {
+              "startTime": 13092375,
+              "endTime": 13098587
+            },
+            {
+              "startTime": 13114869,
+              "endTime": 13120927
+            },
+            {
+              "startTime": 13143249,
+              "endTime": 13149471
+            },
+            {
+              "startTime": 13157682,
+              "endTime": 13181688
+            },
+            {
+              "startTime": 13188797,
+              "endTime": 13191591
+            },
+            {
+              "startTime": 13206184,
+              "endTime": 13212420
+            },
+            {
+              "startTime": 13228342,
+              "endTime": 13235212
+            },
+            {
+              "startTime": 13249439,
+              "endTime": 13255647
+            },
+            {
+              "startTime": 13273388,
+              "endTime": 13279625
+            },
+            {
+              "startTime": 13281859,
+              "endTime": 13304400
+            },
+            {
+              "startTime": 13310773,
+              "endTime": 13314550
+            },
+            {
+              "startTime": 13327965,
+              "endTime": 13334181
+            },
+            {
+              "startTime": 13350230,
+              "endTime": 13356374
+            },
+            {
+              "startTime": 13356540,
+              "endTime": 13371551
+            },
+            {
+              "startTime": 13381245,
+              "endTime": 13387469
+            },
+            {
+              "startTime": 13403185,
+              "endTime": 13409418
+            },
+            {
+              "startTime": 13426927,
+              "endTime": 13433652
+            },
+            {
+              "startTime": 13438034,
+              "endTime": 13440149
+            },
+            {
+              "startTime": 13477561,
+              "endTime": 13483766
+            },
+            {
+              "startTime": 13499625,
+              "endTime": 13505864
+            },
+            {
+              "startTime": 13521164,
+              "endTime": 13527291
+            },
+            {
+              "startTime": 13544589,
+              "endTime": 13550821
+            },
+            {
+              "startTime": 13566483,
+              "endTime": 13572709
+            },
+            {
+              "startTime": 13580231,
+              "endTime": 13603114
+            },
+            {
+              "startTime": 13610198,
+              "endTime": 13613070
+            },
+            {
+              "startTime": 13628073,
+              "endTime": 13633880
+            },
+            {
+              "startTime": 13649360,
+              "endTime": 13655213
+            },
+            {
+              "startTime": 13672296,
+              "endTime": 13679488
+            },
+            {
+              "startTime": 13693702,
+              "endTime": 13700692
+            },
+            {
+              "startTime": 13703128,
+              "endTime": 13736094
+            },
+            {
+              "startTime": 13748004,
+              "endTime": 13754231
+            },
+            {
+              "startTime": 13769159,
+              "endTime": 13775391
+            },
+            {
+              "startTime": 13791596,
+              "endTime": 13797821
+            },
+            {
+              "startTime": 13813595,
+              "endTime": 13819824
+            },
+            {
+              "startTime": 13828265,
+              "endTime": 13850947
+            },
+            {
+              "startTime": 13863234,
+              "endTime": 13869455
+            },
+            {
+              "startTime": 13884701,
+              "endTime": 13891123
+            },
+            {
+              "startTime": 13906087,
+              "endTime": 13912305
+            },
+            {
+              "startTime": 13928697,
+              "endTime": 13934939
+            },
+            {
+              "startTime": 13956858,
+              "endTime": 13963065
+            },
+            {
+              "startTime": 13964703,
+              "endTime": 13986519
+            },
+            {
+              "startTime": 13997049,
+              "endTime": 13997392
+            },
+            {
+              "startTime": 14010865,
+              "endTime": 14017110
+            },
+            {
+              "startTime": 14047450,
+              "endTime": 14054093
+            },
+            {
+              "startTime": 14069646,
+              "endTime": 14075966
+            },
+            {
+              "startTime": 14105676,
+              "endTime": 14111904
+            },
+            {
+              "startTime": 14112237,
+              "endTime": 14123417
+            },
+            {
+              "startTime": 14124122,
+              "endTime": 14147505
+            },
+            {
+              "startTime": 14151025,
+              "endTime": 14156932
+            },
+            {
+              "startTime": 14168176,
+              "endTime": 14174411
+            },
+            {
+              "startTime": 14189533,
+              "endTime": 14195747
+            },
+            {
+              "startTime": 14196055,
+              "endTime": 14211053
+            },
+            {
+              "startTime": 14215903,
+              "endTime": 14223674
+            },
+            {
+              "startTime": 14237610,
+              "endTime": 14239943
+            }
+          ]
+        },
+        {
+          "name": "Ragefire",
+          "guid": 428362,
+          "type": 1,
+          "abilityIcon": "spell_fire_fireballgreen.jpg",
+          "totalUptime": 133600,
+          "totalUses": 15,
+          "bands": [
+            {
+              "startTime": 13033288,
+              "endTime": 13043377
+            },
+            {
+              "startTime": 13162890,
+              "endTime": 13172966
+            },
+            {
+              "startTime": 13173150,
+              "endTime": 13183228
+            },
+            {
+              "startTime": 13287759,
+              "endTime": 13296943
+            },
+            {
+              "startTime": 13586553,
+              "endTime": 13596628
+            },
+            {
+              "startTime": 13604726,
+              "endTime": 13606894
+            },
+            {
+              "startTime": 13607097,
+              "endTime": 13617156
+            },
+            {
+              "startTime": 13726687,
+              "endTime": 13736753
+            },
+            {
+              "startTime": 13832946,
+              "endTime": 13843039
+            },
+            {
+              "startTime": 13861378,
+              "endTime": 13863561
+            },
+            {
+              "startTime": 13972329,
+              "endTime": 13982399
+            },
+            {
+              "startTime": 13982588,
+              "endTime": 13992675
+            },
+            {
+              "startTime": 14129868,
+              "endTime": 14139949
+            },
+            {
+              "startTime": 14141021,
+              "endTime": 14150209
+            },
+            {
+              "startTime": 14227592,
+              "endTime": 14237695
+            }
+          ]
+        },
+        {
+          "name": "Farstrider's Step",
+          "guid": 1242775,
+          "type": 1,
+          "abilityIcon": "spell_lifegivingspeed.jpg",
+          "totalUptime": 190,
+          "totalUses": 8,
+          "bands": [
+            {
+              "startTime": 13038171,
+              "endTime": 13038204
+            },
+            {
+              "startTime": 13319033,
+              "endTime": 13319033
+            },
+            {
+              "startTime": 13516827,
+              "endTime": 13516856
+            },
+            {
+              "startTime": 13586865,
+              "endTime": 13586890
+            },
+            {
+              "startTime": 13650232,
+              "endTime": 13650259
+            },
+            {
+              "startTime": 13742796,
+              "endTime": 13742847
+            },
+            {
+              "startTime": 13818466,
+              "endTime": 13818468
+            },
+            {
+              "startTime": 14146651,
+              "endTime": 14146674
+            }
+          ]
+        },
+        {
+          "name": "Masterful Hunt",
+          "guid": 1252488,
+          "type": 1,
+          "abilityIcon": "inv_eyeofnzothpet.jpg",
+          "totalUptime": 44065,
+          "totalUses": 4,
+          "bands": [
+            {
+              "startTime": 14045280,
+              "endTime": 14074316
+            },
+            {
+              "startTime": 14078986,
+              "endTime": 14094015
+            }
+          ]
+        },
+        {
+          "name": "Enduring Torment",
+          "guid": 453314,
+          "type": 1,
+          "abilityIcon": "spell_fire_felimmolation.jpg",
+          "totalUptime": 748118,
+          "totalUses": 50,
+          "bands": [
+            {
+              "startTime": 12956886,
+              "endTime": 12982903
+            },
+            {
+              "startTime": 12989902,
+              "endTime": 13016908
+            },
+            {
+              "startTime": 13023894,
+              "endTime": 13027904
+            },
+            {
+              "startTime": 13053889,
+              "endTime": 13057894
+            },
+            {
+              "startTime": 13064885,
+              "endTime": 13092901
+            },
+            {
+              "startTime": 13098890,
+              "endTime": 13114892
+            },
+            {
+              "startTime": 13121894,
+              "endTime": 13142902
+            },
+            {
+              "startTime": 13149889,
+              "endTime": 13157898
+            },
+            {
+              "startTime": 13191899,
+              "endTime": 13205899
+            },
+            {
+              "startTime": 13212905,
+              "endTime": 13227908
+            },
+            {
+              "startTime": 13235898,
+              "endTime": 13249895
+            },
+            {
+              "startTime": 13255898,
+              "endTime": 13273897
+            },
+            {
+              "startTime": 13279896,
+              "endTime": 13281892
+            },
+            {
+              "startTime": 13314901,
+              "endTime": 13327906
+            },
+            {
+              "startTime": 13334903,
+              "endTime": 13349895
+            },
+            {
+              "startTime": 13356916,
+              "endTime": 13380908
+            },
+            {
+              "startTime": 13387906,
+              "endTime": 13402902
+            },
+            {
+              "startTime": 13409895,
+              "endTime": 13426910
+            },
+            {
+              "startTime": 13433900,
+              "endTime": 13437893
+            },
+            {
+              "startTime": 13445912,
+              "endTime": 13477894
+            },
+            {
+              "startTime": 13483921,
+              "endTime": 13499920
+            },
+            {
+              "startTime": 13505906,
+              "endTime": 13520906
+            },
+            {
+              "startTime": 13527928,
+              "endTime": 13544912
+            },
+            {
+              "startTime": 13550899,
+              "endTime": 13566916
+            },
+            {
+              "startTime": 13572897,
+              "endTime": 13579909
+            },
+            {
+              "startTime": 13613908,
+              "endTime": 13627919
+            },
+            {
+              "startTime": 13633919,
+              "endTime": 13649908
+            },
+            {
+              "startTime": 13655929,
+              "endTime": 13671913
+            },
+            {
+              "startTime": 13679904,
+              "endTime": 13693917
+            },
+            {
+              "startTime": 13700914,
+              "endTime": 13702902
+            },
+            {
+              "startTime": 13736916,
+              "endTime": 13747925
+            },
+            {
+              "startTime": 13754917,
+              "endTime": 13768920
+            },
+            {
+              "startTime": 13775917,
+              "endTime": 13791917
+            },
+            {
+              "startTime": 13797927,
+              "endTime": 13813908
+            },
+            {
+              "startTime": 13819910,
+              "endTime": 13827927
+            },
+            {
+              "startTime": 13854920,
+              "endTime": 13862921
+            },
+            {
+              "startTime": 13869923,
+              "endTime": 13884916
+            },
+            {
+              "startTime": 13891925,
+              "endTime": 13905906
+            },
+            {
+              "startTime": 13912915,
+              "endTime": 13928930
+            },
+            {
+              "startTime": 13935914,
+              "endTime": 13956924
+            },
+            {
+              "startTime": 13963913,
+              "endTime": 13964926
+            },
+            {
+              "startTime": 13997907,
+              "endTime": 14010930
+            },
+            {
+              "startTime": 14017918,
+              "endTime": 14047919
+            },
+            {
+              "startTime": 14054927,
+              "endTime": 14069924
+            },
+            {
+              "startTime": 14076935,
+              "endTime": 14105927
+            },
+            {
+              "startTime": 14111925,
+              "endTime": 14123932
+            },
+            {
+              "startTime": 14157934,
+              "endTime": 14167925
+            },
+            {
+              "startTime": 14174919,
+              "endTime": 14189919
+            },
+            {
+              "startTime": 14195907,
+              "endTime": 14215935
+            },
+            {
+              "startTime": 14223916,
+              "endTime": 14237932
+            }
+          ]
+        },
+        {
+          "name": "Rune of Lingering",
+          "guid": 1287665,
+          "type": 106,
+          "abilityIcon": "item_shadowcloth.jpg",
+          "totalUptime": 201145,
+          "totalUses": 35,
+          "bands": [
+            {
+              "startTime": 12980595,
+              "endTime": 12989608
+            },
+            {
+              "startTime": 13041251,
+              "endTime": 13063250
+            },
+            {
+              "startTime": 13109005,
+              "endTime": 13117021
+            },
+            {
+              "startTime": 13153175,
+              "endTime": 13165172
+            },
+            {
+              "startTime": 13347756,
+              "endTime": 13355759
+            },
+            {
+              "startTime": 13491766,
+              "endTime": 13499773
+            },
+            {
+              "startTime": 13511593,
+              "endTime": 13525605
+            },
+            {
+              "startTime": 13558206,
+              "endTime": 13566213
+            },
+            {
+              "startTime": 13724130,
+              "endTime": 13732117
+            },
+            {
+              "startTime": 13738078,
+              "endTime": 13753113
+            },
+            {
+              "startTime": 13763124,
+              "endTime": 13771124
+            },
+            {
+              "startTime": 13807378,
+              "endTime": 13823396
+            },
+            {
+              "startTime": 13956327,
+              "endTime": 13968336
+            },
+            {
+              "startTime": 13979344,
+              "endTime": 13994348
+            },
+            {
+              "startTime": 14148241,
+              "endTime": 14159276
+            },
+            {
+              "startTime": 14188601,
+              "endTime": 14196602
+            },
+            {
+              "startTime": 14214056,
+              "endTime": 14233058
+            }
+          ]
+        },
+        {
+          "name": "Focused Hunt",
+          "guid": 1252487,
+          "type": 1,
+          "abilityIcon": "inv_eyeofnzothpet.jpg",
+          "totalUptime": 181591,
+          "totalUses": 18,
+          "bands": [
+            {
+              "startTime": 13154160,
+              "endTime": 13169176
+            },
+            {
+              "startTime": 13178217,
+              "endTime": 13201177
+            },
+            {
+              "startTime": 13210987,
+              "endTime": 13260722
+            },
+            {
+              "startTime": 13606645,
+              "endTime": 13644571
+            },
+            {
+              "startTime": 13646939,
+              "endTime": 13667793
+            },
+            {
+              "startTime": 13679605,
+              "endTime": 13714705
+            }
+          ]
+        },
+        {
+          "name": "Blade Dance",
+          "guid": 188499,
+          "type": 1,
+          "abilityIcon": "ability_demonhunter_bladedance.jpg",
+          "totalUptime": 49112,
+          "totalUses": 49,
+          "bands": [
+            {
+              "startTime": 12997867,
+              "endTime": 12998867
+            },
+            {
+              "startTime": 13007287,
+              "endTime": 13008289
+            },
+            {
+              "startTime": 13072010,
+              "endTime": 13073009
+            },
+            {
+              "startTime": 13104202,
+              "endTime": 13105213
+            },
+            {
+              "startTime": 13199875,
+              "endTime": 13200875
+            },
+            {
+              "startTime": 13217388,
+              "endTime": 13218375
+            },
+            {
+              "startTime": 13242951,
+              "endTime": 13243953
+            },
+            {
+              "startTime": 13319699,
+              "endTime": 13320701
+            },
+            {
+              "startTime": 13339729,
+              "endTime": 13340737
+            },
+            {
+              "startTime": 13362091,
+              "endTime": 13363094
+            },
+            {
+              "startTime": 13371684,
+              "endTime": 13372686
+            },
+            {
+              "startTime": 13395197,
+              "endTime": 13396212
+            },
+            {
+              "startTime": 13416966,
+              "endTime": 13417971
+            },
+            {
+              "startTime": 13493285,
+              "endTime": 13494279
+            },
+            {
+              "startTime": 13516354,
+              "endTime": 13517346
+            },
+            {
+              "startTime": 13533206,
+              "endTime": 13534210
+            },
+            {
+              "startTime": 13578077,
+              "endTime": 13579065
+            },
+            {
+              "startTime": 13619432,
+              "endTime": 13620442
+            },
+            {
+              "startTime": 13636884,
+              "endTime": 13637847
+            },
+            {
+              "startTime": 13644822,
+              "endTime": 13645853
+            },
+            {
+              "startTime": 13660936,
+              "endTime": 13661935
+            },
+            {
+              "startTime": 13670085,
+              "endTime": 13671094
+            },
+            {
+              "startTime": 13679589,
+              "endTime": 13680587
+            },
+            {
+              "startTime": 13690415,
+              "endTime": 13691414
+            },
+            {
+              "startTime": 13700805,
+              "endTime": 13701810
+            },
+            {
+              "startTime": 13742720,
+              "endTime": 13743711
+            },
+            {
+              "startTime": 13764218,
+              "endTime": 13765224
+            },
+            {
+              "startTime": 13775931,
+              "endTime": 13776940
+            },
+            {
+              "startTime": 13777924,
+              "endTime": 13778934
+            },
+            {
+              "startTime": 13787535,
+              "endTime": 13788550
+            },
+            {
+              "startTime": 13797941,
+              "endTime": 13798938
+            },
+            {
+              "startTime": 13799223,
+              "endTime": 13800223
+            },
+            {
+              "startTime": 13811110,
+              "endTime": 13812103
+            },
+            {
+              "startTime": 13820020,
+              "endTime": 13821032
+            },
+            {
+              "startTime": 13821285,
+              "endTime": 13822293
+            },
+            {
+              "startTime": 13876507,
+              "endTime": 13877525
+            },
+            {
+              "startTime": 13900682,
+              "endTime": 13901683
+            },
+            {
+              "startTime": 13919537,
+              "endTime": 13920552
+            },
+            {
+              "startTime": 13939975,
+              "endTime": 13940977
+            },
+            {
+              "startTime": 13997553,
+              "endTime": 13998552
+            },
+            {
+              "startTime": 14007009,
+              "endTime": 14008022
+            },
+            {
+              "startTime": 14045265,
+              "endTime": 14046268
+            },
+            {
+              "startTime": 14054193,
+              "endTime": 14055194
+            },
+            {
+              "startTime": 14063856,
+              "endTime": 14064851
+            },
+            {
+              "startTime": 14084956,
+              "endTime": 14085959
+            },
+            {
+              "startTime": 14180421,
+              "endTime": 14181425
+            },
+            {
+              "startTime": 14201561,
+              "endTime": 14202568
+            },
+            {
+              "startTime": 14213643,
+              "endTime": 14214626
+            },
+            {
+              "startTime": 14232651,
+              "endTime": 14233650
+            }
+          ]
+        }
+      ],
+      "totalTime": 1301113,
+      "useTargets": false,
+      "startTime": 0,
+      "endTime": 14295450,
+      "logVersion": 17,
+      "gameVersion": 1
+    }
+  },
+  "meta": {
+    "bytes": 54560,
+    "originalEntryCount": null,
+    "returnedEntryCount": null,
+    "truncated": false,
+    "maxEntries": 250,
+    "maxPayloadBytes": 1000000
+  }
+}

@@ -1,8 +1,8 @@
 ## Interface: 120100
 ## Title: Yaya Warband Bank Default
-## Notes: Opens the bank on the warband bank tab by default.
+## Notes: Keeps bag deposits taint-free; selects the warband tab through ElvUI when available.
 ## Author: Codex
-## Version: 0.9.1
+## Version: 1.0.1
 ## OptionalDeps: ElvUI, EllesmereUI, TradeSkillMaster
 ## SavedVariables: YayaWarbandBankDefaultDB
 

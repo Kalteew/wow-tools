@@ -1,0 +1,315 @@
+{
+  "schemaVersion": 1,
+  "dataset": "dh-havoc-creators-media-midnight-s2",
+  "capturedAt": "2026-09-25T17:00:00Z",
+  "scope": {
+    "game": "World of Warcraft Retail",
+    "spec": "Havoc Demon Hunter",
+    "patch": "12.1",
+    "season": "Midnight Season 2",
+    "region": "global"
+  },
+  "creators": [
+    {
+      "id": "shadarek",
+      "displayName": "Shadarek",
+      "role": ["Havoc guide writer", "theorycraft", "logs"],
+      "platforms": {
+        "x": {"url": "https://x.com/Shadarek", "handle": "Shadarek"},
+        "youtube": {"url": "https://www.youtube.com/@Shadarek"},
+        "wowhead": {"url": "https://www.wowhead.com/guide/classes/demon-hunter/havoc/midnight-season-2"},
+        "warcraftLogs": {"url": "https://www.warcraftlogs.com/character/us/bleeding-hollow/shadarek"}
+      },
+      "publicPosts": [
+        {
+          "id": "shadarek-status-2086596468232884474",
+          "url": "https://x.com/Shadarek/status/2086596468232884474",
+          "publishedAt": "2026-08-10",
+          "status": "accessible_indexed",
+          "topicTags": ["wowhead_guide", "season_2"],
+          "originalParaphrase": "Annonce la fin des mises à jour de son guide Havoc Wowhead.",
+          "provenance": "web_search_agent",
+          "accessedAt": "2026-09-25T17:00:00Z"
+        }
+      ],
+      "videos": [
+        {
+          "id": "youtube-sh7XxGz4DD8",
+          "url": "https://www.youtube.com/watch?v=sh7XxGz4DD8",
+          "transcriptUrl": "https://youtubetotranscript.com/transcript?v=sh7XxGz4DD8",
+          "title": "Havoc Demon Hunter 12.1 Raiding & Mythic+ Guide | BiS Gear, Talents, Rotation and More!",
+          "publishedAt": "2026-08-13",
+          "language": "en",
+          "transcript": {"status": "available_partial_page", "kind": "auto_generated", "itemsObserved": 1333, "storedText": false},
+          "topicTags": ["raid", "mythic_plus", "fel_scarred", "aldrachi_reaver", "gear", "bis", "opener", "rotation"],
+          "originalSummary": "Guide le plus complet du lot : il compare Fel-Scarred pour l'AoE/cleave et Aldrachi Reaver pour le mono/funnel, explique le choix d'un ensemble simule plutôt qu'une liste BiS pièce par pièce, le rôle du bonus 4 pièces sur Essence Break et les openers raid, Aldrachi et M+.",
+          "keyPoints": [
+            "Fel-Scarred est le profil général AoE/cleave ; Aldrachi vise surtout mono-cible et funnel.",
+            "Le gearing doit être simule au niveau du personnage entier, car un changement de pièce peut déplacer les autres choix.",
+            "Essence Break est utilisé très régulièrement avec le bonus 4 pièces, en évitant seulement de le désynchroniser d'un Eye Beam imminent.",
+            "L'opener Fel-Scarred consomme les fenêtres Death Sweep/Annihilation avant et après Metamorphosis ; Hunt sert à amplifier une prochaine fenêtre Eye Beam.",
+            "La vidéo couvre aussi les crafts, les bijoux à proc, les gemmes, les enchantements et les consommables."
+          ],
+          "timestamps": [
+            {"at": "00:00", "topic": "changements 12.1"},
+            {"at": "04:45", "topic": "choix Fel-Scarred/Aldrachi"},
+            {"at": "09:59", "topic": "gearing et BiS"},
+            {"at": "17:32", "topic": "bonus 4 pièces et Essence Break"},
+            {"at": "22:55", "topic": "opener Fel-Scarred raid"},
+            {"at": "27:07", "topic": "opener Aldrachi"},
+            {"at": "31:45", "topic": "opener M+ Fel-Scarred"}
+          ],
+          "accessedAt": "2026-09-25T17:00:00Z",
+          "retrievalMethod": "manual_browser_youtubetotranscript",
+          "limitations": ["Captions mal retranscrites par endroits.", "La vidéo précède les derniers hotfixes du 22 septembre."]
+        }
+      ]
+    },
+    {
+      "id": "jedith",
+      "displayName": "Jedith",
+      "role": ["Havoc creator", "mythic_plus"],
+      "platforms": {
+        "x": {"url": "https://x.com/Jedithtv", "handle": "Jedithtv"}
+      },
+      "publicPosts": [
+        {
+          "id": "jedith-profile",
+          "url": "https://x.com/Jedithtv",
+          "publishedAt": null,
+          "status": "account_accessible",
+          "topicTags": ["creator_profile"],
+          "originalParaphrase": "Compte public d'un créateur actif sur Havoc et Devourer ; les posts individuels ne sont pas tous indexés par les moteurs publics.",
+          "provenance": "web_search_agent",
+          "accessedAt": "2026-09-25T17:00:00Z"
+        },
+        {
+          "id": "jedith-public-mirror",
+          "url": "https://ww.twstalker.com/Jedithtv",
+          "publishedAt": "2026-09-18",
+          "status": "third_party_mirror",
+          "topicTags": ["havoc_12_1", "essence_break"],
+          "originalParaphrase": "Réagit aux choix Havoc 12.1 et défend une place plus importante pour Essence Break.",
+          "provenance": "web_search_agent",
+          "accessedAt": "2026-09-25T17:00:00Z",
+          "limitations": ["Miroir tiers ; ne pas traiter comme une archive complète ni comme une source primaire."]
+        }
+      ],
+      "videos": [
+        {
+          "id": "youtube-DbXY5OnAxoU",
+          "url": "https://www.youtube.com/watch?v=DbXY5OnAxoU",
+          "transcriptUrl": "https://youtubetotranscript.com/transcript?v=DbXY5OnAxoU",
+          "title": "Havoc DH 12.1: The Forgotten Specialization? Complete M+ S2 Guide",
+          "publishedAt": "2026-08-25",
+          "language": "en",
+          "transcript": {"status": "available", "kind": "auto_generated", "storedText": false},
+          "topicTags": ["mythic_plus", "fel_scarred", "demonsurge", "opener", "essence_break"],
+          "originalSummary": "Guide centré sur le Fel-Scarred AoE en M+. Il explique Demonsurge, le choix d'Exergy plutôt qu'Inertia, le placement d'Immolation Aura, le retard volontaire de The Hunt pour amplifier une prochaine fenêtre et la priorité des sorts empowerés.",
+          "keyPoints": [
+            "Le premier sort empoweré lancé sous forme démoniaque déclenche Demonsurge.",
+            "Eye Beam ou Metamorphosis rendent notamment Annihilation, Death Sweep, Abyssal Gaze et Consuming Fire empowerés.",
+            "Immolation Aura doit toucher le centre du pack et rester liée à la gestion de Ragefire.",
+            "Ne pas macro potion et bijoux à Metamorphosis par automatisme ; le timing de la fenêtre compte.",
+            "Le guide est fort pour l'AoE M+, mais ne remplace pas une analyse Aldrachi mono/funnel."
+          ],
+          "timestamps": [
+            {"at": "02:43", "topic": "stats"},
+            {"at": "04:41", "topic": "Exergy vs Inertia"},
+            {"at": "06:02", "topic": "Demonsurge"},
+            {"at": "07:25", "topic": "opener AoE"},
+            {"at": "09:00", "topic": "boucle M+"}
+          ],
+          "accessedAt": "2026-09-25T17:00:00Z",
+          "retrievalMethod": "web_search_agent",
+          "limitations": ["Très spécialisé Fel-Scarred AoE ; ne couvre pas le gearing complet ni Aldrachi."]
+        }
+      ]
+    },
+    {
+      "id": "bidal",
+      "displayName": "Bidal",
+      "role": ["French Havoc creator", "mythic_plus"],
+      "platforms": {"youtube": {"url": "https://www.youtube.com/@BidalTV"}},
+      "publicPosts": [],
+      "videos": [
+        {
+          "id": "youtube-EIMNitT2RAo",
+          "url": "https://www.youtube.com/watch?v=EIMNitT2RAo",
+          "transcriptUrl": "https://youtubetotranscript.com/transcript?v=EIMNitT2RAo",
+          "title": "DH Dévastation 12.1 : La spécialisation oubliée ? Guide M+ complet S2",
+          "publishedAt": null,
+          "language": "fr",
+          "transcript": {"status": "available_partial_page", "kind": "auto_generated", "itemsObserved": 672, "storedText": false},
+          "topicTags": ["mythic_plus", "fel_scarred", "tier_set", "rotation", "single_target", "aoe"],
+          "originalSummary": "Guide français pédagogique sur le fonctionnement S2 : priorité Crit/Mastery, boucle Fury, bonus de set, Burning Wound, Eye Beam, Essence Break et différence entre AoE et mono-cible. La vidéo est utile pour comprendre la logique avant de passer aux optimisations de logs.",
+          "keyPoints": [
+            "Le bonus 4 pièces prolonge la fenêtre Essence Break et récompense les Blade Dance supplémentaires.",
+            "Burning Wound doit être appliqué selon la version de talent et le profil joué ; ne pas généraliser une séquence sans vérifier l'arbre.",
+            "Eye Beam doit être canalisé jusqu'au bout quand le talent Apex le demande, car il prépare le prochain Blade Dance.",
+            "En mono, Eye Beam et Essence Break sont lancés dès que possible ; Blade Dance reste prioritaire sur Chaos Strike quand disponibles ensemble.",
+            "La vidéo rappelle que les auto-attaques et les talents appliquent certaines interactions, ce qui évite des lancers de Throw Glaive inutiles."
+          ],
+          "timestamps": [
+            {"at": "00:24", "topic": "stats"},
+            {"at": "03:50", "topic": "bonus de set"},
+            {"at": "05:59", "topic": "Burning Wound"},
+            {"at": "07:20", "topic": "rotation M+"},
+            {"at": "09:39", "topic": "Essence Break et doubles Blade Dance"},
+            {"at": "11:19", "topic": "mono-cible"}
+          ],
+          "accessedAt": "2026-09-25T17:00:00Z",
+          "retrievalMethod": "manual_browser_youtubetotranscript",
+          "limitations": ["La date exacte de publication n'a pas été confirmée par une page indexée fiable.", "Le transcript accessible est partiel dans le DOM, sans texte intégral stocké."]
+        }
+      ]
+    },
+    {
+      "id": "javier",
+      "displayName": "Javier",
+      "role": ["Havoc educator", "beginner_guide"],
+      "platforms": {"youtube": {"url": "https://www.youtube.com/watch?v=g2s7ma1Z-hk"}},
+      "publicPosts": [],
+      "videos": [
+        {
+          "id": "youtube-g2s7ma1Z-hk",
+          "url": "https://www.youtube.com/watch?v=g2s7ma1Z-hk",
+          "transcriptUrl": "https://youtubetotranscript.com/transcript?v=g2s7ma1Z-hk",
+          "title": "Havoc Demon Hunter Midnight Season 2 Beginner Raid & M+ Guide",
+          "publishedAt": "2026-08-14",
+          "language": "en",
+          "transcript": {"status": "available", "kind": "auto_generated", "storedText": false},
+          "topicTags": ["beginner", "rotation", "resources", "single_target", "aoe"],
+          "originalSummary": "Point d'entrée pour apprendre les boutons et la boucle Fury : différence entre forme normale et démoniaque, Eye Beam, Essence Break, Blade Dance/Death Sweep, Chaos Strike/Annihilation, Felblade, Immolation Aura et défensifs.",
+          "keyPoints": [
+            "La forme démoniaque transforme Blade Dance en Death Sweep et Chaos Strike en Annihilation.",
+            "Dépenser la Fury avant Felblade évite le gaspillage et le surcap.",
+            "Le guide simplifie volontairement l'usage de Metamorphosis ; il ne suffit pas pour le min-max.",
+            "Il ne couvre presque pas les différences d'opener, Demonsurge ou le gearing."
+          ],
+          "timestamps": [
+            {"at": "00:16", "topic": "priorités générales"},
+            {"at": "03:54", "topic": "boucle de rotation"},
+            {"at": "06:26", "topic": "Fury et défensifs"}
+          ],
+          "accessedAt": "2026-09-25T17:00:00Z",
+          "retrievalMethod": "web_search_agent",
+          "limitations": ["Guide débutant ; les simplifications ne doivent pas être utilisées comme priorité de haut niveau."]
+        }
+      ]
+    }
+  ],
+  "coverage": {
+    "xPosts": "Catalogue des comptes et posts publics pertinents retrouvés par indexation au 25/09/2026 ; X ne permet pas de garantir l'exhaustivité des posts historiques, supprimés, privés ou non indexés.",
+    "youtube": "Cinq vidéos S2/12.1 retenues ; captions vérifiées pour les vidéos marquées available ou available_partial_page. La couverture n'est pas une promesse de toutes les vidéos existantes.",
+    "azaelle": "Aucune vidéo ou post public retrouvé reliant explicitement Azaelle/Azael à une revue Havoc Saison 2.",
+    "freshness": "Les hotfixes et les recommandations de simulation peuvent rendre une conclusion obsolète ; revalider avant d'appliquer à un personnage actuel."
+  },
+  "additionalVideoCandidates": [
+    {
+      "url": "https://www.youtube.com/watch?v=R5M0HJ-y0Q0",
+      "title": "Aldrachi Reaver Commentary Guide — Ruby Life Pools +20",
+      "creator": "Shadarek",
+      "publishedAt": "2026-09-25",
+      "duration": "57-58 min",
+      "status": "indexed_candidate",
+      "originalSummary": "Gameplay commenté Aldrachi en M+, avec décisions de pulls, route, cooldowns et lecture de logs.",
+      "transcript": {"status": "unavailable_signal", "storedText": false}
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=gUa2OZ2awWE",
+      "title": "Quick Guide to Aldrachi Reaver for Havoc Demon Hunter",
+      "creator": "Shadarek",
+      "publishedAt": "2026-09-23",
+      "duration": "16 min",
+      "status": "indexed_candidate",
+      "originalSummary": "Build, équipement, opener et rotation Aldrachi pour mono-cible, funnel et cleave.",
+      "transcript": {"status": "unavailable_signal", "storedText": false}
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=Yl0zfW0ZD54",
+      "title": "Altar of Fangs +20 — Havoc Demon Hunter #1 World",
+      "creator": "Shadarek",
+      "publishedAt": "2026-09-17",
+      "duration": "29 min",
+      "status": "indexed_candidate",
+      "originalSummary": "POV M+ centré sur l'exécution des pulls, le placement, les défensifs et les interruptions.",
+      "transcript": {"status": "unavailable_signal", "storedText": false}
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=WqWhm1g5mLA",
+      "title": "Sszorak Mythic — Havoc Demon Hunter Raidleading",
+      "creator": "Shadarek",
+      "publishedAt": "2026-09-07",
+      "duration": "6:25",
+      "status": "indexed_candidate",
+      "originalSummary": "Gameplay raid Mythique avec raidleading, mécaniques et lecture de logs.",
+      "transcript": {"status": "not_checked", "storedText": false}
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=yY-Kd9oYgCc",
+      "title": "Havoc Demon Hunter Trinket Tierlist — Midnight Season 2",
+      "creator": "Shadarek",
+      "publishedAt": "2026-08-16",
+      "duration": "11:17",
+      "status": "indexed_candidate",
+      "originalSummary": "Classement des bijoux et principes d'optimisation du gearing S2.",
+      "transcript": {"status": "unavailable_signal", "storedText": false}
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=7pNUYPaoePY",
+      "title": "State of Havoc DH Season 2",
+      "creator": "Shadarek",
+      "publishedAt": "2026-07-29",
+      "status": "indexed_candidate",
+      "originalSummary": "Analyse des simulations et des attentes Raid/M+ avant ou au début de la Saison 2 ; à revalider après les hotfixes de septembre.",
+      "transcript": {"status": "not_checked", "storedText": false}
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=dI4E9S12Uy4",
+      "title": "Midnight Season 2 Havoc Demon Hunter Guide",
+      "creator": "Nintern",
+      "publishedAt": "2026-08-10",
+      "duration": "20:44",
+      "status": "indexed_candidate",
+      "originalSummary": "Guide S2 sur talents, stats, tier set, crafts, bijoux et rotation avec démonstration.",
+      "transcript": {"status": "unavailable_signal", "storedText": false}
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=B-5J4q4vvWM",
+      "title": "Guía Definitiva Devastación Midnight 12.1",
+      "creator": "Reviak",
+      "publishedAt": null,
+      "duration": "32:05",
+      "language": "es",
+      "status": "indexed_candidate",
+      "originalSummary": "Guide hispanophone complète sur build, équipement et rotation.",
+      "transcript": {"status": "unavailable_signal", "storedText": false}
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=5hy6D9UMz-Q",
+      "title": "Complete Havoc DH Mythic+ Guide with Jedith",
+      "creator": "Awoo",
+      "publishedAt": "2026-07-28",
+      "status": "indexed_candidate",
+      "originalSummary": "Guide M+ avec Jedith, utile pour compléter la collecte des priorités et de la pratique en donjon.",
+      "transcript": {"status": "not_checked", "storedText": false}
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=QjwX3SQKI0Y",
+      "title": "Havoc DH Log Review for Mythic+",
+      "creator": "Shadarek",
+      "publishedAt": "2025-06-14",
+      "status": "out_of_scope_previous_expansion",
+      "originalSummary": "Revue de logs intéressante pour la méthode d'analyse, mais la vidéo concerne The War Within Saison 2 et non Midnight Saison 2.",
+      "transcript": {"status": "not_checked", "storedText": false}
+    }
+  ],
+  "policy": {
+    "storeTranscriptText": false,
+    "summariesAreOriginal": true,
+    "externalContentIsNotReproduced": true,
+    "recheckBeforeCurrentAdvice": true,
+    "sourcePriority": ["blizzard_official", "primary_creator", "wowhead_icy_veins_method", "community_mirror"]
+  }
+}

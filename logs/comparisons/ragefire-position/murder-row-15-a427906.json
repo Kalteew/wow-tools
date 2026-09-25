@@ -1,0 +1,193 @@
+{
+  "reportData": {
+    "report": {
+      "a427906": {
+        "data": [
+          {
+            "timestamp": 3537981,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 140,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1229746.1252487.162264.1297663.428361.343312.208628.1287772.427912.1235111.",
+            "hitType": 2,
+            "amount": 21780,
+            "unmitigatedAmount": 4928,
+            "isAoE": true
+          },
+          {
+            "timestamp": 3537981,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 139,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1229746.1252487.162264.1297663.428361.343312.208628.1287772.427912.1235111.",
+            "hitType": 2,
+            "amount": 3723,
+            "mitigated": 1964,
+            "unmitigatedAmount": 5687,
+            "isAoE": true
+          },
+          {
+            "timestamp": 3953866,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 177,
+            "targetInstance": 1,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1252486.162264.428361.343312.208628.1287772.427912.1235111.80353.",
+            "hitType": 2,
+            "amount": 23372,
+            "unmitigatedAmount": 7438,
+            "isAoE": true
+          },
+          {
+            "timestamp": 3953866,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 180,
+            "targetInstance": 8,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1252486.162264.428361.343312.208628.1287772.427912.1235111.80353.",
+            "hitType": 1,
+            "amount": 5684,
+            "unmitigatedAmount": 5519,
+            "isAoE": true
+          },
+          {
+            "timestamp": 3953866,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 178,
+            "targetInstance": 1,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1252486.162264.428361.343312.208628.1287772.427912.1235111.80353.",
+            "hitType": 2,
+            "amount": 6769,
+            "unmitigatedAmount": 5385,
+            "isAoE": true
+          },
+          {
+            "timestamp": 3953866,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 180,
+            "targetInstance": 5,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1252486.162264.428361.343312.208628.1287772.427912.1235111.80353.",
+            "hitType": 2,
+            "amount": 19611,
+            "unmitigatedAmount": 6241,
+            "isAoE": true
+          },
+          {
+            "timestamp": 3953866,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 180,
+            "targetInstance": 6,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1252486.162264.428361.343312.208628.1287772.427912.1235111.80353.",
+            "hitType": 1,
+            "amount": 5540,
+            "unmitigatedAmount": 5378,
+            "isAoE": true
+          },
+          {
+            "timestamp": 3953866,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 179,
+            "targetInstance": 1,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1252486.162264.428361.343312.208628.1287772.427912.1235111.80353.",
+            "hitType": 2,
+            "amount": 20018,
+            "unmitigatedAmount": 6371,
+            "isAoE": true
+          },
+          {
+            "timestamp": 3953866,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 180,
+            "targetInstance": 2,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1252486.162264.428361.343312.208628.1287772.427912.1235111.80353.",
+            "hitType": 1,
+            "amount": 5639,
+            "unmitigatedAmount": 5474,
+            "isAoE": true
+          },
+          {
+            "timestamp": 3953866,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 178,
+            "targetInstance": 2,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1252486.162264.428361.343312.208628.1287772.427912.1235111.80353.",
+            "hitType": 2,
+            "amount": 8992,
+            "unmitigatedAmount": 5300,
+            "isAoE": true
+          },
+          {
+            "timestamp": 4351543,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 185,
+            "targetInstance": 1,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1229746.1252487.162264.1297663.428361.343312.208628.1287772.427912.1235111.",
+            "hitType": 1,
+            "amount": 6903,
+            "unmitigatedAmount": 4964,
+            "isAoE": true
+          },
+          {
+            "timestamp": 4351543,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 178,
+            "targetInstance": 5,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1229746.1252487.162264.1297663.428361.343312.208628.1287772.427912.1235111.",
+            "hitType": 2,
+            "amount": 8588,
+            "unmitigatedAmount": 4992,
+            "isAoE": true
+          },
+          {
+            "timestamp": 4351543,
+            "type": "damage",
+            "sourceID": 1,
+            "targetID": 178,
+            "targetInstance": 6,
+            "abilityGameID": 427906,
+            "fight": 3,
+            "buffs": "1294727.427913.452416.1229746.1252487.162264.1297663.428361.343312.208628.1287772.427912.1235111.",
+            "hitType": 1,
+            "amount": 2059,
+            "mitigated": 2937,
+            "unmitigatedAmount": 4996,
+            "isAoE": true
+          }
+        ],
+        "nextPageTimestamp": null
+      }
+    }
+  }
+}

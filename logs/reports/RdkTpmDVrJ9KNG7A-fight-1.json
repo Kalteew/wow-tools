@@ -1,7 +1,7 @@
 {
   "reportCode": "RdkTpmDVrJ9KNG7A",
   "canonicalUrl": "https://www.warcraftlogs.com/reports/RdkTpmDVrJ9KNG7A?fight=1",
-  "capturedAt": "2026-09-24T06:35:28.510Z",
+  "capturedAt": "2026-09-24T06:35:28.51Z",
   "source": "mcp",
   "season": "Midnight Season 2",
   "patch": "12.1",
@@ -750,11 +750,11 @@
       "sourceName": "Azåelle",
       "actorID": 1,
       "spec": "Havoc",
-      "capturedAt": "2026-09-24T06:35:28.510Z",
+      "capturedAt": "2026-09-24T06:35:28.51Z",
       "source": "mcp",
       "analysis": {
         "source": "mcp",
-        "capturedAt": "2026-09-24T06:35:28.510Z",
+        "capturedAt": "2026-09-24T06:35:28.51Z",
         "damageDone": {
           "dataType": "DamageDone",
           "fightID": 1,
@@ -10783,7 +10783,7 @@
       },
       "deathAnalysis": {
         "source": "mcp",
-        "capturedAt": "2026-09-24T06:35:28.510Z",
+        "capturedAt": "2026-09-24T06:35:28.51Z",
         "fightID": 1,
         "deaths": [
           {
@@ -11843,11 +11843,11 @@
       "sourceName": "Kalteew",
       "actorID": 4,
       "spec": "Protection",
-      "capturedAt": "2026-09-24T06:35:28.510Z",
+      "capturedAt": "2026-09-24T06:35:28.51Z",
       "source": "mcp",
       "analysis": {
         "source": "mcp",
-        "capturedAt": "2026-09-24T06:35:28.510Z",
+        "capturedAt": "2026-09-24T06:35:28.51Z",
         "damageDone": {
           "dataType": "DamageDone",
           "fightID": 1,
@@ -22576,7 +22576,7 @@
       },
       "deathAnalysis": {
         "source": "mcp",
-        "capturedAt": "2026-09-24T06:35:28.510Z",
+        "capturedAt": "2026-09-24T06:35:28.51Z",
         "fightID": 1,
         "deaths": []
       },
@@ -23265,11 +23265,11 @@
       "sourceName": "Kylse",
       "actorID": 2,
       "spec": "Holy",
-      "capturedAt": "2026-09-24T06:35:28.510Z",
+      "capturedAt": "2026-09-24T06:35:28.51Z",
       "source": "mcp",
       "analysis": {
         "source": "mcp",
-        "capturedAt": "2026-09-24T06:35:28.510Z",
+        "capturedAt": "2026-09-24T06:35:28.51Z",
         "damageDone": {
           "dataType": "DamageDone",
           "fightID": 1,
@@ -30439,7 +30439,7 @@
       },
       "deathAnalysis": {
         "source": "mcp",
-        "capturedAt": "2026-09-24T06:35:28.510Z",
+        "capturedAt": "2026-09-24T06:35:28.51Z",
         "fightID": 1,
         "deaths": [
           {
@@ -30720,7 +30720,7 @@
   "rankings": {
     "queried": true,
     "source": "mcp",
-    "capturedAt": "2026-09-24T06:35:28.510Z",
+    "capturedAt": "2026-09-24T06:35:28.51Z",
     "values": {
       "Azåelle": {
         "parsePercent": null,
@@ -30761,7 +30761,7 @@
     },
     "reportSpecific": {
       "source": "mcp",
-      "capturedAt": "2026-09-24T06:35:28.510Z",
+      "capturedAt": "2026-09-24T06:35:28.51Z",
       "values": {
         "Azåelle": {
           "parsePercent": null,
@@ -30803,7 +30803,7 @@
       "byMetric": {
         "dps": {
           "source": "mcp",
-          "capturedAt": "2026-09-24T06:35:28.510Z",
+          "capturedAt": "2026-09-24T06:35:28.51Z",
           "values": {
             "Kalteew": {
               "parsePercent": null,
@@ -30886,7 +30886,7 @@
         },
         "hps": {
           "source": "mcp",
-          "capturedAt": "2026-09-24T06:35:28.510Z",
+          "capturedAt": "2026-09-24T06:35:28.51Z",
           "values": {
             "Kalteew": {
               "parsePercent": null,
@@ -30968,12 +30968,35 @@
           }
         }
       }
+    },
+    "browserComparisonEvidence": {
+      "source": "user_report_url",
+      "capturedDate": "2026-09-24",
+      "captureMethod": "browser",
+      "reportedBy": "root_agent",
+      "scope": "Rankings > Damage (By Key Lvl) > Parses",
+      "historical": {
+        "player": "Azåelle",
+        "rankPercentDisplayed": "-",
+        "outOfDisplayed": 0,
+        "parsePercent": null,
+        "keyPercentDisplayed": 100,
+        "dpsDisplayed": 198743.4,
+        "note": "Key 100 was displayed for all five players; retain it as a separate observed UI value, not an explanation of DPS performance."
+      },
+      "today": {
+        "player": "Azåelle",
+        "rankPercentDisplayed": 100,
+        "outOfDisplayed": 19572,
+        "keyPercentDisplayed": 100,
+        "note": "All five players displayed 100; this is inconsistent with the historical empty population and cannot support a reliable performance percentile diagnosis."
+      }
     }
   },
   "combatantInfo": {
     "azaelle": {
       "source": "mcp",
-      "capturedAt": "2026-09-24T06:35:28.510Z",
+      "capturedAt": "2026-09-24T06:35:28.51Z",
       "player": "Azåelle",
       "actorID": 1,
       "fightID": 1,
@@ -31722,7 +31745,7 @@
     },
     "kalteew": {
       "source": "mcp",
-      "capturedAt": "2026-09-24T06:35:28.510Z",
+      "capturedAt": "2026-09-24T06:35:28.51Z",
       "player": "Kalteew",
       "actorID": 4,
       "fightID": 1,
@@ -32506,7 +32529,7 @@
     },
     "kylse": {
       "source": "mcp",
-      "capturedAt": "2026-09-24T06:35:28.510Z",
+      "capturedAt": "2026-09-24T06:35:28.51Z",
       "player": "Kylse",
       "actorID": 2,
       "fightID": 1,
@@ -33283,7 +33306,7 @@
   },
   "importEvidence": {
     "source": "mcp",
-    "capturedAt": "2026-09-24T06:35:28.510Z",
+    "capturedAt": "2026-09-24T06:35:28.51Z",
     "reportCode": "RdkTpmDVrJ9KNG7A",
     "trackedPlayers": [
       "Azåelle",
@@ -33295,5 +33318,23 @@
       "jn1rJ4k7yXA9gPaQ"
     ],
     "rankingNotes": "Parse/key percent conservés séparément ; les populations vides WCL restent null."
+  },
+  "userFeeling": {
+    "source": "user",
+    "capturedAt": "2026-09-24T18:44:03.2861293Z",
+    "quote": "Je comprends vraiment pas pourquoi elle parse pas Azaelle",
+    "status": "hypothesis_to_investigate_not_a_fact"
+  },
+  "comparisonEvidence": {
+    "capturedAt": "2026-09-24T18:44:03.2861293Z",
+    "comparatorReportCode": "GKvTmQnxAftVYXFJ",
+    "comparatorFightID": 8,
+    "analysisFile": "logs/comparisons/RdkTpmDVrJ9KNG7A-GKvTmQnxAftVYXFJ/azaelle-analysis.json",
+    "empoweredEyeBeamApplications": 22,
+    "empoweredWindowsWithoutRayStart": 13,
+    "empoweredWindowsWithRayStart": 9,
+    "foodUptimePercent": 41.82,
+    "mainObservation": "Empowered Eye Beam expires without either ray starting in 13/22 windows; these follow a ray shortly before the empowerment application. This supports improving Hunt/ray sequencing rather than merely increasing cooldown count.",
+    "limitations": "Comparison damage loss is not fully attributable to this sequencing; gear, route, deaths, targets and phase context also differ."
   }
 }

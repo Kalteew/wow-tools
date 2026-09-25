@@ -1,0 +1,77 @@
+{
+  "reportData": {
+    "report": {
+      "deaths": {
+        "data": [
+          {
+            "timestamp": 1768209,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 2,
+            "abilityGameID": 0,
+            "fight": 2,
+            "killerID": 110,
+            "killerInstance": 1,
+            "killingAbilityGameID": 1291262
+          },
+          {
+            "timestamp": 1774823,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 1,
+            "abilityGameID": 0,
+            "fight": 2,
+            "killerID": 110,
+            "killerInstance": 3,
+            "killingAbilityGameID": 1296052
+          },
+          {
+            "timestamp": 1775441,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 63,
+            "abilityGameID": 0,
+            "fight": 2,
+            "killerID": 110,
+            "killerInstance": 1,
+            "killingAbilityGameID": 1291262
+          },
+          {
+            "timestamp": 1776475,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 61,
+            "abilityGameID": 0,
+            "fight": 2,
+            "killerID": 111,
+            "killerInstance": 1,
+            "killingAbilityGameID": 264763
+          },
+          {
+            "timestamp": 1786844,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 4,
+            "abilityGameID": 0,
+            "fight": 2,
+            "killerID": 110,
+            "killerInstance": 2,
+            "killingAbilityGameID": 1291262
+          },
+          {
+            "timestamp": 1811353,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 63,
+            "abilityGameID": 0,
+            "fight": 2,
+            "killerID": 108,
+            "killerInstance": 3,
+            "killingAbilityGameID": 1293475
+          }
+        ],
+        "nextPageTimestamp": null
+      }
+    }
+  }
+}

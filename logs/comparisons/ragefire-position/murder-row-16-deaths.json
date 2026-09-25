@@ -1,0 +1,75 @@
+{
+  "reportData": {
+    "report": {
+      "deaths": {
+        "data": [
+          {
+            "timestamp": 399446,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 5,
+            "abilityGameID": 0,
+            "fight": 1,
+            "killerID": 19,
+            "killerInstance": 12,
+            "killingAbilityGameID": 1
+          },
+          {
+            "timestamp": 426059,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 2,
+            "abilityGameID": 0,
+            "fight": 1,
+            "killerID": 7,
+            "killerInstance": 8,
+            "killingAbilityGameID": 1216570
+          },
+          {
+            "timestamp": 865839,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 1,
+            "abilityGameID": 0,
+            "fight": 1,
+            "killerID": 60,
+            "killingAbilityGameID": 474740
+          },
+          {
+            "timestamp": 1123140,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 3,
+            "abilityGameID": 0,
+            "fight": 1,
+            "killerID": 70,
+            "killerInstance": 13,
+            "killingAbilityGameID": 1293022
+          },
+          {
+            "timestamp": 1147142,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 5,
+            "abilityGameID": 0,
+            "fight": 1,
+            "killerID": 15,
+            "killingAbilityGameID": 1302010
+          },
+          {
+            "timestamp": 1655827,
+            "type": "death",
+            "sourceID": -1,
+            "targetID": 1,
+            "abilityGameID": 0,
+            "fight": 1,
+            "killerID": 76,
+            "killerInstance": 2,
+            "killingAbilityGameID": 1294827
+          }
+        ],
+        "nextPageTimestamp": null
+      }
+    }
+  }
+}

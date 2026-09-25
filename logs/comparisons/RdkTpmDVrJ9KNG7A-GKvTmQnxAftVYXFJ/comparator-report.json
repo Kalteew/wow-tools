@@ -1,0 +1,29 @@
+{
+  "reportReference": {
+    "origin": "https://www.warcraftlogs.com",
+    "region": "global",
+    "reportCode": "GKvTmQnxAftVYXFJ",
+    "fight": null,
+    "canonicalUrl": "https://www.warcraftlogs.com/reports/GKvTmQnxAftVYXFJ",
+    "inputWasUrl": false
+  },
+  "report": {
+    "code": "GKvTmQnxAftVYXFJ",
+    "title": "Mythic+ Season 2",
+    "startTime": 1789383765927,
+    "endTime": 1789426982714,
+    "visibility": "public",
+    "revision": 24,
+    "segments": 24,
+    "exportedSegments": 24,
+    "zone": {
+      "id": 55,
+      "name": "Mythic+ Season 2"
+    },
+    "archiveStatus": {
+      "isArchived": false,
+      "isAccessible": true,
+      "archiveDate": null
+    }
+  }
+}

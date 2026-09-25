@@ -1,0 +1,88 @@
+{
+  "reportCode": "GKvTmQnxAftVYXFJ",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "fightID": 8,
+  "buildContext": "mythic_plus",
+  "capturedAt": "2026-09-24T18:44:11.8401946Z",
+  "provenance": "mcp",
+  "transport": "warcraftlogs-mcp-fork public WclClient GraphQL; explicit fightIDs to avoid empty unfiltered fights",
+  "fight": {
+    "id": 8,
+    "name": "Murder Row",
+    "startTime": 6764714,
+    "endTime": 8467919,
+    "encounterID": 12813,
+    "difficulty": 10,
+    "averageItemLevel": 321.20001220703125,
+    "friendlyPlayers": [
+      437,
+      1,
+      436,
+      435,
+      439
+    ],
+    "friendlySpecs": [
+      "Arms",
+      "Mistweaver",
+      "Havoc",
+      "Marksmanship",
+      "Guardian"
+    ],
+    "friendlyItemLevels": [
+      322,
+      319,
+      321,
+      323,
+      321
+    ],
+    "keystoneLevel": 17,
+    "keystoneTime": 1694801,
+    "keystoneBonus": 1,
+    "rating": 446.3500061035156,
+    "countReached": 656,
+    "countRequired": 655
+  },
+  "player": {
+    "name": "Омгпвпкритт",
+    "actorID": 436,
+    "spec": "Havoc",
+    "itemLevel": 321,
+    "damage": 538390504,
+    "dps": 316104.3468000293,
+    "deaths": 0,
+    "talentImportCode": "CEkAAAAAAAAAAAAAAAAAAAAAAYmZGzMz2MmZmxYmMmZAAAAAAAzixsNDzMwMWmZmZYmBzyALzmZMMLMNmZGzYDAAAYAAAAMzgBAAAgB"
+  },
+  "rankings": {
+    "parsePercent": 99,
+    "parsePercentSource": "rankPercent",
+    "keyPercent": 90,
+    "keyPercentSource": "bracketPercent",
+    "totalParses": 31243,
+    "displayedSampleSize": null,
+    "sampleSizeScope": "totalParses across complete comparison population; bracket count not exposed",
+    "timeframe": "Historical",
+    "provenance": "mcp",
+    "capturedAt": "2026-09-24T18:44:11.8480604Z"
+  },
+  "empoweredEyeBeam": {
+    "applications": 19,
+    "buffsWithNoBeamCast": 3,
+    "buffsWithBeamCast": 16,
+    "eyeBeamCastsInsideBuff": 14,
+    "abyssalGazeCastsInsideBuff": 2,
+    "meanSecondsToFirstBeamAmongUsed": 2.08,
+    "damage": 28665769,
+    "partialLateUse": "One Eye Beam started 10.827s after application, before buff expired at 12.02s"
+  },
+  "rawFiles": [
+    "logs/comparisons/RdkTpmDVrJ9KNG7A-GKvTmQnxAftVYXFJ/comparator-report.json",
+    "logs/comparisons/RdkTpmDVrJ9KNG7A-GKvTmQnxAftVYXFJ/comparator-fight-direct.json",
+    "logs/comparisons/RdkTpmDVrJ9KNG7A-GKvTmQnxAftVYXFJ/comparator-context-direct.json",
+    "logs/comparisons/RdkTpmDVrJ9KNG7A-GKvTmQnxAftVYXFJ/comparator-rankings-direct.json",
+    "logs/comparisons/RdkTpmDVrJ9KNG7A-GKvTmQnxAftVYXFJ/comparator-pulls-direct.json",
+    "logs/comparisons/RdkTpmDVrJ9KNG7A-GKvTmQnxAftVYXFJ/comparator-burst-events.json",
+    "logs/comparisons/RdkTpmDVrJ9KNG7A-GKvTmQnxAftVYXFJ/comparator-burst-summary.json"
+  ]
+}

@@ -1,0 +1,196 @@
+{
+  "reportData": {
+    "report": {
+      "rankings": {
+        "data": [
+          {
+            "fightID": 8,
+            "partition": 1,
+            "zone": 55,
+            "encounter": {
+              "id": 12813,
+              "name": "Murder Row"
+            },
+            "difficulty": 10,
+            "size": 5,
+            "kill": 1,
+            "duration": 1694801,
+            "bracketData": 17,
+            "deaths": 0,
+            "damageTakenExcludingTanks": 446206373,
+            "roles": {
+              "tanks": {
+                "name": "Tanks",
+                "characters": [
+                  {
+                    "id": 55718842,
+                    "name": "Pataya",
+                    "server": {
+                      "id": 304,
+                      "name": "Kazzak",
+                      "region": "EU"
+                    },
+                    "class": "Druid",
+                    "spec": "Guardian",
+                    "amount": 164288.06749999523,
+                    "bracketData": 17,
+                    "bracket": 16,
+                    "rank": "~542",
+                    "best": "~542",
+                    "totalParses": 54281,
+                    "bracketPercent": 85,
+                    "rankPercent": 99
+                  }
+                ]
+              },
+              "healers": {
+                "name": "Healers",
+                "characters": [
+                  {
+                    "id": 108313420,
+                    "name": "Бибень",
+                    "server": {
+                      "id": 495,
+                      "name": "Ревущий фьорд",
+                      "region": "EU"
+                    },
+                    "class": "Monk",
+                    "spec": "Mistweaver",
+                    "amount": 62121.34592998028,
+                    "bracketData": 17,
+                    "bracket": 16,
+                    "rank": "~287",
+                    "best": "~287",
+                    "totalParses": 28742,
+                    "bracketPercent": 69,
+                    "rankPercent": 99
+                  }
+                ]
+              },
+              "dps": {
+                "name": "Damage Dealers",
+                "characters": [
+                  {
+                    "id": 104677460,
+                    "name": "Мидсу",
+                    "server": {
+                      "id": 495,
+                      "name": "Ревущий фьорд",
+                      "region": "EU"
+                    },
+                    "class": "Hunter",
+                    "spec": "Marksmanship",
+                    "amount": 290647.8028200269,
+                    "bracketData": 17,
+                    "bracket": 16,
+                    "rank": "~192",
+                    "best": "~192",
+                    "totalParses": 19248,
+                    "bracketPercent": 72,
+                    "rankPercent": 99
+                  },
+                  {
+                    "id": 77586357,
+                    "name": "Krigerdave",
+                    "server": {
+                      "id": 283,
+                      "name": "Draenor",
+                      "region": "EU"
+                    },
+                    "class": "Warrior",
+                    "spec": "Arms",
+                    "amount": 286837.7993299961,
+                    "bracketData": 17,
+                    "bracket": 16,
+                    "rank": "~3068",
+                    "best": "~3068",
+                    "totalParses": 102285,
+                    "bracketPercent": 86,
+                    "rankPercent": 97
+                  },
+                  {
+                    "id": 88751409,
+                    "name": "Омгпвпкритт",
+                    "server": {
+                      "id": 488,
+                      "name": "Гордунни",
+                      "region": "EU"
+                    },
+                    "class": "DemonHunter",
+                    "spec": "Havoc",
+                    "amount": 316104.3468000293,
+                    "bracketData": 17,
+                    "bracket": 16,
+                    "rank": "~312",
+                    "best": "~312",
+                    "totalParses": 31243,
+                    "bracketPercent": 90,
+                    "rankPercent": 99
+                  }
+                ]
+              }
+            },
+            "bracket": 16,
+            "affixes": [
+              9,
+              10,
+              147
+            ],
+            "team": [
+              {
+                "id": 55718842,
+                "name": "Pataya",
+                "class": "Druid",
+                "spec": "Guardian",
+                "role": "Tank"
+              },
+              {
+                "id": 77586357,
+                "name": "Krigerdave",
+                "class": "Warrior",
+                "spec": "Arms",
+                "role": "DPS"
+              },
+              {
+                "id": 88751409,
+                "name": "Омгпвпкритт",
+                "class": "DemonHunter",
+                "spec": "Havoc",
+                "role": "DPS"
+              },
+              {
+                "id": 104677460,
+                "name": "Мидсу",
+                "class": "Hunter",
+                "spec": "Marksmanship",
+                "role": "DPS"
+              },
+              {
+                "id": 108313420,
+                "name": "Бибень",
+                "class": "Monk",
+                "spec": "Mistweaver",
+                "role": "Healer"
+              }
+            ],
+            "computedScore": 446.34556985294,
+            "medal": "bronze",
+            "reportsBlacklistForCharacters": [],
+            "speed": {
+              "rank": "~11983",
+              "best": "~11983",
+              "totalParses": 1198326,
+              "rankPercent": 99
+            },
+            "score": {
+              "rank": "~11983",
+              "best": "~11983",
+              "totalParses": 1198326,
+              "rankPercent": 99
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,1372 @@
+{
+  "reportReference": {
+    "origin": "https://www.warcraftlogs.com",
+    "region": "global",
+    "reportCode": "RdkTpmDVrJ9KNG7A",
+    "fight": null,
+    "canonicalUrl": "https://www.warcraftlogs.com/reports/RdkTpmDVrJ9KNG7A",
+    "inputWasUrl": false
+  },
+  "fight": {
+    "id": 1,
+    "name": "Murder Row",
+    "startTime": 154984,
+    "endTime": 1854810,
+    "encounterID": 12813,
+    "originalEncounterID": null,
+    "kill": true,
+    "difficulty": 10,
+    "size": 5,
+    "inProgress": false,
+    "averageItemLevel": 322,
+    "friendlyPlayers": [
+      2,
+      4,
+      1,
+      5,
+      3
+    ],
+    "friendlySpecs": [
+      "Holy",
+      "Protection",
+      "Havoc",
+      "Demonology",
+      "Arcane"
+    ],
+    "friendlyItemLevels": [
+      322,
+      324,
+      315,
+      326,
+      323
+    ],
+    "gameZone": {
+      "id": 2813,
+      "name": "Murder Row"
+    },
+    "maps": [
+      {
+        "id": 2433
+      },
+      {
+        "id": 2435
+      },
+      {
+        "id": 2434
+      }
+    ],
+    "keystoneLevel": 16,
+    "keystoneTime": 1781183,
+    "keystoneBonus": 1,
+    "keystoneAffixes": [
+      9,
+      10,
+      147
+    ],
+    "rating": 429.760009765625,
+    "countReached": 668,
+    "countRequired": 655
+  },
+  "query": {
+    "dataType": "Buffs",
+    "sourceID": null,
+    "targetID": 1,
+    "abilityID": 1271144,
+    "startTime": 154984,
+    "endTime": 1854810,
+    "initialCursor": null
+  },
+  "events": [
+    {
+      "timestamp": 187300,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 198773,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 261018,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 264082,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 353507,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 356043,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 422797,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 434809,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 496499,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 508530,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 558766,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 570765,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 627029,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 639026,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 747490,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 759487,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 810655,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 822667,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 966663,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 969181,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1028694,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1040707,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1100118,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1112100,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1164657,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1176671,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1225253,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1237264,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1303378,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1305805,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1380227,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1392236,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1490712,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1502705,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1563598,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1575582,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1634255,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1646266,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1697279,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1698728,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1773268,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1785267,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1835504,
+      "type": "applybuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    },
+    {
+      "timestamp": 1847530,
+      "type": "removebuff",
+      "source": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "target": {
+        "name": "Azåelle",
+        "id": 1,
+        "guid": 145141235,
+        "type": "DemonHunter",
+        "icon": "DemonHunter-Havoc",
+        "server": "Hyjal",
+        "region": "EU"
+      },
+      "ability": {
+        "name": "Empowered Eye Beam",
+        "guid": 1271144,
+        "type": 1,
+        "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+      },
+      "fight": 1
+    }
+  ],
+  "pagination": {
+    "count": 44,
+    "pagesFetched": 1,
+    "nextPageTimestamp": null,
+    "hasMore": false,
+    "stopReason": "complete",
+    "cursorMayRepeat": false
+  },
+  "budget": {
+    "maxEvents": 1000,
+    "pageSize": 500,
+    "maxPages": 5,
+    "maxPayloadBytes": 500000
+  },
+  "warnings": []
+}

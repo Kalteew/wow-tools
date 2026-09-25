@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "dataset": "dh-havoc-midnight-s2",
+  "capturedAt": "2026-09-25",
+  "game": "World of Warcraft Retail",
+  "patch": "12.1",
+  "season": "Midnight Season 2",
+  "scope": ["spells", "talents", "passives", "hero_talents", "tier_set", "stats", "gear", "enchants", "rotation", "logs"],
+  "heroTalents": {
+    "Fel-Scarred": {"profile": "burst_aoe_cleave", "defaultFor": ["mythic_plus", "raid_cleave"], "core": ["Demonsurge", "Demonic Intensity", "Volatile Instinct", "Violent Transformation", "Burning Blades", "Blind Focus", "Focused Hatred", "Student of Suffering", "Enduring Torment", "Undying Embers"]},
+    "Aldrachi Reaver": {"profile": "single_target_funnel", "defaultFor": ["priority_target", "funnel"], "core": ["Art of the Glaive", "Reaver's Glaive", "Fury of the Aldrachi", "Reaver's Mark", "Bladecraft", "Wounded Quarry", "Broken Spirit", "Aldrachi Tactics", "Thrill of the Fight"]}
+  },
+  "tierSet": {
+    "name": "Abyssal Doomhound's Pursuit",
+    "twoPiece": "Blade Dance, Chaos Strike and Essence Break deal 12% increased damage.",
+    "fourPiece": "Essence Break benefits from Cycle of Hatred, deals 35% increased initial damage and lasts 2 seconds longer."
+  },
+  "statPriority": ["Agility", "Critical Strike", "Mastery", "Haste", "Versatility"],
+  "statNotes": ["Fel-Scarred tends to value Mastery relatively more.", "Aldrachi Reaver tends to value Critical Strike relatively more.", "Always validate weights with the real character and encounter."],
+  "rotationPrinciples": ["Identify hero talent first.", "Do not cap Fury.", "Consume Demonsurge with Death Sweep/Annihilation.", "Use Essence Break regularly and spend inside it.", "Empty Immolation Aura charges before Fel-Scarred Metamorphosis when possible.", "Do not force a theoretical cooldown overlap if it costs a full use."],
+  "trackedCharacter": {"name": "Azaelle", "aliases": ["Azåelle", "Azael"], "realm": "Hyjal", "region": "EU", "spec": "Havoc"},
+  "localEvidence": {"reportCode": "RdkTpmDVrJ9KNG7A", "fightID": 1, "contentType": "mythicplus", "dungeon": "Murder Row", "keyLevel": 16, "heroTalent": "Fel-Scarred", "deaths": 2, "dps": 189666, "empoweredEyeBeamWindows": 22, "empoweredEyeBeamWindowsWithRayStart": 9, "empoweredEyeBeamWindowsWithoutRayStart": 13, "rankings": {"parsePercent": null, "keyPercent": null, "note": "report-specific percentile not reliably available in the local snapshot"}},
+  "creatorCatalog": "data/dh-havoc/creator-catalog.json",
+  "attachedSourceDigest": "docs/dh-havoc/attached-source-digest.md",
+  "docs": ["docs/dh-havoc/mechanics.md", "docs/dh-havoc/gearing.md", "docs/dh-havoc/rotation.md", "docs/dh-havoc/azaelle.md", "docs/dh-havoc/sources.md", "docs/dh-havoc/media.md", "docs/dh-havoc/attached-source-digest.md"]
+}

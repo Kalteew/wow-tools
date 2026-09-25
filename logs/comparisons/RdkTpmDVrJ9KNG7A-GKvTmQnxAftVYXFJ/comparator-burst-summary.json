@@ -1,0 +1,135 @@
+[
+  {
+    "relativeSeconds": 21.388,
+    "buffDurationSeconds": 2.75,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 0.949,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 130.505,
+    "buffDurationSeconds": 2.765,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 0.954,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 228.907,
+    "buffDurationSeconds": 4.247,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 2.403,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 327.379,
+    "buffDurationSeconds": 3.053,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 1.254,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 390.587,
+    "buffDurationSeconds": 2.764,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 0.945,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 454.025,
+    "buffDurationSeconds": 11.999,
+    "spell": "",
+    "firstCastAfterSeconds": null,
+    "casts": 0
+  },
+  {
+    "relativeSeconds": 597.269,
+    "buffDurationSeconds": 4.137,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 2.316,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 664.724,
+    "buffDurationSeconds": 2.83,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 1.013,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 727.124,
+    "buffDurationSeconds": 3.271,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 1.451,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 822.107,
+    "buffDurationSeconds": 3.149,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 1.339,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 891.119,
+    "buffDurationSeconds": 12.018,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 10.826,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 953.707,
+    "buffDurationSeconds": 2.775,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 0.947,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 1018.032,
+    "buffDurationSeconds": 11.987,
+    "spell": "",
+    "firstCastAfterSeconds": null,
+    "casts": 0
+  },
+  {
+    "relativeSeconds": 1089.374,
+    "buffDurationSeconds": 6.52,
+    "spell": "Abyssal Gaze",
+    "firstCastAfterSeconds": 4.594,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 1153.561,
+    "buffDurationSeconds": 12.007,
+    "spell": "",
+    "firstCastAfterSeconds": null,
+    "casts": 0
+  },
+  {
+    "relativeSeconds": 1286.586,
+    "buffDurationSeconds": 2.239,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 0.437,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 1411.418,
+    "buffDurationSeconds": 2.756,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 0.956,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 1551.737,
+    "buffDurationSeconds": 3.051,
+    "spell": "Abyssal Gaze",
+    "firstCastAfterSeconds": 1.115,
+    "casts": 1
+  },
+  {
+    "relativeSeconds": 1662.579,
+    "buffDurationSeconds": 3.636,
+    "spell": "Eye Beam",
+    "firstCastAfterSeconds": 1.841,
+    "casts": 1
+  }
+]

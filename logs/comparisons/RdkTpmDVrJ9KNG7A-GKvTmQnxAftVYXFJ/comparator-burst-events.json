@@ -1,0 +1,3974 @@
+{
+  "reportData": {
+    "report": {
+      "hunt": {
+        "data": [
+          {
+            "timestamp": 6785191,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6786103,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Felonious Mage",
+              "id": 443,
+              "guid": 236084,
+              "type": "NPC",
+              "icon": "custom-icon-spell_fire_felrainoffire.jpg"
+            },
+            "targetInstance": 2,
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6894309,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6895219,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Felonious Mage",
+              "id": 443,
+              "guid": 236084,
+              "type": "NPC",
+              "icon": "custom-icon-spell_fire_felrainoffire.jpg"
+            },
+            "targetInstance": 6,
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6992718,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6993621,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Row Hooligan",
+              "id": 452,
+              "guid": 236073,
+              "type": "NPC",
+              "icon": "custom-icon-ability_warrior_deepcuts.jpg"
+            },
+            "targetInstance": 5,
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7091188,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7092094,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Nibbles",
+              "id": 442,
+              "guid": 234660,
+              "type": "NPC",
+              "icon": "custom-icon-inv_fabric_felcloth_ebon.jpg"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7154380,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7155302,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Kystia Manaheart",
+              "id": 441,
+              "guid": 234648,
+              "type": "Boss",
+              "icon": "custom-icon-ability_demonhunter_chaosnova.jpg"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8,
+            "targetMarker": 3
+          },
+          {
+            "timestamp": 7217836,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7218739,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Nibbles",
+              "id": 442,
+              "guid": 234660,
+              "type": "NPC",
+              "icon": "custom-icon-inv_fabric_felcloth_ebon.jpg"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7361067,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7361983,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Zaen Bladesorrow",
+              "id": 472,
+              "guid": 234649,
+              "type": "NPC",
+              "icon": "custom-icon-inv_112_rogue_betweentheeyes.jpg"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7428742,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7429438,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Zaen Bladesorrow",
+              "id": 472,
+              "guid": 234649,
+              "type": "NPC",
+              "icon": "custom-icon-inv_112_rogue_betweentheeyes.jpg"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8,
+            "targetMarker": 3
+          },
+          {
+            "timestamp": 7490931,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7491838,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Zaen Bladesorrow",
+              "id": 472,
+              "guid": 234649,
+              "type": "NPC",
+              "icon": "custom-icon-inv_112_rogue_betweentheeyes.jpg"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8,
+            "targetMarker": 3
+          },
+          {
+            "timestamp": 7585925,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7586821,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Shivan Punisher",
+              "id": 478,
+              "guid": 235465,
+              "type": "NPC",
+              "icon": "custom-icon-spell_fel_incinerate.jpg"
+            },
+            "targetInstance": 1,
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7654987,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7655833,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Demon Fly",
+              "id": 482,
+              "guid": 235257,
+              "type": "NPC",
+              "icon": "custom-icon-ability_felarakkoa_feldetonation_green.jpg"
+            },
+            "targetInstance": 6,
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7717504,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7718421,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Shivan Punisher",
+              "id": 478,
+              "guid": 235465,
+              "type": "NPC",
+              "icon": "custom-icon-spell_fel_incinerate.jpg"
+            },
+            "targetInstance": 2,
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7781988,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7782746,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Felmaster Lucsei",
+              "id": 451,
+              "guid": 236905,
+              "type": "NPC",
+              "icon": "custom-icon-ability_demonhunter_bladedance.jpg"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7853176,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7854088,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Xathuux the Annihilator",
+              "id": 485,
+              "guid": 234647,
+              "type": "Boss",
+              "icon": "custom-icon-ability_warrior_titansgrip.jpg"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7917543,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7918275,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Legion Axe",
+              "id": 486,
+              "guid": 235520,
+              "type": "NPC",
+              "icon": "custom-icon-ability_monk_cracklingjadelightning.jpg"
+            },
+            "targetInstance": 2,
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8050387,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8051300,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Unleashed Imp",
+              "id": 479,
+              "guid": 234849,
+              "type": "NPC",
+              "icon": "custom-icon-spell_fire_felflamebolt.jpg"
+            },
+            "targetInstance": 4,
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8175229,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8176132,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Defiled Golem",
+              "id": 487,
+              "guid": 235322,
+              "type": "NPC",
+              "icon": "custom-icon-ability_bossfellord_felfissure.jpg"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8315639,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8316451,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Lithiel Cinderfury",
+              "id": 489,
+              "guid": 234763,
+              "type": "Boss",
+              "icon": "custom-icon-spell_fire_felfirenova.jpg"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8426368,
+            "type": "begincast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8427293,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Lithiel Cinderfury",
+              "id": 489,
+              "guid": 234763,
+              "type": "Boss",
+              "icon": "custom-icon-spell_fire_felfirenova.jpg"
+            },
+            "ability": {
+              "name": "The Hunt",
+              "guid": 370965,
+              "type": 124,
+              "abilityIcon": "inv_ability_demonhunter_thehunt.jpg"
+            },
+            "fight": 8
+          }
+        ],
+        "nextPageTimestamp": null
+      },
+      "eye": {
+        "data": [
+          {
+            "timestamp": 6787051,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6820891,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6844755,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6896173,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6916169,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6936164,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6956428,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6996024,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7045746,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7093347,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7114180,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7156246,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7207583,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7233760,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7254631,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7364299,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7404020,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7430451,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7450448,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7473290,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7493289,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7513287,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7533647,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7588160,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7645504,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7666659,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7686639,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7719368,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7776122,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7796142,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7816139,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7837729,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7912153,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7934648,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7967641,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7988112,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8008461,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8051737,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8102946,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8122940,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8177088,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8228603,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8248591,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8268807,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8292608,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8338115,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8372344,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8429134,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8451044,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Eye Beam",
+              "guid": 198013,
+              "type": 124,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          }
+        ],
+        "nextPageTimestamp": null
+      },
+      "abyssal": {
+        "data": [
+          {
+            "timestamp": 6795256,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7004497,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7025559,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7164129,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7186101,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7372372,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7598110,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7620519,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7728574,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7748652,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7858682,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7881695,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8060363,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8080897,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8185870,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8208210,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8317566,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8458630,
+            "type": "cast",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Environment",
+              "id": -1,
+              "guid": 0,
+              "type": "Boss",
+              "icon": "Boss"
+            },
+            "ability": {
+              "name": "Abyssal Gaze",
+              "guid": 452497,
+              "type": 124,
+              "abilityIcon": "spell_shadow_demonicfortitude.jpg"
+            },
+            "fight": 8
+          }
+        ],
+        "nextPageTimestamp": null
+      },
+      "empowered": {
+        "data": [
+          {
+            "timestamp": 6786102,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6788852,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6895219,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6897984,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6993621,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 6997868,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7092093,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7095146,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7155301,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7158065,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7218739,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7230738,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7361983,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7366120,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7429438,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7432268,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7491838,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7495109,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7586821,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7589970,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7655833,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7667851,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7718421,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7721196,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7782746,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7794733,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7854088,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7860608,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7918275,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 7930282,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8051300,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8053539,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8176132,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8178888,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8316451,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8319502,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8427293,
+            "type": "applybuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          },
+          {
+            "timestamp": 8430929,
+            "type": "removebuff",
+            "source": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "target": {
+              "name": "Омгпвпкритт",
+              "id": 436,
+              "guid": 262054461,
+              "type": "DemonHunter",
+              "icon": "DemonHunter-Havoc",
+              "server": "Гордунни",
+              "region": "EU"
+            },
+            "ability": {
+              "name": "Empowered Eye Beam",
+              "guid": 1271144,
+              "type": 1,
+              "abilityIcon": "ability_demonhunter_eyebeam.jpg"
+            },
+            "fight": 8
+          }
+        ],
+        "nextPageTimestamp": null
+      }
+    }
+  }
+}

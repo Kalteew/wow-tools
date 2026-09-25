@@ -295,3 +295,7 @@ Actions :
 
 Travaille de manière autonome, préserve toute donnée existante et ne demande confirmation qu'en cas de vrai blocage ou d'action destructive ambiguë.
 ```
+
+## Dossier DH Havoc
+
+Le dossier local versionné du DH Havoc Midnight S2 se trouve dans [docs/dh-havoc](docs/dh-havoc/README.md). Il inclut aussi l’index des snapshots locaux d’Azaelle dans [data/dh-havoc/azaelle-index.json](data/dh-havoc/azaelle-index.json).
