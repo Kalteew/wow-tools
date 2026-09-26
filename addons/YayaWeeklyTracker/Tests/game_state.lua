@@ -74,7 +74,7 @@ function GetItemInfoInstant(v)
     local id = IdFromLink(v)
     local item = ITEMS[id]
     if not item then return nil end
-    return id, nil, nil, item.equipLoc
+    return id, nil, nil, item.equipLoc, nil, item.classID
 end
 function GetDetailedItemLevelInfo(v)
     for slot, slotData in pairs(EQUIPPED) do
@@ -502,6 +502,13 @@ end
 ITEMS[245755] = { name = "Alchemist's Notebook", quality = 3 }
 function AddKnowledgeConsumableFixture()
     BAG_CONTENT[0][6] = { itemID = 245755 }
+end
+
+-- Un patron de metier absent du catalogue Midnight : le bouton d'action doit
+-- quand meme le reconnaitre via la classe d'objet et le consommer.
+ITEMS[299001] = { name = "Untracked Profession Recipe", quality = 3, classID = 9 }
+function AddGenericRecipeFixture()
+    BAG_CONTENT[0][7] = { itemID = 299001 }
 end
 
 -- Le meme outil, la meme statistique, mais LIE : un exemplaire de rechange bien

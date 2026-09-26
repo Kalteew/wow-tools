@@ -7329,6 +7329,46 @@ trackerUI.GetRecipeKnownFromTooltip = function(itemID)
     return false
 end
 
+-- Le bouton d'action doit aussi consommer les patrons hors catalogue Midnight
+-- (par exemple les patrons Nordor). L'API metier est la meilleure indication
+-- quand elle connait deja l'objet ; le classID reste le repli fiable quand la
+-- recette n'est pas encore chargee ou n'appartient pas au suivi de l'addon.
+trackerUI.IsProfessionRecipeItem = function(itemID)
+    if not itemID then
+        return false
+    end
+
+    if C_TradeSkillUI and type(C_TradeSkillUI.GetRecipeInfoForItemID) == "function" then
+        local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfoForItemID, itemID)
+        if type(recipeInfo) == "table" then
+            return true
+        end
+    end
+
+    local itemType
+    local classID
+    local getItemInfoInstant = C_Item and C_Item.GetItemInfoInstant
+    if type(getItemInfoInstant) == "function" then
+        local ok, _, instantItemType, _, _, _, instantClassID = pcall(getItemInfoInstant, itemID)
+        if ok then
+            itemType = instantItemType
+            classID = tonumber(instantClassID)
+        end
+    end
+    if not classID and type(GetItemInfoInstant) == "function" then
+        local ok, _, instantItemType, _, _, _, instantClassID = pcall(GetItemInfoInstant, itemID)
+        if ok then
+            itemType = itemType or instantItemType
+            classID = tonumber(instantClassID)
+        end
+    end
+
+    local recipeClassID = Enum and Enum.ItemClass and Enum.ItemClass.Recipe
+        or LE_ITEM_CLASS_RECIPE
+        or 9
+    return itemType == "Recipe" or classID == recipeClassID
+end
+
 trackerUI.GetMidnightRecipeAcquisitionType = function(recipe)
     if type(recipe) ~= "table" then
         return "trainer"
@@ -7589,6 +7629,7 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
     local totalCount = 0
     local countsByItemID = {}
     local countsByRecipeKey = {}
+    local recipeItemByID = {}
     for bagID = 0, maxBagIndex do
         local slotCount = GetContainerNumSlotsCompat(bagID)
         for slotIndex = 1, slotCount do
@@ -7609,11 +7650,21 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
                     end
                 end
             end
-            if itemID and recipe then
+            local isRecipeItem = recipe ~= nil
+            if itemID and not isRecipeItem then
+                isRecipeItem = recipeItemByID[itemID]
+                if isRecipeItem == nil then
+                    isRecipeItem = trackerUI.IsProfessionRecipeItem(itemID)
+                    recipeItemByID[itemID] = isRecipeItem
+                end
+            end
+            if itemID and isRecipeItem then
                 local count = math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
                 countsByItemID[itemID] = (countsByItemID[itemID] or 0) + count
-                local recipeKey = trackerUI.GetMidnightRecipeCacheKey(recipe)
-                countsByRecipeKey[recipeKey] = (countsByRecipeKey[recipeKey] or 0) + count
+                if recipe then
+                    local recipeKey = trackerUI.GetMidnightRecipeCacheKey(recipe)
+                    countsByRecipeKey[recipeKey] = (countsByRecipeKey[recipeKey] or 0) + count
+                end
                 totalCount = totalCount + count
                 if not firstMatch then
                     firstMatch = {
@@ -8107,7 +8158,10 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
             ("Recettes a l'hotel des ventes : %s"):format(table.concat(auctionRecipes, ", ")),
             "category")
     end
-    if #patronRecipes > 0 then
+    -- Les recettes susceptibles de tomber en patron order sont une etape
+    -- suivante : tant qu'une recette achetable reste a prendre, ne pas la
+    -- melanger au rappel courant. Le prochain refresh la fera apparaitre.
+    if #patronRecipes > 0 and #vendorRecipes == 0 and #auctionRecipes == 0 then
         table.sort(patronRecipes)
         Push(oneTimeTokens,
             ("patron%sx%d"):format(NB, #patronRecipes),
@@ -10464,7 +10518,7 @@ trackerUI.CreateTrackerFrame = function()
     end)
     trackerFrame.recipeButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Consomme la prochaine recette Midnight suivie présente dans les sacs.")
+        GameTooltip:SetText("Consomme la prochaine recette de métier présente dans les sacs.")
         if self.itemLink then
             GameTooltip:AddLine(self.itemLink, 0.5, 0.8, 1, true)
         end

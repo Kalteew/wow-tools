@@ -720,6 +720,20 @@ else
     end
 end
 
+-- 13. Le bouton recette ne depend pas du catalogue de suivi : un patron de
+-- metier trouve dans les sacs doit etre utilisable, meme pour une profession
+-- ou une extension absente des definitions Midnight.
+ClearTraces()
+AddGenericRecipeFixture()
+FireEvent("BAG_UPDATE_DELAYED")
+RunTimers(5)
+local genericRecipeTrace = LastTrace("RecipeButton ready")
+if not genericRecipeTrace then
+    Fail("un patron de metier hors catalogue n'arme pas le bouton recette")
+elseif not genericRecipeTrace:find("itemID=299001", 1, true) then
+    Fail("le bouton recette ne cible pas le patron de metier trouve dans les sacs :: " .. genericRecipeTrace)
+end
+
 if failures > 0 then
     print(("%d echec(s)"):format(failures))
     os.exit(1)

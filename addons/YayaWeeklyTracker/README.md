@@ -139,7 +139,8 @@ Resume `Midnight` :
 - les recettes manquantes sont filtrables par source dans les options : talents de connaissance, vendeurs de reputation, vendeurs PvP, tresors/donjons, recettes decouvertes ou recyclees, trainer classique, chaudron d'alchimie et vendeur de metier ; les cinq premieres familles sont desactivees par defaut, et chaque bascule met aussi a jour les rappels et waypoints
 - l'etat connu utilise le tooltip Blizzard du personnage courant, comme Yaya Vendor Filter, puis les API metier en secours ; une recette ayant un cout Abundance n'est suivie qu'a partir du niveau 90
 - `Vicious Thalassian Flask of Honor` est marquee comme achat hotel des ventes (`auctionHouse`) : elle est comptee dans `recHV xN`, son nom apparaissant dans l'infobulle, sans waypoint TomTom ni cout Moxie ou `Voidlight Marl` dans les rappels
-- une recette suivie non apprise mais deja presente dans les sacs est retiree de `One time` ; un bouton `Utiliser recette` permet de la consommer directement
+- le rappel `patron xN` reste une etape suivante : il n'apparait qu'une fois toutes les recettes achetables (PNJ ou HV) prises
+- un bouton `Utiliser recette` consomme la prochaine recette de metier detectee dans les sacs, y compris les patrons hors suivi Midnight ; les recettes suivies non apprises restent retirees de `One time`
 - le transfert de `Voidlight Marl` depuis les autres personnages est temporairement desactive ; son bouton reste masque pendant la stabilisation du flux Blizzard
 - `Lost Legends` est suivie comme weekly par personnage des legendes Haranir
 - la completion weekly de `Lost Legends` accepte la quete de selection (`89268`) et les variantes repetables `The Story of...` (`92716`, `92719` a `92725`) ; les quetes initiales (`88993` a `88999`) ne sont pas utilisees car leur completion historique est permanente
