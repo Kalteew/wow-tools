@@ -1,0 +1,1919 @@
+{
+  "reportCode": "Lp1Qfx67vbAG4KMk",
+  "canonicalUrl": "https://www.warcraftlogs.com/reports/Lp1Qfx67vbAG4KMk?fight=1",
+  "capturedAt": "2026-09-26T17:44:37.024Z",
+  "source": "mcp",
+  "season": "Midnight Season 2",
+  "patch": "12.1",
+  "contentType": "mythicplus",
+  "buildContext": "mythic_plus",
+  "fightID": 1,
+  "fight": {
+    "id": 1,
+    "dungeon": "Altar of Fangs",
+    "keyLevel": 13,
+    "durationMs": 1660073,
+    "keystoneTimeMs": 1660073,
+    "completed": true,
+    "keystoneBonus": 1,
+    "rating": 382.9200134277344,
+    "deathsTotal": 10,
+    "enemyForces": {
+      "reached": 831,
+      "required": 817,
+      "percent": 101.71
+    },
+    "encounterID": 12993,
+    "startTime": 38179,
+    "endTime": 1556526
+  },
+  "players": [
+    {
+      "name": "Littlehunter",
+      "class": "Hunter",
+      "spec": "BeastMastery",
+      "realm": "Silvermoon",
+      "itemLevel": 324,
+      "roleMetrics": {
+        "dps": 283751,
+        "hps": 7444,
+        "deaths": 2,
+        "interrupts": 15,
+        "totalDamage": 471047129,
+        "totalHealing": 12357067
+      }
+    },
+    {
+      "name": "Бренлири",
+      "class": "Mage",
+      "spec": "Arcane",
+      "realm": "Гордунни",
+      "itemLevel": 316,
+      "roleMetrics": {
+        "dps": 205911,
+        "hps": 11412,
+        "deaths": 3,
+        "interrupts": 13,
+        "totalDamage": 341827539,
+        "totalHealing": 18945511
+      }
+    },
+    {
+      "name": "Ауриана",
+      "class": "Evoker",
+      "spec": "Devastation",
+      "realm": "СвежевательДуш",
+      "itemLevel": 319,
+      "roleMetrics": {
+        "dps": 197392,
+        "hps": 7902,
+        "deaths": 3,
+        "interrupts": 19,
+        "totalDamage": 327684323,
+        "totalHealing": 13117107
+      }
+    },
+    {
+      "name": "Kalteew",
+      "class": "Warrior",
+      "spec": "Protection",
+      "realm": "Hyjal",
+      "itemLevel": 324,
+      "roleMetrics": {
+        "dps": 154609,
+        "hps": 50527,
+        "deaths": 1,
+        "interrupts": 26,
+        "totalDamage": 256661894,
+        "totalHealing": 83879080
+      },
+      "aliases": [
+        "Kaltou"
+      ]
+    },
+    {
+      "name": "Kylse",
+      "class": "Paladin",
+      "spec": "Holy",
+      "realm": "Hyjal",
+      "itemLevel": 322,
+      "roleMetrics": {
+        "dps": 55320,
+        "hps": 127454,
+        "deaths": 1,
+        "interrupts": 0,
+        "totalDamage": 91835077,
+        "totalHealing": 211583644
+      },
+      "aliases": [
+        "Kils"
+      ]
+    }
+  ],
+  "metrics": {
+    "dps": {
+      "Littlehunter": 283751,
+      "Бренлири": 205911,
+      "Ауриана": 197392,
+      "Kalteew": 154609,
+      "Kylse": 55320
+    },
+    "hps": {
+      "Littlehunter": 7444,
+      "Бренлири": 11412,
+      "Ауриана": 7902,
+      "Kalteew": 50527,
+      "Kylse": 127454
+    },
+    "deathsByPlayer": {
+      "Littlehunter": 2,
+      "Бренлири": 3,
+      "Ауриана": 3,
+      "Kalteew": 1,
+      "Kylse": 1
+    },
+    "interrupts": {
+      "Littlehunter": 15,
+      "Бренлири": 13,
+      "Ауриана": 19,
+      "Kalteew": 26,
+      "Kylse": 0
+    },
+    "deathsTotal": 10
+  },
+  "focus": {
+    "tracked": [
+      "Kalteew",
+      "Kylse"
+    ]
+  },
+  "playerMetrics": {
+    "kalteew": {
+      "stats": {
+        "strength": 2831,
+        "agility": 431,
+        "stamina": 66222,
+        "intellect": 435,
+        "crit": 991,
+        "haste": 898,
+        "mastery": 697,
+        "versatility": 436,
+        "armor": 6830
+      },
+      "gear": {
+        "itemLevelAverage": 288.27777777777777,
+        "itemLevelMax": 334,
+        "equippedSlots": 18,
+        "gems": 4,
+        "setPieces": 5
+      },
+      "casts": {
+        "total": 1507,
+        "perMinute": 54.4674842612343,
+        "abilities": [
+          {
+            "name": "Battle Shout",
+            "casts": 5
+          },
+          {
+            "name": "Ignore Pain",
+            "casts": 301
+          },
+          {
+            "name": "Wrecking Throw",
+            "casts": 9
+          },
+          {
+            "name": "Charge",
+            "casts": 24
+          },
+          {
+            "name": "Thunder Clap",
+            "casts": 209
+          },
+          {
+            "name": "Storm Bolt",
+            "casts": 1
+          },
+          {
+            "name": "Disrupting Shout",
+            "casts": 4
+          },
+          {
+            "name": "Shield Slam",
+            "casts": 358
+          },
+          {
+            "name": "Heroic Leap",
+            "casts": 13
+          },
+          {
+            "name": "Shield Block",
+            "casts": 127
+          },
+          {
+            "name": "Shield Charge",
+            "casts": 2
+          },
+          {
+            "name": "Taunt",
+            "casts": 6
+          },
+          {
+            "name": "Shield Wall",
+            "casts": 9
+          },
+          {
+            "name": "Ravager",
+            "casts": 21
+          },
+          {
+            "name": "Revenge",
+            "casts": 296
+          },
+          {
+            "name": "Execute",
+            "casts": 7
+          },
+          {
+            "name": "Shockwave",
+            "casts": 8
+          },
+          {
+            "name": "Concentrated Silvermoon Health Potion",
+            "casts": 1
+          },
+          {
+            "name": "Vine Grip",
+            "casts": 2
+          },
+          {
+            "name": "Heroic Throw",
+            "casts": 14
+          },
+          {
+            "name": "Impending Victory",
+            "casts": 7
+          },
+          {
+            "name": "Intimidating Shout",
+            "casts": 3
+          },
+          {
+            "name": "Avatar",
+            "casts": 21
+          },
+          {
+            "name": "Demoralizing Shout",
+            "casts": 40
+          },
+          {
+            "name": "Pummel",
+            "casts": 18
+          },
+          {
+            "name": "Spell Reflection",
+            "casts": 1
+          }
+        ],
+        "cooldowns": [
+          {
+            "name": "Avatar",
+            "casts": 21
+          },
+          {
+            "name": "Ravager",
+            "casts": 21
+          },
+          {
+            "name": "Shield Wall",
+            "casts": 9
+          },
+          {
+            "name": "Last Stand",
+            "casts": 0
+          },
+          {
+            "name": "Demoralizing Shout",
+            "casts": 40
+          },
+          {
+            "name": "Disrupting Shout",
+            "casts": 4
+          },
+          {
+            "name": "Spell Reflection",
+            "casts": 1
+          },
+          {
+            "name": "Thunderous Roar",
+            "casts": 0
+          }
+        ],
+        "cooldownTotal": 96,
+        "cooldownsPerMinute": 3.4697269336950844,
+        "trackedCooldownNames": [
+          "Avatar",
+          "Ravager",
+          "Shield Wall",
+          "Last Stand",
+          "Demoralizing Shout",
+          "Disrupting Shout",
+          "Spell Reflection",
+          "Thunderous Roar"
+        ],
+        "trackedAbilityNames": [
+          "Shield Block",
+          "Wrecking Throw",
+          "Heroic Throw",
+          "Thunder Clap",
+          "Execute",
+          "Shockwave",
+          "Intimidating Shout",
+          "Ignore Pain",
+          "Taunt",
+          "Charge",
+          "Disrupting Shout",
+          "Battle Shout",
+          "Ravager",
+          "Demoralizing Shout",
+          "Shield Slam",
+          "Spell Reflection",
+          "Heroic Leap",
+          "Shield Wall",
+          "Shield Charge",
+          "Storm Bolt",
+          "Pummel",
+          "Avatar",
+          "Vine Grip",
+          "Revenge"
+        ],
+        "spec": "Protection"
+      },
+      "build": {
+        "specID": 73,
+        "talentTree": [
+          {
+            "id": 112115,
+            "rank": 1,
+            "nodeID": 90264
+          },
+          {
+            "id": 112116,
+            "rank": 1,
+            "nodeID": 90265
+          },
+          {
+            "id": 112149,
+            "rank": 1,
+            "nodeID": 90295
+          },
+          {
+            "id": 112151,
+            "rank": 1,
+            "nodeID": 90297
+          },
+          {
+            "id": 112152,
+            "rank": 1,
+            "nodeID": 90298
+          },
+          {
+            "id": 112155,
+            "rank": 1,
+            "nodeID": 90301
+          },
+          {
+            "id": 112156,
+            "rank": 1,
+            "nodeID": 90302
+          },
+          {
+            "id": 112157,
+            "rank": 1,
+            "nodeID": 90303
+          },
+          {
+            "id": 112158,
+            "rank": 1,
+            "nodeID": 90304
+          },
+          {
+            "id": 112159,
+            "rank": 1,
+            "nodeID": 90305
+          },
+          {
+            "id": 112160,
+            "rank": 1,
+            "nodeID": 90306
+          },
+          {
+            "id": 112162,
+            "rank": 1,
+            "nodeID": 90308
+          },
+          {
+            "id": 112163,
+            "rank": 1,
+            "nodeID": 90309
+          },
+          {
+            "id": 112166,
+            "rank": 2,
+            "nodeID": 90311
+          },
+          {
+            "id": 112170,
+            "rank": 1,
+            "nodeID": 90314
+          },
+          {
+            "id": 112173,
+            "rank": 1,
+            "nodeID": 90317
+          },
+          {
+            "id": 112174,
+            "rank": 1,
+            "nodeID": 90318
+          },
+          {
+            "id": 112176,
+            "rank": 1,
+            "nodeID": 90319
+          },
+          {
+            "id": 112177,
+            "rank": 1,
+            "nodeID": 90320
+          },
+          {
+            "id": 112181,
+            "rank": 2,
+            "nodeID": 90324
+          },
+          {
+            "id": 112183,
+            "rank": 1,
+            "nodeID": 90326
+          },
+          {
+            "id": 112185,
+            "rank": 1,
+            "nodeID": 90328
+          },
+          {
+            "id": 112198,
+            "rank": 1,
+            "nodeID": 90337
+          },
+          {
+            "id": 112205,
+            "rank": 1,
+            "nodeID": 90343
+          },
+          {
+            "id": 112208,
+            "rank": 1,
+            "nodeID": 90346
+          },
+          {
+            "id": 112215,
+            "rank": 1,
+            "nodeID": 90351
+          },
+          {
+            "id": 112216,
+            "rank": 1,
+            "nodeID": 90352
+          },
+          {
+            "id": 112217,
+            "rank": 1,
+            "nodeID": 90353
+          },
+          {
+            "id": 112219,
+            "rank": 1,
+            "nodeID": 90355
+          },
+          {
+            "id": 112224,
+            "rank": 2,
+            "nodeID": 90360
+          },
+          {
+            "id": 112233,
+            "rank": 2,
+            "nodeID": 90366
+          },
+          {
+            "id": 112235,
+            "rank": 2,
+            "nodeID": 90368
+          },
+          {
+            "id": 112238,
+            "rank": 1,
+            "nodeID": 90371
+          },
+          {
+            "id": 112241,
+            "rank": 1,
+            "nodeID": 90374
+          },
+          {
+            "id": 112242,
+            "rank": 1,
+            "nodeID": 90375
+          },
+          {
+            "id": 112248,
+            "rank": 2,
+            "nodeID": 90381
+          },
+          {
+            "id": 112249,
+            "rank": 1,
+            "nodeID": 90382
+          },
+          {
+            "id": 112253,
+            "rank": 1,
+            "nodeID": 90385
+          },
+          {
+            "id": 112305,
+            "rank": 1,
+            "nodeID": 90433
+          },
+          {
+            "id": 112307,
+            "rank": 1,
+            "nodeID": 90435
+          },
+          {
+            "id": 112321,
+            "rank": 1,
+            "nodeID": 90448
+          },
+          {
+            "id": 112323,
+            "rank": 1,
+            "nodeID": 90449
+          },
+          {
+            "id": 112325,
+            "rank": 1,
+            "nodeID": 90451
+          },
+          {
+            "id": 117382,
+            "rank": 1,
+            "nodeID": 94785
+          },
+          {
+            "id": 117394,
+            "rank": 1,
+            "nodeID": 94797
+          },
+          {
+            "id": 117395,
+            "rank": 1,
+            "nodeID": 94798
+          },
+          {
+            "id": 117397,
+            "rank": 1,
+            "nodeID": 94800
+          },
+          {
+            "id": 117402,
+            "rank": 1,
+            "nodeID": 94805
+          },
+          {
+            "id": 117404,
+            "rank": 1,
+            "nodeID": 94807
+          },
+          {
+            "id": 117405,
+            "rank": 1,
+            "nodeID": 94808
+          },
+          {
+            "id": 117413,
+            "rank": 1,
+            "nodeID": 94816
+          },
+          {
+            "id": 117414,
+            "rank": 1,
+            "nodeID": 94817
+          },
+          {
+            "id": 118834,
+            "rank": 1,
+            "nodeID": 94792
+          },
+          {
+            "id": 118850,
+            "rank": 1,
+            "nodeID": 95956
+          },
+          {
+            "id": 118853,
+            "rank": 1,
+            "nodeID": 95959
+          },
+          {
+            "id": 123388,
+            "rank": 1,
+            "nodeID": 99851
+          },
+          {
+            "id": 132880,
+            "rank": 1,
+            "nodeID": 90432
+          },
+          {
+            "id": 132882,
+            "rank": 1,
+            "nodeID": 107577
+          },
+          {
+            "id": 132883,
+            "rank": 1,
+            "nodeID": 107578
+          },
+          {
+            "id": 132885,
+            "rank": 1,
+            "nodeID": 90312
+          },
+          {
+            "id": 132886,
+            "rank": 1,
+            "nodeID": 107579
+          },
+          {
+            "id": 134031,
+            "rank": 1,
+            "nodeID": 108542
+          },
+          {
+            "id": 134032,
+            "rank": 1,
+            "nodeID": 108543
+          },
+          {
+            "id": 134033,
+            "rank": 1,
+            "nodeID": 108544
+          },
+          {
+            "id": 134226,
+            "rank": 1,
+            "nodeID": 108686
+          },
+          {
+            "id": 134254,
+            "rank": 1,
+            "nodeID": 108705
+          },
+          {
+            "id": 136068,
+            "rank": 1,
+            "nodeID": 109809
+          },
+          {
+            "id": 136069,
+            "rank": 1,
+            "nodeID": 109810
+          },
+          {
+            "id": 136070,
+            "rank": 1,
+            "nodeID": 109811
+          },
+          {
+            "id": 136625,
+            "rank": 1,
+            "nodeID": 110118
+          },
+          {
+            "id": 136626,
+            "rank": 1,
+            "nodeID": 110119
+          },
+          {
+            "id": 136999,
+            "rank": 1,
+            "nodeID": 110411
+          },
+          {
+            "id": 137000,
+            "rank": 2,
+            "nodeID": 110411
+          },
+          {
+            "id": 137001,
+            "rank": 1,
+            "nodeID": 110411
+          },
+          {
+            "id": 137471,
+            "rank": 1,
+            "nodeID": 110653
+          },
+          {
+            "id": 117400,
+            "rank": 1,
+            "nodeID": 94803
+          },
+          {
+            "id": 112187,
+            "rank": 1,
+            "nodeID": 90330
+          },
+          {
+            "id": 112112,
+            "rank": 1,
+            "nodeID": 90261
+          }
+        ],
+        "talents": [],
+        "pvpTalents": [
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 199045,
+            "icon": "warrior_talent_icon_bloodandthunder.jpg"
+          },
+          {
+            "id": 199023,
+            "icon": "ability_warrior_warcry.jpg"
+          },
+          {
+            "id": 205800,
+            "icon": "spell_nature_reincarnation.jpg"
+          }
+        ],
+        "talentImportCode": "CkEAAAAAAAAAAAAAAAAAAAAAA0yAAAjZYmZmZGzmxsMjxYEzYYZmZmZMDzMAAAAYbMAzYAGYDWWMaMDgZBzsBzMzMYWAgZGAAmBGD"
+      },
+      "cooldownAvailability": {},
+      "sourceName": "Kalteew",
+      "actorID": 3,
+      "spec": "Protection",
+      "capturedAt": "2026-09-26T17:44:37.024Z",
+      "source": "mcp",
+      "analysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-26T17:44:37.024Z",
+        "evidence": [
+          "damageDone",
+          "casts",
+          "damageTaken",
+          "interrupts",
+          "deaths",
+          "buffs",
+          "resources",
+          "combatantInfo",
+          "talentImportCode"
+        ],
+        "warnings": []
+      },
+      "deathAnalysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-26T17:44:37.024Z",
+        "fightID": 1
+      },
+      "warnings": [],
+      "roleMetrics": {
+        "dps": 154609,
+        "hps": 50527,
+        "deaths": 1,
+        "interrupts": 26
+      }
+    },
+    "kylse": {
+      "stats": {
+        "strength": 673,
+        "agility": 218,
+        "stamina": 41449,
+        "intellect": 4362,
+        "crit": 437,
+        "haste": 1206,
+        "mastery": 1027,
+        "versatility": 364,
+        "armor": 4391
+      },
+      "gear": {
+        "itemLevelAverage": 286.8333333333333,
+        "itemLevelMax": 334,
+        "equippedSlots": 18,
+        "gems": 3,
+        "setPieces": 4
+      },
+      "casts": {
+        "total": 1120,
+        "perMinute": 40.480147559775986,
+        "abilities": [
+          {
+            "name": "Sacred Weapon",
+            "casts": 24
+          },
+          {
+            "name": "Intercession",
+            "casts": 3
+          },
+          {
+            "name": "Divine Steed",
+            "casts": 28
+          },
+          {
+            "name": "Light's Blessing",
+            "casts": 51
+          },
+          {
+            "name": "Blessing of Freedom",
+            "casts": 7
+          },
+          {
+            "name": "Hammer of Wrath",
+            "casts": 40
+          },
+          {
+            "name": "Holy Light",
+            "casts": 33
+          },
+          {
+            "name": "Beacon of Light",
+            "casts": 3
+          },
+          {
+            "name": "Hammer of Justice",
+            "casts": 1
+          },
+          {
+            "name": "Cleanse",
+            "casts": 23
+          },
+          {
+            "name": "Flash of Light",
+            "casts": 154
+          },
+          {
+            "name": "Beacon of Faith",
+            "casts": 4
+          },
+          {
+            "name": "Word of Glory",
+            "casts": 94
+          },
+          {
+            "name": "Divine Protection",
+            "casts": 11
+          },
+          {
+            "name": "Freightrunner's Flask",
+            "casts": 13
+          },
+          {
+            "name": "Shield of the Righteous",
+            "casts": 247
+          },
+          {
+            "name": "Vine Grip",
+            "casts": 2
+          },
+          {
+            "name": "Aura Mastery",
+            "casts": 7
+          },
+          {
+            "name": "Holy Shock",
+            "casts": 163
+          },
+          {
+            "name": "Divine Shield",
+            "casts": 1
+          },
+          {
+            "name": "Holy Bulwark",
+            "casts": 26
+          },
+          {
+            "name": "Judgment",
+            "casts": 160
+          },
+          {
+            "name": "Blessing of Protection",
+            "casts": 2
+          },
+          {
+            "name": "Lay on Hands",
+            "casts": 4
+          },
+          {
+            "name": "Blessing of Sacrifice",
+            "casts": 5
+          },
+          {
+            "name": "Avenging Wrath",
+            "casts": 14
+          }
+        ],
+        "cooldowns": [
+          {
+            "name": "Avenging Wrath",
+            "casts": 14
+          },
+          {
+            "name": "Divine Toll",
+            "casts": 0
+          },
+          {
+            "name": "Aura Mastery",
+            "casts": 7
+          },
+          {
+            "name": "Blessing of Sacrifice",
+            "casts": 5
+          },
+          {
+            "name": "Lay on Hands",
+            "casts": 4
+          },
+          {
+            "name": "Divine Protection",
+            "casts": 11
+          },
+          {
+            "name": "Sacred Weapon",
+            "casts": 24
+          },
+          {
+            "name": "Holy Bulwark",
+            "casts": 26
+          },
+          {
+            "name": "Divine Shield",
+            "casts": 1
+          }
+        ],
+        "cooldownTotal": 92,
+        "cooldownsPerMinute": 3.325154978124456,
+        "trackedCooldownNames": [
+          "Avenging Wrath",
+          "Divine Toll",
+          "Aura Mastery",
+          "Blessing of Sacrifice",
+          "Lay on Hands",
+          "Divine Protection",
+          "Sacred Weapon",
+          "Holy Bulwark",
+          "Divine Shield"
+        ],
+        "trackedAbilityNames": [
+          "Holy Light",
+          "Flash of Light",
+          "Avenging Wrath",
+          "Sacred Weapon",
+          "Cleanse",
+          "Judgment",
+          "Divine Steed",
+          "Freightrunner's Flask",
+          "Hammer of Wrath",
+          "Light's Blessing",
+          "Blessing of Protection",
+          "Aura Mastery",
+          "Holy Bulwark",
+          "Holy Shock",
+          "Blessing of Freedom",
+          "Shield of the Righteous",
+          "Divine Protection",
+          "Word of Glory",
+          "Vine Grip",
+          "Blinding Light",
+          "Blessing of Sacrifice"
+        ],
+        "spec": "Holy"
+      },
+      "build": {
+        "specID": 65,
+        "talentTree": [
+          {
+            "id": 102465,
+            "rank": 1,
+            "nodeID": 81496
+          },
+          {
+            "id": 102477,
+            "rank": 1,
+            "nodeID": 81508
+          },
+          {
+            "id": 102533,
+            "rank": 1,
+            "nodeID": 81554
+          },
+          {
+            "id": 102534,
+            "rank": 1,
+            "nodeID": 81555
+          },
+          {
+            "id": 102544,
+            "rank": 1,
+            "nodeID": 81564
+          },
+          {
+            "id": 102545,
+            "rank": 1,
+            "nodeID": 81565
+          },
+          {
+            "id": 102548,
+            "rank": 1,
+            "nodeID": 81567
+          },
+          {
+            "id": 102549,
+            "rank": 1,
+            "nodeID": 81568
+          },
+          {
+            "id": 102550,
+            "rank": 1,
+            "nodeID": 81569
+          },
+          {
+            "id": 102553,
+            "rank": 1,
+            "nodeID": 81571
+          },
+          {
+            "id": 102557,
+            "rank": 1,
+            "nodeID": 81574
+          },
+          {
+            "id": 102559,
+            "rank": 1,
+            "nodeID": 81576
+          },
+          {
+            "id": 102562,
+            "rank": 1,
+            "nodeID": 81578
+          },
+          {
+            "id": 102564,
+            "rank": 1,
+            "nodeID": 81580
+          },
+          {
+            "id": 102569,
+            "rank": 1,
+            "nodeID": 81584
+          },
+          {
+            "id": 102575,
+            "rank": 1,
+            "nodeID": 81590
+          },
+          {
+            "id": 102577,
+            "rank": 1,
+            "nodeID": 81591
+          },
+          {
+            "id": 102578,
+            "rank": 1,
+            "nodeID": 81592
+          },
+          {
+            "id": 102580,
+            "rank": 1,
+            "nodeID": 81594
+          },
+          {
+            "id": 102581,
+            "rank": 1,
+            "nodeID": 81595
+          },
+          {
+            "id": 102584,
+            "rank": 1,
+            "nodeID": 81598
+          },
+          {
+            "id": 102592,
+            "rank": 1,
+            "nodeID": 81605
+          },
+          {
+            "id": 102597,
+            "rank": 1,
+            "nodeID": 81609
+          },
+          {
+            "id": 102601,
+            "rank": 1,
+            "nodeID": 81613
+          },
+          {
+            "id": 102602,
+            "rank": 1,
+            "nodeID": 81614
+          },
+          {
+            "id": 102603,
+            "rank": 1,
+            "nodeID": 81615
+          },
+          {
+            "id": 102604,
+            "rank": 1,
+            "nodeID": 81616
+          },
+          {
+            "id": 102612,
+            "rank": 2,
+            "nodeID": 81621
+          },
+          {
+            "id": 102622,
+            "rank": 2,
+            "nodeID": 81630
+          },
+          {
+            "id": 114292,
+            "rank": 1,
+            "nodeID": 92220
+          },
+          {
+            "id": 115034,
+            "rank": 2,
+            "nodeID": 93009
+          },
+          {
+            "id": 115465,
+            "rank": 1,
+            "nodeID": 93180
+          },
+          {
+            "id": 115872,
+            "rank": 1,
+            "nodeID": 93520
+          },
+          {
+            "id": 115874,
+            "rank": 1,
+            "nodeID": 93522
+          },
+          {
+            "id": 116376,
+            "rank": 1,
+            "nodeID": 93927
+          },
+          {
+            "id": 123359,
+            "rank": 1,
+            "nodeID": 99839
+          },
+          {
+            "id": 128246,
+            "rank": 1,
+            "nodeID": 93191
+          },
+          {
+            "id": 128251,
+            "rank": 1,
+            "nodeID": 81631
+          },
+          {
+            "id": 128259,
+            "rank": 1,
+            "nodeID": 103863
+          },
+          {
+            "id": 128260,
+            "rank": 1,
+            "nodeID": 103864
+          },
+          {
+            "id": 128262,
+            "rank": 1,
+            "nodeID": 103866
+          },
+          {
+            "id": 128309,
+            "rank": 1,
+            "nodeID": 103856
+          },
+          {
+            "id": 133481,
+            "rank": 1,
+            "nodeID": 81510
+          },
+          {
+            "id": 136486,
+            "rank": 1,
+            "nodeID": 109998
+          },
+          {
+            "id": 136487,
+            "rank": 1,
+            "nodeID": 109999
+          },
+          {
+            "id": 136503,
+            "rank": 1,
+            "nodeID": 110012
+          },
+          {
+            "id": 136593,
+            "rank": 1,
+            "nodeID": 110092
+          },
+          {
+            "id": 137017,
+            "rank": 1,
+            "nodeID": 110417
+          },
+          {
+            "id": 137018,
+            "rank": 2,
+            "nodeID": 110417
+          },
+          {
+            "id": 137019,
+            "rank": 1,
+            "nodeID": 110417
+          },
+          {
+            "id": 102587,
+            "rank": 1,
+            "nodeID": 81600
+          },
+          {
+            "id": 102625,
+            "rank": 1,
+            "nodeID": 81632
+          },
+          {
+            "id": 102583,
+            "rank": 1,
+            "nodeID": 81597
+          },
+          {
+            "id": 136795,
+            "rank": 1,
+            "nodeID": 110257
+          },
+          {
+            "id": 102464,
+            "rank": 1,
+            "nodeID": 81495
+          },
+          {
+            "id": 102541,
+            "rank": 1,
+            "nodeID": 81562
+          },
+          {
+            "id": 102547,
+            "rank": 1,
+            "nodeID": 81566
+          },
+          {
+            "id": 102551,
+            "rank": 1,
+            "nodeID": 81570
+          },
+          {
+            "id": 102556,
+            "rank": 1,
+            "nodeID": 81573
+          },
+          {
+            "id": 102572,
+            "rank": 2,
+            "nodeID": 81587
+          },
+          {
+            "id": 133501,
+            "rank": 1,
+            "nodeID": 81588
+          },
+          {
+            "id": 102606,
+            "rank": 1,
+            "nodeID": 81617
+          },
+          {
+            "id": 115875,
+            "rank": 1,
+            "nodeID": 93523
+          },
+          {
+            "id": 117873,
+            "rank": 1,
+            "nodeID": 95228
+          },
+          {
+            "id": 117874,
+            "rank": 1,
+            "nodeID": 95229
+          },
+          {
+            "id": 117875,
+            "rank": 1,
+            "nodeID": 95230
+          },
+          {
+            "id": 117877,
+            "rank": 1,
+            "nodeID": 95231
+          },
+          {
+            "id": 117879,
+            "rank": 1,
+            "nodeID": 95232
+          },
+          {
+            "id": 117881,
+            "rank": 1,
+            "nodeID": 95233
+          },
+          {
+            "id": 117884,
+            "rank": 1,
+            "nodeID": 95235
+          },
+          {
+            "id": 117885,
+            "rank": 1,
+            "nodeID": 95236
+          },
+          {
+            "id": 117886,
+            "rank": 1,
+            "nodeID": 95237
+          },
+          {
+            "id": 117887,
+            "rank": 1,
+            "nodeID": 95238
+          },
+          {
+            "id": 136574,
+            "rank": 1,
+            "nodeID": 102502
+          },
+          {
+            "id": 102576,
+            "rank": 1,
+            "nodeID": 103831
+          },
+          {
+            "id": 128241,
+            "rank": 1,
+            "nodeID": 103851
+          },
+          {
+            "id": 128242,
+            "rank": 1,
+            "nodeID": 103852
+          },
+          {
+            "id": 136000,
+            "rank": 1,
+            "nodeID": 109742
+          },
+          {
+            "id": 136001,
+            "rank": 1,
+            "nodeID": 109743
+          },
+          {
+            "id": 136002,
+            "rank": 1,
+            "nodeID": 109744
+          },
+          {
+            "id": 128254,
+            "rank": 1,
+            "nodeID": 103858
+          }
+        ],
+        "talents": [],
+        "pvpTalents": [
+          {
+            "id": 0,
+            "icon": "inv_axe_02.jpg"
+          },
+          {
+            "id": 210378,
+            "icon": "spell_paladin_lightofdawn.jpg"
+          },
+          {
+            "id": 199452,
+            "icon": "spell_holy_sealofsacrifice.jpg"
+          },
+          {
+            "id": 199330,
+            "icon": "spell_holy_purify.jpg"
+          }
+        ],
+        "talentImportCode": "CEEAAAAAAAAAAAAAAAAAAAAAAAAAgZBAmBAAWGwMzyMzsMjZMsY2MziZaihxMzMGzWGAGA2AbsYmBAAAmZWWWsMzwGbjHYwmHAmxAAMzAwMGjGA"
+      },
+      "cooldownAvailability": {
+        "Divine Toll": {
+          "available": false,
+          "reason": "Talent absent from the logged build; zero casts are expected."
+        }
+      },
+      "sourceName": "Kylse",
+      "actorID": 2,
+      "spec": "Holy",
+      "capturedAt": "2026-09-26T17:44:37.024Z",
+      "source": "mcp",
+      "analysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-26T17:44:37.024Z",
+        "evidence": [
+          "damageDone",
+          "casts",
+          "damageTaken",
+          "interrupts",
+          "deaths",
+          "buffs",
+          "resources",
+          "combatantInfo",
+          "talentImportCode"
+        ],
+        "warnings": []
+      },
+      "deathAnalysis": {
+        "source": "mcp",
+        "capturedAt": "2026-09-26T17:44:37.024Z",
+        "fightID": 1
+      },
+      "warnings": [],
+      "roleMetrics": {
+        "dps": 55320,
+        "hps": 127454,
+        "deaths": 1,
+        "interrupts": 0
+      }
+    }
+  },
+  "rankings": {
+    "queried": true,
+    "source": "mcp",
+    "capturedAt": "2026-09-26T17:44:37.024Z",
+    "values": {
+      "Kalteew": {
+        "parsePercent": 85,
+        "keyPercent": 93,
+        "totalParses": 45023,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 13,
+        "metric": "dps",
+        "source": "mcp"
+      },
+      "Kylse": {
+        "parsePercent": 70,
+        "keyPercent": 78,
+        "totalParses": 143031,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "keyLevel": 13,
+        "metric": "hps",
+        "source": "mcp"
+      }
+    },
+    "reportSpecific": {
+      "source": "mcp",
+      "capturedAt": "2026-09-26T17:44:37.024Z",
+      "values": {
+        "Kalteew": {
+          "parsePercent": 85,
+          "keyPercent": 93,
+          "totalParses": 45023,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "dps",
+          "source": "mcp"
+        },
+        "Kylse": {
+          "parsePercent": 70,
+          "keyPercent": 78,
+          "totalParses": 143031,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "hps",
+          "source": "mcp"
+        }
+      },
+      "byMetric": {
+        "dps": {
+          "Kalteew": {
+            "parsePercent": 85,
+            "keyPercent": 93,
+            "totalParses": 45023,
+            "totalKeys": null,
+            "sampleSize": null,
+            "displayedSampleSize": null,
+            "keyLevel": 13,
+            "metric": "dps",
+            "source": "mcp"
+          },
+          "Kylse": {
+            "parsePercent": 70,
+            "keyPercent": 95,
+            "totalParses": 143031,
+            "totalKeys": null,
+            "sampleSize": null,
+            "displayedSampleSize": null,
+            "keyLevel": 13,
+            "metric": "dps",
+            "source": "mcp"
+          },
+          "Littlehunter": {
+            "parsePercent": 80,
+            "keyPercent": 94,
+            "totalParses": 102763,
+            "totalKeys": null,
+            "sampleSize": null,
+            "displayedSampleSize": null,
+            "keyLevel": 13,
+            "metric": "dps",
+            "source": "mcp"
+          },
+          "Бренлири": {
+            "parsePercent": 69,
+            "keyPercent": 27,
+            "totalParses": 196292,
+            "totalKeys": null,
+            "sampleSize": null,
+            "displayedSampleSize": null,
+            "keyLevel": 13,
+            "metric": "dps",
+            "source": "mcp"
+          },
+          "Ауриана": {
+            "parsePercent": 89,
+            "keyPercent": 28,
+            "totalParses": 19940,
+            "totalKeys": null,
+            "sampleSize": null,
+            "displayedSampleSize": null,
+            "keyLevel": 13,
+            "metric": "dps",
+            "source": "mcp"
+          }
+        },
+        "hps": {
+          "Kalteew": {
+            "parsePercent": 85,
+            "keyPercent": 81,
+            "totalParses": 45023,
+            "totalKeys": null,
+            "sampleSize": null,
+            "displayedSampleSize": null,
+            "keyLevel": 13,
+            "metric": "hps",
+            "source": "mcp"
+          },
+          "Kylse": {
+            "parsePercent": 70,
+            "keyPercent": 78,
+            "totalParses": 143031,
+            "totalKeys": null,
+            "sampleSize": null,
+            "displayedSampleSize": null,
+            "keyLevel": 13,
+            "metric": "hps",
+            "source": "mcp"
+          },
+          "Littlehunter": {
+            "parsePercent": 80,
+            "keyPercent": 95,
+            "totalParses": 102763,
+            "totalKeys": null,
+            "sampleSize": null,
+            "displayedSampleSize": null,
+            "keyLevel": 13,
+            "metric": "hps",
+            "source": "mcp"
+          },
+          "Бренлири": {
+            "parsePercent": 70,
+            "keyPercent": 75,
+            "totalParses": 196292,
+            "totalKeys": null,
+            "sampleSize": null,
+            "displayedSampleSize": null,
+            "keyLevel": 13,
+            "metric": "hps",
+            "source": "mcp"
+          },
+          "Ауриана": {
+            "parsePercent": 89,
+            "keyPercent": 62,
+            "totalParses": 19940,
+            "totalKeys": null,
+            "sampleSize": null,
+            "displayedSampleSize": null,
+            "keyLevel": 13,
+            "metric": "hps",
+            "source": "mcp"
+          }
+        }
+      },
+      "population": {
+        "dps": {
+          "totalParses": null,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "note": "totalParses/totalKeys décrivent la population renvoyée par WCL ; ils peuvent différer du nombre affiché dans le bracket de la clé."
+        },
+        "hps": {
+          "totalParses": null,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "note": "totalParses/totalKeys décrivent la population renvoyée par WCL ; ils peuvent différer du nombre affiché dans le bracket de la clé."
+        }
+      }
+    },
+    "dps": {
+      "source": "mcp",
+      "capturedAt": "2026-09-26T17:44:37.026Z",
+      "values": {
+        "Kalteew": {
+          "parsePercent": 85,
+          "keyPercent": 93,
+          "totalParses": 45023,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "dps",
+          "source": "mcp"
+        },
+        "Kylse": {
+          "parsePercent": 70,
+          "keyPercent": 95,
+          "totalParses": 143031,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "dps",
+          "source": "mcp"
+        },
+        "Littlehunter": {
+          "parsePercent": 80,
+          "keyPercent": 94,
+          "totalParses": 102763,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "dps",
+          "source": "mcp"
+        },
+        "Бренлири": {
+          "parsePercent": 69,
+          "keyPercent": 27,
+          "totalParses": 196292,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "dps",
+          "source": "mcp"
+        },
+        "Ауриана": {
+          "parsePercent": 89,
+          "keyPercent": 28,
+          "totalParses": 19940,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "dps",
+          "source": "mcp"
+        }
+      },
+      "population": {
+        "totalParses": null,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "note": "totalParses/totalKeys décrivent la population renvoyée par WCL ; ils peuvent différer du nombre affiché dans le bracket de la clé."
+      },
+      "query": {
+        "compare": "rankings",
+        "fightIDs": [
+          1
+        ],
+        "playerMetric": "dps",
+        "timeframe": "historical"
+      }
+    },
+    "hps": {
+      "source": "mcp",
+      "capturedAt": "2026-09-26T17:44:37.026Z",
+      "values": {
+        "Kalteew": {
+          "parsePercent": 85,
+          "keyPercent": 81,
+          "totalParses": 45023,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "hps",
+          "source": "mcp"
+        },
+        "Kylse": {
+          "parsePercent": 70,
+          "keyPercent": 78,
+          "totalParses": 143031,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "hps",
+          "source": "mcp"
+        },
+        "Littlehunter": {
+          "parsePercent": 80,
+          "keyPercent": 95,
+          "totalParses": 102763,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "hps",
+          "source": "mcp"
+        },
+        "Бренлири": {
+          "parsePercent": 70,
+          "keyPercent": 75,
+          "totalParses": 196292,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "hps",
+          "source": "mcp"
+        },
+        "Ауриана": {
+          "parsePercent": 89,
+          "keyPercent": 62,
+          "totalParses": 19940,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "keyLevel": 13,
+          "metric": "hps",
+          "source": "mcp"
+        }
+      },
+      "population": {
+        "totalParses": null,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "note": "totalParses/totalKeys décrivent la population renvoyée par WCL ; ils peuvent différer du nombre affiché dans le bracket de la clé."
+      },
+      "query": {
+        "compare": "rankings",
+        "fightIDs": [
+          1
+        ],
+        "playerMetric": "hps",
+        "timeframe": "historical"
+      }
+    },
+    "population": {
+      "dps": {
+        "totalParses": null,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "note": "totalParses/totalKeys décrivent la population renvoyée par WCL ; ils peuvent différer du nombre affiché dans le bracket de la clé."
+      },
+      "hps": {
+        "totalParses": null,
+        "totalKeys": null,
+        "sampleSize": null,
+        "displayedSampleSize": null,
+        "note": "totalParses/totalKeys décrivent la population renvoyée par WCL ; ils peuvent différer du nombre affiché dans le bracket de la clé."
+      }
+    }
+  },
+  "combatantInfo": {
+    "kalteew": {
+      "source": "mcp",
+      "capturedAt": "2026-09-26T17:44:37.024Z",
+      "player": "Kalteew",
+      "actorID": 3,
+      "fightID": 1,
+      "event": {
+        "specID": 73,
+        "stats": {
+          "strength": 2831,
+          "agility": 431,
+          "stamina": 66222,
+          "intellect": 435,
+          "crit": 991,
+          "haste": 898,
+          "mastery": 697,
+          "versatility": 436,
+          "armor": 6830
+        },
+        "gear": {
+          "itemLevelAverage": 288.27777777777777,
+          "itemLevelMax": 334,
+          "equippedSlots": 18,
+          "gems": 4,
+          "setPieces": 5
+        }
+      }
+    },
+    "kylse": {
+      "source": "mcp",
+      "capturedAt": "2026-09-26T17:44:37.024Z",
+      "player": "Kylse",
+      "actorID": 2,
+      "fightID": 1,
+      "event": {
+        "specID": 65,
+        "stats": {
+          "strength": 673,
+          "agility": 218,
+          "stamina": 41449,
+          "intellect": 4362,
+          "crit": 437,
+          "haste": 1206,
+          "mastery": 1027,
+          "versatility": 364,
+          "armor": 4391
+        },
+        "gear": {
+          "itemLevelAverage": 286.8333333333333,
+          "itemLevelMax": 334,
+          "equippedSlots": 18,
+          "gems": 3,
+          "setPieces": 4
+        }
+      }
+    }
+  },
+  "sourceReport": {
+    "title": "Mythic+ Season 2",
+    "startTime": 1790423939107,
+    "endTime": 1790427029281,
+    "visibility": "public",
+    "fightCount": 2,
+    "source": "mcp",
+    "owner": "Kalteew",
+    "alternateReportCodes": [
+      "argt6DBdypVRvcW9"
+    ],
+    "deduplicationNote": "Fight 2 (+12) is mirrored by report argt6DBdypVRvcW9 (same key time, rating, forces, party and metrics); imported once from the Kalteew-owned report."
+  },
+  "importEvidence": {
+    "source": "mcp",
+    "capturedAt": "2026-09-26T17:44:37.024Z",
+    "reportCode": "Lp1Qfx67vbAG4KMk",
+    "trackedPlayers": [
+      "Kalteew",
+      "Kylse"
+    ],
+    "alternateReportCodes": [],
+    "deduplicationNote": null,
+    "rankingNotes": "WCL supplied report-specific parse and key percentiles with large sample counts.",
+    "importedFightID": 1
+  }
+}
