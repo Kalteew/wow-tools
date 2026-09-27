@@ -587,14 +587,17 @@ runtimeState.midnightRecipeAcquisitionTypeBySpellID = {
     [1230496] = "professionVendor", [1230498] = "professionVendor", [1233135] = "professionVendor",
     [1233137] = "professionVendor", [1236488] = "professionVendor", [1237553] = "professionVendor",
     [1237561] = "professionVendor", [1237564] = "professionVendor", [1237571] = "professionVendor",
-    [1246902] = "professionVendor", [1246906] = "professionVendor", [1248619] = "professionVendor",
+    [1248619] = "professionVendor",
     [1248622] = "professionVendor", [1248625] = "professionVendor", [1262905] = "professionVendor",
     [1264527] = "professionVendor", [1264550] = "professionVendor", [1264651] = "professionVendor",
     [1265906] = "professionVendor", [1279123] = "professionVendor", [1279125] = "professionVendor",
-    [1279128] = "professionVendor", [1281348] = "professionVendor",
+    [1279128] = "professionVendor",
     [1236078] = "reputation", -- Enchant Tool - Haranir Multicrafting
     [1236464] = "reputation", -- Gleeful Glamour - Haranir
     [1289744] = "reputation", -- Concentrated Silvermoon Health Potion
+    [1246906] = "reputation", -- Animated Sin'dorei Hammer
+    [1246902] = "reputation", -- Animated Sin'dorei Pick
+    [1281348] = "reputation", -- Endless Codex of Nature's Grace
     [1236060] = "knowledge", -- Enchant Ring - Zul'jin's Mastery (Amani Augments)
     [1230864] = "reputation", -- Amani Extract
     [1230873] = "reputation", -- Haranir Phial of Perception

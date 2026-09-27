@@ -237,8 +237,12 @@ equals("Cognitive Heliotrope est une recette PvP",
     seams.GetRecipeAcquisitionType({ spellID = 1230501, patronOrder = true }), "pvp")
 equals("Thalassian Missive of Deftness vient du vendeur de metier",
     seams.GetRecipeAcquisitionType({ spellID = 1230043, patronOrder = true }), "professionVendor")
-equals("Animated Sin'dorei Pick vient du vendeur de metier",
-    seams.GetRecipeAcquisitionType({ spellID = 1246902, patronOrder = true }), "professionVendor")
+equals("Animated Sin'dorei Hammer vient de la reputation",
+    seams.GetRecipeAcquisitionType({ spellID = 1246906, patronOrder = true }), "reputation")
+equals("Animated Sin'dorei Pick vient de la reputation",
+    seams.GetRecipeAcquisitionType({ spellID = 1246902, patronOrder = true }), "reputation")
+equals("Endless Codex of Nature's Grace vient de la reputation",
+    seams.GetRecipeAcquisitionType({ spellID = 1281348, patronOrder = true }), "reputation")
 equals("Endless Codex of Blooming Light vient de la reputation",
     seams.GetRecipeAcquisitionType({ spellID = 1281342, patronOrder = true }), "reputation")
 equals("Self-Pouring Thalassian Sunwine vient de la reputation",
