@@ -625,12 +625,18 @@ local function UpdateActionButton(candidate)
     -- montrait le bouton puis demandait un rafraichissement, si bien qu'il
     -- apparaissait une frame sans ancrage, etait positionne a la frame suivante,
     -- puis re-empile par YayaFrame a la frame d'apres.
-    if not candidate or not IsEnabled() or IsBlocked()
-        or (InCombatLockdown and InCombatLockdown()) then
+    -- Le bouton est securise. En combat, son parent est deja masque par le
+    -- state driver `[combat] hide; show` pose par YayaWeeklyTracker.lua : ne
+    -- touchez ni son etat active ni ses attributs, car SetEnabled et
+    -- SetAttribute sont des mutations protegees et produisent
+    -- ADDON_ACTION_BLOCKED. La reprise sur PLAYER_REGEN_ENABLED rearmere le
+    -- bouton hors lockdown.
+    local inCombat = InCombatLockdown and InCombatLockdown() == true
+    if not candidate or not IsEnabled() or IsBlocked() or inCombat then
         local wasArmed = state.armedCandidate ~= nil
         state.armedCandidate = nil
-        button:SetEnabled(false)
-        if not (InCombatLockdown and InCombatLockdown()) then
+        if not inCombat then
+            button:SetEnabled(false)
             button:SetAttribute("type", nil)
             button:SetAttribute("item", nil)
         end

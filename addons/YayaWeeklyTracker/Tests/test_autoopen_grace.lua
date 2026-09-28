@@ -154,6 +154,7 @@ local function StartScenario(itemID, presetForbidden)
     end
 
     return {
+        Button = button,
         Attempts = function()
             return attempts
         end,
@@ -361,6 +362,45 @@ Check(
     repaired.Attempts() >= 1,
     repaired.Attempts()
 )
+
+--------------------------------------------------------------------------------
+print("Combat : aucune mutation du bouton securise")
+--------------------------------------------------------------------------------
+
+-- Le state driver du bouton masque deja son parent pendant le lockdown. Le
+-- module ne doit donc pas appeler SetEnabled/SetAttribute pour le masquer ou
+-- le vider : ces deux mutations sont protegees par le client.
+local combat = false
+InCombatLockdown = function()
+    return combat
+end
+
+local combatScenario = StartScenario(999006)
+local combatButton = combatScenario.Button
+local enabledMutations = 0
+local attributeMutations = 0
+local originalSetEnabled = combatButton.SetEnabled
+local originalSetAttribute = combatButton.SetAttribute
+combatButton.SetEnabled = function(self, enabled)
+    if combat then
+        enabledMutations = enabledMutations + 1
+    end
+    return originalSetEnabled(self, enabled)
+end
+combatButton.SetAttribute = function(self, key, value)
+    if combat then
+        attributeMutations = attributeMutations + 1
+    end
+    return originalSetAttribute(self, key, value)
+end
+
+combat = true
+FireEvent("PLAYER_REGEN_DISABLED")
+Check("aucun SetEnabled pendant le lockdown", enabledMutations == 0, enabledMutations)
+Check("aucun SetAttribute pendant le lockdown", attributeMutations == 0, attributeMutations)
+
+combat = false
+FireEvent("PLAYER_REGEN_ENABLED")
 
 --------------------------------------------------------------------------------
 
