@@ -1,12 +1,14 @@
--- Ouvre la carte en repliant les panneaux qui occupent normalement l'ecran.
+-- Ouvre la carte en masquant les panneaux qui occupent normalement l'ecran.
 
-local function CollapseObjectiveTracker()
+local function HideObjectiveTracker()
     local tracker = _G.ObjectiveTrackerFrame
-    local header = tracker and tracker.Header
-    local button = header and header.MinimizeButton
 
-    if button and not tracker:IsCollapsed() then
-        button:Click()
+    -- Ne pas cliquer le bouton Blizzard depuis un hook addon : le chemin
+    -- SetCollapsed -> Update lit ensuite des auras secretes dans
+    -- Blizzard_MawBuffs et herite du taint YayaCore. Hide() ne force pas ce
+    -- recalcul; en combat, on laisse aussi le client gerer l'etat protege.
+    if tracker and not InCombatLockdown() and tracker:IsShown() then
+        tracker:Hide()
     end
 end
 
@@ -17,26 +19,14 @@ local function HidePartySync()
     end
 end
 
-local function CloseMapSidePanel()
-    local map = _G.WorldMapFrame
-    local toggle = map and map.SidePanelToggle
-    local button = toggle and toggle.CloseButton
-
-    if button and button:IsShown() then
-        button:Click()
-    end
-end
-
 local function ScheduleMapCleanup()
-    CollapseObjectiveTracker()
+    HideObjectiveTracker()
     HidePartySync()
-    CloseMapSidePanel()
 
     if C_Timer and C_Timer.After then
         C_Timer.After(0, function()
-            CollapseObjectiveTracker()
+            HideObjectiveTracker()
             HidePartySync()
-            CloseMapSidePanel()
         end)
     end
 end
