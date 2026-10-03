@@ -31,7 +31,10 @@
       9,
       10
     ],
-    "averageItemLevel": 315.6
+    "averageItemLevel": 315.6,
+    "startedAt": "2026-09-27T21:42:13.512Z",
+    "endedAt": "2026-09-27T22:57:52.153Z",
+    "startedAtSource": "mcp.reportMetadata+fight"
   },
   "players": [
     {
@@ -1104,30 +1107,34 @@
   "rankings": {
     "queried": true,
     "source": "mcp",
-    "capturedAt": "2026-09-28T09:18:53Z",
+    "capturedAt": "2026-10-03T12:05:21.9534797Z",
     "values": {
       "Kalteew": {
         "playerName": "Kalteew",
         "spec": "Protection",
         "role": "Tank",
         "keyLevel": 11,
-        "rank": "-",
+        "rank": "~13327",
         "outOf": null,
-        "parsePercent": null,
-        "parsePercentSource": null,
-        "keyPercent": 0,
-        "totalParses": 0,
+        "parsePercent": 60,
+        "parsePercentSource": "mcp.reportRankings",
+        "keyPercent": 99,
+        "totalParses": 33319,
         "totalKeys": null,
         "sampleSize": null,
         "displayedSampleSize": null,
         "bracketData": 11,
         "source": "mcp",
-        "metric": "dps"
+        "metric": "dps",
+        "keyPercentRaw": null,
+        "keyPercentStatus": "available",
+        "keyPercentSource": "mcp.reportRankings.dps",
+        "keyPercentTotalParses": 33319
       }
     },
     "reportSpecific": {
       "source": "mcp",
-      "capturedAt": "2026-09-28T09:18:53Z",
+      "capturedAt": "2026-10-03T12:05:21.9534797Z",
       "byMetric": {
         "dps": {
           "Kalteew": {
@@ -1147,6 +1154,28 @@
             "bracketData": 11,
             "source": "mcp",
             "metric": "dps"
+          },
+          "source": "mcp",
+          "capturedAt": "2026-10-03T12:05:21.9534797Z",
+          "values": {
+            "Kalteew": {
+              "parsePercent": 60,
+              "parsePercentSource": "mcp.reportRankings",
+              "keyPercent": 99,
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.dps",
+              "keyPercentTotalParses": 33319,
+              "totalParses": 33319,
+              "totalKeys": null,
+              "sampleSize": null,
+              "displayedSampleSize": null,
+              "keyLevel": 11,
+              "metric": "dps",
+              "source": "mcp",
+              "rank": "~13327",
+              "outOf": null
+            }
           }
         },
         "hps": {
@@ -1184,6 +1213,30 @@
           "sampleSize": null,
           "displayedSampleSize": null,
           "note": "totalParses/totalKeys décrivent la population renvoyée par WCL ; ils peuvent différer du nombre affiché dans le bracket de la clé."
+        }
+      },
+      "values": {
+        "Kalteew": {
+          "playerName": "Kalteew",
+          "spec": "Protection",
+          "role": "Tank",
+          "keyLevel": 11,
+          "rank": "~13327",
+          "outOf": null,
+          "parsePercent": 60,
+          "parsePercentSource": "mcp.reportRankings",
+          "keyPercent": 99,
+          "totalParses": 33319,
+          "totalKeys": null,
+          "sampleSize": null,
+          "displayedSampleSize": null,
+          "bracketData": 11,
+          "source": "mcp",
+          "metric": "dps",
+          "keyPercentRaw": null,
+          "keyPercentStatus": "available",
+          "keyPercentSource": "mcp.reportRankings.dps",
+          "keyPercentTotalParses": 33319
         }
       }
     },
@@ -1251,5 +1304,11 @@
     "deduplicationNote": null,
     "rankingNotes": "WCL a renvoyé 0 parse pour DPS et HPS : parsePercent indisponible, keyPercent 0 (DPS) / 0 (HPS).",
     "importedFightID": 1
-  }
+  },
+  "report": {
+    "startTime": 1790545333214,
+    "endTime": 1790548758524
+  },
+  "lastRankingsRefreshAt": "2026-10-03T12:06:32.8499386Z",
+  "qualityFlags": []
 }

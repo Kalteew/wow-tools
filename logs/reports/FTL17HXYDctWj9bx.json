@@ -18,7 +18,12 @@
       "reached": 656,
       "required": 687,
       "percent": 95.49
-    }
+    },
+    "startTime": 792960,
+    "endTime": 2405547,
+    "startedAt": "2026-09-18T18:12:06.921Z",
+    "endedAt": "2026-09-18T23:47:34.517Z",
+    "startedAtSource": "mcp.reportMetadata+fight"
   },
   "players": [
     {
@@ -4627,5 +4632,9 @@
         "tertiaryCustomPowerSet": []
       }
     }
+  },
+  "report": {
+    "startTime": 1789754333961,
+    "endTime": 1789772848970
   }
 }

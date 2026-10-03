@@ -22,7 +22,12 @@
       "reached": 727,
       "required": 655,
       "percent": 110.99
-    }
+    },
+    "startTime": 197694,
+    "endTime": 1695942,
+    "startedAt": "2026-09-21T17:42:55.519Z",
+    "endedAt": "2026-09-21T18:36:15.693Z",
+    "startedAtSource": "mcp.reportMetadata+fight"
   },
   "players": [
     {
@@ -2895,90 +2900,132 @@
   "rankings": {
     "queried": true,
     "source": "mcp",
-    "capturedAt": "2026-09-21T18:21:44.378Z",
+    "capturedAt": "2026-10-03T12:05:51.5170877Z",
     "values": {
       "Azåelle": {
-        "parsePercent": null,
-        "keyPercent": null,
-        "totalParses": 0,
+        "parsePercent": 69,
+        "keyPercent": 18,
+        "totalParses": 27111,
         "totalKeys": null,
         "sampleSize": null,
         "displayedSampleSize": null,
         "keyLevel": 12,
         "metric": "dps",
         "source": "mcp",
-        "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+        "availabilityNote": "WCL a renvoyé une population vide pour cette clé.",
+        "parsePercentSource": "mcp.reportRankings",
+        "keyPercentRaw": null,
+        "keyPercentStatus": "available",
+        "keyPercentSource": "mcp.reportRankings.dps",
+        "keyPercentTotalParses": 27111,
+        "rank": "~8404",
+        "outOf": null
       },
       "Kalteew": {
-        "parsePercent": null,
-        "keyPercent": null,
-        "totalParses": 0,
+        "parsePercent": 80,
+        "keyPercent": 96,
+        "totalParses": 29112,
         "totalKeys": null,
         "sampleSize": null,
         "displayedSampleSize": null,
         "keyLevel": 12,
         "metric": "dps",
         "source": "mcp",
-        "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+        "availabilityNote": "WCL a renvoyé une population vide pour cette clé.",
+        "parsePercentSource": "mcp.reportRankings",
+        "keyPercentRaw": null,
+        "keyPercentStatus": "available",
+        "keyPercentSource": "mcp.reportRankings.dps",
+        "keyPercentTotalParses": 29112,
+        "rank": "~5822",
+        "outOf": null
       }
     },
     "reportSpecific": {
       "source": "mcp",
-      "capturedAt": "2026-09-21T18:21:44.378Z",
+      "capturedAt": "2026-10-03T12:05:51.5170877Z",
       "values": {
         "Azåelle": {
-          "parsePercent": null,
-          "keyPercent": null,
-          "totalParses": 0,
+          "parsePercent": 69,
+          "keyPercent": 18,
+          "totalParses": 27111,
           "totalKeys": null,
           "sampleSize": null,
           "displayedSampleSize": null,
           "keyLevel": 12,
           "metric": "dps",
           "source": "mcp",
-          "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+          "availabilityNote": "WCL a renvoyé une population vide pour cette clé.",
+          "parsePercentSource": "mcp.reportRankings",
+          "keyPercentRaw": null,
+          "keyPercentStatus": "available",
+          "keyPercentSource": "mcp.reportRankings.dps",
+          "keyPercentTotalParses": 27111,
+          "rank": "~8404",
+          "outOf": null
         },
         "Kalteew": {
-          "parsePercent": null,
-          "keyPercent": null,
-          "totalParses": 0,
+          "parsePercent": 80,
+          "keyPercent": 96,
+          "totalParses": 29112,
           "totalKeys": null,
           "sampleSize": null,
           "displayedSampleSize": null,
           "keyLevel": 12,
           "metric": "dps",
           "source": "mcp",
-          "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+          "availabilityNote": "WCL a renvoyé une population vide pour cette clé.",
+          "parsePercentSource": "mcp.reportRankings",
+          "keyPercentRaw": null,
+          "keyPercentStatus": "available",
+          "keyPercentSource": "mcp.reportRankings.dps",
+          "keyPercentTotalParses": 29112,
+          "rank": "~5822",
+          "outOf": null
         }
       },
       "byMetric": {
         "dps": {
           "source": "mcp",
-          "capturedAt": "2026-09-21T18:21:44.378Z",
+          "capturedAt": "2026-10-03T12:05:51.5170877Z",
           "values": {
             "Kalteew": {
-              "parsePercent": null,
-              "keyPercent": null,
-              "totalParses": 0,
+              "parsePercent": 80,
+              "keyPercent": 96,
+              "totalParses": 29112,
               "totalKeys": null,
               "sampleSize": null,
               "displayedSampleSize": null,
               "keyLevel": 12,
               "metric": "dps",
               "source": "mcp",
-              "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+              "availabilityNote": "WCL a renvoyé une population vide pour cette clé.",
+              "parsePercentSource": "mcp.reportRankings",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.dps",
+              "keyPercentTotalParses": 29112,
+              "rank": "~5822",
+              "outOf": null
             },
             "Azåelle": {
-              "parsePercent": null,
-              "keyPercent": null,
-              "totalParses": 0,
+              "parsePercent": 69,
+              "keyPercent": 18,
+              "totalParses": 27111,
               "totalKeys": null,
               "sampleSize": null,
               "displayedSampleSize": null,
               "keyLevel": 12,
               "metric": "dps",
               "source": "mcp",
-              "availabilityNote": "WCL a renvoyé une population vide pour cette clé."
+              "availabilityNote": "WCL a renvoyé une population vide pour cette clé.",
+              "parsePercentSource": "mcp.reportRankings",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.dps",
+              "keyPercentTotalParses": 27111,
+              "rank": "~8404",
+              "outOf": null
             }
           }
         },
@@ -4551,5 +4598,11 @@
       "Kalteew"
     ],
     "rankingNotes": "Les rankings WCL de ce report renvoient totalParses=0 ; parse/key percent sont conservés à null plutôt que présentés comme 0."
-  }
+  },
+  "report": {
+    "startTime": 1790012377825,
+    "endTime": 1790014079751
+  },
+  "lastRankingsRefreshAt": "2026-10-03T12:06:32.8499386Z",
+  "qualityFlags": []
 }
