@@ -22,7 +22,12 @@
       "reached": 656,
       "required": 687,
       "percent": 95.49
-    }
+    },
+    "startTime": 2486215,
+    "endTime": 4099119,
+    "startedAt": "2026-09-18T18:12:05.408Z",
+    "endedAt": "2026-09-18T19:48:26.415Z",
+    "startedAtSource": "mcp.reportMetadata+fight"
   },
   "players": [
     {
@@ -97,7 +102,7 @@
   "rankings": {
     "queried": true,
     "source": "mcp",
-    "capturedAt": "2026-09-21T07:03:22.211Z",
+    "capturedAt": "2026-10-03T12:06:13.4450380Z",
     "values": {
       "Kalteew": {
         "parsePercent": 80,
@@ -108,7 +113,14 @@
         "displayedSampleSize": null,
         "keyLevel": 12,
         "metric": "dps",
-        "source": "mcp"
+        "source": "mcp",
+        "parsePercentSource": "mcp.reportRankings",
+        "keyPercentRaw": null,
+        "keyPercentStatus": "available",
+        "keyPercentSource": "mcp.reportRankings.dps",
+        "keyPercentTotalParses": 30802,
+        "rank": "~6160",
+        "outOf": null
       },
       "Azåelle": {
         "parsePercent": 69,
@@ -119,13 +131,20 @@
         "displayedSampleSize": null,
         "keyLevel": 12,
         "metric": "dps",
-        "source": "mcp"
+        "source": "mcp",
+        "parsePercentSource": "mcp.reportRankings",
+        "keyPercentRaw": null,
+        "keyPercentStatus": "available",
+        "keyPercentSource": "mcp.reportRankings.dps",
+        "keyPercentTotalParses": 30520,
+        "rank": "~9461",
+        "outOf": null
       }
     },
     "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur.",
     "reportSpecific": {
       "source": "mcp",
-      "capturedAt": "2026-09-21T07:03:22.211Z",
+      "capturedAt": "2026-10-03T12:06:13.4450380Z",
       "values": {
         "Kalteew": {
           "parsePercent": 80,
@@ -136,7 +155,14 @@
           "displayedSampleSize": null,
           "keyLevel": 12,
           "metric": "dps",
-          "source": "mcp"
+          "source": "mcp",
+          "parsePercentSource": "mcp.reportRankings",
+          "keyPercentRaw": null,
+          "keyPercentStatus": "available",
+          "keyPercentSource": "mcp.reportRankings.dps",
+          "keyPercentTotalParses": 30802,
+          "rank": "~6160",
+          "outOf": null
         },
         "Azåelle": {
           "parsePercent": 69,
@@ -147,13 +173,20 @@
           "displayedSampleSize": null,
           "keyLevel": 12,
           "metric": "dps",
-          "source": "mcp"
+          "source": "mcp",
+          "parsePercentSource": "mcp.reportRankings",
+          "keyPercentRaw": null,
+          "keyPercentStatus": "available",
+          "keyPercentSource": "mcp.reportRankings.dps",
+          "keyPercentTotalParses": 30520,
+          "rank": "~9461",
+          "outOf": null
         }
       },
       "byMetric": {
         "dps": {
           "source": "mcp",
-          "capturedAt": "2026-09-21T07:03:22.211Z",
+          "capturedAt": "2026-10-03T12:06:13.4450380Z",
           "values": {
             "Kalteew": {
               "parsePercent": 80,
@@ -164,7 +197,14 @@
               "displayedSampleSize": null,
               "keyLevel": 12,
               "metric": "dps",
-              "source": "mcp"
+              "source": "mcp",
+              "parsePercentSource": "mcp.reportRankings",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.dps",
+              "keyPercentTotalParses": 30802,
+              "rank": "~6160",
+              "outOf": null
             },
             "Azåelle": {
               "parsePercent": 69,
@@ -175,7 +215,14 @@
               "displayedSampleSize": null,
               "keyLevel": 12,
               "metric": "dps",
-              "source": "mcp"
+              "source": "mcp",
+              "parsePercentSource": "mcp.reportRankings",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.dps",
+              "keyPercentTotalParses": 30520,
+              "rank": "~9461",
+              "outOf": null
             }
           }
         }
@@ -4592,5 +4639,11 @@
         "tertiaryCustomPowerSet": []
       }
     }
-  }
+  },
+  "report": {
+    "startTime": 1789752639193,
+    "endTime": 1789756807296
+  },
+  "lastRankingsRefreshAt": "2026-10-03T12:06:32.8499386Z",
+  "qualityFlags": []
 }

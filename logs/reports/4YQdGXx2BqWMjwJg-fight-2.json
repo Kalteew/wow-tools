@@ -22,7 +22,12 @@
       "reached": 593,
       "required": 553,
       "percent": 107.23
-    }
+    },
+    "startTime": 2074907,
+    "endTime": 3243112,
+    "startedAt": "2026-09-13T19:32:24.769Z",
+    "endedAt": "2026-09-13T20:46:36.154Z",
+    "startedAtSource": "mcp.reportMetadata+fight"
   },
   "players": [
     {
@@ -93,7 +98,7 @@
   "rankings": {
     "queried": true,
     "source": "mcp",
-    "capturedAt": "2026-09-21T07:03:22.221Z",
+    "capturedAt": "2026-10-03T12:04:57.7987569Z",
     "values": {
       "Azåelle": {
         "parsePercent": 38,
@@ -104,13 +109,20 @@
         "displayedSampleSize": null,
         "keyLevel": 10,
         "metric": "dps",
-        "source": "mcp"
+        "source": "mcp",
+        "parsePercentSource": "mcp.reportRankings",
+        "keyPercentRaw": null,
+        "keyPercentStatus": "available",
+        "keyPercentSource": "mcp.reportRankings.dps",
+        "keyPercentTotalParses": 18893,
+        "rank": "~11713",
+        "outOf": null
       }
     },
     "note": "get_report_rankings indisponible pour ce lot : enum playerMetric WCL rejetée par le serveur.",
     "reportSpecific": {
       "source": "mcp",
-      "capturedAt": "2026-09-21T07:03:22.221Z",
+      "capturedAt": "2026-10-03T12:04:57.7987569Z",
       "values": {
         "Azåelle": {
           "parsePercent": 38,
@@ -121,13 +133,20 @@
           "displayedSampleSize": null,
           "keyLevel": 10,
           "metric": "dps",
-          "source": "mcp"
+          "source": "mcp",
+          "parsePercentSource": "mcp.reportRankings",
+          "keyPercentRaw": null,
+          "keyPercentStatus": "available",
+          "keyPercentSource": "mcp.reportRankings.dps",
+          "keyPercentTotalParses": 18893,
+          "rank": "~11713",
+          "outOf": null
         }
       },
       "byMetric": {
         "dps": {
           "source": "mcp",
-          "capturedAt": "2026-09-21T07:03:22.221Z",
+          "capturedAt": "2026-10-03T12:04:57.7987569Z",
           "values": {
             "Azåelle": {
               "parsePercent": 38,
@@ -138,7 +157,14 @@
               "displayedSampleSize": null,
               "keyLevel": 10,
               "metric": "dps",
-              "source": "mcp"
+              "source": "mcp",
+              "parsePercentSource": "mcp.reportRankings",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.dps",
+              "keyPercentTotalParses": 18893,
+              "rank": "~11713",
+              "outOf": null
             }
           }
         }
@@ -2030,5 +2056,11 @@
         "tertiaryCustomPowerSet": []
       }
     }
-  }
+  },
+  "report": {
+    "startTime": 1789325869862,
+    "endTime": 1789329153042
+  },
+  "lastRankingsRefreshAt": "2026-10-03T12:06:32.8499386Z",
+  "qualityFlags": []
 }

@@ -22,7 +22,12 @@
       "reached": 784,
       "required": 738,
       "percent": 106.23
-    }
+    },
+    "startTime": 2457008,
+    "endTime": 3895966,
+    "startedAt": "2026-09-24T18:49:49.851Z",
+    "endedAt": "2026-09-24T20:19:47.716Z",
+    "startedAtSource": "mcp.reportMetadata+fight"
   },
   "players": [
     {
@@ -16444,7 +16449,7 @@
   "rankings": {
     "queried": true,
     "source": "mcp",
-    "capturedAt": "2026-09-25T17:02:32.553Z",
+    "capturedAt": "2026-10-03T12:05:24.4644299Z",
     "values": {
       "Kalteew": {
         "parsePercent": 97,
@@ -16455,23 +16460,37 @@
         "displayedSampleSize": null,
         "keyLevel": 16,
         "metric": "dps",
-        "source": "mcp"
+        "source": "mcp",
+        "parsePercentSource": "mcp.reportRankings",
+        "keyPercentRaw": null,
+        "keyPercentStatus": "available",
+        "keyPercentSource": "mcp.reportRankings.dps",
+        "keyPercentTotalParses": 34075,
+        "rank": "~1022",
+        "outOf": null
       },
       "Kylse": {
-        "parsePercent": 89,
-        "keyPercent": 38,
+        "parsePercent": 90,
+        "keyPercent": 78,
         "totalParses": 116883,
         "totalKeys": null,
         "sampleSize": null,
         "displayedSampleSize": null,
         "keyLevel": 16,
-        "metric": "hps",
-        "source": "mcp"
+        "metric": "dps",
+        "source": "mcp",
+        "parsePercentSource": "mcp.reportRankings",
+        "keyPercentRaw": null,
+        "keyPercentStatus": "available",
+        "keyPercentSource": "mcp.reportRankings.dps",
+        "keyPercentTotalParses": 116883,
+        "rank": "~11688",
+        "outOf": null
       }
     },
     "reportSpecific": {
       "source": "mcp",
-      "capturedAt": "2026-09-25T17:02:32.553Z",
+      "capturedAt": "2026-10-03T12:05:24.4644299Z",
       "values": {
         "Kalteew": {
           "parsePercent": 97,
@@ -16482,24 +16501,38 @@
           "displayedSampleSize": null,
           "keyLevel": 16,
           "metric": "dps",
-          "source": "mcp"
+          "source": "mcp",
+          "parsePercentSource": "mcp.reportRankings",
+          "keyPercentRaw": null,
+          "keyPercentStatus": "available",
+          "keyPercentSource": "mcp.reportRankings.dps",
+          "keyPercentTotalParses": 34075,
+          "rank": "~1022",
+          "outOf": null
         },
         "Kylse": {
-          "parsePercent": 89,
-          "keyPercent": 38,
+          "parsePercent": 90,
+          "keyPercent": 78,
           "totalParses": 116883,
           "totalKeys": null,
           "sampleSize": null,
           "displayedSampleSize": null,
           "keyLevel": 16,
-          "metric": "hps",
-          "source": "mcp"
+          "metric": "dps",
+          "source": "mcp",
+          "parsePercentSource": "mcp.reportRankings",
+          "keyPercentRaw": null,
+          "keyPercentStatus": "available",
+          "keyPercentSource": "mcp.reportRankings.dps",
+          "keyPercentTotalParses": 116883,
+          "rank": "~11688",
+          "outOf": null
         }
       },
       "byMetric": {
         "dps": {
           "source": "mcp",
-          "capturedAt": "2026-09-25T17:02:32.553Z",
+          "capturedAt": "2026-10-03T12:05:24.4644299Z",
           "values": {
             "Kalteew": {
               "parsePercent": 97,
@@ -16510,7 +16543,14 @@
               "displayedSampleSize": null,
               "keyLevel": 16,
               "metric": "dps",
-              "source": "mcp"
+              "source": "mcp",
+              "parsePercentSource": "mcp.reportRankings",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.dps",
+              "keyPercentTotalParses": 34075,
+              "rank": "~1022",
+              "outOf": null
             },
             "Kylse": {
               "parsePercent": 90,
@@ -16521,7 +16561,14 @@
               "displayedSampleSize": null,
               "keyLevel": 16,
               "metric": "dps",
-              "source": "mcp"
+              "source": "mcp",
+              "parsePercentSource": "mcp.reportRankings",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.dps",
+              "keyPercentTotalParses": 116883,
+              "rank": "~11688",
+              "outOf": null
             },
             "Møar": {
               "parsePercent": 97,
@@ -16577,7 +16624,7 @@
         },
         "hps": {
           "source": "mcp",
-          "capturedAt": "2026-09-25T17:02:32.553Z",
+          "capturedAt": "2026-10-03T12:05:24.4644299Z",
           "values": {
             "Kalteew": {
               "parsePercent": 97,
@@ -16599,7 +16646,14 @@
               "displayedSampleSize": null,
               "keyLevel": 16,
               "metric": "hps",
-              "source": "mcp"
+              "source": "mcp",
+              "parsePercentSource": "mcp.reportRankings",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.hps",
+              "keyPercentTotalParses": 116883,
+              "rank": "~12857",
+              "outOf": null
             },
             "Møar": {
               "parsePercent": 95,
@@ -18232,5 +18286,11 @@
     ],
     "rankingNotes": "Parse/key percent conservés séparément ; les populations vides WCL restent null.",
     "importedFightID": 2
-  }
+  },
+  "report": {
+    "startTime": 1790273332843,
+    "endTime": 1790277291750
+  },
+  "lastRankingsRefreshAt": "2026-10-03T12:06:32.8499386Z",
+  "qualityFlags": []
 }

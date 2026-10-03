@@ -25,7 +25,12 @@
       "Merektha",
       "Galvazzt",
       "Avatar of Sethraliss"
-    ]
+    ],
+    "startTime": 59715,
+    "endTime": 1672641,
+    "startedAt": "2026-09-18T18:12:05.694Z",
+    "endedAt": "2026-09-18T19:07:11.425Z",
+    "startedAtSource": "mcp.reportMetadata+fight"
   },
   "players": [
     {
@@ -2883,5 +2888,9 @@
         "tertiaryCustomPowerSet": []
       }
     }
+  },
+  "report": {
+    "startTime": 1789755065979,
+    "endTime": 1789756758784
   }
 }

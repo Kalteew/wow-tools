@@ -50,7 +50,9 @@
       10
     ],
     "averageItemLevel": 318.3999938964844,
-    "startedAt": "2026-09-28T19:48:24.410Z"
+    "startedAt": "2026-09-28T19:48:24.410Z",
+    "endedAt": "2026-09-28T22:22:58.611Z",
+    "startedAtSource": "mcp.reportMetadata+fight"
   },
   "players": [
     {
@@ -188,11 +190,11 @@
   "rankings": {
     "queried": true,
     "source": "mcp",
-    "capturedAt": "2026-09-30T16:21:49.842Z",
+    "capturedAt": "2026-10-03T12:05:55.4965629Z",
     "values": {
       "Azåelle": {
         "parsePercent": 40,
-        "parsePercentSource": "rankPercent",
+        "parsePercentSource": "mcp.reportRankings",
         "keyPercent": 92,
         "totalParses": 39033,
         "totalKeys": null,
@@ -200,11 +202,17 @@
         "displayedSampleSize": null,
         "keyLevel": 10,
         "metric": "dps",
-        "source": "mcp"
+        "source": "mcp",
+        "keyPercentRaw": null,
+        "keyPercentStatus": "available",
+        "keyPercentSource": "mcp.reportRankings.dps",
+        "keyPercentTotalParses": 39033,
+        "rank": "~23419",
+        "outOf": null
       },
       "Kalteew": {
         "parsePercent": 50,
-        "parsePercentSource": "rankPercent",
+        "parsePercentSource": "mcp.reportRankings",
         "keyPercent": 99,
         "totalParses": 38652,
         "totalKeys": null,
@@ -212,28 +220,40 @@
         "displayedSampleSize": null,
         "keyLevel": 10,
         "metric": "dps",
-        "source": "mcp"
+        "source": "mcp",
+        "keyPercentRaw": null,
+        "keyPercentStatus": "available",
+        "keyPercentSource": "mcp.reportRankings.dps",
+        "keyPercentTotalParses": 38652,
+        "rank": "~19326",
+        "outOf": null
       },
       "Kylse": {
         "parsePercent": 30,
-        "parsePercentSource": "rankPercent",
-        "keyPercent": 84,
+        "parsePercentSource": "mcp.reportRankings",
+        "keyPercent": 99,
         "totalParses": 125547,
         "totalKeys": null,
         "sampleSize": null,
         "displayedSampleSize": null,
         "keyLevel": 10,
-        "metric": "hps",
-        "source": "mcp"
+        "metric": "dps",
+        "source": "mcp",
+        "keyPercentRaw": null,
+        "keyPercentStatus": "available",
+        "keyPercentSource": "mcp.reportRankings.dps",
+        "keyPercentTotalParses": 125547,
+        "rank": "~87882",
+        "outOf": null
       }
     },
     "reportSpecific": {
       "source": "mcp",
-      "capturedAt": "2026-09-30T16:21:49.842Z",
+      "capturedAt": "2026-10-03T12:05:55.4965629Z",
       "values": {
         "Azåelle": {
           "parsePercent": 40,
-          "parsePercentSource": "rankPercent",
+          "parsePercentSource": "mcp.reportRankings",
           "keyPercent": 92,
           "totalParses": 39033,
           "totalKeys": null,
@@ -241,11 +261,17 @@
           "displayedSampleSize": null,
           "keyLevel": 10,
           "metric": "dps",
-          "source": "mcp"
+          "source": "mcp",
+          "keyPercentRaw": null,
+          "keyPercentStatus": "available",
+          "keyPercentSource": "mcp.reportRankings.dps",
+          "keyPercentTotalParses": 39033,
+          "rank": "~23419",
+          "outOf": null
         },
         "Kalteew": {
           "parsePercent": 50,
-          "parsePercentSource": "rankPercent",
+          "parsePercentSource": "mcp.reportRankings",
           "keyPercent": 99,
           "totalParses": 38652,
           "totalKeys": null,
@@ -253,29 +279,41 @@
           "displayedSampleSize": null,
           "keyLevel": 10,
           "metric": "dps",
-          "source": "mcp"
+          "source": "mcp",
+          "keyPercentRaw": null,
+          "keyPercentStatus": "available",
+          "keyPercentSource": "mcp.reportRankings.dps",
+          "keyPercentTotalParses": 38652,
+          "rank": "~19326",
+          "outOf": null
         },
         "Kylse": {
           "parsePercent": 30,
-          "parsePercentSource": "rankPercent",
-          "keyPercent": 84,
+          "parsePercentSource": "mcp.reportRankings",
+          "keyPercent": 99,
           "totalParses": 125547,
           "totalKeys": null,
           "sampleSize": null,
           "displayedSampleSize": null,
           "keyLevel": 10,
-          "metric": "hps",
-          "source": "mcp"
+          "metric": "dps",
+          "source": "mcp",
+          "keyPercentRaw": null,
+          "keyPercentStatus": "available",
+          "keyPercentSource": "mcp.reportRankings.dps",
+          "keyPercentTotalParses": 125547,
+          "rank": "~87882",
+          "outOf": null
         }
       },
       "byMetric": {
         "dps": {
           "source": "mcp",
-          "capturedAt": "2026-09-30T16:22:03.036Z",
+          "capturedAt": "2026-10-03T12:05:55.4965629Z",
           "values": {
             "Kalteew": {
               "parsePercent": 50,
-              "parsePercentSource": "rankPercent",
+              "parsePercentSource": "mcp.reportRankings",
               "keyPercent": 99,
               "totalParses": 38652,
               "totalKeys": null,
@@ -283,11 +321,17 @@
               "displayedSampleSize": null,
               "keyLevel": 10,
               "metric": "dps",
-              "source": "mcp"
+              "source": "mcp",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.dps",
+              "keyPercentTotalParses": 38652,
+              "rank": "~19326",
+              "outOf": null
             },
             "Kylse": {
               "parsePercent": 30,
-              "parsePercentSource": "rankPercent",
+              "parsePercentSource": "mcp.reportRankings",
               "keyPercent": 99,
               "totalParses": 125547,
               "totalKeys": null,
@@ -295,11 +339,17 @@
               "displayedSampleSize": null,
               "keyLevel": 10,
               "metric": "dps",
-              "source": "mcp"
+              "source": "mcp",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.dps",
+              "keyPercentTotalParses": 125547,
+              "rank": "~87882",
+              "outOf": null
             },
             "Azåelle": {
               "parsePercent": 40,
-              "parsePercentSource": "rankPercent",
+              "parsePercentSource": "mcp.reportRankings",
               "keyPercent": 92,
               "totalParses": 39033,
               "totalKeys": null,
@@ -307,7 +357,13 @@
               "displayedSampleSize": null,
               "keyLevel": 10,
               "metric": "dps",
-              "source": "mcp"
+              "source": "mcp",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.dps",
+              "keyPercentTotalParses": 39033,
+              "rank": "~23419",
+              "outOf": null
             }
           },
           "population": {
@@ -321,7 +377,7 @@
         },
         "hps": {
           "source": "mcp",
-          "capturedAt": "2026-09-30T16:22:02.708Z",
+          "capturedAt": "2026-10-03T12:05:55.4965629Z",
           "values": {
             "Kalteew": {
               "parsePercent": 50,
@@ -337,7 +393,7 @@
             },
             "Kylse": {
               "parsePercent": 30,
-              "parsePercentSource": "rankPercent",
+              "parsePercentSource": "mcp.reportRankings",
               "keyPercent": 84,
               "totalParses": 125547,
               "totalKeys": null,
@@ -345,7 +401,13 @@
               "displayedSampleSize": null,
               "keyLevel": 10,
               "metric": "hps",
-              "source": "mcp"
+              "source": "mcp",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.hps",
+              "keyPercentTotalParses": 125547,
+              "rank": "~87882",
+              "outOf": null
             },
             "Azåelle": {
               "parsePercent": 35,
@@ -9236,5 +9298,7 @@
   },
   "dataWarnings": [
     "WCL marque la clé terminée mais Enemy Forces est sous 100%; conserver la valeur brute et vérifier."
-  ]
+  ],
+  "lastRankingsRefreshAt": "2026-10-03T12:06:32.8499386Z",
+  "qualityFlags": []
 }

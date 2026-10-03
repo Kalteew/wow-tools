@@ -46,7 +46,9 @@
       9
     ],
     "averageItemLevel": 312.20001220703125,
-    "startedAt": "2026-09-30T16:34:19.002Z"
+    "startedAt": "2026-09-30T16:34:19.002Z",
+    "endedAt": "2026-09-30T17:13:19.493Z",
+    "startedAtSource": "mcp.reportMetadata+fight"
   },
   "players": [
     {
@@ -183,54 +185,72 @@
   "rankings": {
     "queried": true,
     "source": "mcp",
-    "capturedAt": "2026-09-30T22:07:06.343Z",
+    "capturedAt": "2026-10-03T12:06:11.9905756Z",
     "values": {
       "Azåelle": {
-        "parsePercent": null,
-        "parsePercentSource": "unavailable",
-        "keyPercent": null,
-        "totalParses": null,
+        "parsePercent": 34,
+        "parsePercentSource": "mcp.reportRankings",
+        "keyPercent": 57,
+        "totalParses": 38983,
         "totalKeys": null,
         "sampleSize": null,
         "displayedSampleSize": null,
         "keyLevel": 10,
         "metric": "dps",
-        "source": "mcp"
+        "source": "mcp",
+        "keyPercentRaw": null,
+        "keyPercentStatus": "available",
+        "keyPercentSource": "mcp.reportRankings.dps",
+        "keyPercentTotalParses": 38983,
+        "rank": "~25728",
+        "outOf": null
       }
     },
     "reportSpecific": {
       "source": "mcp",
-      "capturedAt": "2026-09-30T22:07:06.343Z",
+      "capturedAt": "2026-10-03T12:06:11.9905756Z",
       "values": {
         "Azåelle": {
-          "parsePercent": null,
-          "parsePercentSource": "unavailable",
-          "keyPercent": null,
-          "totalParses": null,
+          "parsePercent": 34,
+          "parsePercentSource": "mcp.reportRankings",
+          "keyPercent": 57,
+          "totalParses": 38983,
           "totalKeys": null,
           "sampleSize": null,
           "displayedSampleSize": null,
           "keyLevel": 10,
           "metric": "dps",
-          "source": "mcp"
+          "source": "mcp",
+          "keyPercentRaw": null,
+          "keyPercentStatus": "available",
+          "keyPercentSource": "mcp.reportRankings.dps",
+          "keyPercentTotalParses": 38983,
+          "rank": "~25728",
+          "outOf": null
         }
       },
       "byMetric": {
         "dps": {
           "source": "mcp",
-          "capturedAt": "2026-09-30T22:07:06.343Z",
+          "capturedAt": "2026-10-03T12:06:11.9905756Z",
           "values": {
             "Azåelle": {
-              "parsePercent": null,
-              "parsePercentSource": "unavailable",
-              "keyPercent": null,
-              "totalParses": null,
+              "parsePercent": 34,
+              "parsePercentSource": "mcp.reportRankings",
+              "keyPercent": 57,
+              "totalParses": 38983,
               "totalKeys": null,
               "sampleSize": null,
               "displayedSampleSize": null,
               "keyLevel": 10,
               "metric": "dps",
-              "source": "mcp"
+              "source": "mcp",
+              "keyPercentRaw": null,
+              "keyPercentStatus": "available",
+              "keyPercentSource": "mcp.reportRankings.dps",
+              "keyPercentTotalParses": 38983,
+              "rank": "~25728",
+              "outOf": null
             }
           },
           "population": null,
@@ -14646,5 +14666,6 @@
       "code": "ENEMY_FORCES_BELOW_REQUIRED",
       "message": "Le MCP indique le donjon terminé (kill=true, keystoneBonus=3) alors que les forces brutes sont sous le requis : 587/608 (96,55 %). Valeurs WCL conservées telles quelles pour vérification."
     }
-  ]
+  ],
+  "lastRankingsRefreshAt": "2026-10-03T12:06:32.8499386Z"
 }
