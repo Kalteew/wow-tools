@@ -41,6 +41,7 @@ Addon Retail simple pour :
 - equiper automatiquement l’outil principal Multicraft ou Resourcefulness avant les crafts YayaQueue, avec confirmation en deux clics et regroupement de la queue pour limiter les changements d’outil ; posseder un seul outil a statistique suffit pour declencher un echange
 - à la première ouverture de chaque métier, ajouter le lot maximal de la recette favorite en concentration via `GetAllRecipeIDs()`, `GetRecipeInfo()`, `GetRecipeSchematic()` et `GetCraftingOperationInfo()`, sans dépendre de `CraftingPage` ni `OpenRecipe` ; mémoriser l’ID du favori traité par métier et rendre immédiatement un nouveau favori éligible dans la même session, sans retirer l’ancien lot déjà en queue ; puis lancer le scan `first craft` headless après les patrons, favoris et transmutations afin d’ignorer les recettes déjà prévues dans la queue ; après un lot confirmé, remboursements complets inclus, réinjecter tous les crafts favoris redevenus finançables après les réservations de la queue
 - à l’ouverture de l’Alchimie, ajouter les charges disponibles de `Bouquet of Herbs` et de `Wondrous Synergist` si les recettes sont connues ; `Bouquet of Herbs` est prioritaire sur `Box of Rocks` et `School of Gems` lorsqu’ils partagent le cooldown de transmutation ; `Wondrous Synergist` n’est ajouté que si son output dépasse strictement 90 po en `dbminbuyout` ; à chaque recalcul de la queue, si les `Stabilized Derivate` manquent, ajouter le recyclage de seuls `Entropic Extract` rang 1 (`268954`) par lots de 5, avec `Entropic Extract` pris dans les sacs, banques personnelles ou Warbank, ou acheté à l’HV si nécessaire, `Oil of Heartwood` acheté au marchand, et exécuter ces recyclages en priorité
+- à l’ouverture de l’Alchimie ou du gossip de Camberon/Camberon’s Cauldron, puis quand Blizzard change ou actualise la source de recettes, planifier les recettes non apprises de Camberon selon la Moxie disponible : recettes gratuites, potions 25, phial 25, `Bouquet of Herbs`, potions 50, flasques 50, puis motes ; `School of Gems` est toujours exclue. L’ajout depuis un formulaire relit désormais l’ID du schematic de craft, pas l’ID de présentation du chaudron. `Flask of the Blood Knights` ajoute automatiquement `Flask of Thalassian Resistance` à acheter à l’HV, puis le bouton `Next` la consomme avant de reprendre la recette. Le plan est relançable avec `/yq cauldron` et reste idempotent entre les jours ; la déduplication utilise aussi l’output pour absorber les IDs runtime différents du formulaire et chaque appel ne réserve que la Moxie disponible
 - reutiliser le bind scroll de `TSMMacro` quand cette macro existe : ses actions `Shopping Buyout` / `Craft Next` sont remplacees au login par des relais YQ, qui retombent sur TSM hors contexte YQ
 - recalculer automatiquement les besoins selon l'inventaire courant
 - choisir récursivement entre achat direct et fusion des rangs Gold Star, avec les Gold Stars déjà détenues par le personnage valorisées à 0 (jamais la banque de bataillon), puis exécuter les fusions nécessaires via `Next` avant le craft final
@@ -165,7 +166,7 @@ Notes :
 | Automatismes | `autoBuyVendor` | case | `true` | | achat automatique chez le marchand (`/yq vendor`) |
 | Automatismes | `oilOfHeartwoodPurchaseQuantity` | nombre (unites) | 100 | 1 a 1000 | lot minimum d'`Oil of Heartwood` achete au marchand des qu'il en manque (`/yq oil`) |
 | Automatismes | `autoQueueFavoriteConcentration` | case | `true` | | favori en concentration a l'ouverture du metier |
-| Automatismes | `autoQueueAlchemy` | case | `true` | | transmutations d'alchimie a l'ouverture du metier ; coupe, le scan en attente est annule |
+| Automatismes | `autoQueueAlchemy` | case | `true` | | transmutations et plan Camberon a l'ouverture du metier ; coupe, le scan en attente est annule |
 | Automatismes | `resetQuantityOnRecipeChange` | case | `false` | | quantite remise a 1 au changement de recette |
 | HV et seuils | `auctionPriceWarningSoundEnabled` | case | `true` | | son si le prix HV est trop haut (case de l'onglet HV) |
 | HV et seuils | `auctionPriceWarningTolerancePercent` | curseur | 0 | 0 a 50 % | hausse toleree avant l'alerte de prix |
@@ -219,6 +220,7 @@ L'ordre d'ajout departage toujours en dernier : l'ordre est strict et total, don
 | `/yq opti [on\|off]` | affiche ou masque l'optimisateur de reactifs |
 | `/yq vendor [on\|off\|status]` | achat automatique chez le marchand |
 | `/yq oil [n]` | lot minimum d'`Oil of Heartwood` achete au marchand (1 a 1000) ; sans argument : valeur courante |
+| `/yq cauldron` | planifie les recettes de Camberon selon la Moxie disponible |
 | `/yq sort [mode]` | sans argument : mode courant et liste des modes ; avec un mode : l'ecrit et rafraichit la file |
 | `/yq log [n\|clear]` | journal debug persistant : les `n` dernieres lignes, ou vidage |
 

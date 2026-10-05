@@ -31,6 +31,10 @@ local CONFIG = {
         [171] = true, -- Alchemy
         [2906] = true, -- Midnight Alchemy
     },
+    CAMBERON_CAULDRON_NPC_IDS = {
+        [247420] = true, -- Camberon's Cauldron
+        [243357] = true, -- Camberon, when the gossip opens the cauldron
+    },
     INSCRIPTION_PROFESSION_IDS = {
         [13] = true, -- Enum.Profession.Inscription
         [773] = true, -- Inscription
@@ -136,6 +140,7 @@ local CONFIG = {
         equip_tool = true,
         shatter = true,
         merge = true,
+        consume_cauldron_item = true,
     },
     debugNextCraft = false,
     DEBUG_LOG_LIMIT = 400,
@@ -299,6 +304,8 @@ local state = {
     pendingMerge = nil,
     armedCraftTool = nil,
     pendingCraftTool = nil,
+    armedCauldronItem = nil,
+    pendingCauldronItem = nil,
     concentrationPhialSessionQueued = false,
     armedIngenuityPhial = nil,
     autoFavoriteConcentration = {
@@ -317,6 +324,11 @@ local state = {
         attempts = 0,
         timerQueued = false,
     },
+    cauldronAutoQueue = {
+        pending = false,
+        attempts = 0,
+        timerQueued = false,
+    },
     -- Handle rendu par YayaCore.Settings.BuildPanel ; panel et category en
     -- sont des raccourcis.
     options = nil,
@@ -329,6 +341,7 @@ state.auctionPrices = state.addonTable and state.addonTable.AuctionPrices
 state.statCensus = state.addonTable and state.addonTable.StatCensus
 -- Cascade de tri de la file, partagee par le bouton Next et la liste affichee.
 state.queueOrder = state.addonTable and state.addonTable.QueueOrder
+state.cauldronPlan = state.addonTable and state.addonTable.CauldronPlan
 
 local YQQuality = {}
 
@@ -2339,6 +2352,12 @@ local function NormalizeQueueEntries()
                         concentrationPhialItemID = tonumber(rawEntry.concentrationPhialItemID) or nil,
                         orderID = orderID,
                         professionID = tonumber(rawEntry.professionID) or nil,
+                        cauldronRecipe = rawEntry.cauldronRecipe == true,
+                        cauldronPlanRecipeID = tonumber(rawEntry.cauldronPlanRecipeID) or nil,
+                        cauldronOrder = tonumber(rawEntry.cauldronOrder) or nil,
+                        cauldronMoxieCost = tonumber(rawEntry.cauldronMoxieCost) or nil,
+                        cauldronRequiresItemID = tonumber(rawEntry.cauldronRequiresItemID) or nil,
+                        cauldronItemConsumed = rawEntry.cauldronItemConsumed == true,
                         queueKind = queueKind,
                         mergeKey = type(rawEntry.mergeKey) == "string" and rawEntry.mergeKey or nil,
                         mergeInputItemID = tonumber(rawEntry.mergeInputItemID) or nil,
@@ -4492,6 +4511,10 @@ end
 
 local function GetSelectedRecipeID()
     local form = GetActiveSchematicForm()
+    local schematicRecipeID = form and form.recipeSchematic and tonumber(form.recipeSchematic.recipeID) or nil
+    if schematicRecipeID and schematicRecipeID > 0 then
+        return schematicRecipeID
+    end
     if form and type(form.GetRecipeInfo) == "function" then
         local info = SafeCall(form.GetRecipeInfo, form)
         if type(info) == "table" and type(info.recipeID) == "number" and info.recipeID > 0 then
@@ -4505,6 +4528,10 @@ local function GetSelectedRecipeID()
     end
 
     form = GetCraftingSchematicForm()
+    schematicRecipeID = form and form.recipeSchematic and tonumber(form.recipeSchematic.recipeID) or nil
+    if schematicRecipeID and schematicRecipeID > 0 then
+        return schematicRecipeID
+    end
     if form and type(form.GetRecipeInfo) == "function" then
         local info = SafeCall(form.GetRecipeInfo, form)
         if type(info) == "table" and type(info.recipeID) == "number" and info.recipeID > 0 then
@@ -4678,7 +4705,9 @@ local function BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, 
 
     return {
         recipeID = recipeID,
-        recipeName = (recipeInfo and recipeInfo.name) or schematic.name or ("Recette " .. recipeID),
+        -- Le formulaire du chaudron peut fournir le nom de l'output dans
+        -- recipeInfo. Le nom du schematic est celui de la vraie recette.
+        recipeName = schematic.name or (recipeInfo and recipeInfo.name) or ("Recette " .. recipeID),
         isEnchantingRecipe = type(recipeInfo) == "table" and recipeInfo.isEnchantingRecipe == true,
         isSalvageRecipe = isSalvageRecipe or nil,
         salvageItemID = salvageItemID,
@@ -4746,20 +4775,23 @@ end
 local function GetRecipeContextFromSchematicForm(form)
     local recipeInfo = form and type(form.GetRecipeInfo) == "function" and SafeCall(form.GetRecipeInfo, form) or nil
     local transaction = form and ((type(form.GetTransaction) == "function" and SafeCall(form.GetTransaction, form)) or form.transaction) or nil
-    local recipeID = recipeInfo and recipeInfo.recipeID or nil
-    if (not recipeID or recipeID <= 0) and form and form.recipeSchematic and form.recipeSchematic.recipeID then
-        recipeID = form.recipeSchematic.recipeID
-    end
+    -- Sur la fenêtre de Camberon, GetRecipeInfo() peut renvoyer l'ID de la
+    -- ligne d'affichage. Le recipeID du schematic reste l'ID de craft réel.
+    local recipeID = form and form.recipeSchematic and tonumber(form.recipeSchematic.recipeID) or nil
+    recipeID = recipeID and recipeID > 0 and recipeID or recipeInfo and recipeInfo.recipeID or nil
     if not recipeID or type(C_TradeSkillUI) ~= "table" then
         return nil
     end
 
-    if type(recipeInfo) ~= "table" then
-        recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID)
-    end
-
     local recipeLevel = form and type(form.GetCurrentRecipeLevel) == "function" and SafeCall(form.GetCurrentRecipeLevel, form) or nil
     local schematic = SafeCall(C_TradeSkillUI.GetRecipeSchematic, recipeID, false, recipeLevel)
+    if type(schematic) == "table" and tonumber(schematic.recipeID) and tonumber(schematic.recipeID) > 0 then
+        recipeID = tonumber(schematic.recipeID)
+    end
+    local canonicalInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID)
+    if type(canonicalInfo) == "table" then
+        recipeInfo = canonicalInfo
+    end
     return BuildRecipeContext(recipeID, recipeInfo, schematic, transaction, false)
 end
 
@@ -4837,6 +4869,8 @@ local function ResetQueue()
     state.pendingMerge = nil
     state.armedCraftTool = nil
     state.pendingCraftTool = nil
+    state.armedCauldronItem = nil
+    state.pendingCauldronItem = nil
     ClearPatronAction("queue-reset")
     if state.nextActionLock
         and (state.nextActionLock.action == "equip_tool" or state.nextActionLock.action == "shatter")
@@ -5018,6 +5052,12 @@ local function AddRecipeToQueue(context, quantity)
             entry.concentrationPhialItemID = concentrationPhialItemID
             entry.orderID = tonumber(context.orderID) or nil
             entry.professionID = tonumber(context.professionID) or nil
+            entry.cauldronRecipe = context.cauldronRecipe == true
+            entry.cauldronPlanRecipeID = tonumber(context.cauldronPlanRecipeID) or nil
+            entry.cauldronOrder = tonumber(context.cauldronOrder) or nil
+            entry.cauldronMoxieCost = tonumber(context.cauldronMoxieCost) or nil
+            entry.cauldronRequiresItemID = tonumber(context.cauldronRequiresItemID) or nil
+            entry.cauldronItemConsumed = context.cauldronItemConsumed == true
             entry.queueKind = queueKind
             entry.mergeKey = type(context.mergeKey) == "string" and context.mergeKey or nil
             entry.mergeInputItemID = tonumber(context.mergeInputItemID) or nil
@@ -5063,6 +5103,12 @@ local function AddRecipeToQueue(context, quantity)
         concentrationPhialItemID = concentrationPhialItemID,
         orderID = tonumber(context.orderID) or nil,
         professionID = tonumber(context.professionID) or nil,
+        cauldronRecipe = context.cauldronRecipe == true,
+        cauldronPlanRecipeID = tonumber(context.cauldronPlanRecipeID) or nil,
+        cauldronOrder = tonumber(context.cauldronOrder) or nil,
+        cauldronMoxieCost = tonumber(context.cauldronMoxieCost) or nil,
+        cauldronRequiresItemID = tonumber(context.cauldronRequiresItemID) or nil,
+        cauldronItemConsumed = context.cauldronItemConsumed == true,
         queueKind = queueKind,
         mergeKey = type(context.mergeKey) == "string" and context.mergeKey or nil,
         mergeInputItemID = tonumber(context.mergeInputItemID) or nil,
@@ -5343,6 +5389,331 @@ alchemyAuto.BuildCooldownContext = function(professionID, recipeID, recipeInfo)
     return context
 end
 
+alchemyAuto.GetCauldronMoxie = function()
+    local plan = state.cauldronPlan
+    if not plan or type(C_CurrencyInfo) ~= "table"
+        or type(C_CurrencyInfo.GetCurrencyInfo) ~= "function"
+    then
+        return nil
+    end
+    local info = SafeCall(C_CurrencyInfo.GetCurrencyInfo, plan.MOXIE_CURRENCY_ID)
+    if type(info) ~= "table" then
+        return nil
+    end
+    return math.max(0, math.floor(tonumber(info.quantity) or 0))
+end
+
+local function CauldronRecipeMatchesOutput(recipeID, outputItemID)
+    if not recipeID or not outputItemID
+        or type(C_TradeSkillUI) ~= "table"
+        or type(C_TradeSkillUI.GetRecipeSchematic) ~= "function"
+    then
+        return nil
+    end
+    local schematic = SafeCall(C_TradeSkillUI.GetRecipeSchematic, recipeID, false, nil)
+    if type(schematic) ~= "table" then
+        return nil
+    end
+    return tonumber(schematic.outputItemID) == tonumber(outputItemID)
+end
+
+alchemyAuto.QueueCauldronRecipes = function(professionID, availableRecipeIDs, recipeInfos, directPlan)
+    local plan = state.cauldronPlan
+    if not plan then
+        return false
+    end
+
+    if directPlan == true then
+        if type(C_TradeSkillUI) ~= "table"
+            or type(C_TradeSkillUI.GetRecipeInfo) ~= "function"
+        then
+            return nil
+        end
+        availableRecipeIDs = {}
+        recipeInfos = {}
+        for _, recipe in ipairs(plan.RECIPES) do
+            local canonicalRecipeID = tonumber(recipe.recipeID)
+            local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, canonicalRecipeID)
+            if type(recipeInfo) ~= "table"
+                and recipe.outputItemID
+                and type(C_TradeSkillUI.GetRecipeInfoForItemID) == "function"
+            then
+                recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfoForItemID, recipe.outputItemID)
+            end
+            local recipeID = tonumber(recipeInfo and recipeInfo.recipeID) or canonicalRecipeID
+            if CauldronRecipeMatchesOutput(recipeID, recipe.outputItemID) == false then
+                recipeInfo = nil
+                recipeID = canonicalRecipeID
+            end
+            availableRecipeIDs[canonicalRecipeID] = true
+            availableRecipeIDs[recipeID] = true
+            recipeInfos[canonicalRecipeID] = recipeInfo
+            recipeInfos[recipeID] = recipeInfo
+        end
+    elseif type(availableRecipeIDs) ~= "table" or type(recipeInfos) ~= "table" then
+        if type(C_TradeSkillUI) ~= "table"
+            or type(C_TradeSkillUI.GetAllRecipeIDs) ~= "function"
+            or type(C_TradeSkillUI.GetRecipeInfo) ~= "function"
+        then
+            return nil
+        end
+        availableRecipeIDs = {}
+        recipeInfos = {}
+        local recipeIDs = SafeCall(C_TradeSkillUI.GetAllRecipeIDs)
+        if type(recipeIDs) ~= "table" or #recipeIDs == 0 then
+            return nil
+        end
+        for _, recipeID in ipairs(recipeIDs) do
+            recipeID = tonumber(recipeID)
+            if recipeID then
+                availableRecipeIDs[recipeID] = true
+                recipeInfos[recipeID] = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID)
+                if type(recipeInfos[recipeID]) ~= "table" then
+                    return nil
+                end
+            end
+        end
+    end
+
+    local moxie = alchemyAuto.GetCauldronMoxie()
+    if moxie == nil then
+        DebugPrint("cauldron-auto wait reason=moxie-data-not-ready")
+        return nil
+    end
+
+    local runtimeRecipeIDs = {}
+    local planRecipeInfos = {}
+    for _, recipe in ipairs(plan.RECIPES) do
+        local canonicalRecipeID = tonumber(recipe.recipeID)
+        local recipeInfo = recipeInfos[canonicalRecipeID]
+        local runtimeRecipeID = canonicalRecipeID
+        if type(recipeInfo) == "table" then
+            runtimeRecipeID = tonumber(recipeInfo.recipeID) or runtimeRecipeID
+            if CauldronRecipeMatchesOutput(runtimeRecipeID, recipe.outputItemID) == false then
+                recipeInfo = nil
+                runtimeRecipeID = canonicalRecipeID
+            end
+        end
+        if type(recipeInfo) ~= "table"
+            and recipe.outputItemID
+            and type(C_TradeSkillUI) == "table"
+            and type(C_TradeSkillUI.GetRecipeInfoForItemID) == "function"
+        then
+            recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfoForItemID, recipe.outputItemID)
+            runtimeRecipeID = tonumber(recipeInfo and recipeInfo.recipeID) or runtimeRecipeID
+            if CauldronRecipeMatchesOutput(runtimeRecipeID, recipe.outputItemID) == false then
+                recipeInfo = nil
+            end
+        end
+        if type(recipeInfo) ~= "table"
+            and type(C_TradeSkillUI) == "table"
+            and type(C_TradeSkillUI.GetRecipeSchematic) == "function"
+            and recipe.outputItemID
+        then
+            for candidateID, candidateInfo in pairs(recipeInfos) do
+                if type(candidateInfo) == "table" then
+                    local candidateSchematic = SafeCall(
+                        C_TradeSkillUI.GetRecipeSchematic,
+                        candidateID,
+                        false,
+                        nil
+                    )
+                    if type(candidateSchematic) == "table"
+                        and tonumber(candidateSchematic.outputItemID) == tonumber(recipe.outputItemID)
+                    then
+                        recipeInfo = candidateInfo
+                        runtimeRecipeID = tonumber(candidateID) or canonicalRecipeID
+                        break
+                    end
+                end
+            end
+        end
+        if type(recipeInfo) == "table" then
+            runtimeRecipeID = tonumber(recipeInfo.recipeID) or runtimeRecipeID
+            runtimeRecipeIDs[canonicalRecipeID] = runtimeRecipeID
+            planRecipeInfos[canonicalRecipeID] = recipeInfo
+        elseif directPlan == true then
+            DebugPrint("cauldron-auto wait reason=recipe-info recipe=" .. tostring(canonicalRecipeID))
+            return nil
+        end
+    end
+
+    local knownByID = {}
+    for _, recipe in ipairs(plan.RECIPES) do
+        local recipeID = tonumber(recipe.recipeID)
+        local info = planRecipeInfos[recipeID]
+        knownByID[recipeID] = type(info) ~= "table" or info.learned ~= false
+    end
+
+    local queuedByID = {}
+    for _, entry in ipairs(db.queue or {}) do
+        local recipeID = tonumber(entry.recipeID)
+        if recipeID and entry.queueKind ~= "direct_item"
+            and GetEntryCraftsRemaining(entry) > 0
+        then
+            local queuedRecipe = plan.GetRecipeByOutputItemID
+                and plan.GetRecipeByOutputItemID(entry.outputItemID)
+                or nil
+            local queuedPlanID = tonumber(entry.cauldronPlanRecipeID)
+                or (queuedRecipe and queuedRecipe.recipeID)
+                or recipeID
+            for _, recipe in ipairs(plan.RECIPES) do
+                if recipe.recipeID == queuedPlanID then
+                    queuedByID[recipe.recipeID] = true
+                    break
+                end
+            end
+        end
+    end
+
+    local selected = plan.Build(moxie, knownByID, queuedByID)
+    for _, recipe in ipairs(selected) do
+        local canonicalRecipeID = tonumber(recipe.recipeID)
+        local runtimeRecipeID = runtimeRecipeIDs[canonicalRecipeID] or canonicalRecipeID
+        local recipeInfo = planRecipeInfos[canonicalRecipeID]
+        local context = alchemyAuto.BuildCooldownContext(professionID, runtimeRecipeID, recipeInfo)
+        if not context then
+            DebugPrint("cauldron-auto wait reason=recipe-context recipe=" .. tostring(runtimeRecipeID))
+            return nil
+        end
+        context.cauldronRecipe = true
+        context.cauldronPlanRecipeID = canonicalRecipeID
+        context.cauldronOrder = recipe.order
+        context.cauldronMoxieCost = recipe.moxieCost
+        context.cauldronRequiresItemID = recipe.requiresItemID
+        context.cauldronItemConsumed = false
+
+        if recipe.requiresItemID
+            and GetImmediateOwnedCount(recipe.requiresItemID) <= 0
+            and GetMailboxCount(recipe.requiresItemID) <= 0
+            and GetTotalOwnedCount(recipe.requiresItemID) <= 0
+            and type(YayaQueueAPI) == "table"
+            and type(YayaQueueAPI.GetDirectItemQuantity) == "function"
+            and YayaQueueAPI.GetDirectItemQuantity(recipe.requiresItemID) <= 0
+            and type(YayaQueueAPI.AddItem) == "function"
+        then
+            YayaQueueAPI.AddItem(
+                recipe.requiresItemID,
+                1,
+                GetItemName(recipe.requiresItemID)
+            )
+        end
+
+        AddRecipeToQueue(context, 1)
+        queuedByID[canonicalRecipeID] = true
+        DebugPrint(
+            "cauldron-auto queued recipe=" .. tostring(runtimeRecipeID)
+                .. " planRecipe=" .. tostring(canonicalRecipeID)
+                .. " output=" .. tostring(recipe.outputItemID)
+                .. " moxie=" .. tostring(recipe.moxieCost)
+                .. " remaining=" .. tostring(moxie)
+        )
+        moxie = math.max(0, moxie - (tonumber(recipe.moxieCost) or 0))
+    end
+    return true
+end
+
+alchemyAuto.ScheduleCauldronInteraction = function(delay)
+    local autoQueue = state.cauldronAutoQueue
+    if autoQueue.timerQueued or not autoQueue.pending then
+        return
+    end
+    autoQueue.timerQueued = true
+    C_Timer.After(delay or 0, function()
+        autoQueue.timerQueued = false
+        if not autoQueue.pending then
+            return
+        end
+        autoQueue.attempts = (autoQueue.attempts or 0) + 1
+        local professionID = state.GetCurrentProfessionID()
+        if not alchemyAuto.IsAlchemyProfession(professionID) then
+            professionID = 171
+        end
+        local succeeded, result = pcall(
+            alchemyAuto.QueueCauldronRecipes,
+            professionID,
+            nil,
+            nil,
+            true
+        )
+        if not succeeded then
+            autoQueue.pending = false
+            DebugPrint("cauldron-auto failed source=interaction error=" .. tostring(result))
+            return
+        end
+        if result == nil and autoQueue.attempts < 30 then
+            alchemyAuto.ScheduleCauldronInteraction(0.1)
+            return
+        end
+        autoQueue.pending = false
+        DebugPrint(
+            "cauldron-auto complete source=interaction attempts=" .. tostring(autoQueue.attempts)
+                .. " result=" .. tostring(result)
+        )
+        ScheduleRefresh()
+    end)
+end
+
+alchemyAuto.StartCauldronInteraction = function()
+    local autoQueue = state.cauldronAutoQueue
+    if autoQueue.pending then
+        alchemyAuto.ScheduleCauldronInteraction(0)
+        return
+    end
+    autoQueue.pending = true
+    autoQueue.attempts = 0
+    alchemyAuto.ScheduleCauldronInteraction(0)
+end
+
+alchemyAuto.PromoteCauldronEntry = function(entry)
+    if type(entry) ~= "table" or entry.cauldronRecipe ~= true
+        or type(C_TradeSkillUI) ~= "table"
+        or type(C_TradeSkillUI.GetRecipeInfo) ~= "function"
+    then
+        return false
+    end
+    local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, entry.recipeID)
+    if type(recipeInfo) ~= "table" or recipeInfo.learned ~= true then
+        return false
+    end
+    local context = alchemyAuto.BuildCooldownContext(entry.professionID, entry.recipeID, recipeInfo)
+    if not context then
+        return false
+    end
+    state.ForceRankOneContextReagents(context)
+    entry.recipeName = context.recipeName
+    entry.outputItemID = context.outputItemID
+    entry.outputPerCraft = context.outputPerCraft
+    entry.mode = "crafts"
+    entry.craftQty = ClampQuantity(entry.craftQty or 1)
+    entry.outputQty = nil
+    entry.reagents = NormalizeReagents(context.reagents)
+    entry.reagentSignature = BuildReagentSignature(entry.reagents)
+    entry.craftingReagents = NormalizeCraftingReagents(context.craftingReagents)
+    entry.slotAllocations = NormalizeSlotAllocations(context.slotAllocations)
+    entry.clearSlotIndices = NormalizeSlotIndices(context.clearSlotIndices)
+    entry.targetQuality = nil
+    entry.targetQualitySimplified = false
+    entry.concentrationCost = nil
+    entry.concentrationCurrencyID = nil
+    entry.concentrationPhialItemID = nil
+    entry.queueKind = nil
+    entry.cauldronRecipe = nil
+    entry.cauldronPlanRecipeID = nil
+    entry.cauldronOrder = nil
+    entry.cauldronMoxieCost = nil
+    entry.cauldronRequiresItemID = nil
+    entry.cauldronItemConsumed = nil
+    entry.isEnchantingRecipe = context.isEnchantingRecipe == true
+    entry.isSalvageRecipe = context.isSalvageRecipe == true
+    entry.salvageItemID = tonumber(context.salvageItemID) or nil
+    entry.salvageItemQuantity = math.max(1, tonumber(context.salvageItemQuantity) or 1)
+    entry.applyConcentration = false
+    state.InvalidateQualityPricing()
+    DebugPrint("cauldron-auto promoted recipe=" .. tostring(entry.recipeID))
+    return true
+end
+
 alchemyAuto.BuildRecycleContext = function(professionID)
     return {
         recipeID = CONFIG.RECYCLE_POTIONS_RECIPE_ID,
@@ -5412,6 +5783,7 @@ alchemyAuto.QueueBouquetAndRecycling = function()
     end
 
     local knownRecipeIDs = {}
+    local recipeInfos = {}
     local recipeIDs = SafeCall(C_TradeSkillUI.GetAllRecipeIDs)
     if type(recipeIDs) ~= "table" or #recipeIDs == 0 then
         DebugPrint("alchemy-auto wait reason=recipe-data-not-ready")
@@ -5419,7 +5791,8 @@ alchemyAuto.QueueBouquetAndRecycling = function()
     end
     for _, recipeID in ipairs(recipeIDs) do
         knownRecipeIDs[tonumber(recipeID)] = true
-        if type(SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID)) ~= "table" then
+        recipeInfos[tonumber(recipeID)] = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID)
+        if type(recipeInfos[tonumber(recipeID)]) ~= "table" then
             DebugPrint("alchemy-auto wait reason=recipe-info recipe=" .. tostring(recipeID))
             return nil
         end
@@ -5510,6 +5883,14 @@ alchemyAuto.QueueBouquetAndRecycling = function()
                 .. " queueBefore=" .. tostring(queueBefore)
                 .. " queueAfter=" .. tostring(alchemyAuto.GetQueuedRecipeCrafts(pendingRecipe.context.recipeID))
         )
+    end
+    local cauldronResult = alchemyAuto.QueueCauldronRecipes(
+        professionID,
+        knownRecipeIDs,
+        recipeInfos
+    )
+    if cauldronResult == nil then
+        return nil
     end
     alchemyAuto.EnsureRecycleForDerivateShortage(professionID)
     DebugPrint(
@@ -5860,6 +6241,7 @@ local function BuildQueueSummary()
                 remainingCount = remainingCount,
                 mode = mode,
                 queueKind = entry.queueKind,
+                cauldronRecipe = entry.cauldronRecipe == true,
                 isSalvageRecipe = entry.isSalvageRecipe == true,
                 targetQuality = entry.targetQuality,
                 targetQualitySimplified = entry.targetQualitySimplified == true,
@@ -6002,6 +6384,7 @@ local CRAFT_KIND_TONE = {
     craft = "text",
     recycle = "muted",
     merge = "muted",
+    cauldron = "accent",
     milling = "muted",
 }
 
@@ -6044,6 +6427,8 @@ local function BuildCraftTasks(summary)
             kind, badge = "recycle", "Recycle"
         elseif task.queueKind == "merge" then
             kind, badge = "merge", "Fusion"
+        elseif task.cauldronRecipe then
+            kind, badge = "cauldron", "Chaudron"
         elseif task.isSalvageRecipe and IsMidnightMillingRecipe(task.recipeID) then
             kind, badge = "milling", "Milling"
         end
@@ -6346,6 +6731,31 @@ state.GetCurrentProfessionID = function()
     end
 
     return nil
+end
+
+state.GetUnitNPCID = function(unit)
+    if type(UnitGUID) ~= "function" or type(strsplit) ~= "function" then
+        return nil
+    end
+    local guid = SafeCall(UnitGUID, unit)
+    if type(guid) ~= "string" then
+        return nil
+    end
+    -- Retail peut rendre UnitGUID sous forme de secret string. Toute API de
+    -- decoupage tenterait alors une conversion interdite et tainterait YQ.
+    if type(issecretvalue) == "function" and issecretvalue(guid) then
+        return nil
+    end
+    local unitType, _, _, _, _, npcID = strsplit("-", guid)
+    if unitType ~= "Creature" and unitType ~= "Vehicle" then
+        return nil
+    end
+    return tonumber(npcID)
+end
+
+state.IsCamberonCauldronInteraction = function()
+    local npcID = state.GetUnitNPCID("npc") or state.GetUnitNPCID("target")
+    return CONFIG.CAMBERON_CAULDRON_NPC_IDS[npcID] == true, npcID
 end
 
 state.GetPatronQueueEntry = function(orderID)
@@ -6651,6 +7061,53 @@ local function GetPatronNextButtonState()
             action = "craft_salvage",
             craftAmount = craftAmount,
             itemID = itemID,
+        }
+    end
+
+    if entry.cauldronRecipe == true then
+        if alchemyAuto.PromoteCauldronEntry(entry) then
+            return GetPatronNextButtonState()
+        end
+        if nextActionLock then
+            return {
+                entry = entry,
+                text = "Next: attente",
+                enabled = false,
+            }
+        end
+
+        local requiredItemID = tonumber(entry.cauldronRequiresItemID)
+        if requiredItemID and entry.cauldronItemConsumed ~= true then
+            if GetImmediateOwnedCount(requiredItemID) > 0 then
+                return {
+                    entry = entry,
+                    text = "Next: consomme la flasque",
+                    enabled = true,
+                    action = "consume_cauldron_item",
+                    itemID = requiredItemID,
+                }
+            end
+            if GetMailboxCount(requiredItemID) > 0 then
+                return {
+                    entry = entry,
+                    text = "Next: Mailbox",
+                    enabled = true,
+                    action = "mailbox",
+                }
+            end
+            return {
+                entry = entry,
+                text = GetTotalOwnedCount(requiredItemID) > 0
+                    and "Next: mets la flasque dans les sacs"
+                    or "Next: achète la flasque à l'HV",
+                enabled = false,
+            }
+        end
+
+        return {
+            entry = entry,
+            text = "Next: ouvre le chaudron",
+            enabled = false,
         }
     end
 
@@ -7682,6 +8139,10 @@ local function QueueRecipeContext(context, qtyBox, quantityOverride)
         return nil
     end
 
+    DebugPrint(
+        "queue-add recipe=" .. tostring(context.recipeID)
+            .. " name=" .. tostring(context.recipeName)
+    )
     local quantity = quantityOverride and ClampQuantity(quantityOverride) or GetQuantityInput(qtyBox)
     context.professionID = tonumber(context.professionID) or state.GetCurrentProfessionID()
     context.applyConcentration = NormalizeApplyConcentration(context.applyConcentration)
@@ -10100,8 +10561,23 @@ local function UpdateCraftPanel(summary)
             local shatterArmed = false
             local phialArmed = false
             local mergeArmed = false
+            local cauldronArmed = false
             local inCombat = InCombatLockdown and InCombatLockdown()
             if not inCombat
+                and nextState.enabled
+                and nextState.action == "consume_cauldron_item"
+                and nextState.itemID
+            then
+                state.craft.nextButton:SetAttribute("type", "item")
+                state.craft.nextButton:SetAttribute("item", "item:" .. tostring(nextState.itemID))
+                state.armedCauldronItem = {
+                    recipeID = nextState.entry.recipeID,
+                    itemID = nextState.itemID,
+                }
+                cauldronArmed = true
+            end
+            if not inCombat
+                and not cauldronArmed
                 and nextState.enabled
                 and nextState.action == "equip_tool"
                 and nextState.itemID
@@ -10128,7 +10604,7 @@ local function UpdateCraftPanel(summary)
                 }
                 toolArmed = true
             end
-            if not inCombat and not toolArmed
+            if not inCombat and not toolArmed and not cauldronArmed
                 and nextState.enabled
                 and nextState.action == "shatter"
                 and nextState.itemID
@@ -10172,7 +10648,7 @@ local function UpdateCraftPanel(summary)
                     phialArmed = true
                 end
             end
-            if not inCombat and not toolArmed and not phialArmed
+            if not inCombat and not toolArmed and not cauldronArmed and not phialArmed
                 and nextState.enabled
                 and nextState.action == "merge"
                 and nextState.mergeInputItemID
@@ -10192,19 +10668,23 @@ local function UpdateCraftPanel(summary)
                 }
                 mergeArmed = true
             end
-            if not inCombat and not toolArmed and not shatterArmed and not phialArmed and not mergeArmed then
+            if not inCombat and not toolArmed and not shatterArmed and not phialArmed
+                and not mergeArmed and not cauldronArmed
+            then
                 state.craft.nextButton:SetAttribute("type", nil)
                 state.craft.nextButton:SetAttribute("item", nil)
                 state.armedShatter = nil
                 state.armedIngenuityPhial = nil
                 state.armedMerge = nil
                 state.armedCraftTool = nil
+                state.armedCauldronItem = nil
             end
             state.craft.nextButton:SetText(
-                toolArmed and (nextState.text or "Next: outil")
+                cauldronArmed and (nextState.text or "Next: flasque")
+                    or (toolArmed and (nextState.text or "Next: outil")
                     or (shatterArmed and "Next: Shatter"
                         or (phialArmed and "Next: Phial"
-                            or (mergeArmed and "Next: Fusion" or (nextState.text or "Next"))))
+                            or (mergeArmed and "Next: Fusion" or (nextState.text or "Next")))))
             )
             -- En combat, aucune action a bouton securise ne peut etre armee :
             -- SetAttribute est interdit sous lockdown. Sans ce garde le bouton
@@ -10216,6 +10696,7 @@ local function UpdateCraftPanel(summary)
                 and not shatterArmed
                 and not phialArmed
                 and not mergeArmed
+                and not cauldronArmed
             if secureActionBlocked then
                 state.craft.nextButton:SetText((nextState.text or "Next") .. " (combat)")
             end
@@ -10238,6 +10719,7 @@ local function UpdateCraftPanel(summary)
                 state.armedShatter = nil
                 state.armedIngenuityPhial = nil
                 state.armedCraftTool = nil
+                state.armedCauldronItem = nil
             end
         end
     end
@@ -16279,6 +16761,22 @@ local function CreateCraftPanel()
     -- HookScript preserves SecureActionButtonTemplate's native item handler.
     -- SetScript would replace it and leave the phial click inert.
     nextButton:HookScript("PreClick", function()
+        if state.armedCauldronItem then
+            state.pendingCauldronItem = state.armedCauldronItem
+            state.armedCauldronItem = nil
+            state.EnsureDB()
+            for _, entry in ipairs(db.queue) do
+                if entry.recipeID == state.pendingCauldronItem.recipeID
+                    and entry.cauldronRecipe == true
+                then
+                    entry.cauldronItemConsumed = true
+                    break
+                end
+            end
+            state.ah.statusMessage = "Flasque consommee"
+            ScheduleRefresh()
+            return
+        end
         local armedPhial = state.armedIngenuityPhial
         -- Relecture reelle de l'aura : le cache pouvait dater du dernier refresh
         -- du panneau et laisser passer un clic alors que le buff est deja pose.
@@ -16333,6 +16831,12 @@ local function CreateCraftPanel()
     end)
     nextButton:HookScript("OnClick", function()
         if state.pendingShatter then
+            return
+        end
+        if state.pendingCauldronItem then
+            state.pendingCauldronItem = nil
+            state.ah.statusMessage = "Flasque consommee : ouvre le chaudron"
+            ScheduleRefresh()
             return
         end
         local tool = state.armedCraftTool
@@ -17104,9 +17608,12 @@ handle.AddonLoaded = function(event, arg1, arg2, arg3)
         YQQuality.EnsureOptions()
         addon:RegisterEvent("PLAYER_ENTERING_WORLD")
         addon:RegisterEvent("TRADE_SKILL_SHOW")
+        addon:RegisterEvent("TRADE_SKILL_LIST_UPDATE")
+        addon:RegisterEvent("TRADE_SKILL_DETAILS_UPDATE")
         addon:RegisterEvent("TRADE_SKILL_DATA_SOURCE_CHANGED")
         addon:RegisterEvent("TRADE_SKILL_FAVORITES_CHANGED")
         addon:RegisterEvent("TRADE_SKILL_CLOSE")
+        addon:RegisterEvent("GOSSIP_SHOW")
         addon:RegisterEvent("TRADE_SKILL_ITEM_CRAFTED_RESULT")
         addon:RegisterEvent("SPELLS_CHANGED")
         addon:RegisterEvent("SKILL_LINES_CHANGED")
@@ -17209,6 +17716,22 @@ handle.TradeSkillShow = function(event, arg1, arg2, arg3)
         end)
         C_Timer.After(0, ScheduleRefresh)
         return true
+    end
+    return false
+end
+
+handle.GossipShow = function(event, arg1, arg2, arg3)
+    if event == "GOSSIP_SHOW" then
+        local isCauldron, npcID = state.IsCamberonCauldronInteraction()
+        if isCauldron then
+            DebugPrint("event=GOSSIP_SHOW camberon-cauldron npc=" .. tostring(npcID))
+            -- Le chaudron est un gossip et ne declenche pas TRADE_SKILL_SHOW.
+            -- Le scan direct utilise les IDs de recettes du plan, puis retente
+            -- jusqu'a ce que Blizzard ait recharge les schematics.
+            alchemyAuto.StartCauldronInteraction()
+            ScheduleRefresh()
+            return true
+        end
     end
     return false
 end
@@ -17319,7 +17842,10 @@ end
 
 -- Extrait du dispatcher, ligne 13235 de la version precedente.
 handle.TradeSkillDataSourceChanged = function(event, arg1, arg2, arg3)
-    if event == "TRADE_SKILL_DATA_SOURCE_CHANGED" then
+    if event == "TRADE_SKILL_DATA_SOURCE_CHANGED"
+        or event == "TRADE_SKILL_LIST_UPDATE"
+        or event == "TRADE_SKILL_DETAILS_UPDATE"
+    then
         local professionID = state.GetCurrentProfessionID()
         YQQuality.DebugCraftState(
             "data-source-changed",
@@ -17330,9 +17856,7 @@ handle.TradeSkillDataSourceChanged = function(event, arg1, arg2, arg3)
             "event=TRADE_SKILL_DATA_SOURCE_CHANGED profession=" .. tostring(professionID)
                 .. " alchemyPending=" .. tostring(state.alchemyAutoQueue.pendingProfessionID)
         )
-        if state.alchemyAutoQueue.pendingProfessionID ~= false
-            and alchemyAuto.IsAlchemyProfession(professionID)
-        then
+        if alchemyAuto.IsAlchemyProfession(professionID) then
             StartAlchemyAutoQueue()
         end
         ScheduleRefresh()
@@ -18028,6 +18552,7 @@ eventHandlers["CRAFTINGORDERS_CLAIM_ORDER_RESPONSE"] = { handle.CraftingordersOr
 eventHandlers["CRAFTINGORDERS_CRAFT_ORDER_RESPONSE"] = { handle.CraftingordersOrderResponse }
 eventHandlers["CRAFTINGORDERS_FULFILL_ORDER_RESPONSE"] = { handle.CraftingordersOrderResponse }
 eventHandlers["CURRENCY_DISPLAY_UPDATE"] = { handle.CurrencyDisplayUpdate }
+eventHandlers["GOSSIP_SHOW"] = { handle.GossipShow }
 eventHandlers["ITEM_SEARCH_RESULTS_UPDATED"] = { handle.ItemSearchResultsUpdated }
 eventHandlers["MAIL_INBOX_UPDATE"] = { handle.StatCensusWindows }
 eventHandlers["MAIL_SHOW"] = { handle.StatCensusWindows }
@@ -18044,8 +18569,10 @@ eventHandlers["SKILL_LINES_CHANGED"] = { handle.ProfessionDataChanged }
 eventHandlers["SPELLS_CHANGED"] = { handle.ProfessionDataChanged }
 eventHandlers["TRADE_SKILL_CLOSE"] = { handle.TradeSkillClose }
 eventHandlers["TRADE_SKILL_DATA_SOURCE_CHANGED"] = { handle.TradeSkillDataSourceChanged }
+eventHandlers["TRADE_SKILL_DETAILS_UPDATE"] = { handle.TradeSkillDataSourceChanged }
 eventHandlers["TRADE_SKILL_FAVORITES_CHANGED"] = { handle.TradeSkillFavoritesChanged }
 eventHandlers["TRADE_SKILL_ITEM_CRAFTED_RESULT"] = { handle.TradeSkillItemCraftedResult }
+eventHandlers["TRADE_SKILL_LIST_UPDATE"] = { handle.TradeSkillDataSourceChanged }
 eventHandlers["TRADE_SKILL_SHOW"] = { handle.TradeSkillShow }
 eventHandlers["UI_ERROR_MESSAGE"] = { handle.UiErrorMessage }
 eventHandlers["UNIT_AURA"] = { handle.UnitAura }
@@ -18070,10 +18597,28 @@ addon:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
     ScheduleRefresh()
 end)
 
-addon:RegisterEvent("ADDON_LOADED")
+        addon:RegisterEvent("ADDON_LOADED")
 InstallRecipeDescriptionGuard()
 
 YayaQueueAPI = YayaQueueAPI or {}
+
+function YayaQueueAPI.QueueCauldronRecipes()
+    state.EnsureDB()
+    local professionID = state.GetCurrentProfessionID()
+    if not alchemyAuto.IsAlchemyProfession(professionID) then
+        return false, "Alchimie non ouverte"
+    end
+    local ok, result = pcall(alchemyAuto.QueueCauldronRecipes, professionID)
+    if not ok then
+        DebugPrint("cauldron-auto manual-failed error=" .. tostring(result))
+        return false, "Donnees du chaudron indisponibles"
+    end
+    if result == nil then
+        return false, "Donnees du chaudron indisponibles"
+    end
+    ScheduleRefresh()
+    return true, "Recettes du chaudron planifiees"
+end
 
 function YayaQueueAPI.AddRecipe(context, quantity)
     if type(context) ~= "table" or type(context.recipeID) ~= "number" or context.recipeID <= 0 then
@@ -18585,6 +19130,7 @@ YQQuality.PrintHelp = function()
     Print("  /yq opti [on|off]          affiche ou masque l'optimisateur de reactifs")
     Print("  /yq vendor [on|off|status] achat automatique chez le marchand")
     Print("  /yq oil [n]                lot minimum d'Oil of Heartwood achete au marchand")
+    Print("  /yq cauldron               planifie les recettes de Camberon selon la Moxie")
     Print("  /yq sort [mode]            mode de tri de la file (sans argument : etat et modes)")
     Print("  /yq log [n|clear]          journal debug persistant")
     Print("  /yq help                   cette aide")
@@ -18665,6 +19211,11 @@ SlashCmdList.YAYAQUEUE = function(message)
     end
     if command == "options" then
         YQQuality.OpenOptions()
+        return
+    end
+    if command == "cauldron" then
+        local ok, message = YayaQueueAPI.QueueCauldronRecipes()
+        Print(ok and message or ("Chaudron : " .. tostring(message)))
         return
     end
     if command == "stock" then

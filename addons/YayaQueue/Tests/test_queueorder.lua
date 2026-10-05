@@ -260,6 +260,17 @@ d = QueueOrder.Describe(Entry("pierre directe", {
 }), 1, CTX)
 equals("un achat direct n'est pas prioritaire", d.isPriorityPhilosopherStone, false)
 
+d = QueueOrder.Describe(Entry("chaudron", { cauldronRecipe = true, cauldronOrder = 110 }), 1, CTX)
+equals("recette chaudron reconnue", d.isCauldronRecipe, true)
+equals("ordre chaudron lu", d.cauldronOrder, 110)
+
+equals("les recettes chaudron suivent leur ordre Moxie",
+    SortedNames({
+        Entry("flasque 50", { cauldronRecipe = true, cauldronOrder = 300 }),
+        Entry("potion 25", { cauldronRecipe = true, cauldronOrder = 100 }),
+        Entry("phial 25", { cauldronRecipe = true, cauldronOrder = 110 }),
+    }, "standard"), "potion 25,phial 25,flasque 50")
+
 -- ---------------------------------------------------------------------------
 -- Cascade standard, cran par cran
 -- ---------------------------------------------------------------------------

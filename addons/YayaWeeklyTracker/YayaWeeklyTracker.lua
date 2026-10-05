@@ -65,24 +65,10 @@ local INTO_DREAMS_QUEST_ID = 58631
 local CORRUPTORS_END_QUEST_ID = 58632
 local ACCESSING_THE_ARCHIVES_QUEST_ID = 57524
 local CHASING_MADNESS_QUEST_ID = 57405
-local LEGION_ARCHAEOLOGY_GOLD_LABEL = "Archeo Legion 5000g dispo"
-local LEGION_ARCHAEOLOGY_GOLD_ROTATION_DAYS = 13 * 14
-local LEGION_ARCHAEOLOGY_GOLD_WINDOW_DAYS = 14
 local MIDNIGHT_UNALLOYED_ABUNDANCE_CURRENCY_ID = 3377
 local MIDNIGHT_KNOWLEDGE_BOOK_MOXIE_COST = 75
 local MIDNIGHT_KNOWLEDGE_BOOK_ABUNDANCE_COST = 1600
 local MIDNIGHT_RECIPE_MOXIE_COST = 150
-local LEGION_ARCHAEOLOGY_GOLD_EU_START_DATE = {
-    year = 2025,
-    month = 4,
-    day = 2,
-}
-local LEGION_ARCHAEOLOGY_GOLD_QUEST_IDS = {
-    41174, -- Worth Its Weight
-    41175, -- Fit for an Elven Queen
-    41176, -- Sifting Through the Rubble
-}
-
 local MIDNIGHT_PROFESSION_CONFIGS = {
     [2906] = {
         order = 1,
@@ -1575,7 +1561,6 @@ runtimeState.trackingOptions = {
     { category = "Autres rappels", key = "trackJard", default = true, label = "Jard" },
     { category = "Autres rappels", key = "trackContainingTheHelsworn", default = true, label = "Containing the Helsworn (gold brut)" },
     { category = "Autres rappels", key = "trackGreatVault", default = true, label = "Great Vault a ouvrir" },
-    { category = "Autres rappels", key = "trackLegionArchaeologyGold", default = true, label = "Archeo Legion 5000g" },
     { category = "Metiers Midnight", key = "trackTreatises", label = "Traites (inscription)" },
     { category = "Metiers Midnight", key = "trackProfessionWeeklies", label = "Weeklies metiers (trainer)" },
     { category = "Metiers Midnight", key = "trackProfessionDarkmoon", label = "DMF metiers" },
@@ -3079,33 +3064,6 @@ local function FindActiveQuest(candidates, activeByQuestID)
             return questID
         end
     end
-end
-
-local function IsLegionArchaeologyGoldRotationActive()
-    if not (time and date) then
-        return false
-    end
-
-    local anchorTimestamp = GetDateAtNoonTimestamp(LEGION_ARCHAEOLOGY_GOLD_EU_START_DATE)
-    local now = GetNow()
-    local todayParts = date("*t", now)
-    local todayTimestamp = todayParts and GetDateAtNoonTimestamp(todayParts)
-    if not anchorTimestamp or not todayTimestamp then
-        return false
-    end
-
-    local diffDays = math.floor((todayTimestamp - anchorTimestamp) / 86400)
-    local cycleDay = diffDays % LEGION_ARCHAEOLOGY_GOLD_ROTATION_DAYS
-    if cycleDay < 0 then
-        cycleDay = cycleDay + LEGION_ARCHAEOLOGY_GOLD_ROTATION_DAYS
-    end
-
-    return cycleDay < LEGION_ARCHAEOLOGY_GOLD_WINDOW_DAYS
-end
-
-local function IsLegionArchaeologyGoldQuestAvailable(activeByQuestID)
-    return FindActiveQuest(LEGION_ARCHAEOLOGY_GOLD_QUEST_IDS, activeByQuestID) ~= nil
-        or IsLegionArchaeologyGoldRotationActive()
 end
 
 local function RequestQuestRewardData(questID)
@@ -9868,14 +9826,6 @@ trackerUI.BuildEntries = function(trackedRows)
     local questLog = GetQuestLogSnapshot()
     local activeByQuestID = BuildQuestLogLookups(questLog)
     local accountDB = GetAccountDB()
-
-    if accountDB.trackLegionArchaeologyGold ~= false
-        and IsLegionArchaeologyGoldQuestAvailable(activeByQuestID) then
-        AddEntry(entries, LEGION_ARCHAEOLOGY_GOLD_LABEL, "todo", {
-            prominent = true,
-            displayText = LEGION_ARCHAEOLOGY_GOLD_LABEL,
-        })
-    end
 
     -- Ligne hebdo masquee pour le moment.
     -- local majorQuestID = FindActiveQuest(NZOTH_MAJOR_ASSAULTS)

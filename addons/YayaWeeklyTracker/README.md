@@ -6,7 +6,6 @@ Le raccourci commun Yaya, configurable dans les raccourcis clavier des options B
 
 Mini addon Retail qui affiche une petite frame a cote du `PlayerFrame` pour suivre :
 
-- `Archeo Legion 5000g dispo` en premiere ligne si la rotation `Worth Its Weight` est active
 - `Visions N'Zoth (hebdo)` via l'assaut majeur actif
 - `Visions N'Zoth (bi-hebdo)` via l'assaut mineur actif
 - `Jard`
@@ -208,7 +207,7 @@ La frame est ancree par son coin haut gauche et s'etend vers le bas droite. Sa p
 Dans `Echap > Options > AddOns > Yaya Weekly Tracker` (ou `/ywt options`), le panneau est construit par le socle partage `YayaCore.Settings` a partir des descripteurs de l'addon : un rail de douze categories a gauche (`Affichage`, `Chat et journal`, `Quetes generales`, `Quetes Midnight`, `Ressources Midnight`, `Autres rappels`, `Metiers Midnight`, `Metiers affiches et ordre`, `TomTom`, `Marchand Abondance`, `Conteneurs`, `Recettes Midnight`), une page scrollable par categorie a droite, et sur chaque page des cases a cocher, des sliders pour les seuils numeriques, des listes deroulantes pour les choix fermes et, pour les metiers, une liste ordonnee avec une case de visibilite et des fleches `^` / `v` par ligne. Les widgets relisent la base a chaque ouverture du panneau et chaque changement declenche un rafraichissement du tracker. Les options account-wide permettent de :
 
 - cacher integralement la frame en combat (desactive par defaut)
-- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des world bosses Val/Naigtal, du world boss selon gold ou ilvl, de la weekly de Halduron, des `Sparks of Tides`, du `Shard of Dundun` au plafond, de `Jard`, de `Containing the Helsworn`, du `Great Vault`, de l'`Archeo Legion 5000g`, des traites, des weeklies metiers trainer, du DMF metiers, des loots metiers, du dez Enchantement, de l'equipement de metier (outils, accessoires et enchantements), des recettes Midnight historiques (tous actifs par defaut), des recettes Knowledge, reputation, PvP, tresors/donjons, decouvertes/recyclage, trainer, chaudron et vendeur de metier (Knowledge, reputation, PvP, tresors/donjons et decouvertes/recyclage desactives par defaut), de `Lost Legends` et de `Research Console: Exploring the Void`
+- activer ou desactiver le tracking d'`Abondance`, de la `Soiree`, de `Neighborhood`, de `Liadrin`, des world bosses Val/Naigtal, du world boss selon gold ou ilvl, de la weekly de Halduron, des `Sparks of Tides`, du `Shard of Dundun` au plafond, de `Jard`, de `Containing the Helsworn`, du `Great Vault`, des traites, des weeklies metiers trainer, du DMF metiers, des loots metiers, du dez Enchantement, de l'equipement de metier (outils, accessoires et enchantements), des recettes Midnight historiques (tous actifs par defaut), des recettes Knowledge, reputation, PvP, tresors/donjons, decouvertes/recyclage, trainer, chaudron et vendeur de metier (Knowledge, reputation, PvP, tresors/donjons et decouvertes/recyclage desactives par defaut), de `Lost Legends` et de `Research Console: Exploring the Void`
 - activer l'achat automatique des sacs de materiaux d'enchantement du marchand d'Abondance (desactive par defaut)
 - activer l'achat automatique des `Fused Vitality` du marchand d'Abondance (desactive par defaut)
 - n'enchanter que les outils de metier **lies** (`professionGearEnchantBoundToolsOnly`, actif par defaut) : une copie que le client declare non liee est tenue pour destinee a la revente et n'est pas enchantee, sans cesser de compter comme possedee
@@ -264,7 +263,6 @@ Hypotheses actuellement codees :
 
 - `Visions N'Zoth` = assauts actifs BFA, debloques via `Restored Hope` (`56542`)
 - `Containing the Helsworn` (`64273`) est trackee uniquement si la recompense est du gold brut
-- `Archeo Legion 5000g dispo` = rotation EU `Worth Its Weight` (`41174` -> `41176`), avec debut d'ancrage le `2025-04-02`
 
 IDs utilises :
 
@@ -283,9 +281,6 @@ IDs utilises :
 - `Research Console: Exploring the Void` = `94790`
 - weekly `Neighborhood` = `95413`, `95416`, `95438`, `95440` (breadcrumbs `95439`, `95482`)
 - weekly de Liadrin = wrapper `93744`; objectifs `93766`, `93767`, `93769`, `93889`, `93890`, `93892`, `93909`, `93910`, `93911`, `93912`, `93913`, `94457`, `95842`, `95843`
-- `Worth Its Weight` = `41174`
-- `Fit for an Elven Queen` = `41175`
-- `Sifting Through the Rubble` = `41176`
 - `Cache of the Black Empire` = `173372`
 - `Cache of the Fallen Mogu` = `174958`
 - `Cache of the Mantid Swarm` = `174959`

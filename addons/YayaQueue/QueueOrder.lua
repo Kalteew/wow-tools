@@ -90,6 +90,7 @@ function QueueOrder.Describe(entry, index, ctx)
         currentProfessionKey = ctx.professionKey(currentProfessionID)
     end
     local isMerge = entry.queueKind == "merge"
+    local isCauldronRecipe = entry.cauldronRecipe == true
     local isMilling = entry.isMillingRecipe == true
     if type(ctx.isMillingRecipe) == "function" then
         isMilling = ctx.isMillingRecipe(entry) == true
@@ -100,12 +101,13 @@ function QueueOrder.Describe(entry, index, ctx)
         and entry.queueKind ~= "direct_item"
         and not isMerge
         and not isSalvage
+        and not isCauldronRecipe
     local gearRank = 0
     if type(ctx.gearRank) == "function" then
         gearRank = tonumber(ctx.gearRank(entry)) or 0
     end
     local hasMaterials = true
-    if isNormalCraft and type(ctx.hasMaterials) == "function" then
+    if not isCauldronRecipe and isNormalCraft and type(ctx.hasMaterials) == "function" then
         hasMaterials = ctx.hasMaterials(entry) ~= false
     end
     local hasKnownProfit = entry.profitKnown == true and type(entry.profitValue) == "number"
@@ -124,6 +126,8 @@ function QueueOrder.Describe(entry, index, ctx)
             and professionKey ~= nil
             and professionKey == currentProfessionKey,
         isMerge = isMerge,
+        isCauldronRecipe = isCauldronRecipe,
+        cauldronOrder = isCauldronRecipe and (tonumber(entry.cauldronOrder) or math.huge) or nil,
         professionID = tonumber(entry.professionID) or nil,
         professionKey = professionKey,
         isNormalCraft = isNormalCraft,
@@ -159,6 +163,18 @@ local function CompareMerge(left, right)
     end
     if left.isMerge and left.mergeDepth ~= right.mergeDepth then
         return left.mergeDepth < right.mergeDepth
+    end
+    return nil
+end
+
+-- Les recettes du chaudron sont un plan explicite : elles passent avant les
+-- crafts generiques et conservent l'ordre Moxie choisi par CauldronPlan.
+local function CompareCauldron(left, right)
+    if left.isCauldronRecipe ~= right.isCauldronRecipe then
+        return left.isCauldronRecipe
+    end
+    if left.isCauldronRecipe and left.cauldronOrder ~= right.cauldronOrder then
+        return left.cauldronOrder < right.cauldronOrder
     end
     return nil
 end
@@ -229,6 +245,10 @@ function QueueOrder.Compare(left, right, mode)
     end
     if left.isSalvage ~= right.isSalvage then
         return left.isSalvage
+    end
+    local cauldronResult = CompareCauldron(left, right)
+    if cauldronResult ~= nil then
+        return cauldronResult
     end
     local materialsResult = CompareMaterials(left, right)
     if materialsResult ~= nil then
