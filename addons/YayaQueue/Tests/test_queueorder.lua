@@ -243,6 +243,70 @@ equals("les fusions gardent leur priorite de dependance",
         Entry("fusion", { queueKind = "merge", testHasMaterials = false }),
     }, "standard", MATERIAL_CTX), "fusion,pret")
 
+-- Un craft que le jeu refuse (cooldown a zero charge, craft suspendu) ne doit
+-- jamais rester en tete : Next proposait « Craft x2 » sur Bouquet of Herbs sans
+-- charge, le jeu repondait UNIT_SPELLCAST_FAILED, et la file ne bougeait plus.
+local BLOCKED_CTX = {
+    claimedOrderID = CLAIMED_ORDER,
+    currentProfessionID = OPEN_PROFESSION,
+    gearRank = GearRank,
+    hasMaterials = function(entry)
+        return entry.testHasMaterials ~= false
+    end,
+    isCraftBlocked = function(entry)
+        return entry.testCraftBlocked == true
+    end,
+}
+
+d = QueueOrder.Describe(Entry("sur cooldown", { testCraftBlocked = true }), 1, BLOCKED_CTX)
+equals("craft bloque par le jeu expose", d.craftBlocked, true)
+equals("rang de disponibilite : bloque par le jeu", d.availabilityRank, 2)
+d = QueueOrder.Describe(Entry("sans materiaux", { testHasMaterials = false }), 1, BLOCKED_CTX)
+equals("rang de disponibilite : attend des materiaux", d.availabilityRank, 1)
+d = QueueOrder.Describe(Entry("pret"), 1, BLOCKED_CTX)
+equals("rang de disponibilite : peut avancer", d.availabilityRank, 0)
+d = QueueOrder.Describe(Entry("pret"), 1, CTX)
+equals("sans predicat injecte, rien n'est bloque", d.craftBlocked, false)
+
+equals("un craft sur cooldown passe apres un craft pret, meme tres rentable",
+    SortedNames({
+        Entry("cooldown", { testCraftBlocked = true, profitKnown = true, profitValue = 9999 }),
+        Entry("pret", { profitKnown = true, profitValue = 1 }),
+    }, "standard", BLOCKED_CTX), "pret,cooldown")
+
+equals("... et apres un craft qui attend des materiaux (l'HV le debloque, pas le temps)",
+    SortedNames({
+        Entry("cooldown", { testCraftBlocked = true }),
+        Entry("sans materiaux", { testHasMaterials = false }),
+    }, "standard", BLOCKED_CTX), "sans materiaux,cooldown")
+
+for _, mode in ipairs(QueueOrder.MODES) do
+    equals("le bouton Next ne tombe jamais sur le craft bloque (mode " .. mode .. ")",
+        BestName({
+            Entry("cooldown", { testCraftBlocked = true }),
+            Entry("pret"),
+        }, mode, BLOCKED_CTX), "pret")
+end
+
+equals("seul craft restant bloque : il reste designe, Next dit pourquoi",
+    BestName({ Entry("cooldown", { testCraftBlocked = true }) }, "standard", BLOCKED_CTX),
+    "cooldown")
+
+equals("une commande de patron n'est jamais classee comme craft bloque",
+    SortedNames({
+        Entry("cooldown", { testCraftBlocked = true }),
+        Entry("patron", { queueKind = "patron", orderID = 12 }),
+    }, "standard", BLOCKED_CTX), "patron,cooldown")
+d = QueueOrder.Describe(
+    Entry("patron", { queueKind = "patron", orderID = 12, testCraftBlocked = true }), 1, BLOCKED_CTX)
+equals("... meme si le predicat repond oui pour elle", d.craftBlocked, false)
+
+equals("la commande claim reste devant un craft pret",
+    SortedNames({
+        Entry("pret"),
+        Entry("claim", { queueKind = "patron", orderID = CLAIMED_ORDER, professionID = 2913 }),
+    }, "standard", BLOCKED_CTX), "claim,pret")
+
 d = QueueOrder.Describe(Entry("pierre", {
     outputItemID = PHILOSOPHER_STONE_ITEM_ID,
 }), 1, CTX)

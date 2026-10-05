@@ -324,6 +324,10 @@ local state = {
         attempts = 0,
         timerQueued = false,
     },
+    -- Echecs de cast consecutifs par recette (disjoncteur) et reveils armes
+    -- pour re-evaluer le bouton Next quand un cooldown ou une pause se termine.
+    craftFailures = {},
+    craftLimitWake = {},
     cauldronAutoQueue = {
         pending = false,
         attempts = 0,
@@ -5197,42 +5201,229 @@ alchemyAuto.IsAlchemyProfession = function(professionID)
     return info and tonumber(info.profession) == 171 or false
 end
 
-alchemyAuto.GetRecipeAvailableCharges = function(recipeID, recipeInfo)
-    if type(C_TradeSkillUI) == "table" and type(C_TradeSkillUI.GetRecipeCooldown) == "function" then
-        local ok, currentCooldown, isDayCooldown, currentCharges, maxCharges = pcall(
-            C_TradeSkillUI.GetRecipeCooldown,
-            recipeID
-        )
-        if ok then
-            currentCooldown = tonumber(currentCooldown) or 0
-            currentCharges = tonumber(currentCharges)
-            maxCharges = tonumber(maxCharges)
-            if maxCharges and maxCharges > 0 then
-                return math.min(maxCharges, math.max(0, math.floor(currentCharges or 0)))
-            end
-            if isDayCooldown == true then
-                return currentCooldown > 0 and 0 or 1
-            end
-        end
+--- Etat de cooldown d'une recette de metier : l'unique lecture du fichier.
+--
+-- Rend `hasCooldown, available, remaining, maxCharges, source` :
+--   hasCooldown  vrai des que le client signale un cooldown (charges, cooldown
+--                de jour ou cooldown en cours) ; faux pour une recette ordinaire.
+--   available    crafts possibles MAINTENANT (0 = sur cooldown), nil si illisible.
+--   remaining    secondes avant la prochaine charge, nil si inconnu.
+--   maxCharges   plafond de charges, nil hors recette a charges.
+--   source       oracle qui a tranche, pour la trace.
+--
+-- Un cooldown illisible (valeur secrete, appel qui leve) rend `true, nil` et
+-- jamais « disponible » : la mise en file attend, le bouton Next ne bloque pas.
+--
+-- Ne jamais replier sur `recipeInfo.numAvailable` : c'est le nombre de crafts
+-- que les materiaux en sac permettent, sans rapport avec le cooldown. Ce repli
+-- mettait « Bouquet of Herbs x2 » en file parce que deux lots de materiaux
+-- tenaient en sac, alors que la recette etait sur cooldown : la file se
+-- bloquait sur un craft que le jeu refusait a chaque clic.
+state.GetRecipeCooldownState = function(recipeID)
+    recipeID = tonumber(recipeID)
+    if not recipeID
+        or type(C_TradeSkillUI) ~= "table"
+        or type(C_TradeSkillUI.GetRecipeCooldown) ~= "function"
+    then
+        return false
+    end
+    if type(C_Secrets) == "table"
+        and type(C_Secrets.ShouldCooldownsBeSecret) == "function"
+        and SafeCall(C_Secrets.ShouldCooldownsBeSecret) == true
+    then
+        return true, nil, nil, nil, "secret"
     end
 
+    local ok, hasCooldown, available, remaining, maxCharges, source = pcall(function()
+        local currentCooldown, isDayCooldown, currentCharges, maxChargesValue =
+            C_TradeSkillUI.GetRecipeCooldown(recipeID)
+        local cooldown = tonumber(currentCooldown)
+        local charges = tonumber(currentCharges)
+        local maximum = tonumber(maxChargesValue)
+        if maximum and maximum > 0 then
+            return true,
+                charges and math.min(maximum, math.max(0, math.floor(charges))) or nil,
+                cooldown, maximum, "charges"
+        end
+        if cooldown and cooldown > 0 then
+            -- Certaines recettes ne se declarent ni « jour » ni « a charges »
+            -- et n'exposent leur cooldown que tant qu'il court.
+            return true, 0, cooldown, nil, "cooldown"
+        end
+        if isDayCooldown == true then
+            return true, 1, nil, nil, "day-ready"
+        end
+        return false
+    end)
+    if not ok then
+        return true, nil, nil, nil, "unreadable"
+    end
+    if hasCooldown then
+        return hasCooldown, available, remaining, maxCharges, source
+    end
+
+    -- Second oracle : le sort de la recette porte lui-meme ses charges. Depuis
+    -- C_Spell, GetSpellCharges rend UNE table (et non des valeurs multiples).
     if type(C_Spell) == "table" and type(C_Spell.GetSpellCharges) == "function" then
-        local ok, currentCharges, maxCharges = pcall(C_Spell.GetSpellCharges, recipeID)
-        if ok and type(currentCharges) == "number" and type(maxCharges) == "number" and maxCharges > 0 then
-            return math.max(0, math.floor(currentCharges))
+        local spellOK, spellHasCharges, spellAvailable, spellMaximum = pcall(function()
+            local info = C_Spell.GetSpellCharges(recipeID)
+            if type(info) ~= "table" then
+                return false
+            end
+            local maximum = tonumber(info.maxCharges)
+            if not maximum or maximum <= 0 then
+                return false
+            end
+            local charges = tonumber(info.currentCharges)
+            return true,
+                charges and math.min(maximum, math.max(0, math.floor(charges))) or nil,
+                maximum
+        end)
+        if spellOK and spellHasCharges then
+            return true, spellAvailable, nil, spellMaximum, "spell-charges"
         end
     end
-    if type(GetSpellCharges) == "function" then
-        local ok, currentCharges, maxCharges = pcall(GetSpellCharges, recipeID)
-        if ok and type(currentCharges) == "number" and type(maxCharges) == "number" and maxCharges > 0 then
-            return math.max(0, math.floor(currentCharges))
-        end
-    end
-    local recipeCharges = recipeInfo and tonumber(recipeInfo.numAvailable)
-    if recipeCharges ~= nil then
-        return math.max(0, math.floor(recipeCharges))
+    return false
+end
+
+-- Charges de cooldown utilisables maintenant, nil quand le client n'en dit
+-- rien de fiable (recette ordinaire, donnees pas chargees, valeur secrete).
+alchemyAuto.GetRecipeAvailableCharges = function(recipeID)
+    local hasCooldown, available = state.GetRecipeCooldownState(recipeID)
+    if hasCooldown then
+        return available
     end
     return nil
+end
+
+-- Objet CraftSim optionnel, partage par les lecteurs de cooldown partage.
+alchemyAuto.GetCraftSim = function()
+    if type(_G.CraftSimAPI) ~= "table" or type(_G.CraftSimAPI.GetCraftSim) ~= "function" then
+        return nil
+    end
+    local okCraftSim, craftSim = pcall(_G.CraftSimAPI.GetCraftSim, _G.CraftSimAPI)
+    return okCraftSim and type(craftSim) == "table" and craftSim or nil
+end
+
+-- Disjoncteur : trois echecs de cast consecutifs de la meme recette en moins
+-- de cinq secondes suspendent son craft pendant quinze secondes. Garde-fou
+-- general : sans lui, un craft que le jeu refuse (cooldown mal lu, outil, etc.)
+-- rejouait l'echec a chaque clic, des dizaines de fois par seconde sous
+-- autoclicker, et la file ne progressait plus jamais.
+state.CRAFT_FAILURE_STREAK = 3
+state.CRAFT_FAILURE_WINDOW_SECONDS = 5
+state.CRAFT_FAILURE_PARK_SECONDS = 15
+
+state.NoteCraftFailure = function(recipeID)
+    recipeID = tonumber(recipeID)
+    if not recipeID then
+        return false
+    end
+    local now = GetTime()
+    local failure = state.craftFailures[recipeID]
+    if not failure or now - (failure.lastAt or 0) > state.CRAFT_FAILURE_WINDOW_SECONDS then
+        failure = { count = 0 }
+        state.craftFailures[recipeID] = failure
+    end
+    failure.count = failure.count + 1
+    failure.lastAt = now
+    if failure.count >= state.CRAFT_FAILURE_STREAK then
+        failure.count = 0
+        failure.parkedUntil = now + state.CRAFT_FAILURE_PARK_SECONDS
+        DebugPrint(
+            "craft-failure-park recipe=" .. tostring(recipeID)
+                .. " seconds=" .. tostring(state.CRAFT_FAILURE_PARK_SECONDS)
+        )
+        return true
+    end
+    return false
+end
+
+state.ClearCraftFailure = function(recipeID)
+    recipeID = tonumber(recipeID)
+    if recipeID then
+        state.craftFailures[recipeID] = nil
+    end
+end
+
+--- Ce qui limite le craft d'une entree maintenant, nil si rien ne la limite.
+--
+-- Rend `{ available, remaining, reason }` : `available` est le nombre de crafts
+-- permis tout de suite (0 = rien ne peut partir), `reason` vaut "cooldown"
+-- (charges ou cooldown de la recette) ou "failures" (disjoncteur). Seules les
+-- entrees de craft ordinaires sont concernees ; un cooldown illisible ne limite
+-- pas (le disjoncteur reste le filet).
+state.GetEntryCraftLimit = function(entry)
+    if type(entry) ~= "table" or entry.queueKind ~= nil or entry.isSalvageRecipe == true then
+        return nil
+    end
+    local recipeID = tonumber(entry.recipeID)
+    if not recipeID then
+        return nil
+    end
+
+    local failure = state.craftFailures[recipeID]
+    local parkedUntil = failure and tonumber(failure.parkedUntil)
+    if parkedUntil then
+        local left = parkedUntil - GetTime()
+        if left > 0 then
+            return { available = 0, remaining = left, reason = "failures" }
+        end
+        failure.parkedUntil = nil
+    end
+
+    local hasCooldown, available, remaining = state.GetRecipeCooldownState(recipeID)
+    if not hasCooldown or available == nil then
+        return nil
+    end
+    return { available = available, remaining = remaining, reason = "cooldown" }
+end
+
+--- Crafts qu'une recette a cooldown peut encore absorber : les charges
+--- disponibles moins celles que la file reserve deja (cooldown partage compris).
+--- nil pour une recette sans cooldown lisible, qui n'est donc pas plafonnee.
+state.GetRecipeCooldownCap = function(recipeID)
+    local hasCooldown, available = state.GetRecipeCooldownState(recipeID)
+    if not hasCooldown or available == nil then
+        return nil
+    end
+    local craftSim = alchemyAuto.GetCraftSim()
+    local reserved = alchemyAuto.GetQueuedCooldownReservations(craftSim)[
+        alchemyAuto.GetCooldownKey(recipeID, craftSim)
+    ] or 0
+    return math.max(0, available - reserved)
+end
+
+--- Reveille le bouton Next quand la limite d'un craft doit se lever.
+--
+-- Un etat « Next: cooldown » ne change que par le temps : sans reveil, rien ne
+-- le rafraichissait et le bouton restait fige jusqu'au prochain evenement.
+-- Un seul reveil par recette ; borne a cinq minutes pour reverifier un
+-- cooldown long, ou trente secondes quand la duree est inconnue.
+state.ScheduleCraftLimitWake = function(recipeID, limit)
+    recipeID = tonumber(recipeID)
+    if not recipeID then
+        return
+    end
+    local now = GetTime()
+    local delay = tonumber(limit and limit.remaining)
+    if delay and delay > 0 then
+        delay = math.min(delay + 1, 300)
+    else
+        delay = 30
+    end
+    local due = now + delay
+    local armed = state.craftLimitWake[recipeID]
+    if armed and armed > now and armed <= due then
+        return
+    end
+    state.craftLimitWake[recipeID] = due
+    C_Timer.After(delay, function()
+        if state.craftLimitWake[recipeID] == due then
+            state.craftLimitWake[recipeID] = nil
+        end
+        ScheduleRefresh()
+    end)
 end
 
 local function IsInscriptionProfession(professionID)
@@ -5798,11 +5989,7 @@ alchemyAuto.QueueBouquetAndRecycling = function()
         end
     end
 
-    local okCraftSim, craftSim = pcall(
-        _G.CraftSimAPI and _G.CraftSimAPI.GetCraftSim,
-        _G.CraftSimAPI
-    )
-    craftSim = okCraftSim and type(craftSim) == "table" and craftSim or nil
+    local craftSim = alchemyAuto.GetCraftSim()
     local cooldownReservations = alchemyAuto.GetQueuedCooldownReservations(craftSim)
     local pendingRecipes = {}
     for _, recipeID in ipairs({
@@ -5815,9 +6002,16 @@ alchemyAuto.QueueBouquetAndRecycling = function()
                 return nil
             end
             if recipeInfo.learned ~= false then
-                local availableCharges = alchemyAuto.GetRecipeAvailableCharges(recipeID, recipeInfo)
-                if availableCharges == nil then
-                    DebugPrint("alchemy-auto wait reason=cooldown recipe=" .. tostring(recipeID))
+                local hasCooldown, availableCharges, _, _, cooldownSource =
+                    state.GetRecipeCooldownState(recipeID)
+                if not hasCooldown or availableCharges == nil then
+                    -- Aucune lecture fiable : on attend, on ne devine pas. Le
+                    -- nombre de crafts que les materiaux permettent n'est pas
+                    -- un nombre de charges.
+                    DebugPrint(
+                        "alchemy-auto wait reason=cooldown recipe=" .. tostring(recipeID)
+                            .. " source=" .. tostring(cooldownSource or "none")
+                    )
                     return nil
                 end
 
@@ -5828,6 +6022,7 @@ alchemyAuto.QueueBouquetAndRecycling = function()
                     "alchemy-auto recipe=" .. tostring(recipeID)
                         .. " cooldownKey=" .. tostring(cooldownKey)
                         .. " charges=" .. tostring(availableCharges)
+                        .. " source=" .. tostring(cooldownSource)
                         .. " reserved=" .. tostring(reservedCharges)
                         .. " craftsToQueue=" .. tostring(craftsToQueue)
                         .. " queueBefore=" .. tostring(alchemyAuto.GetQueuedRecipeCrafts(recipeID))
@@ -5925,6 +6120,14 @@ function YQQuality.ScheduleAutoQueueAlchemy(delay)
             YQQuality.ScheduleAutoQueueAlchemy(0.1)
         else
             autoQueue.pendingProfessionID = false
+            if result == true then
+                -- Passe aboutie : plus de relance avant la prochaine ouverture.
+                -- TRADE_SKILL_LIST_UPDATE et TRADE_SKILL_DETAILS_UPDATE
+                -- arrivent en rafale tant que la fenetre est ouverte, et
+                -- chaque relance relisait toutes les recettes et pouvait
+                -- remettre en file sur une lecture de cooldown transitoire.
+                autoQueue.completedProfessionID = tonumber(state.GetCurrentProfessionID())
+            end
             DebugPrint(
                 "alchemy-auto complete profession=" .. tostring(state.GetCurrentProfessionID())
                     .. " attempts=" .. tostring(autoQueue.attempts)
@@ -5936,9 +6139,18 @@ end
 
 local function StartAlchemyAutoQueue()
     local autoQueue = state.alchemyAutoQueue
+    if YQQuality.IsProgrammaticTradeSkillOpen() then
+        -- Ouverture amorcee par un autre addon : donnees de cooldown pas
+        -- chargees, et personne devant l'ecran. La vraie ouverture relancera.
+        DebugPrint("alchemy-auto skip reason=programmatic-open")
+        return
+    end
     local professionID = tonumber(state.GetCurrentProfessionID())
     if not alchemyAuto.IsAlchemyProfession(professionID) then
         autoQueue.pendingProfessionID = nil
+        return
+    end
+    if autoQueue.completedProfessionID == professionID then
         return
     end
     if autoQueue.pendingProfessionID == professionID then
@@ -6051,6 +6263,12 @@ state.GetQueueOrderContext = function()
         end,
         hasMaterials = function(entry)
             return state.GetQueueEntryHasMaterials(entry)
+        end,
+        -- Un craft que le jeu refuse maintenant (cooldown, echecs repetes) ne
+        -- doit pas rester en tete : il bloquerait Next sur un clic inutile.
+        isCraftBlocked = function(entry)
+            local limit = state.GetEntryCraftLimit(entry)
+            return limit ~= nil and limit.available <= 0
         end,
         gearRank = function(entry)
             return state.craftGear.GetEntrySortRank(entry)
@@ -6375,8 +6593,9 @@ end
 -- 5.1 autorise, et la depasser empeche l'addon entier de charger.
 local craftUI = {}
 
--- Teinte du badge de type, en tete de chaque ligne de la file.
-local CRAFT_KIND_TONE = {
+-- Teinte du badge de type, en tete de chaque ligne de la file. Champ de
+-- craftUI plutot que local de chunk : le fichier est au bord des 200.
+craftUI.KIND_TONE = {
     mailbox = "warning",
     acquire = "category",
     hv = "accent",
@@ -6443,7 +6662,7 @@ local function FormatCraftTask(task)
     -- La variante fait partie du nom de la ligne : deux demandes du meme itemID
     -- pour deux statistiques d'outil differentes sont autrement indiscernables.
     return ("%s %s%s%s"):format(
-        YayaCore.UI.Colorize(CRAFT_KIND_TONE[task.kind] or "text", task.badge),
+        YayaCore.UI.Colorize(craftUI.KIND_TONE[task.kind] or "text", task.badge),
         task.name or "?",
         task.quality or "",
         task.variantLabel and (" " .. YayaCore.UI.Colorize("accent", "<" .. task.variantLabel .. ">")) or ""
@@ -7169,11 +7388,31 @@ local function GetPatronNextButtonState()
             }
         end
 
+        -- Une recette sur cooldown (ou suspendue par le disjoncteur) n'est pas
+        -- un craft : proposer « Craft » rejouait un echec a chaque clic. Le tri
+        -- la range deja derriere les crafts possibles, donc on n'arrive ici que
+        -- si rien d'autre ne peut avancer.
+        local craftLimit = state.GetEntryCraftLimit(entry)
+        if craftLimit and craftLimit.available <= 0 then
+            state.ScheduleCraftLimitWake(entry.recipeID, craftLimit)
+            return {
+                entry = entry,
+                text = craftLimit.reason == "failures" and "Next: craft refuse" or "Next: cooldown",
+                enabled = false,
+                craftLimit = craftLimit,
+            }
+        end
+
         GetDirectCraftingReagents(entry)
         local hasCraftInfo = type(C_TradeSkillUI) == "table"
             and type(C_TradeSkillUI.CraftRecipe) == "function"
         local craftsRemaining = GetEntryCraftsRemaining(entry)
         local craftAmount = math.max(1, tonumber(craftsRemaining) or 1)
+        if craftLimit and craftLimit.available < craftAmount then
+            -- Un lot de deux crafts avec une seule charge : on lance ce qui peut
+            -- partir, le reste attend la charge suivante.
+            craftAmount = craftLimit.available
+        end
         if hasCraftInfo then
             local toolAction = state.craftGear.GetToolAction(entry, nil)
             if toolAction then
@@ -7471,6 +7710,27 @@ state.RunPatronNextAction = function()
         local reagentInfo = GetDirectCraftingReagents(stateInfo.entry)
         local applyConcentration = NormalizeApplyConcentration(stateInfo.entry.applyConcentration)
         local craftAmount = math.max(1, math.floor(tonumber(stateInfo.craftAmount) or 1))
+        -- Le bouton a pu etre calcule avant que le cooldown ne tombe a zero :
+        -- on relit la limite au moment du clic, avant d'armer quoi que ce soit
+        -- (phiole, suivi de remboursement), pour ne rien consommer pour un
+        -- craft que le jeu va refuser.
+        local craftLimit = state.GetEntryCraftLimit(stateInfo.entry)
+        if craftLimit then
+            if craftLimit.available <= 0 then
+                DebugPrint(
+                    "craft-blocked recipe=" .. tostring(stateInfo.entry.recipeID)
+                        .. " reason=" .. tostring(craftLimit.reason)
+                        .. " remaining=" .. tostring(craftLimit.remaining)
+                )
+                state.ah.statusMessage = craftLimit.reason == "failures"
+                    and "Craft suspendu apres des echecs"
+                    or "Recette sur cooldown"
+                state.ScheduleCraftLimitWake(stateInfo.entry.recipeID, craftLimit)
+                ScheduleRefresh()
+                return
+            end
+            craftAmount = math.min(craftAmount, craftLimit.available)
+        end
         if applyConcentration and YQQuality.IsConcentrationPhialEnabled() then
             local phialID = tonumber(stateInfo.entry.concentrationPhialItemID)
             if not phialID or phialID <= 0 then
@@ -7744,10 +8004,32 @@ state.IsPendingCraftSpell = function(spellID)
     return false
 end
 
+-- Un cast refuse d'emblee declenche UNIT_SPELLCAST_FAILED PENDANT l'appel de
+-- CraftRecipe, donc avant le post-hook qui declare le lot en attente. Sans
+-- cette memoire, le post-hook posait un lot « en attente » pour un craft qui
+-- n'avait jamais commence : il restait indefiniment et le premier sort reussi
+-- sans rapport (ouvrir un metier, une monture) le depilait en consommant a tort
+-- une entree de la file.
+state.NoteCastFailure = function(spellID)
+    state.lastCastFailure = { spellID = tonumber(spellID), at = GetTime() }
+end
+
+state.WasCraftFailedInCall = function(recipeID)
+    local failure = state.lastCastFailure
+    return failure ~= nil
+        and failure.spellID ~= nil
+        and failure.spellID == tonumber(recipeID)
+        and math.abs(GetTime() - failure.at) < 0.001
+end
+
 local function QueuePendingCraftRecipe(recipeID, amount)
     recipeID = tonumber(recipeID) or 0
     amount = math.max(1, math.floor(tonumber(amount) or 1))
     if recipeID <= 0 then
+        return
+    end
+    if state.WasCraftFailedInCall(recipeID) then
+        DebugPrint("pending-batch skip recipe=" .. tostring(recipeID) .. " reason=cast-failed-in-call")
         return
     end
 
@@ -8442,6 +8724,18 @@ local function GetConcentrationDumpState(schematicForm, headlessRecipeID)
         and math.min(CONFIG.MAX_QUEUE_QTY, math.floor(availableAfterQueue / concentrationCost))
         or 0
 
+    -- Une recette a charges ou sur cooldown n'absorbe pas plus de crafts que le
+    -- jeu n'en autorise, quelle que soit la concentration disponible : sans ce
+    -- plafond le dump mettait « Bouquet of Herbs x2 » en file avec zero charge,
+    -- et la file se bloquait sur un craft refuse a chaque clic. Les charges deja
+    -- reservees par la file (meme cooldown partage compris) sont deduites.
+    local cooldownCap = recipeID and maxQuantity > 0
+        and state.GetRecipeCooldownCap(recipeID)
+        or nil
+    if cooldownCap ~= nil then
+        maxQuantity = math.min(maxQuantity, cooldownCap)
+    end
+
     if context then
         context.professionID = tonumber(context.professionID) or state.GetCurrentProfessionID()
         context.applyConcentration = true
@@ -8463,8 +8757,27 @@ local function GetConcentrationDumpState(schematicForm, headlessRecipeID)
         availableForDump = availableAfterQueue,
         cost = concentrationCost,
         maxQuantity = maxQuantity,
+        cooldownCap = cooldownCap,
         context = context,
     }
+end
+
+--- Vrai quand un autre addon (YayaWeeklyTracker) vient d'ouvrir un metier sans
+--- action du joueur : amorcage des donnees, plan de specialisation.
+--
+-- Ces ouvertures declenchaient les automatismes d'ouverture (file Alchimie,
+-- dump de concentration, first crafts) alors que les donnees du metier n'etaient
+-- pas chargees, et consommaient le marqueur « traite pour cette session » :
+-- la vraie ouverture du joueur n'avait ensuite plus rien a faire. A lire de
+-- facon SYNCHRONE a la reception de l'evenement : les rappels differes
+-- s'executent apres la fermeture programmatique.
+function YQQuality.IsProgrammaticTradeSkillOpen()
+    local api = _G.YayaWeeklyTrackerAPI
+    if type(api) ~= "table" or type(api.IsProgrammaticTradeSkillOpen) ~= "function" then
+        return false
+    end
+    local ok, active = pcall(api.IsProgrammaticTradeSkillOpen)
+    return ok and active == true
 end
 
 function YQQuality.GetFirstFavoriteRecipeID(preferredRecipeID)
@@ -9580,30 +9893,25 @@ YQQuality.TryAutoQueueFavoriteConcentration = function()
         return
     end
 
+    -- Aucun garde « deja en file » : GetConcentrationDumpState soustrait deja
+    -- la concentration que la file reserve (et plafonne par les charges d'une
+    -- recette a cooldown), donc `maxQuantity` ne compte que ce qui est
+    -- reellement libre. Le garde bloquait le dump a chaque reouverture tant
+    -- qu'un lot precedent attendait d'etre crafte, meme quand de la
+    -- concentration s'etait regeneree depuis.
     state.EnsureDB()
-    local alreadyQueued = false
-    for _, entry in ipairs(db.queue) do
-        if entry.queueKind ~= "patron"
-            and tonumber(entry.professionID) == professionID
-            and tonumber(entry.recipeID) == favoriteRecipeID
-            and entry.applyConcentration == true then
-            alreadyQueued = true
-            break
-        end
-    end
-
-    if not alreadyQueued and dumpState.maxQuantity > 0 then
+    if dumpState.maxQuantity > 0 then
 		local batches, queuedQuantity = QueueConcentrationDump(nil, dumpState, "auto-favorite")
         DebugPrint("auto-favorite queued profession=" .. tostring(professionID) .. " recipe=" .. tostring(favoriteRecipeID) .. " quantity=" .. tostring(queuedQuantity) .. " batches=" .. tostring(batches and #batches or 0) .. " reserved=" .. tostring(dumpState.queuedReservation))
     else
-        DebugPrint("auto-favorite skip profession=" .. tostring(professionID) .. " recipe=" .. tostring(favoriteRecipeID) .. " queued=" .. tostring(alreadyQueued) .. " max=" .. tostring(dumpState.maxQuantity) .. " reserved=" .. tostring(dumpState.queuedReservation))
+        DebugPrint("auto-favorite skip profession=" .. tostring(professionID) .. " recipe=" .. tostring(favoriteRecipeID) .. " max=" .. tostring(dumpState.maxQuantity) .. " cooldownCap=" .. tostring(dumpState.cooldownCap) .. " reserved=" .. tostring(dumpState.queuedReservation))
     end
 
     autoQueue.handledFavoriteByProfession[professionID] = favoriteRecipeID
     autoQueue.pending = nil
 end
 
-local AUTO_REFUND_THROTTLE_SECONDS = 0.5
+YQQuality.AUTO_REFUND_THROTTLE_SECONDS = 0.5
 
 -- Reinjection du favori quand la concentration remonte, sans passer par le
 -- tracker de remboursement.
@@ -9617,7 +9925,7 @@ local AUTO_REFUND_THROTTLE_SECONDS = 0.5
 -- GetConcentrationDumpState soustrait deja les reservations de la queue, donc
 -- maxQuantity > 0 signifie que la concentration est reellement disponible en
 -- plus de tout ce qui est deja prevu.
-local function TryAutoQueueSpareFavoriteConcentration(reason)
+function YQQuality.TryAutoQueueSpareFavoriteConcentration(reason)
     if not YQQuality.IsIngenuityRefundAutoQueueEnabled() then
         return
     end
@@ -9635,7 +9943,7 @@ local function TryAutoQueueSpareFavoriteConcentration(reason)
     if now < (autoQueue.spareCheckAt or 0) then
         return
     end
-    autoQueue.spareCheckAt = now + AUTO_REFUND_THROTTLE_SECONDS
+    autoQueue.spareCheckAt = now + YQQuality.AUTO_REFUND_THROTTLE_SECONDS
 
     if not (ProfessionsFrame and ProfessionsFrame:IsShown()) then
         return
@@ -9690,8 +9998,6 @@ local function TryAutoQueueSpareFavoriteConcentration(reason)
             .. " batches=" .. tostring(batches and #batches or 0)
     )
 end
-
-YQQuality.TryAutoQueueSpareFavoriteConcentration = TryAutoQueueSpareFavoriteConcentration
 
 state.GetCurrentConcentrationAmount = function(currencyID)
     currencyID = tonumber(currencyID) or SafeCall(YQQuality.GetConcentrationCurrencyID, nil)
@@ -10554,6 +10860,28 @@ local function UpdateCraftPanel(summary)
     SetPanelHeightKeepingBottomLeft(state.craft.panel, height)
 
     local nextState = GetPatronNextButtonState()
+    -- Une trace par changement d'etat du bouton, avec les verrous qui peuvent le
+    -- figer : sans elle, « Next reste bloque » ne laissait aucun indice dans le
+    -- journal sur le libelle affiche ni sur ce qui le retenait.
+    if CONFIG.debugNextCraft then
+        local signature = nextState
+            and table.concat({
+                tostring(nextState.text),
+                tostring(nextState.enabled),
+                tostring(nextState.entry and nextState.entry.recipeID),
+            }, "|")
+            or "none"
+        if signature ~= state.lastNextSignature then
+            state.lastNextSignature = signature
+            DebugPrint(
+                "next-state " .. signature
+                    .. " nextLock=" .. tostring(state.nextActionLock and state.nextActionLock.action or "none")
+                    .. " clickLocked=" .. tostring((state.craftClickLockUntil or 0) > GetTime())
+                    .. " pendingEntries=" .. tostring(#state.pendingCraftEntries)
+                    .. " pendingBatches=" .. tostring(#state.pendingCraftBatches)
+            )
+        end
+    end
     if state.craft.nextButton then
         if nextState then
             state.craft.nextButton:SetShown(true)
@@ -11587,6 +11915,37 @@ function YQQuality.GetQueuedReagentReservations()
         end
     end
     return reservations
+end
+
+--- Previent YayaWeeklyTracker quand les reservations de finitions changent.
+--
+-- Sa fusion cinq-vers-un retranche les unites que la file reserve ; il lui faut
+-- donc rafraichir son bouton des qu'un dump ou un craft modifie ces
+-- reservations, sans attendre un evenement de sac. Un appel par changement de
+-- signature seulement : RefreshAll tourne tres souvent.
+function YQQuality.NotifyFinishingReservations()
+    local api = _G.YayaWeeklyTrackerAPI
+    if type(api) ~= "table" or type(api.InvalidateFinishingMerges) ~= "function" then
+        return false
+    end
+
+    local reservations = YQQuality.GetQueuedReagentReservations()
+    local itemIDs = {}
+    for itemID in pairs(CONFIG.FINISHING_REAGENT_ROLES) do
+        itemIDs[#itemIDs + 1] = itemID
+    end
+    table.sort(itemIDs)
+    local parts = {}
+    for _, itemID in ipairs(itemIDs) do
+        parts[#parts + 1] = tostring(itemID) .. ":" .. tostring(reservations[itemID] or 0)
+    end
+    local signature = table.concat(parts, ",")
+    if signature == state.finishingReservationSignature then
+        return false
+    end
+    state.finishingReservationSignature = signature
+    pcall(api.InvalidateFinishingMerges)
+    return true
 end
 
 function YQQuality.CreateMaterialPriceContext(reservations)
@@ -16292,7 +16651,11 @@ local function EnsureCraftingQueueButton(schematicForm)
     dumpConcentrationButton:SetScript("OnClick", function(self)
         local dumpState = GetConcentrationDumpState(self.schematicForm)
         if not (dumpState and dumpState.context and dumpState.maxQuantity > 0) then
-            Print("Concentration ou recette indisponible.")
+            if dumpState and dumpState.cooldownCap == 0 then
+                Print("Recette sur cooldown : aucune charge disponible.")
+            else
+                Print("Concentration ou recette indisponible.")
+            end
             return
         end
 
@@ -16313,6 +16676,13 @@ local function EnsureCraftingQueueButton(schematicForm)
                     .. dumpState.availableForDump .. " disponibles après la queue, " .. dumpState.cost .. " par craft).",
                 1, 1, 1, true
             )
+            if dumpState.cooldownCap ~= nil then
+                GameTooltip:AddLine(
+                    "Recette a cooldown : plafonnee a " .. dumpState.cooldownCap
+                        .. " craft(s) (charges disponibles moins celles deja en file).",
+                    1, 0.82, 0, true
+                )
+            end
         else
             GameTooltip:AddLine("Le cout de concentration de cette recette est indisponible.", 1, 0.25, 0.25, true)
         end
@@ -17548,6 +17918,7 @@ state.RefreshAll = function()
     YQQuality.EnsureShatterMoteDemandForEntry(GetNextQueueEntry())
     local summary = BuildQueueSummary()
     PruneSearchCache(summary)
+    pcall(YQQuality.NotifyFinishingReservations)
     CreateCraftPanel()
     if state.craft.panel then
         if SummaryHasTasks(summary) then
@@ -17685,13 +18056,23 @@ handle.TradeSkillShow = function(event, arg1, arg2, arg3)
         -- L'ouverture d'un metier ne rouvre pas l'optimisateur : seule la
         -- preference persistee decide, et c'est UpdateSelector qui la lit.
         state.craftGear.ScheduleScan()
+        -- Lu ICI, de facon synchrone : le rappel differe ci-dessous s'execute
+        -- apres la fermeture que YayaWeeklyTracker provoque au frame suivant.
+        local programmaticOpen = YQQuality.IsProgrammaticTradeSkillOpen()
         C_Timer.After(0, function()
             local professionID = state.GetCurrentProfessionID()
             local ycoAvailable = type(_G.YayaCraftingOrdersAPI) == "table"
             DebugPrint(
                 "event=TRADE_SKILL_SHOW profession=" .. tostring(professionID)
                     .. " yco=" .. tostring(ycoAvailable)
+                    .. " programmatic=" .. tostring(programmaticOpen)
             )
+            if programmaticOpen then
+                -- Ouverture amorcee par YayaWeeklyTracker, sans le joueur : les
+                -- automatismes attendent la vraie ouverture.
+                DebugPrint("event=TRADE_SKILL_SHOW skip reason=programmatic-open")
+                return
+            end
             -- Les deux automatismes d'ouverture sont debrayables separement
             -- (`autoQueueFavoriteConcentration`, `autoQueueAlchemy`).
             state.EnsureDB()
@@ -17912,7 +18293,14 @@ end
 handle.TradeSkillClose = function(event, arg1, arg2, arg3)
     if event == "TRADE_SKILL_CLOSE" then
         state.alchemyAutoQueue.pendingProfessionID = false
+        state.alchemyAutoQueue.completedProfessionID = nil
         state.alchemyAutoQueue.attempts = 0
+        -- Chaque ouverture du metier relance le dump du favori : le marqueur
+        -- « traite » ne vaut que pour la fenetre qui vient de se fermer. La
+        -- concentration deja reservee par la file est deduite par
+        -- GetConcentrationDumpState, donc une reouverture sans regain ne met
+        -- rien de plus en file.
+        state.autoFavoriteConcentration.handledFavoriteByProfession = {}
         state.autoFavoriteConcentration.spareObservedAmount = {}
         state.firstCraftAvailability = {}
         state.craft.qualityTarget = nil
@@ -18098,6 +18486,23 @@ handle.UnitSpellcastSucceeded = function(event, arg1, arg2, arg3)
             arg3,
             "castGUID=" .. tostring(arg2) .. " spellID=" .. tostring(arg3)
         )
+        -- Un sort reussi qui n'est pas le craft attendu (monture, ouverture d'un
+        -- metier) ne consomme rien : il depilait un lot ou une entree en
+        -- attente d'une autre recette et decrementait la file a tort. Meme
+        -- identite que le filtre des echecs de cast, qui ne purge que le craft
+        -- suivi.
+        if castSpellID
+            and (#state.pendingCraftEntries > 0 or #state.pendingCraftBatches > 0)
+            and not state.IsPendingCraftSpell(castSpellID)
+        then
+            DebugPrint(
+                "event=UNIT_SPELLCAST_SUCCEEDED ignored spellID=" .. tostring(castSpellID)
+                    .. " name=" .. tostring(state.GetSpellNameForDebug(castSpellID))
+                    .. " pendingEntries=" .. tostring(#state.pendingCraftEntries)
+                    .. " pendingBatches=" .. tostring(#state.pendingCraftBatches)
+            )
+            return true
+        end
         local pendingEntry = state.PopPendingCraftEntry()
         local recipeName = ConsumeCraftEntry(pendingEntry)
         if not recipeName then
@@ -18113,6 +18518,10 @@ handle.UnitSpellcastSucceeded = function(event, arg1, arg2, arg3)
                 .. " spellID=" .. tostring(arg3)
                 .. " matched=" .. tostring(recipeName ~= nil)
         )
+        if recipeName and pendingEntry then
+            -- Un craft abouti remet la serie d'echecs a zero.
+            state.ClearCraftFailure(pendingEntry.recipeID)
+        end
         local favoriteTracker = state.autoFavoriteConcentration.tracker
         if favoriteTracker and favoriteTracker.awaitingCraft
             and pendingEntry
@@ -18194,6 +18603,13 @@ handle.SpellcastAborted = function(event, arg1, arg2, arg3)
                 return
             end
             DebugPrint("event=" .. tostring(event) .. " spellID=" .. tostring(abortedSpellID) .. " name=" .. tostring(state.GetSpellNameForDebug(abortedSpellID)) .. " pendingEntries=" .. tostring(#state.pendingCraftEntries) .. " pendingBatches=" .. tostring(#state.pendingCraftBatches))
+            -- Un cast refuse d'emblee (et non interrompu par un mouvement) est
+            -- compte par le disjoncteur : le meme craft refuse trois fois de
+            -- suite est suspendu au lieu d'etre rejoue a chaque clic.
+            if event == "UNIT_SPELLCAST_FAILED" then
+                state.NoteCraftFailure(abortedSpellID)
+                state.NoteCastFailure(abortedSpellID)
+            end
             ClearPendingCraftBatches()
             state.ClearPendingCraftEntries()
             EndCraftClickLock()
@@ -18922,10 +19338,29 @@ function YayaQueueAPI.GetQueuedConcentrationReservation(professionID, currencyID
     return GetQueuedConcentrationReservation(professionID, currencyID)
 end
 
+--- Unites d'un objet que la file reserve pour ses crafts a venir (reactifs des
+--- entrees et demandes directes). YayaWeeklyTracker la lit avant de proposer la
+--- fusion de finitions : fusionner cinq rang 1 reserves par la file les
+--- remplacait par un rang 2 que l'entree ne reconnait pas, et la file se
+--- bloquait sur un « Acquerir » impossible (objet lie au personnage).
+function YayaQueueAPI.GetReservedItemQuantity(itemID)
+    itemID = tonumber(itemID)
+    if not itemID then
+        return 0
+    end
+    return tonumber(YQQuality.GetQueuedReagentReservations()[itemID]) or 0
+end
+
 function YayaQueueAPI.QueueFavoriteConcentration(professionID)
     state.EnsureDB()
     professionID = tonumber(professionID) or state.GetCurrentProfessionID()
     DebugPrint("auto-favorite request profession=" .. tostring(professionID))
+    if YQQuality.IsProgrammaticTradeSkillOpen() then
+        -- Ne marque rien comme traite : la vraie ouverture du joueur doit
+        -- encore pouvoir lancer le dump.
+        DebugPrint("auto-favorite skip profession=" .. tostring(professionID) .. " reason=programmatic-open")
+        return false, "Programmatic open"
+    end
     if not professionID then
         DebugPrint("auto-favorite skip profession=nil reason=profession-unavailable")
         return false, "Profession unavailable"
@@ -18969,6 +19404,10 @@ end
 
 function YayaQueueAPI.QueueFirstCraftsAfterProfessionOpen()
     DebugPrint("first-craft request source=profession-open")
+    if YQQuality.IsProgrammaticTradeSkillOpen() then
+        DebugPrint("first-craft skip source=profession-open reason=programmatic-open")
+        return false, "Programmatic open"
+    end
     return YQQuality.ScheduleAutoQueueFirstCrafts()
 end
 

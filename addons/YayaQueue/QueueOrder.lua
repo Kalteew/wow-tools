@@ -74,6 +74,8 @@ end
 --   professionKey       fonction(professionID) -> cle de famille du metier
 --   gearRank            fonction(entry) -> rang d'outil a equiper (0 = rien)
 --   hasMaterials        fonction(entry) -> materiaux disponibles pour un craft
+--   isCraftBlocked      fonction(entry) -> true si le jeu refuse ce craft pour
+--                       l'instant (cooldown a zero charge, craft suspendu)
 --   isMillingRecipe     fonction(entry) -> true pour le milling Midnight
 --
 -- Le descripteur fige tout ce que la comparaison lit : la cascade ne relit
@@ -110,6 +112,15 @@ function QueueOrder.Describe(entry, index, ctx)
     if not isCauldronRecipe and isNormalCraft and type(ctx.hasMaterials) == "function" then
         hasMaterials = ctx.hasMaterials(entry) ~= false
     end
+    -- Seul un craft ordinaire peut etre bloque par un cooldown : les commandes
+    -- patron, fusions et recyclages ont leur propre semantique dans Next.
+    local craftBlocked = false
+    if isNormalCraft and type(ctx.isCraftBlocked) == "function" then
+        craftBlocked = ctx.isCraftBlocked(entry) == true
+    end
+    -- 0 = peut avancer, 1 = attend des materiaux (l'HV ou le marchand les
+    -- apportent), 2 = bloque par le jeu lui-meme (seul le temps le leve).
+    local availabilityRank = craftBlocked and 2 or (hasMaterials and 0 or 1)
     local hasKnownProfit = entry.profitKnown == true and type(entry.profitValue) == "number"
 
     return {
@@ -137,6 +148,8 @@ function QueueOrder.Describe(entry, index, ctx)
         mergeDepth = isMerge and (tonumber(entry.mergeDepth) or math.huge) or nil,
         gearRank = gearRank,
         hasMaterials = hasMaterials,
+        craftBlocked = craftBlocked,
+        availabilityRank = availabilityRank,
         hasKnownProfit = hasKnownProfit,
         profitValue = hasKnownProfit and entry.profitValue or nil,
     }
@@ -179,12 +192,15 @@ local function CompareCauldron(left, right)
     return nil
 end
 
--- Un craft sans materiaux ne doit pas bloquer un craft executable. Les
--- commandes patron, recyclages et fusions restent traitees par les invariants
--- precedents : leurs dependances ont une semantique propre pour Next.
+-- Un craft sans materiaux ne doit pas bloquer un craft executable, et un craft
+-- que le jeu refuse (cooldown, echecs repetes) ne doit bloquer ni l'un ni
+-- l'autre : il passe en dernier, apres meme les crafts qui attendent un achat,
+-- puisque seul le temps le debloque. Les commandes patron, recyclages et
+-- fusions restent traitees par les invariants precedents : leurs dependances
+-- ont une semantique propre pour Next.
 local function CompareMaterials(left, right)
-    if left.hasMaterials ~= right.hasMaterials then
-        return left.hasMaterials
+    if left.availabilityRank ~= right.availabilityRank then
+        return left.availabilityRank < right.availabilityRank
     end
     return nil
 end
