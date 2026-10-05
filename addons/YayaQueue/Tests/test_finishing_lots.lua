@@ -268,8 +268,8 @@ local resourcesAt = nextState:find("GetEntryResourceState(entry)", finishingAt o
 equals("Next lit le stock de finitions avant le gate materiaux", finishingAt ~= nil and resourcesAt ~= nil and finishingAt < resourcesAt, true)
 equals("... propose l'action explicite",
     nextState:find('action = "drop_finishing"', 1, true) ~= nil, true)
-equals("... et plafonne un lot au stock de finitions",
-    nextState:find("craftAmount = finishingLimit", 1, true) ~= nil, true)
+equals("... et plafonne un lot au stock de finitions (porte commune, 3e argument)",
+    nextState:find("finishingLimit\n        )", (nextState:find("state.ResolveCraftGate(", 1, true)) or 1, true) ~= nil, true)
 equals("le clic traite l'action",
     source:find('if stateInfo.action == "drop_finishing" then', 1, true) ~= nil, true)
 equals("... qui n'est pas une action securisee",

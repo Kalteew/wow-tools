@@ -51,6 +51,10 @@ local bodies = {
     Extract("GetRecipeCooldownCap", "(state%.GetRecipeCooldownCap = function%(recipeID%).-\nend)\n"),
     Extract("ScheduleCraftLimitWake",
         "(state%.ScheduleCraftLimitWake = function%(recipeID, limit%).-\nend)\n"),
+    Extract("ResolveCraftGate",
+        "(state%.ResolveCraftGate = function%(entry, craftAmount, finishingLimit%).-\nend)\n"),
+    Extract("CapQuantityByCooldown",
+        "(state%.CapQuantityByCooldown = function%(recipeID, quantity%).-\nend)\n"),
 }
 local constants = {
     "state.CRAFT_FAILURE_STREAK = 3",
@@ -265,6 +269,79 @@ equals("plafond du dump : jamais negatif", state.GetRecipeCooldownCap(BOUQUET), 
 equals("plafond du dump : recette ordinaire non plafonnee", state.GetRecipeCooldownCap(555), nil)
 
 -- ---------------------------------------------------------------------------
+section("Porte de craft : une seule decision pour le bouton Next et pour son clic")
+-- ---------------------------------------------------------------------------
+
+reset()
+local gate = state.ResolveCraftGate({ recipeID = 555 }, 3, nil)
+equals("recette ordinaire : le craft part", gate.blocked, false)
+equals("... pour toute la quantite demandee", gate.craftAmount, 3)
+equals("... sans limite", gate.limit, nil)
+
+gate = state.ResolveCraftGate({ recipeID = 555 }, 3, 2)
+equals("stock de finitions plus court : le lot est plafonne", gate.craftAmount, 2)
+gate = state.ResolveCraftGate({ recipeID = 555 }, 3, 5)
+equals("stock de finitions suffisant : rien n'est retranche", gate.craftAmount, 3)
+gate = state.ResolveCraftGate({ recipeID = 555 }, 3, 0)
+equals("stock a zero : la porte ne decide pas, c'est « Next: sans <finition> »",
+    gate.craftAmount, 3)
+
+cooldowns[BOUQUET] = { 3600, false, 0, 2 }
+gate = state.ResolveCraftGate(entry, 2, nil)
+equals("zero charge : bloque", gate.blocked, true)
+equals("... libelle du bouton", gate.text, "Next: cooldown")
+equals("... aucune unite ne part", gate.craftAmount, 0)
+equals("... la limite est rendue pour armer le reveil", gate.limit.available, 0)
+equals("... avec la duree restante", gate.limit.remaining, 3600)
+
+cooldowns[BOUQUET] = { nil, false, 1, 2 }
+gate = state.ResolveCraftGate(entry, 2, nil)
+equals("une charge pour un lot de deux : ca part", gate.blocked, false)
+equals("... plafonne a la charge", gate.craftAmount, 1)
+gate = state.ResolveCraftGate(entry, 2, 1)
+equals("charge et finition egales : une unite", gate.craftAmount, 1)
+cooldowns[BOUQUET] = { nil, false, 2, 2 }
+gate = state.ResolveCraftGate(entry, 3, 2)
+equals("deux charges, finitions pour deux, lot de trois : deux", gate.craftAmount, 2)
+gate = state.ResolveCraftGate(entry, 3, 1)
+equals("le plafond le plus bas gagne (finitions)", gate.craftAmount, 1)
+
+reset()
+state.NoteCraftFailure(BOUQUET)
+state.NoteCraftFailure(BOUQUET)
+state.NoteCraftFailure(BOUQUET)
+gate = state.ResolveCraftGate(entry, 2, nil)
+equals("disjoncteur ouvert : bloque", gate.blocked, true)
+equals("... libelle distinct d'un cooldown", gate.text, "Next: craft refuse")
+now = now + 16
+gate = state.ResolveCraftGate(entry, 2, nil)
+equals("... et la porte se rouvre apres la pause (relue a chaque appel)", gate.blocked, false)
+
+reset()
+cooldowns[BOUQUET] = { 3600, false, 0, 2 }
+equals("patron : jamais bloque par un cooldown de recette",
+    state.ResolveCraftGate({ recipeID = BOUQUET, queueKind = "patron", orderID = 1 }, 1, nil).blocked,
+    false)
+
+-- Plafond commun aux chemins qui remettent de la concentration en file.
+reset()
+local capped, cap = state.CapQuantityByCooldown(555, 4)
+equals("recette sans cooldown : quantite inchangee", capped, 4)
+equals("... pas de plafond", cap, nil)
+capped, cap = state.CapQuantityByCooldown(nil, 4)
+equals("sans recette : quantite inchangee", capped, 4)
+cooldowns[BOUQUET] = { nil, false, 2, 2 }
+capped, cap = state.CapQuantityByCooldown(BOUQUET, 4)
+equals("deux charges : plafonne a deux", capped, 2)
+equals("... plafond rendu", cap, 2)
+capped = state.CapQuantityByCooldown(BOUQUET, 1)
+equals("quantite deja sous le plafond : inchangee", capped, 1)
+reservations["recipe:" .. BOUQUET] = 2
+capped, cap = state.CapQuantityByCooldown(BOUQUET, 2)
+equals("charges deja reservees par la file : plus rien a remettre", capped, 0)
+equals("... plafond a zero", cap, 0)
+
+-- ---------------------------------------------------------------------------
 section("Disjoncteur : le meme craft refuse trois fois de suite est suspendu")
 -- ---------------------------------------------------------------------------
 
@@ -300,6 +377,41 @@ state.NoteCraftFailure(BOUQUET)
 state.NoteCraftFailure(BOUQUET)
 equals("deux recettes ne se melangent pas", state.NoteCraftFailure(777), false)
 
+-- Un echec du a l'etat du personnage ne dit rien de la recette.
+local mounted, falling, speed = false, false, 0
+function IsMounted() return mounted end
+function IsFalling() return falling end
+function GetUnitSpeed() return speed end
+assert(loadstring(
+    Extract("IsCastBlockedByPlayerState",
+        "(state%.IsCastBlockedByPlayerState = function%(%).-\nend)\n"),
+    "player-state"))()
+equals("a l'arret : rien ne bloque le cast", state.IsCastBlockedByPlayerState(), false)
+mounted = true
+equals("monte : le cast est refuse", state.IsCastBlockedByPlayerState(), true)
+mounted, falling = false, true
+equals("en chute : le cast est refuse", state.IsCastBlockedByPlayerState(), true)
+falling, speed = false, 7
+equals("en mouvement : le cast est refuse", state.IsCastBlockedByPlayerState(), true)
+speed = {}
+equals("vitesse illisible (secrete) : jamais une exception, a l'arret",
+    state.IsCastBlockedByPlayerState(), false)
+speed = 0
+local savedIsMounted = IsMounted
+IsMounted = nil
+equals("API absente : a l'arret", state.IsCastBlockedByPlayerState(), false)
+IsMounted = savedIsMounted
+local abortedHandler = Extract("SpellcastAborted",
+    "(handle%.SpellcastAborted = function.-\nend)\n")
+local playerStateAt = abortedHandler:find("state.IsCastBlockedByPlayerState()", 1, true)
+local breakerAt = abortedHandler:find("state.NoteCraftFailure(abortedSpellID)", 1, true)
+equals("le handler d'echec consulte l'etat du personnage",
+    playerStateAt ~= nil, true)
+equals("... avant d'alimenter le disjoncteur",
+    (playerStateAt or math.huge) < (breakerAt or 0), true)
+equals("... le cast refuse reste memorise pour ne pas poser de lot",
+    abortedHandler:find("state.NoteCastFailure(abortedSpellID)", breakerAt or 1, true) ~= nil, true)
+
 -- ---------------------------------------------------------------------------
 section("Lot en attente : jamais pose pour un cast deja refuse")
 -- ---------------------------------------------------------------------------
@@ -326,11 +438,68 @@ equals("un sort reussi sans rapport avec le craft attendu ne depile rien",
     succeededHandler:find("not state.IsPendingCraftSpell(castSpellID)", 1, true) ~= nil, true)
 equals("... le filtre passe avant tout depilage",
     (succeededHandler:find("not state.IsPendingCraftSpell(castSpellID)", 1, true) or 0)
-        < (succeededHandler:find("state.PopPendingCraftEntry()", 1, true) or 0), true)
+        < (succeededHandler:find("state.PopPendingCraftEntry(castSpellID)", 1, true) or 0), true)
 equals("QueuePendingCraftRecipe consulte cette memoire avant de poser un lot",
     source:find("if state.WasCraftFailedInCall(recipeID) then", 1, true) ~= nil, true)
 equals("le handler d'echec l'alimente",
     source:find("state.NoteCastFailure(abortedSpellID)", 1, true) ~= nil, true)
+
+-- Un sort reussi depile le lot de SA recette, pas le premier de la liste.
+YQQuality = { DebugCraftState = function() end }
+local function Global(name, pattern)
+    -- Fonction locale du fichier source rendue visible au test.
+    local body = Extract(name, pattern)
+    return (assert(loadstring((body:gsub("^local function ", "function ")), name)))
+end
+assert(loadstring(
+    Extract("FindPendingCraftIndex", "(state%.FindPendingCraftIndex = function%(list, spellID%).-\nend)\n")
+        .. "\n"
+        .. Extract("PopPendingCraftEntry", "(state%.PopPendingCraftEntry = function%(spellID%).-\nend)\n"),
+    "pending-pop"))()
+Global("PopPendingCraftRecipe", "(local function PopPendingCraftRecipe%(spellID%).-\nend)\n")()
+
+local STALE, FRESH = 111, 222
+state.pendingCraftEntries = {
+    { recipeID = STALE, amount = 1 },
+    { recipeID = FRESH, amount = 2 },
+}
+local popped = state.PopPendingCraftEntry(FRESH)
+equals("l'entree depilee est celle du sort reussi", popped and popped.recipeID, FRESH)
+equals("... une unite de moins", popped.amount, 1)
+equals("... l'entree orpheline en tete n'est pas touchee",
+    state.pendingCraftEntries[1].recipeID == STALE and state.pendingCraftEntries[1].amount == 1, true)
+equals("... l'entree suivie reste en attente", #state.pendingCraftEntries, 2)
+state.PopPendingCraftEntry(FRESH)
+equals("derniere unite : l'entree s'en va", #state.pendingCraftEntries, 1)
+equals("... et c'est bien l'orpheline qui reste", state.pendingCraftEntries[1].recipeID, STALE)
+equals("un sort qui n'est pas en attente ne depile rien", state.PopPendingCraftEntry(333), nil)
+equals("... l'orpheline est toujours la", #state.pendingCraftEntries, 1)
+equals("sans identifiant de sort : le premier, comme avant",
+    state.PopPendingCraftEntry(nil).recipeID, STALE)
+equals("... et la liste est vide", #state.pendingCraftEntries, 0)
+equals("liste vide : rien", state.PopPendingCraftEntry(FRESH), nil)
+
+state.pendingCraftBatches = {
+    { recipeID = STALE, amount = 1 },
+    { recipeID = FRESH, amount = 2 },
+}
+equals("le lot depile est celui du sort reussi", PopPendingCraftRecipe(FRESH), FRESH)
+equals("... le lot orphelin en tete n'est pas touche",
+    state.pendingCraftBatches[1].recipeID == STALE and state.pendingCraftBatches[1].amount == 1, true)
+equals("... le lot suivi garde une unite", state.pendingCraftBatches[2].amount, 1)
+PopPendingCraftRecipe(FRESH)
+equals("derniere unite : le lot s'en va", #state.pendingCraftBatches, 1)
+equals("un sort qui n'est pas en attente ne depile aucun lot", PopPendingCraftRecipe(333), nil)
+equals("sans identifiant : le premier lot", PopPendingCraftRecipe(nil), STALE)
+equals("... et la liste est vide", #state.pendingCraftBatches, 0)
+state.pendingCraftEntries, state.pendingCraftBatches = {}, {}
+
+equals("le handler de reussite depile par identifiant de sort",
+    succeededHandler:find("state.PopPendingCraftEntry(castSpellID)", 1, true) ~= nil
+        and succeededHandler:find("PopPendingCraftRecipe(castSpellID)", 1, true) ~= nil, true)
+equals("... sans aucun depilage a l'aveugle",
+    succeededHandler:find("PopPendingCraftEntry()", 1, true) == nil
+        and succeededHandler:find("PopPendingCraftRecipe()", 1, true) == nil, true)
 
 -- ---------------------------------------------------------------------------
 section("Reveil : le bouton se rafraichit quand la limite se leve")
@@ -462,12 +631,43 @@ equals("plus de garde « deja en file » qui bloquait le dump a la reouverture",
 section("Branchement dans la source : cooldown")
 -- ---------------------------------------------------------------------------
 
-equals("le bouton Next lit la limite avant de proposer un craft",
-    source:find("local craftLimit = state.GetEntryCraftLimit(entry)", 1, true) ~= nil, true)
-equals("... et affiche « Next: cooldown » desactive",
-    source:find('"Next: cooldown"', 1, true) ~= nil, true)
-equals("le clic relit la limite avant d'armer phiole ou remboursement",
-    source:find("local craftLimit = state.GetEntryCraftLimit(stateInfo.entry)", 1, true) ~= nil, true)
+local nextStateSource = Extract("GetPatronNextButtonState",
+    "(local function GetPatronNextButtonState%(%).-\nend)\n")
+local gateAtNext = nextStateSource:find("state.ResolveCraftGate(", 1, true)
+equals("le bouton Next passe par la porte commune avant de proposer un craft",
+    gateAtNext ~= nil, true)
+equals("... en lui donnant le stock de finitions",
+    nextStateSource:find("finishingLimit\n        )", gateAtNext or 1, true) ~= nil, true)
+equals("... et la porte passe avant la preparation du craft",
+    (gateAtNext or math.huge) < (nextStateSource:find('action = "craft_normal"', 1, true) or 0), true)
+equals("... un craft bloque arme le reveil et reste desactive",
+    nextStateSource:find("state.ScheduleCraftLimitWake(entry.recipeID, gate.limit)", 1, true) ~= nil, true)
+equals("... le libelle vient de la porte (« Next: cooldown » / « Next: craft refuse »)",
+    nextStateSource:find("text = gate.text,", 1, true) ~= nil, true)
+equals("la porte fournit « Next: cooldown »",
+    bodies[8]:find('"Next: cooldown"', 1, true) ~= nil, true)
+local runAction = Extract("RunPatronNextAction",
+    "(state%.RunPatronNextAction = function%(%).-\nend)\n")
+local normalAt = runAction:find('stateInfo.action == "craft_normal"', 1, true)
+local gateAtClick = runAction:find("state.ResolveCraftGate(stateInfo.entry, craftAmount, nil)",
+    normalAt or 1, true)
+equals("le clic relit la limite par la meme porte", gateAtClick ~= nil, true)
+equals("... avant d'armer la phiole",
+    (gateAtClick or math.huge) < (runAction:find("IsConcentrationPhialEnabled()", normalAt or 1, true) or 0), true)
+equals("... avant d'armer le suivi de remboursement",
+    (gateAtClick or math.huge) < (runAction:find("YQQuality.ArmFavoriteConcentrationRefund(", normalAt or 1, true) or 0), true)
+equals("... et la quantite lancee est celle que la porte a plafonnee",
+    runAction:find("craftAmount = gate.craftAmount", gateAtClick or 1, true) ~= nil, true)
+equals("le dump et le remboursement sont les seuls appelants du plafond de cooldown",
+    select(2, source:gsub("state%.CapQuantityByCooldown%(", "")), 2)
+local refundBody = Extract("TryQueueFavoriteConcentrationRefund",
+    "(function YQQuality%.TryQueueFavoriteConcentrationRefund%(observedAmount%).-\nend)\n")
+equals("le remboursement d'ingeniosite est plafonne par les charges",
+    refundBody:find("state.CapQuantityByCooldown(tracker.recipeID, refundQuantity)", 1, true) ~= nil, true)
+local dumpState = Extract("GetConcentrationDumpState",
+    "(local function GetConcentrationDumpState%(schematicForm, headlessRecipeID%).-\nend)\n")
+equals("le dump du bouton est plafonne par les charges",
+    dumpState:find("state.CapQuantityByCooldown(recipeID, maxQuantity)", 1, true) ~= nil, true)
 equals("le tri recoit le predicat de blocage",
     source:find("isCraftBlocked = function(entry)", 1, true) ~= nil, true)
 equals("un echec de cast alimente le disjoncteur",

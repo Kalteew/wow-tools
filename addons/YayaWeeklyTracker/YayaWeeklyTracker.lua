@@ -4611,7 +4611,11 @@ trackerUI.FindMergeableFinishingReagentsInBags = function()
     end
 
     local results = {}
+    local scannedMergeableCount = 0
     for _, state in pairs(byItemID) do
+        if state.totalCount >= 5 then
+            scannedMergeableCount = scannedMergeableCount + 1
+        end
         -- Les unites que la file de craft reserve ne se fusionnent pas : cinq
         -- rang 1 reserves deviennent un rang 2 que l'entree de file ne reconnait
         -- pas, et la file se bloque sur un « Acquerir » impossible (ces
@@ -4627,10 +4631,14 @@ trackerUI.FindMergeableFinishingReagentsInBags = function()
         return (left.order or 99) < (right.order or 99)
     end)
 
+    -- Le garde « scan de sacs transitoirement vide » regarde ce que le scan a
+    -- TROUVE, pas ce qu'il reste apres reservation : un resultat vide parce que
+    -- la file reserve tout est un etat vrai, et le garde le ressortait comme un
+    -- scan rate en gardant l'ancien cache, donc un bouton Fusionner perime.
     if previous and trackerUI.UsePreviousBagCacheOnTransientEmpty(
         "finishingReagentMerges",
         #previous,
-        #results,
+        scannedMergeableCount,
         previous
     ) then
         midnightCaches.finishingReagentMerges = previous

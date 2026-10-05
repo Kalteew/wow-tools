@@ -76,6 +76,9 @@ end
 --   hasMaterials        fonction(entry) -> materiaux disponibles pour un craft
 --   isCraftBlocked      fonction(entry) -> true si le jeu refuse ce craft pour
 --                       l'instant (cooldown a zero charge, craft suspendu)
+--   isCauldronActionable fonction(entry) -> false si une recette du chaudron ne
+--                       peut pas avancer maintenant (recette pas encore apprise,
+--                       aucune action pour Next) ; nil vaut « peut avancer »
 --   isMillingRecipe     fonction(entry) -> true pour le milling Midnight
 --
 -- Le descripteur fige tout ce que la comparaison lit : la cascade ne relit
@@ -118,9 +121,20 @@ function QueueOrder.Describe(entry, index, ctx)
     if isNormalCraft and type(ctx.isCraftBlocked) == "function" then
         craftBlocked = ctx.isCraftBlocked(entry) == true
     end
+    -- Une recette du chaudron que le joueur n'a pas encore apprise est un plan,
+    -- pas un craft : elle ne peut avancer qu'en allant au chaudron. Elle passe
+    -- derriere tout ce qui peut s'executer, sinon elle tenait la tete de la file
+    -- et Next restait sur « ouvre le chaudron » devant des crafts realisables.
+    local cauldronActionable = true
+    if isCauldronRecipe and type(ctx.isCauldronActionable) == "function" then
+        cauldronActionable = ctx.isCauldronActionable(entry) ~= false
+    end
+    local cauldronStalled = isCauldronRecipe and not cauldronActionable
     -- 0 = peut avancer, 1 = attend des materiaux (l'HV ou le marchand les
-    -- apportent), 2 = bloque par le jeu lui-meme (seul le temps le leve).
-    local availabilityRank = craftBlocked and 2 or (hasMaterials and 0 or 1)
+    -- apportent), 2 = bloque (seul le temps ou le joueur le leve : cooldown,
+    -- craft suspendu, recette du chaudron a apprendre).
+    local availabilityRank = (craftBlocked or cauldronStalled) and 2
+        or (hasMaterials and 0 or 1)
     local hasKnownProfit = entry.profitKnown == true and type(entry.profitValue) == "number"
 
     return {
@@ -138,6 +152,10 @@ function QueueOrder.Describe(entry, index, ctx)
             and professionKey == currentProfessionKey,
         isMerge = isMerge,
         isCauldronRecipe = isCauldronRecipe,
+        cauldronStalled = cauldronStalled,
+        -- Recette du chaudron qui peut agir (apprise, ou une action pour Next) :
+        -- seule celle-la garde la tete de file du plan.
+        isCauldronLead = isCauldronRecipe and cauldronActionable,
         cauldronOrder = isCauldronRecipe and (tonumber(entry.cauldronOrder) or math.huge) or nil,
         professionID = tonumber(entry.professionID) or nil,
         professionKey = professionKey,
@@ -180,13 +198,29 @@ local function CompareMerge(left, right)
     return nil
 end
 
--- Les recettes du chaudron sont un plan explicite : elles passent avant les
--- crafts generiques et conservent l'ordre Moxie choisi par CauldronPlan.
+-- Les recettes du chaudron sont un plan explicite : tant qu'elles peuvent agir
+-- (recette apprise, ou une action pour Next), elles passent avant les crafts
+-- generiques et conservent l'ordre Moxie choisi par CauldronPlan. Une recette
+-- encore a apprendre n'est pas concernee : elle est classee avec les entrees
+-- bloquees (CompareStalledCauldron).
 local function CompareCauldron(left, right)
-    if left.isCauldronRecipe ~= right.isCauldronRecipe then
-        return left.isCauldronRecipe
+    if left.isCauldronLead ~= right.isCauldronLead then
+        return left.isCauldronLead
     end
-    if left.isCauldronRecipe and left.cauldronOrder ~= right.cauldronOrder then
+    if left.isCauldronLead and left.cauldronOrder ~= right.cauldronOrder then
+        return left.cauldronOrder < right.cauldronOrder
+    end
+    return nil
+end
+
+-- Entre deux entrees bloquees au meme degre, une recette du chaudron a apprendre
+-- passe d'abord et suit l'ordre Moxie : « ouvre le chaudron » est une consigne
+-- que le joueur peut suivre, un cooldown ne se leve qu'en attendant.
+local function CompareStalledCauldron(left, right)
+    if left.cauldronStalled ~= right.cauldronStalled then
+        return left.cauldronStalled
+    end
+    if left.cauldronStalled and left.cauldronOrder ~= right.cauldronOrder then
         return left.cauldronOrder < right.cauldronOrder
     end
     return nil
@@ -251,8 +285,11 @@ local MODE_STEPS = {
 
 --- Ordre strict total : true si `left` passe avant `right`.
 --
--- La commande claim puis le salvage viennent d'abord, dans tous les modes ; le
--- mode choisit la suite ; l'index d'ajout departage toujours, donc deux
+-- La commande claim puis le salvage viennent d'abord, dans tous les modes, puis
+-- les recettes du chaudron qui peuvent agir, puis le degre de disponibilite
+-- (pret, attend des materiaux, bloque -- les recettes du chaudron a apprendre
+-- en tete des bloques) ; le mode choisit la suite ; l'index d'ajout departage
+-- toujours, donc deux
 -- descripteurs d'index distincts ne sont jamais a egalite et table.sort ne
 -- peut pas recevoir un comparateur incoherent.
 function QueueOrder.Compare(left, right, mode)
@@ -269,6 +306,10 @@ function QueueOrder.Compare(left, right, mode)
     local materialsResult = CompareMaterials(left, right)
     if materialsResult ~= nil then
         return materialsResult
+    end
+    local stalledResult = CompareStalledCauldron(left, right)
+    if stalledResult ~= nil then
+        return stalledResult
     end
 
     local steps = MODE_STEPS[QueueOrder.NormalizeMode(mode)]

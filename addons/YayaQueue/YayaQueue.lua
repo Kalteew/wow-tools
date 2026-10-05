@@ -5433,6 +5433,30 @@ state.CRAFT_FAILURE_STREAK = 3
 state.CRAFT_FAILURE_WINDOW_SECONDS = 5
 state.CRAFT_FAILURE_PARK_SECONDS = 15
 
+-- Etats du personnage qui font refuser un cast de metier sans rien dire de la
+-- recette : monte, en chute, en mouvement. Ces echecs ne comptent pas pour le
+-- disjoncteur (un clic en marchant ne doit pas parquer la recette quinze
+-- secondes) ; le lot en attente, lui, reste ignore comme pour tout echec.
+state.IsCastBlockedByPlayerState = function()
+    if type(IsMounted) == "function" and SafeCall(IsMounted) == true then
+        return true
+    end
+    if type(IsFalling) == "function" and SafeCall(IsFalling) == true then
+        return true
+    end
+    if type(GetUnitSpeed) == "function" then
+        local speed = SafeCall(GetUnitSpeed, "player")
+        -- Une valeur illisible (secrete) leve a la comparaison : a l'arret.
+        local readable, moving = pcall(function()
+            return speed ~= nil and speed > 0
+        end)
+        if readable and moving then
+            return true
+        end
+    end
+    return false
+end
+
 state.NoteCraftFailure = function(recipeID)
     recipeID = tonumber(recipeID)
     if not recipeID then
@@ -5511,6 +5535,49 @@ state.GetRecipeCooldownCap = function(recipeID)
         alchemyAuto.GetCooldownKey(recipeID, craftSim)
     ] or 0
     return math.max(0, available - reserved)
+end
+
+--- Decision commune au bouton Next et a son clic : le craft peut-il partir, et
+--- pour combien d'unites ?
+--
+-- Rend `{ blocked, text, limit, craftAmount }`. `blocked` quand le jeu refuse la
+-- recette maintenant (cooldown a zero charge, craft suspendu par le
+-- disjoncteur) ; sinon `craftAmount` est la quantite demandee plafonnee par le
+-- stock de finitions liees (`finishingLimit`, nil si sans objet) puis par les
+-- charges disponibles. Une seule fonction pour l'etat du bouton ET pour le
+-- clic, qui relit la limite : elle a pu changer depuis le dernier rendu.
+state.ResolveCraftGate = function(entry, craftAmount, finishingLimit)
+    local limit = state.GetEntryCraftLimit(entry)
+    if limit and limit.available <= 0 then
+        return {
+            blocked = true,
+            limit = limit,
+            text = limit.reason == "failures" and "Next: craft refuse" or "Next: cooldown",
+            craftAmount = 0,
+        }
+    end
+    local amount = craftAmount
+    if finishingLimit and finishingLimit > 0 and finishingLimit < amount then
+        amount = finishingLimit
+    end
+    if limit and limit.available < amount then
+        amount = limit.available
+    end
+    return { blocked = false, limit = limit, craftAmount = amount }
+end
+
+--- Plafonne une quantite de crafts a ce qu'une recette a cooldown peut absorber.
+--- Rend `quantite, plafond` ; `plafond` est nil pour une recette sans cooldown
+--- lisible. Point de passage unique des chemins qui mettent de la concentration
+--- en file (dump du bouton, auto-dump, regain, remboursement d'ingeniosite) :
+--- le remboursement ne passait pas par GetConcentrationDumpState et remettait
+--- « Bouquet x2 » en file a zero charge.
+state.CapQuantityByCooldown = function(recipeID, quantity)
+    local cap = recipeID and state.GetRecipeCooldownCap(recipeID) or nil
+    if cap ~= nil then
+        return math.min(quantity, cap), cap
+    end
+    return quantity, nil
 end
 
 --- Reveille le bouton Next quand la limite d'un craft doit se lever.
@@ -6024,6 +6091,31 @@ alchemyAuto.PromoteCauldronEntry = function(entry)
     return true
 end
 
+--- Une entree du chaudron peut-elle avancer maintenant ?
+--
+-- Miroir des sorties actives de `GetPatronNextButtonState` pour ces entrees :
+-- recette apprise (Next la promeut en craft ordinaire), ou flasque a consommer
+-- ou a recuperer au courrier. Sinon l'entree n'est qu'un plan -- « ouvre le
+-- chaudron », achat de la flasque -- et le tri la range derriere les crafts
+-- realisables (QueueOrder, `isCauldronActionable`). Vrai pour toute entree qui
+-- n'est pas une recette du chaudron.
+alchemyAuto.IsCauldronEntryActionable = function(entry)
+    if type(entry) ~= "table" or entry.cauldronRecipe ~= true then
+        return true
+    end
+    if type(C_TradeSkillUI) == "table" and type(C_TradeSkillUI.GetRecipeInfo) == "function" then
+        local recipeInfo = SafeCall(C_TradeSkillUI.GetRecipeInfo, entry.recipeID)
+        if type(recipeInfo) == "table" and recipeInfo.learned == true then
+            return true
+        end
+    end
+    local requiredItemID = tonumber(entry.cauldronRequiresItemID)
+    if requiredItemID and entry.cauldronItemConsumed ~= true then
+        return GetImmediateOwnedCount(requiredItemID) > 0 or GetMailboxCount(requiredItemID) > 0
+    end
+    return false
+end
+
 alchemyAuto.BuildRecycleContext = function(professionID)
     return {
         recipeID = CONFIG.RECYCLE_POTIONS_RECIPE_ID,
@@ -6099,6 +6191,9 @@ alchemyAuto.QueueBouquetAndRecycling = function()
         DebugPrint("alchemy-auto wait reason=recipe-data-not-ready")
         return nil
     end
+    -- Nombre de recettes vu par cette passe : sa confirmation (alchemyAuto.
+    -- ConfirmPass) exige le meme nombre a la passe suivante.
+    state.alchemyAutoQueue.passRecipeCount = #recipeIDs
     for _, recipeID in ipairs(recipeIDs) do
         knownRecipeIDs[tonumber(recipeID)] = true
         recipeInfos[tonumber(recipeID)] = SafeCall(C_TradeSkillUI.GetRecipeInfo, recipeID)
@@ -6214,6 +6309,25 @@ alchemyAuto.QueueBouquetAndRecycling = function()
     return true
 end
 
+-- Une passe n'est « aboutie » qu'une fois confirmee : deux passes de suite
+-- voient le meme nombre de recettes. Pendant le chargement des donnees du metier
+-- la liste peut etre partielle ; la passe « reussissait » en sautant Bouquet et
+-- le marqueur interdisait toute relance jusqu'a la fermeture. La passe suivante
+-- (TRADE_SKILL_LIST_UPDATE / DETAILS_UPDATE arrivent en rafale) rattrape ce que
+-- le premier passage n'avait pas vu, et reste idempotente : elle deduit ce que
+-- la file reserve deja.
+alchemyAuto.ConfirmPass = function(autoQueue)
+    local count = tonumber(autoQueue.passRecipeCount)
+    if not count then
+        return false
+    end
+    if autoQueue.confirmedRecipeCount == count then
+        return true
+    end
+    autoQueue.confirmedRecipeCount = count
+    return false
+end
+
 function YQQuality.ScheduleAutoQueueAlchemy(delay)
     local autoQueue = state.alchemyAutoQueue
     if autoQueue.timerQueued or autoQueue.pendingProfessionID == false then
@@ -6240,12 +6354,19 @@ function YQQuality.ScheduleAutoQueueAlchemy(delay)
         else
             autoQueue.pendingProfessionID = false
             if result == true then
-                -- Passe aboutie : plus de relance avant la prochaine ouverture.
-                -- TRADE_SKILL_LIST_UPDATE et TRADE_SKILL_DETAILS_UPDATE
-                -- arrivent en rafale tant que la fenetre est ouverte, et
-                -- chaque relance relisait toutes les recettes et pouvait
-                -- remettre en file sur une lecture de cooldown transitoire.
-                autoQueue.completedProfessionID = tonumber(state.GetCurrentProfessionID())
+                -- Passe aboutie et confirmee : plus de relance avant la
+                -- prochaine ouverture. TRADE_SKILL_LIST_UPDATE et
+                -- TRADE_SKILL_DETAILS_UPDATE arrivent en rafale tant que la
+                -- fenetre est ouverte, et chaque relance relisait toutes les
+                -- recettes et pouvait remettre en file sur une lecture de
+                -- cooldown transitoire.
+                if alchemyAuto.ConfirmPass(autoQueue) then
+                    autoQueue.completedProfessionID = tonumber(state.GetCurrentProfessionID())
+                else
+                    DebugPrint(
+                        "alchemy-auto pass-unconfirmed recipes=" .. tostring(autoQueue.passRecipeCount)
+                    )
+                end
             end
             DebugPrint(
                 "alchemy-auto complete profession=" .. tostring(state.GetCurrentProfessionID())
@@ -6388,6 +6509,11 @@ state.GetQueueOrderContext = function()
         isCraftBlocked = function(entry)
             local limit = state.GetEntryCraftLimit(entry)
             return limit ~= nil and limit.available <= 0
+        end,
+        -- Une recette du chaudron pas encore apprise n'est qu'un plan : elle
+        -- passe derriere les crafts realisables au lieu de tenir la tete.
+        isCauldronActionable = function(entry)
+            return alchemyAuto.IsCauldronEntryActionable(entry)
         end,
         gearRank = function(entry)
             return state.craftGear.GetEntrySortRank(entry)
@@ -7555,31 +7681,29 @@ local function GetPatronNextButtonState()
         -- Une recette sur cooldown (ou suspendue par le disjoncteur) n'est pas
         -- un craft : proposer « Craft » rejouait un echec a chaque clic. Le tri
         -- la range deja derriere les crafts possibles, donc on n'arrive ici que
-        -- si rien d'autre ne peut avancer.
-        local craftLimit = state.GetEntryCraftLimit(entry)
-        if craftLimit and craftLimit.available <= 0 then
-            state.ScheduleCraftLimitWake(entry.recipeID, craftLimit)
+        -- si rien d'autre ne peut avancer. Un lot plus gros que les charges ou
+        -- que le stock de finitions lance ce qui peut partir ; le reste attend
+        -- la charge suivante ou passe par « Next: sans <finition> ».
+        local craftsRemaining = GetEntryCraftsRemaining(entry)
+        local gate = state.ResolveCraftGate(
+            entry,
+            math.max(1, tonumber(craftsRemaining) or 1),
+            finishingLimit
+        )
+        if gate.blocked then
+            state.ScheduleCraftLimitWake(entry.recipeID, gate.limit)
             return {
                 entry = entry,
-                text = craftLimit.reason == "failures" and "Next: craft refuse" or "Next: cooldown",
+                text = gate.text,
                 enabled = false,
-                craftLimit = craftLimit,
+                craftLimit = gate.limit,
             }
         end
 
         GetDirectCraftingReagents(entry)
         local hasCraftInfo = type(C_TradeSkillUI) == "table"
             and type(C_TradeSkillUI.CraftRecipe) == "function"
-        local craftsRemaining = GetEntryCraftsRemaining(entry)
-        local craftAmount = math.max(1, tonumber(craftsRemaining) or 1)
-        if finishingLimit and finishingLimit > 0 and finishingLimit < craftAmount then
-            craftAmount = finishingLimit -- le reste passera par "Next: sans <finition>"
-        end
-        if craftLimit and craftLimit.available < craftAmount then
-            -- Un lot de deux crafts avec une seule charge : on lance ce qui peut
-            -- partir, le reste attend la charge suivante.
-            craftAmount = craftLimit.available
-        end
+        local craftAmount = gate.craftAmount
         if hasCraftInfo then
             local toolAction = state.craftGear.GetToolAction(entry, nil)
             if toolAction then
@@ -7890,23 +8014,21 @@ state.RunPatronNextAction = function()
         -- on relit la limite au moment du clic, avant d'armer quoi que ce soit
         -- (phiole, suivi de remboursement), pour ne rien consommer pour un
         -- craft que le jeu va refuser.
-        local craftLimit = state.GetEntryCraftLimit(stateInfo.entry)
-        if craftLimit then
-            if craftLimit.available <= 0 then
-                DebugPrint(
-                    "craft-blocked recipe=" .. tostring(stateInfo.entry.recipeID)
-                        .. " reason=" .. tostring(craftLimit.reason)
-                        .. " remaining=" .. tostring(craftLimit.remaining)
-                )
-                state.ah.statusMessage = craftLimit.reason == "failures"
-                    and "Craft suspendu apres des echecs"
-                    or "Recette sur cooldown"
-                state.ScheduleCraftLimitWake(stateInfo.entry.recipeID, craftLimit)
-                ScheduleRefresh()
-                return
-            end
-            craftAmount = math.min(craftAmount, craftLimit.available)
+        local gate = state.ResolveCraftGate(stateInfo.entry, craftAmount, nil)
+        if gate.blocked then
+            DebugPrint(
+                "craft-blocked recipe=" .. tostring(stateInfo.entry.recipeID)
+                    .. " reason=" .. tostring(gate.limit.reason)
+                    .. " remaining=" .. tostring(gate.limit.remaining)
+            )
+            state.ah.statusMessage = gate.limit.reason == "failures"
+                and "Craft suspendu apres des echecs"
+                or "Recette sur cooldown"
+            state.ScheduleCraftLimitWake(stateInfo.entry.recipeID, gate.limit)
+            ScheduleRefresh()
+            return
         end
+        craftAmount = gate.craftAmount
         if applyConcentration and YQQuality.IsConcentrationPhialEnabled() then
             local phialID = tonumber(stateInfo.entry.concentrationPhialItemID)
             if not phialID or phialID <= 0 then
@@ -8229,8 +8351,27 @@ local function QueuePendingCraftRecipe(recipeID, amount)
     YQQuality.DebugCraftState("pending-batch-add", recipeID, "amount=" .. tostring(amount))
 end
 
-local function PopPendingCraftRecipe()
-    local batch = state.pendingCraftBatches[1]
+-- Rang du premier lot en attente de ce sort (le sort d'un craft est son
+-- recipeID). Sans sort connu, le premier lot : c'est l'ancien comportement,
+-- garde pour les evenements qui ne portent pas d'identifiant. Depiler « le
+-- premier » quand le sort reussi etait celui du second laissait un lot orphelin
+-- en tete et consommait la file d'une autre recette.
+state.FindPendingCraftIndex = function(list, spellID)
+    spellID = tonumber(spellID)
+    if not spellID then
+        return list[1] and 1 or nil
+    end
+    for index, item in ipairs(list) do
+        if tonumber(item.recipeID) == spellID then
+            return index
+        end
+    end
+    return nil
+end
+
+local function PopPendingCraftRecipe(spellID)
+    local index = state.FindPendingCraftIndex(state.pendingCraftBatches, spellID)
+    local batch = index and state.pendingCraftBatches[index]
     if not batch then
         return nil
     end
@@ -8239,7 +8380,7 @@ local function PopPendingCraftRecipe()
     YQQuality.DebugCraftState("pending-batch-pop-before", recipeID)
     batch.amount = (batch.amount or 1) - 1
     if batch.amount <= 0 then
-        table.remove(state.pendingCraftBatches, 1)
+        table.remove(state.pendingCraftBatches, index)
     end
     YQQuality.DebugCraftState("pending-batch-pop-after", recipeID)
     return recipeID
@@ -8266,8 +8407,9 @@ state.QueuePendingCraftEntry = function(entry, amount)
     YQQuality.DebugCraftState("pending-entry-add", entry.recipeID, "amount=" .. tostring(amount))
 end
 
-state.PopPendingCraftEntry = function()
-    local batch = state.pendingCraftEntries[1]
+state.PopPendingCraftEntry = function(spellID)
+    local index = state.FindPendingCraftIndex(state.pendingCraftEntries, spellID)
+    local batch = index and state.pendingCraftEntries[index]
     if not batch then
         return nil
     end
@@ -8275,7 +8417,7 @@ state.PopPendingCraftEntry = function()
     YQQuality.DebugCraftState("pending-entry-pop-before", batch.recipeID)
     batch.amount = (batch.amount or 1) - 1
     if batch.amount <= 0 then
-        table.remove(state.pendingCraftEntries, 1)
+        table.remove(state.pendingCraftEntries, index)
     end
 
     YQQuality.DebugCraftState("pending-entry-pop-after", batch.recipeID)
@@ -8907,11 +9049,9 @@ local function GetConcentrationDumpState(schematicForm, headlessRecipeID)
     -- plafond le dump mettait « Bouquet of Herbs x2 » en file avec zero charge,
     -- et la file se bloquait sur un craft refuse a chaque clic. Les charges deja
     -- reservees par la file (meme cooldown partage compris) sont deduites.
-    local cooldownCap = recipeID and maxQuantity > 0
-        and state.GetRecipeCooldownCap(recipeID)
-        or nil
-    if cooldownCap ~= nil then
-        maxQuantity = math.min(maxQuantity, cooldownCap)
+    local cooldownCap
+    if recipeID and maxQuantity > 0 then
+        maxQuantity, cooldownCap = state.CapQuantityByCooldown(recipeID, maxQuantity)
     end
 
     if context then
@@ -10267,6 +10407,11 @@ function YQQuality.TryQueueFavoriteConcentrationRefund(observedAmount)
     reserved = math.max(0, reserved - (stillQueuedCrafts * cost))
     local availableAfterQueue = math.max(0, after - reserved)
     local refundQuantity = math.floor(availableAfterQueue / cost)
+    -- Meme plafond que le dump : un proc d'ingeniosite apres deux crafts de
+    -- Bouquet consommant les deux charges rendait assez de concentration pour
+    -- en remettre deux en file, a zero charge.
+    local cooldownCap
+    refundQuantity, cooldownCap = state.CapQuantityByCooldown(tracker.recipeID, refundQuantity)
     DebugPrint(
         "concentration-refund check source=" .. tostring(tracker.source or "?")
             .. " recipe=" .. tostring(tracker.recipeID)
@@ -10277,6 +10422,7 @@ function YQQuality.TryQueueFavoriteConcentrationRefund(observedAmount)
             .. " expected=" .. tostring(expectedWithoutRefund)
             .. " reserved=" .. tostring(reserved)
             .. " available=" .. tostring(availableAfterQueue)
+            .. " cooldownCap=" .. tostring(cooldownCap)
             .. " dump=" .. tostring(refundQuantity)
     )
     if after <= expectedWithoutRefund or refundQuantity <= 0 then
@@ -18478,6 +18624,8 @@ handle.TradeSkillClose = function(event, arg1, arg2, arg3)
     if event == "TRADE_SKILL_CLOSE" then
         state.alchemyAutoQueue.pendingProfessionID = false
         state.alchemyAutoQueue.completedProfessionID = nil
+        state.alchemyAutoQueue.passRecipeCount = nil
+        state.alchemyAutoQueue.confirmedRecipeCount = nil
         state.alchemyAutoQueue.attempts = 0
         -- Chaque ouverture du metier relance le dump du favori : le marqueur
         -- « traite » ne vaut que pour la fenetre qui vient de se fermer. La
@@ -18687,13 +18835,15 @@ handle.UnitSpellcastSucceeded = function(event, arg1, arg2, arg3)
             )
             return true
         end
-        local pendingEntry = state.PopPendingCraftEntry()
+        -- On depile le lot de CE sort, pas forcement le premier de la liste :
+        -- un lot orphelin en tete serait sinon consomme a la place.
+        local pendingEntry = state.PopPendingCraftEntry(castSpellID)
         local recipeName = ConsumeCraftEntry(pendingEntry)
         if not recipeName then
-            local recipeID = PopPendingCraftRecipe()
+            local recipeID = PopPendingCraftRecipe(castSpellID)
             recipeName = recipeID and ConsumeCraftFromQueue(recipeID) or nil
         else
-            PopPendingCraftRecipe()
+            PopPendingCraftRecipe(castSpellID)
         end
         YQQuality.DebugCraftState(
             "spellcast-success-after",
@@ -18795,7 +18945,14 @@ handle.SpellcastAborted = function(event, arg1, arg2, arg3)
             -- compte par le disjoncteur : le meme craft refuse trois fois de
             -- suite est suspendu au lieu d'etre rejoue a chaque clic.
             if event == "UNIT_SPELLCAST_FAILED" then
-                state.NoteCraftFailure(abortedSpellID)
+                if state.IsCastBlockedByPlayerState() then
+                    DebugPrint(
+                        "craft-failure ignored recipe=" .. tostring(abortedSpellID)
+                            .. " reason=player-state"
+                    )
+                else
+                    state.NoteCraftFailure(abortedSpellID)
+                end
                 state.NoteCastFailure(abortedSpellID)
             end
             ClearPendingCraftBatches()

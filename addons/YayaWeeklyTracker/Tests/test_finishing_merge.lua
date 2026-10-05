@@ -187,6 +187,58 @@ equals("... Matrix : cinq libres, une fusion", Find(results, MATRIX) and Find(re
 equals("l'ordre d'affichage est conserve", results[1].itemID, REBAR)
 
 -- ---------------------------------------------------------------------------
+section("Scan de sacs transitoirement vide : seul un scan qui ne trouve rien est ecarte")
+-- ---------------------------------------------------------------------------
+-- Le garde de YayaWeeklyTracker garde l'ancien cache quand un scan ne rend rien
+-- alors qu'il y en avait avant (curseur, deplacement d'objet). Un resultat vide
+-- parce que la FILE a tout reserve est un etat vrai : le garde le ressortait
+-- comme un scan rate et gardait le bouton Fusionner perime.
+
+local guardBody = Extract("UsePreviousBagCacheOnTransientEmpty",
+    "(trackerUI%.UsePreviousBagCacheOnTransientEmpty = function%(cacheKey, previousCount, currentCount, previousState%).-\nend)\n")
+local resetBody = Extract("ResetBagScanRetry",
+    "(trackerUI%.ResetBagScanRetry = function%(cacheKey%).-\nend)\n")
+
+local owned = {}
+C_Item = { GetItemCount = function(itemID) return owned[itemID] or 0 end }
+function SafeCall(fn, ...)
+    local ok, value = pcall(fn, ...)
+    if ok then return value end
+    return nil
+end
+function DebugLog() end
+local retryTimers = {}
+C_Timer = { After = function(delay, fn) retryTimers[#retryTimers + 1] = fn end }
+assert(loadstring(resetBody .. "\n" .. guardBody, "bag-guard"))()
+runtimeState.bagScanRetryCount, runtimeState.bagScanRetryQueued, runtimeState.bagScanRetryToken = {}, {}, {}
+
+local function Rescan()
+    midnightCaches.finishingReagentMergesDirty = true
+    return Merges()
+end
+
+UseQueue("queue", {})
+Fill({ [MATRIX] = 12 })
+owned[MATRIX] = 12
+equals("avant la reservation : une ligne de fusion", #Merges(), 1)
+UseQueue("queue", { [MATRIX] = 12 })
+results = Rescan()
+equals("la file reserve tout : le bouton disparait au lieu de rester perime", #results, 0)
+equals("... sans relance de scan en attente", #retryTimers, 0)
+
+UseQueue("queue", {})
+Fill({ [MATRIX] = 12 })
+Merges()
+bags = { [0] = {} }                 -- sacs vus vides : curseur, deplacement d'objet
+results = Rescan()
+equals("scan reellement vide alors que l'objet est possede : l'ancien cache est garde",
+    #results, 1)
+equals("... un nouveau scan est planifie", #retryTimers, 1)
+owned[MATRIX] = 0
+results = Rescan()
+equals("... et si l'objet n'est plus possede, le vide est accepte", #results, 0)
+
+-- ---------------------------------------------------------------------------
 section("Une API defaillante ne bloque jamais la fusion")
 -- ---------------------------------------------------------------------------
 

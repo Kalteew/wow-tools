@@ -710,6 +710,195 @@ equals("PickBest d'un seul element le rend",
     QueueOrder.PickBest(Describe({ Entry("seul") }), "insertion").entry.recipeName, "seul")
 
 -- ---------------------------------------------------------------------------
+-- Chaudron : une recette pas encore apprise est un plan, pas un craft
+-- ---------------------------------------------------------------------------
+-- Cas reel : les recettes du chaudron de Camberon (transmutations de motes,
+-- potions a Moxie) sont mises en file a l'ouverture du metier alors que le
+-- joueur ne les a pas apprises. Elles tenaient la tete de la file, Next restait
+-- sur « ouvre le chaudron » et aucun craft realisable ne partait.
+
+section("Chaudron : recettes pas encore apprises")
+
+local predicateCalls = 0
+local CAULDRON_CTX = {
+    claimedOrderID = CLAIMED_ORDER,
+    currentProfessionID = OPEN_PROFESSION,
+    gearRank = GearRank,
+    hasMaterials = function(entry)
+        return entry.testHasMaterials ~= false
+    end,
+    isCraftBlocked = function(entry)
+        return entry.testCraftBlocked == true
+    end,
+    isCauldronActionable = function(entry)
+        predicateCalls = predicateCalls + 1
+        return entry.testStalled ~= true
+    end,
+}
+
+d = QueueOrder.Describe(
+    Entry("motes", { cauldronRecipe = true, cauldronOrder = 400, testStalled = true }), 1, CAULDRON_CTX)
+equals("recette a apprendre : marquee en attente du chaudron", d.cauldronStalled, true)
+equals("... elle ne garde pas la tete du plan", d.isCauldronLead, false)
+equals("... rang de disponibilite : bloque", d.availabilityRank, 2)
+equals("... l'ordre Moxie est conserve", d.cauldronOrder, 400)
+d = QueueOrder.Describe(
+    Entry("potion", { cauldronRecipe = true, cauldronOrder = 100 }), 1, CAULDRON_CTX)
+equals("recette apprise (ou action disponible) : tete du plan", d.isCauldronLead, true)
+equals("... pas en attente", d.cauldronStalled, false)
+equals("... rang de disponibilite : peut avancer", d.availabilityRank, 0)
+d = QueueOrder.Describe(Entry("motes", { cauldronRecipe = true, cauldronOrder = 400 }), 1, CTX)
+equals("sans predicat injecte : comportement historique (tete du plan)", d.isCauldronLead, true)
+
+predicateCalls = 0
+QueueOrder.Describe(Entry("pret"), 1, CAULDRON_CTX)
+QueueOrder.Describe(Entry("fusion", { queueKind = "merge" }), 1, CAULDRON_CTX)
+QueueOrder.Describe(Entry("patron", { queueKind = "patron", orderID = 4 }), 1, CAULDRON_CTX)
+equals("le predicat n'est consulte que pour les recettes du chaudron", predicateCalls, 0)
+QueueOrder.Describe(Entry("chaudron", { cauldronRecipe = true }), 1, CAULDRON_CTX)
+equals("... et l'est pour elles", predicateCalls, 1)
+
+local STALLED_MOTES = { cauldronRecipe = true, cauldronOrder = 400, testStalled = true }
+for _, mode in ipairs(QueueOrder.MODES) do
+    equals("un craft pret passe devant une recette du chaudron a apprendre (mode " .. mode .. ")",
+        BestName({
+            Entry("motes", STALLED_MOTES),
+            Entry("pret"),
+        }, mode, CAULDRON_CTX), "pret")
+end
+equals("... meme quand le craft pret est peu rentable et le plan Moxie en tete d'index",
+    SortedNames({
+        Entry("motes", STALLED_MOTES),
+        Entry("pret", { profitKnown = true, profitValue = -500 }),
+    }, "standard", CAULDRON_CTX), "pret,motes")
+equals("une recette apprise garde la tete devant un craft pret (plan explicite preserve)",
+    SortedNames({
+        Entry("pret"),
+        Entry("potion", { cauldronRecipe = true, cauldronOrder = 100 }),
+    }, "standard", CAULDRON_CTX), "potion,pret")
+equals("... et passe devant une recette a apprendre quel que soit son ordre Moxie",
+    SortedNames({
+        Entry("motes", STALLED_MOTES),
+        Entry("flasque", { cauldronRecipe = true, cauldronOrder = 300 }),
+    }, "standard", CAULDRON_CTX), "flasque,motes")
+equals("une recette a apprendre passe apres un craft qui attend des materiaux",
+    SortedNames({
+        Entry("motes", STALLED_MOTES),
+        Entry("sans materiaux", { testHasMaterials = false }),
+    }, "standard", CAULDRON_CTX), "sans materiaux,motes")
+equals("... mais avant un craft sur cooldown : la consigne se suit, le temps s'attend",
+    SortedNames({
+        Entry("cooldown", { testCraftBlocked = true }),
+        Entry("motes", STALLED_MOTES),
+    }, "standard", CAULDRON_CTX), "motes,cooldown")
+equals("les recettes a apprendre gardent leur ordre Moxie entre elles",
+    SortedNames({
+        Entry("flasque", { cauldronRecipe = true, cauldronOrder = 300, testStalled = true }),
+        Entry("motes", STALLED_MOTES),
+        Entry("potion", { cauldronRecipe = true, cauldronOrder = 100, testStalled = true }),
+    }, "standard", CAULDRON_CTX), "potion,flasque,motes")
+equals("seule entree restante : elle reste designee, Next dit « ouvre le chaudron »",
+    BestName({ Entry("motes", STALLED_MOTES) }, "standard", CAULDRON_CTX), "motes")
+equals("la commande claim reste devant tout, chaudron compris",
+    SortedNames({
+        Entry("potion", { cauldronRecipe = true, cauldronOrder = 100 }),
+        Entry("claim", { queueKind = "patron", orderID = CLAIMED_ORDER, professionID = 2913 }),
+    }, "standard", CAULDRON_CTX), "claim,potion")
+equals("le salvage reste devant une recette du chaudron apprise",
+    SortedNames({
+        Entry("potion", { cauldronRecipe = true, cauldronOrder = 100 }),
+        Entry("broyage", { isSalvageRecipe = true }),
+    }, "standard", CAULDRON_CTX), "broyage,potion")
+equals("une fusion passe devant une recette a apprendre",
+    SortedNames({
+        Entry("motes", STALLED_MOTES),
+        Entry("fusion", { queueKind = "merge", mergeDepth = 0 }),
+    }, "standard", CAULDRON_CTX), "fusion,motes")
+
+-- Fuzz : meme invariants que la cascade generale, plus l'ordre par degre de
+-- disponibilite, sur des files melangeant crafts, recettes du chaudron apprises
+-- ou non, materiaux manquants et cooldowns.
+math.randomseed(20261005)
+
+local function CauldronEntry(index)
+    local entry = RandomEntry(index)
+    local roll = math.random(6)
+    if roll == 1 then
+        entry.queueKind = "recipe"
+        entry.cauldronRecipe = true
+        entry.cauldronOrder = math.random(1, 6) * 100
+        entry.testStalled = math.random(2) == 1
+    elseif roll == 2 then
+        entry.testHasMaterials = false
+    elseif roll == 3 then
+        entry.testCraftBlocked = true
+    end
+    return entry
+end
+
+for _, mode in ipairs(QueueOrder.MODES) do
+    local queue = {}
+    for index = 1, 60 do
+        queue[index] = CauldronEntry(index)
+    end
+    local function DescribeAll()
+        return Describe(queue, CAULDRON_CTX)
+    end
+    local ok, err = pcall(function()
+        for _ = 1, 5 do
+            QueueOrder.Sort(DescribeAll(), mode)
+        end
+    end)
+    equals("chaudron : table.sort n'echoue jamais en mode " .. mode, ok, true)
+    if not ok then print("        " .. tostring(err)) end
+
+    local described = DescribeAll()
+    local sorted = QueueOrder.Sort(DescribeAll(), mode)
+    equals("chaudron : PickBest == Sort[1] en mode " .. mode,
+        QueueOrder.PickBest(described, mode).entry, sorted[1].entry)
+
+    local strict = true
+    for i = 1, #described do
+        for j = i + 1, #described do
+            if QueueOrder.Compare(described[i], described[j], mode)
+                == QueueOrder.Compare(described[j], described[i], mode)
+            then
+                strict = false
+            end
+        end
+    end
+    equals("chaudron : ordre strict total en mode " .. mode, strict, true)
+
+    -- Apres claim et salvage : les recettes du chaudron qui peuvent agir, puis
+    -- le rang de disponibilite croissant ; dans le rang 2, les recettes a
+    -- apprendre d'abord.
+    local phase = "head"
+    local lastRank = 0
+    local seenBlockedNonCauldron = false
+    local invariant = true
+    for _, candidate in ipairs(sorted) do
+        if candidate.isClaimedOrder or candidate.isSalvage then
+            if phase ~= "head" then invariant = false end
+        else
+            if candidate.isCauldronLead then
+                if phase == "ranked" then invariant = false end
+                phase = "leads"
+            else
+                phase = "ranked"
+                if candidate.availabilityRank < lastRank then invariant = false end
+                lastRank = candidate.availabilityRank
+                if candidate.availabilityRank == 2 then
+                    if candidate.cauldronStalled and seenBlockedNonCauldron then invariant = false end
+                    if not candidate.cauldronStalled then seenBlockedNonCauldron = true end
+                end
+            end
+        end
+    end
+    equals("chaudron : claim, salvage, recettes actives, puis disponibilite croissante (mode "
+        .. mode .. ")", invariant, true)
+end
+
+-- ---------------------------------------------------------------------------
 -- Garde-fous de source : la cascade ne vit plus qu'ici
 -- ---------------------------------------------------------------------------
 
