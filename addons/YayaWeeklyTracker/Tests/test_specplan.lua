@@ -649,6 +649,62 @@ Check("arbre illisible : ni oui ni non, ne pas eteindre un rappel sur une inconn
     specPlan.HasSpendableWork(SKILL_LINE_ID) == nil)
 
 --------------------------------------------------------------------------------
+print("\nFermeture provoquee par le plan")
+--------------------------------------------------------------------------------
+
+-- Une fois l'application committee, le plan ferme lui-meme la fenetre quand le
+-- metier n'a plus d'action de specialisation. Cette fermeture est, comme
+-- l'ouverture, un geste du tracker et non du joueur : le drapeau
+-- d'ouverture programmatique (voir "Ouverture programmatique" plus bas) est
+-- retenu AVANT l'appel, puis pendant la grace ou tournent les callbacks
+-- C_Timer.After(0) des autres addons.
+--
+-- Placee ici, avant "Clics securises" : ces tests-la laissent le report de
+-- fermeture du module arme (leur file de timers est videe avant la fin de la
+-- chaine de reessais), ce qui empecherait d'en programmer un autre.
+
+do
+    -- L'horloge de depart est largement apres celle des sections precedentes
+    -- (GetTime y vaut 1000.0) : leurs ouvertures de metier ont pose des echeances
+    -- que cette section ne doit pas voir.
+    local realGetTime = GetTime
+    local clock = 50000.0
+    GetTime = function() return clock end
+
+    Reset({ steps = { { path = 12, rank = 20, name = "Feuille" } } })
+    RANKS[12] = 20
+    OpenUpTo(100)
+    STAGED_CHANGES = true
+
+    local closeFlags = {}
+    C_TradeSkillUI.CloseTradeSkill = function()
+        closeFlags[#closeFlags + 1] = specPlan.IsOpeningProfession()
+    end
+
+    Check("l'application s'arme", specPlan.Step(FakeButton()) == true)
+    Check("appliquer n'ouvre rien : pas de drapeau", specPlan.IsOpeningProfession() == false)
+
+    -- Le jeu a committe : plus aucun changement en attente, plus rien a faire.
+    STAGED_CHANGES = false
+    RunTimers(3)
+    Check("le plan ferme le metier une fois les changements committes",
+        #closeFlags == 1, #closeFlags)
+    Check("le drapeau etait deja leve pendant la fermeture", closeFlags[1] == true, closeFlags[1])
+    Check("il tient apres : les callbacks des autres addons tournent apres la fermeture",
+        specPlan.IsOpeningProfession() == true)
+    clock = clock + 1.4
+    Check("1,4 s apres la fermeture : vrai", specPlan.IsOpeningProfession() == true)
+    specPlan.NotifyTradeSkillShown()
+    clock = clock + 0.2
+    Check("1,6 s apres : faux, et une apparition dans la grace ne l'a pas prolongee",
+        specPlan.IsOpeningProfession() == false)
+
+    C_TradeSkillUI.CloseTradeSkill = nil
+    GetTime = realGetTime
+    Reset(nil)
+end
+
+--------------------------------------------------------------------------------
 print("\nClics securises : appliquer et confirmer")
 --------------------------------------------------------------------------------
 
@@ -796,6 +852,131 @@ Check("premiere tentative : la ligne d'extension", OPEN_CALLS[1] == SKILL_LINE_I
 specPlan.Step()
 Check("restee sans effet, la seconde retombe sur le metier de base",
     OPEN_CALLS[2] == 171, OPEN_CALLS[2])
+
+--------------------------------------------------------------------------------
+print("\nOuverture programmatique")
+--------------------------------------------------------------------------------
+
+-- Quand le plan ouvre un metier, le joueur n'a rien fait dessus : YayaQueue et
+-- YayaCraftingOrders ne doivent pas y lancer leurs automatismes de
+-- TRADE_SKILL_SHOW, dont les donnees (cooldowns, charges) ne sont pas chargees.
+-- Le plan l'annonce par `IsOpeningProfession`, que le tracker interroge.
+--
+-- Le drapeau est une echeance horodatee par GetTime : il expire seul, donc ne
+-- peut pas rester coince a vrai. L'horloge est pilotee ici, et restituee en fin
+-- de section pour ne pas bouger les suites qui suivent.
+
+local realOpenTradeSkill = C_TradeSkillUI.OpenTradeSkill
+local realGetTime = GetTime
+local clock = 1000.0
+GetTime = function() return clock end
+local function Advance(seconds) clock = clock + seconds end
+
+local OPEN_MODE = "ok"
+local flagDuringOpen
+C_TradeSkillUI.OpenTradeSkill = function(id)
+    flagDuringOpen = specPlan.IsOpeningProfession()
+    if OPEN_MODE == "error" then
+        error("OpenTradeSkill refuse")
+    end
+    -- "ignored" : le client ignore l'appel en silence, la fenetre ne s'ouvre pas.
+    if OPEN_MODE == "ok" then
+        OPEN_SKILL_LINE_ID = id
+    end
+end
+
+Reset({ steps = { { path = 12, rank = 20, name = "Feuille" } } })
+Advance(100)
+Check("au repos, le plan n'ouvre rien", specPlan.IsOpeningProfession() == false)
+
+specPlan.Step()
+Check("le drapeau est leve AVANT OpenTradeSkill (TRADE_SKILL_SHOW peut partir dans l'appel)",
+    flagDuringOpen == true, flagDuringOpen)
+Check("il tient apres l'appel", specPlan.IsOpeningProfession() == true)
+
+-- Le client montre le metier : le relais du tracker previent le plan. Les
+-- callbacks After(0) des autres addons tournent une frame plus tard.
+Advance(0.3)
+specPlan.NotifyTradeSkillShown()
+Check("l'apparition ne leve pas le drapeau : il tient pour les callbacks differes",
+    specPlan.IsOpeningProfession() == true)
+Advance(1.4)
+Check("1,4 s apres l'apparition : encore vrai", specPlan.IsOpeningProfession() == true)
+Advance(0.2)
+Check("1,6 s apres : retombe, la fenetre reste au joueur", specPlan.IsOpeningProfession() == false)
+
+-- Une apparition posterieure est l'ouverture du joueur, jamais celle du plan.
+specPlan.NotifyTradeSkillShown()
+Check("une apparition apres coup ne releve pas le drapeau", specPlan.IsOpeningProfession() == false)
+
+-- Le client lent : une apparition tardive repousse l'echeance au-dela du filet.
+Reset({ steps = { { path = 12, rank = 20, name = "Feuille" } } })
+Advance(100)
+specPlan.Step()
+Advance(1.8)
+specPlan.NotifyTradeSkillShown()
+Advance(1.4)
+Check("apparition a +1,8 s : a +3,2 s, au-dela du filet de 2 s, vrai",
+    specPlan.IsOpeningProfession() == true)
+Advance(0.2)
+Check("a +3,4 s (1,6 s apres l'apparition) : faux", specPlan.IsOpeningProfession() == false)
+
+-- Seule la PREMIERE apparition compte : une seconde, dans la grace, ne prolonge pas.
+Reset({ steps = { { path = 12, rank = 20, name = "Feuille" } } })
+Advance(100)
+specPlan.Step()
+specPlan.NotifyTradeSkillShown()
+Advance(1.0)
+specPlan.NotifyTradeSkillShown()
+Advance(0.6)
+Check("une seconde apparition dans la grace ne la prolonge pas",
+    specPlan.IsOpeningProfession() == false)
+
+-- OpenTradeSkill refuse : rien ne s'ouvre, rien ne doit rester leve.
+Reset({ steps = { { path = 12, rank = 20, name = "Feuille" } } })
+Advance(100)
+OPEN_MODE = "error"
+flagDuringOpen = nil
+specPlan.Step()
+OPEN_MODE = "ok"
+Check("appel refuse : le drapeau avait ete pose avant l'appel", flagDuringOpen == true)
+Check("il retombe sur-le-champ", specPlan.IsOpeningProfession() == false)
+Advance(60)
+Check("et ne revient pas", specPlan.IsOpeningProfession() == false)
+
+-- Appel ignore en silence (la panne de la ligne d'extension) : le filet de 2 s.
+Reset({ steps = { { path = 12, rank = 20, name = "Feuille" } } })
+Advance(100)
+OPEN_MODE = "ignored"
+specPlan.Step()
+OPEN_MODE = "ok"
+Check("appel ignore : le drapeau tient le temps du filet", specPlan.IsOpeningProfession() == true)
+Advance(1.9)
+Check("a 1,9 s : encore vrai", specPlan.IsOpeningProfession() == true)
+Advance(0.2)
+Check("a 2,1 s sans apparition : le filet l'a libere", specPlan.IsOpeningProfession() == false)
+specPlan.NotifyTradeSkillShown()
+Check("l'ouverture du joueur, ensuite, n'est pas prise pour la reponse du plan",
+    specPlan.IsOpeningProfession() == false)
+
+-- Un clic de plus (autoclicker) relance le filet : le drapeau suit les clics.
+Reset({ steps = { { path = 12, rank = 20, name = "Feuille" } } })
+Advance(100)
+OPEN_MODE = "ignored"
+specPlan.Step()
+Advance(1.5)
+specPlan.Step()
+Advance(1.5)
+Check("deuxieme clic a +1,5 s : le filet repart, vrai a +3 s", specPlan.IsOpeningProfession() == true)
+Advance(0.6)
+Check("a +3,6 s : faux", specPlan.IsOpeningProfession() == false)
+OPEN_MODE = "ok"
+
+-- Restitution : les sections suivantes retrouvent le client tel que la section
+-- "Ouverture du metier" l'avait laisse.
+C_TradeSkillUI.OpenTradeSkill = realOpenTradeSkill
+GetTime = realGetTime
+Reset(nil)
 
 --------------------------------------------------------------------------------
 print("\nLibelle du bouton")

@@ -1655,6 +1655,24 @@ runtimeState.tradeSkillBootstrapAttempted = false
 runtimeState.tradeSkillBootstrapPending = false
 runtimeState.tradeSkillBootstrapArmed = false
 runtimeState.tradeSkillBootstrapProfessionID = nil
+-- Ouverture de metier faite par le tracker lui-meme, sans action du joueur sur
+-- le metier : l'amorcage ci-dessous et le plan de depense des points de
+-- connaissance (YayaWeeklyTrackerSpecPlan.lua). YayaQueue et YayaCraftingOrders
+-- lancent leurs automatismes a chaque TRADE_SKILL_SHOW ; sur ces ouvertures les
+-- donnees du metier (cooldowns, charges) ne sont pas chargees, et le marqueur
+-- "une fois par session" serait consomme pour rien. Ils interrogent donc
+-- YayaWeeklyTrackerAPI.IsProgrammaticTradeSkillOpen, qui lit ces champs.
+--
+-- Le drapeau tient pendant l'ouverture (`tradeSkillBootstrapPending`, pose AVANT
+-- l'appel OpenTradeSkill pour etre vrai quand les autres addons recoivent
+-- TRADE_SKILL_SHOW), puis pendant une grace apres la fin : les callbacks
+-- C_Timer.After(0) des autres addons tournent APRES la fermeture. Tout est
+-- horodate avec GetTime, jamais porte par un seul timer : un drapeau qui ne
+-- dependrait que d'un timer resterait vrai si ce timer ne tournait pas.
+runtimeState.tradeSkillBootstrapSafetySeconds = 2
+runtimeState.tradeSkillProgrammaticGraceSeconds = 1.5
+runtimeState.tradeSkillBootstrapStartedAt = nil
+runtimeState.tradeSkillProgrammaticGraceUntil = nil
 runtimeState.itemDataLoadPending = {}
 runtimeState.itemDataLoadRetryAt = {}
 runtimeState.itemDataLoadCooldownSeconds = 5
@@ -4034,6 +4052,49 @@ _G.YayaWeeklyTrackerAPI.ResolveWarbankItem = function(itemID, variant)
     return trackerUI.warbank.Resolve(itemID, variant)
 end
 
+-- Vrai quand le tracker a lui-meme ouvert un metier sans action du joueur :
+-- l'amorcage des donnees au login (ArmTradeSkillBootstrap) ou le plan de
+-- depense des points de connaissance (YayaWeeklyTrackerSpecPlan). YayaQueue et
+-- YayaCraftingOrders la consultent pour ignorer cette ouverture : leurs
+-- automatismes de TRADE_SKILL_SHOW y trouveraient des donnees de metier pas
+-- encore chargees, et consommeraient le marqueur "une fois par session".
+--
+-- Le drapeau est vrai pendant l'ouverture elle-meme, puis pendant une grace
+-- apres la fermeture : les callbacks C_Timer.After(0) des autres addons
+-- s'executent APRES elle. Chaque source est bornee par GetTime et ne depend
+-- d'aucun timer pour retomber, donc ne peut pas rester coincee a vrai.
+-- Requete pure : ne modifie aucun etat.
+_G.YayaWeeklyTrackerAPI.IsProgrammaticTradeSkillOpen = function()
+    local now = GetTime and GetTime() or 0
+
+    if runtimeState.tradeSkillBootstrapPending then
+        -- Plafond de secours : le filet normal est le timer de securite de
+        -- l'amorcage, mais un timer qui ne tournerait jamais ne doit pas laisser
+        -- le drapeau a vrai pour toute la session.
+        local startedAt = runtimeState.tradeSkillBootstrapStartedAt
+        local ceiling = runtimeState.tradeSkillBootstrapSafetySeconds
+            + runtimeState.tradeSkillProgrammaticGraceSeconds
+        if not startedAt or now - startedAt <= ceiling then
+            return true
+        end
+    end
+
+    local graceUntil = runtimeState.tradeSkillProgrammaticGraceUntil
+    if graceUntil and now < graceUntil then
+        return true
+    end
+
+    local specPlan = _G.YayaWeeklyTrackerSpecPlan
+    if type(specPlan) == "table" and type(specPlan.IsOpeningProfession) == "function" then
+        local ok, opening = pcall(specPlan.IsOpeningProfession)
+        if ok and opening == true then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function FindMidnightKnowledgeConsumableInBags(trackedRows)
     if not midnightCaches.knowledgeDirty and midnightCaches.knowledge then
         return midnightCaches.knowledge
@@ -4502,6 +4563,20 @@ trackerUI.FindSurplusReagentContainersInBags = function()
     return results
 end
 
+-- Unites d'un objet que la file de YayaQueue reserve pour ses crafts a venir.
+-- 0 quand YayaQueue est absent, trop ancien ou en erreur : sans file, rien n'est
+-- reserve.
+trackerUI.GetQueueReservedQuantity = function(itemID)
+    if not (YayaQueueAPI and type(YayaQueueAPI.GetReservedItemQuantity) == "function") then
+        return 0
+    end
+    local ok, reserved = pcall(YayaQueueAPI.GetReservedItemQuantity, itemID)
+    if not ok then
+        return 0
+    end
+    return math.max(0, math.floor(tonumber(reserved) or 0))
+end
+
 trackerUI.FindMergeableFinishingReagentsInBags = function()
     if not midnightCaches.finishingReagentMergesDirty and midnightCaches.finishingReagentMerges then
         return midnightCaches.finishingReagentMerges
@@ -4537,8 +4612,14 @@ trackerUI.FindMergeableFinishingReagentsInBags = function()
 
     local results = {}
     for _, state in pairs(byItemID) do
-        if state.totalCount >= 5 then
-            state.mergeCount = math.floor(state.totalCount / 5)
+        -- Les unites que la file de craft reserve ne se fusionnent pas : cinq
+        -- rang 1 reserves deviennent un rang 2 que l'entree de file ne reconnait
+        -- pas, et la file se bloque sur un « Acquerir » impossible (ces
+        -- finitions sont liees au personnage). Seul le surplus est propose.
+        state.reservedCount = trackerUI.GetQueueReservedQuantity(state.itemID)
+        state.usableCount = math.max(0, state.totalCount - state.reservedCount)
+        if state.usableCount >= 5 then
+            state.mergeCount = math.floor(state.usableCount / 5)
             results[#results + 1] = state
         end
     end
@@ -5074,6 +5155,7 @@ trackerUI.UpdateFinishingReagentMergeButtons = function(states)
             button.itemLink = state.itemLink
             button.itemName = state.itemName
             button.mergeCount = state.mergeCount
+            button.reservedCount = state.reservedCount
             if not (InCombatLockdown and InCombatLockdown()) then
                 button:SetAttribute("type", "item")
                 button:SetAttribute("item", "item:" .. tostring(state.itemID))
@@ -5086,6 +5168,7 @@ trackerUI.UpdateFinishingReagentMergeButtons = function(states)
             button.itemLink = nil
             button.itemName = nil
             button.mergeCount = nil
+            button.reservedCount = nil
             if not (InCombatLockdown and InCombatLockdown()) then
                 button:SetAttribute("type", nil)
                 button:SetAttribute("item", nil)
@@ -9374,6 +9457,14 @@ ScheduleTrackerRefresh = function(delaySeconds, refreshJardOwners)
     end)
 end
 
+-- Appele par YayaQueue quand les unites de finition qu'il reserve changent : la
+-- fusion cinq-vers-un ne propose que le surplus, donc son bouton doit suivre la
+-- file sans attendre un evenement de sac.
+_G.YayaWeeklyTrackerAPI.InvalidateFinishingMerges = function()
+    trackerUI.InvalidateFinishingReagentMergeCache()
+    ScheduleTrackerRefresh(0, false)
+end
+
 _G.YayaWeeklyTrackerAutoOpen = _G.YayaWeeklyTrackerAutoOpen or {}
 _G.YayaWeeklyTrackerAutoOpen.GetActionButton = function()
     return trackerFrame and trackerFrame.autoOpenButton or nil
@@ -9419,6 +9510,12 @@ trackerUI.FinishTradeSkillBootstrap = function()
     end
 
     runtimeState.tradeSkillBootstrapPending = false
+    runtimeState.tradeSkillBootstrapStartedAt = nil
+    -- La grace demarre AVANT la fermeture et non apres : CloseTradeSkill peut
+    -- emettre des evenements de facon synchrone, que les autres addons doivent
+    -- encore voir comme programmatiques (pending vient de retomber).
+    runtimeState.tradeSkillProgrammaticGraceUntil =
+        (GetTime and GetTime() or 0) + runtimeState.tradeSkillProgrammaticGraceSeconds
     if type(C_TradeSkillUI) == "table" and type(C_TradeSkillUI.CloseTradeSkill) == "function" then
         pcall(C_TradeSkillUI.CloseTradeSkill)
     end
@@ -9467,13 +9564,19 @@ trackerUI.ArmTradeSkillBootstrap = function(frame)
                     self:SetScript("OnKeyDown", nil)
                     runtimeState.tradeSkillBootstrapArmed = false
                     runtimeState.tradeSkillBootstrapAttempted = true
+                    -- Le drapeau est pose AVANT l'appel : le client peut emettre
+                    -- TRADE_SKILL_SHOW pendant OpenTradeSkill meme, et les autres
+                    -- addons doivent deja le trouver vrai a ce moment.
                     runtimeState.tradeSkillBootstrapPending = true
+                    runtimeState.tradeSkillBootstrapStartedAt = GetTime and GetTime() or 0
                     local ok, err = pcall(
                         C_TradeSkillUI.OpenTradeSkill,
                         runtimeState.tradeSkillBootstrapProfessionID
                     )
                     if not ok then
+                        -- Rien n'a ete ouvert : ni drapeau ni grace ne restent.
                         runtimeState.tradeSkillBootstrapPending = false
+                        runtimeState.tradeSkillBootstrapStartedAt = nil
                         DebugLog(
                             "TradeSkill bootstrap echec id=%s: %s",
                             tostring(runtimeState.tradeSkillBootstrapProfessionID),
@@ -9487,7 +9590,10 @@ trackerUI.ArmTradeSkillBootstrap = function(frame)
                         tostring(runtimeState.tradeSkillBootstrapProfessionID)
                     )
                     if C_Timer and C_Timer.After then
-                        C_Timer.After(2, trackerUI.FinishTradeSkillBootstrap)
+                        C_Timer.After(
+                            runtimeState.tradeSkillBootstrapSafetySeconds,
+                            trackerUI.FinishTradeSkillBootstrap
+                        )
                     end
                 end)
                 DebugLog("TradeSkill bootstrap arme id=%s", tostring(professionID))
@@ -10696,6 +10802,30 @@ trackerUI.CreateTrackerFrame = function()
         button:SetAttribute("useOnKeyDown", false)
         button:SetText("Fusionner")
         button:Hide()
+        -- Garde de dernier instant : la file de craft a pu reserver ces
+        -- exemplaires entre le dernier rafraichissement du bouton et ce clic
+        -- (un dump de concentration vient de les mettre en file). L'action
+        -- securisee s'execute APRES ce PreClick : retirer ses attributs la
+        -- neutralise, et le prochain rafraichissement les repose si une fusion
+        -- redevient possible. Hors combat seulement, comme toute mutation d'un
+        -- bouton securise.
+        button:HookScript("PreClick", function(self, _, down)
+            if down or (InCombatLockdown and InCombatLockdown()) or not self.itemID then
+                return
+            end
+            local free = trackerUI.GetOwnedItemCount(self.itemID)
+                - trackerUI.GetQueueReservedQuantity(self.itemID)
+            if free < 5 then
+                self:SetAttribute("type", nil)
+                self:SetAttribute("item", nil)
+                trackerUI.InvalidateFinishingReagentMergeCache()
+                DebugLog(
+                    "Fusion de finitions refusee item=%s libre=%d (reserve par la file)",
+                    tostring(self.itemID),
+                    free
+                )
+            end
+        end)
         button:HookScript("PostClick", function(self, _, down)
             if down then
                 return
@@ -10712,6 +10842,12 @@ trackerUI.CreateTrackerFrame = function()
             end
             if self.mergeCount then
                 GameTooltip:AddLine(("Fusions possibles : %d"):format(self.mergeCount), 1, 1, 1, true)
+            end
+            if self.reservedCount and self.reservedCount > 0 then
+                GameTooltip:AddLine(
+                    ("%d exemplaire(s) reserve(s) par YayaQueue, non fusionnes."):format(self.reservedCount),
+                    1, 0.82, 0, true
+                )
             end
             GameTooltip:Show()
         end)
@@ -10981,6 +11117,15 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             C_Timer.After(0, trackerUI.FinishTradeSkillBootstrap)
         else
             trackerUI.FinishTradeSkillBootstrap()
+        end
+    end
+    if event == "TRADE_SKILL_SHOW" then
+        -- Le plan de specialisation (autre fichier) n'ecoute aucun evenement : il
+        -- tient son drapeau d'ouverture jusqu'a la premiere apparition du metier
+        -- qu'il a demande, plus la grace, et c'est ce relais qui le lui apprend.
+        local specPlan = _G.YayaWeeklyTrackerSpecPlan
+        if type(specPlan) == "table" and type(specPlan.NotifyTradeSkillShown) == "function" then
+            pcall(specPlan.NotifyTradeSkillShown)
         end
     end
 

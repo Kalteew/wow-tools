@@ -358,6 +358,22 @@ function Pane:GetYayaQueueAPI()
 	return api
 end
 
+--- YayaWeeklyTracker ouvre parfois lui-meme un metier sans action du joueur
+-- (amorcage des donnees au login, plan de depense des points de connaissance).
+-- Ces ouvertures ne doivent declencher aucun automatisme de profession : les
+-- donnees du metier (cooldowns, charges) ne sont pas chargees, et le scan
+-- consommerait le marqueur "une fois par session" de YayaQueue. Vrai tant que
+-- YayaWeeklyTrackerAPI.IsProgrammaticTradeSkillOpen() le dit ; faux si l'addon
+-- est absent, trop ancien, ou si l'appel echoue. Requete pure.
+function Pane:IsProgrammaticTradeSkillOpen()
+	local api = _G.YayaWeeklyTrackerAPI
+	if type(api) ~= "table" or type(api.IsProgrammaticTradeSkillOpen) ~= "function" then
+		return false
+	end
+	local ok, programmatic = pcall(api.IsProgrammaticTradeSkillOpen)
+	return ok and programmatic == true
+end
+
 local function FormatSignedMoney(value)
 	if value == nil then
 		return NONE
@@ -4522,6 +4538,20 @@ function Pane:DispatchProfessionOpenQueueTasks(flow, source)
 		return nil
 	end
 
+	-- Filet de securite : une ouverture programmatique de YayaWeeklyTracker ne
+	-- lance ni la concentration du favori ni le scan des first crafts. On rend
+	-- AVANT de marquer `postOpenTasksDispatched`, pour que la vraie ouverture
+	-- suivante, elle, les dispatche.
+	if self:IsProgrammaticTradeSkillOpen() then
+		ns.Debug(
+			"auto-scan",
+			"post-open ignore profession=%s source=%s reason=programmatic-open",
+			tostring(flow.profession),
+			tostring(source or flow.mode or "?")
+		)
+		return nil
+	end
+
 	flow.postOpenTasksDispatched = true
 	local queueApi = self:GetYayaQueueAPI()
 	local result = {
@@ -5110,6 +5140,19 @@ function Pane:SchedulePatronAutoScanStartRetry(reason)
 end
 
 function Pane:MaybeStartPatronAutoScan(reason)
+	-- Filet de securite : une ouverture programmatique de YayaWeeklyTracker ne
+	-- demarre aucun scan. Retour AVANT toute ecriture (autoScanOpeningProfession,
+	-- autoScanCompletedByProfession, retry de demarrage...) : la profession n'est
+	-- pas marquee traitee, et la vraie ouverture suivante demarre normalement.
+	if self:IsProgrammaticTradeSkillOpen() then
+		ns.Debug(
+			"auto-scan",
+			"evaluate ignore reason=%s cause=programmatic-open",
+			tostring(reason)
+		)
+		return
+	end
+
 	local snapshot = self:GetProfessionSnapshot()
 	local profession = snapshot.selected
 	ns.Debug(
@@ -7782,6 +7825,13 @@ function Pane:InitializeEvents()
 		)
 		Pane:MarkDirty("trade-skill-source")
 		Pane:MarkDetailWarningDirty()
+		-- Meme regle que TRADE_SKILL_SHOW : le drapeau est evalue ici, a la
+		-- reception, et la source de donnees n'en est pas moins invalidee
+		-- ci-dessus (c'est l'etat d'affichage). Seul le demarrage du scan saute.
+		if Pane:IsProgrammaticTradeSkillOpen() then
+			ns.Debug("event", "TRADE_SKILL_DATA_SOURCE_CHANGED ignore reason=programmatic-open")
+			return
+		end
 		C_Timer.After(0, function()
 			if Pane then
 				Pane:MaybeStartPatronAutoScan("trade-skill-source")
@@ -7800,6 +7850,15 @@ function Pane:InitializeEvents()
 	end)
 
 	ns.RegisterEvent("TRADE_SKILL_SHOW", function()
+		-- Le drapeau est evalue ICI, de facon synchrone a la reception : c'est
+		-- l'instant ou YayaWeeklyTracker garantit l'avoir pose (avant son appel a
+		-- OpenTradeSkill). Une ouverture programmatique n'arme pas
+		-- `autoScanOpeningRequested` et ne lance ni scan patron ni concentration du
+		-- favori : le metier reste eligible pour la vraie ouverture suivante.
+		if Pane:IsProgrammaticTradeSkillOpen() then
+			ns.Debug("event", "TRADE_SKILL_SHOW ignore reason=programmatic-open")
+			return
+		end
 		Pane.autoScanOpeningRequested = true
 		Pane.autoScanStartAttempts = 0
 		C_Timer.After(0, function()
@@ -7817,7 +7876,7 @@ function Pane:InitializeEvents()
 				Pane:MaybeStartPatronAutoScan("trade-skill-show")
 				local canOpenPatronOrders = Pane:CanOpenPatronOrders()
 				ns.Debug("event", "TRADE_SKILL_SHOW patron-tab-available=%s flow=%s", tostring(canOpenPatronOrders), tostring(Pane.autoScanFlow ~= nil))
-				if canOpenPatronOrders and not Pane.autoScanFlow then
+				if canOpenPatronOrders and not Pane.autoScanFlow and not Pane:IsProgrammaticTradeSkillOpen() then
 					local queueApi = Pane:GetYayaQueueAPI()
 					if queueApi and type(queueApi.QueueFavoriteConcentration) == "function" then
 						local favoriteOK, favoriteMessage = queueApi.QueueFavoriteConcentration(snapshot.selected)
@@ -7829,6 +7888,11 @@ function Pane:InitializeEvents()
 	end)
 
 	ns.RegisterEvent("TRADE_SKILL_CLOSE", function()
+		-- Un changement DIRECT de metier fait par YayaWeeklyTracker (plan de
+		-- specialisation) passe par ici : TRADE_SKILL_CLOSE de l'ancien metier avec
+		-- la fenetre toujours affichee. Le drapeau est evalue a la reception, comme
+		-- pour TRADE_SKILL_SHOW, pour que ce changement n'arme pas le scan.
+		local programmaticSwitch = Pane:IsProgrammaticTradeSkillOpen()
 		local immediateSnapshot = Pane:GetProfessionSnapshot()
 		local immediateFlow = Pane.autoScanFlow
 		ns.Debug(
@@ -7863,9 +7927,13 @@ function Pane:InitializeEvents()
 				tostring(flow and flow.sessionKey)
 			)
 			if Pane and professionFrameShown then
-				Pane.autoScanOpeningRequested = true
-				Pane.autoScanStartAttempts = 0
-				Pane:MaybeStartPatronAutoScan("trade-skill-close-switch")
+				if programmaticSwitch then
+					ns.Debug("event", "TRADE_SKILL_CLOSE switch ignore reason=programmatic-open")
+				else
+					Pane.autoScanOpeningRequested = true
+					Pane.autoScanStartAttempts = 0
+					Pane:MaybeStartPatronAutoScan("trade-skill-close-switch")
+				end
 			elseif Pane then
 				Pane.autoScanOpeningRequested = false
 				Pane.autoScanStartAttempts = 0

@@ -363,6 +363,78 @@ local pendingAction
 -- d'extension vers le metier de base quand le premier reste sans effet.
 local openAttempts = {}
 
+-- ---------------------------------------------------------------------------
+-- Ouverture programmatique
+--
+-- Quand le plan ouvre un metier (`StepOpenProfession`), le joueur n'a rien fait
+-- sur ce metier : YayaQueue et YayaCraftingOrders ne doivent pas y lancer leurs
+-- automatismes de TRADE_SKILL_SHOW. Les donnees du metier (cooldowns, charges)
+-- ne sont pas chargees, et ces automatismes consommeraient leur marqueur
+-- "une fois par session" pour mettre en file des recettes irrealisables.
+-- YayaWeeklyTracker.lua les en previent par `IsProgrammaticTradeSkillOpen`, qui
+-- interroge `api.IsOpeningProfession`.
+--
+-- Le drapeau est une ECHEANCE horodatee par GetTime, jamais un booleen que seul
+-- un evenement ou un timer redescendrait : il expire seul, donc ne peut pas
+-- rester coince a vrai.
+--
+--   * pose AVANT OpenTradeSkill (le client peut emettre TRADE_SKILL_SHOW dans
+--     l'appel meme), pour OPEN_SAFETY_SECONDS : c'est le filet d'un appel que le
+--     client ignore en silence (ligne d'extension aux donnees pas chargees).
+--   * au premier TRADE_SKILL_SHOW qui suit, ramene a OPEN_GRACE_SECONDS :
+--     les callbacks C_Timer.After(0) des autres addons tournent APRES lui.
+--   * le plan laisse ensuite la fenetre ouverte au joueur : le drapeau est
+--     relache, pour que ses actions a lui reprennent leurs automatismes.
+--   * la fermeture que le plan provoque lui-meme (apres l'application) retient
+--     le drapeau pendant la meme grace.
+--   * un OpenTradeSkill refuse (pcall faux) l'efface sur-le-champ.
+-- ---------------------------------------------------------------------------
+local OPEN_SAFETY_SECONDS = 2
+local OPEN_GRACE_SECONDS = 1.5
+local opening = { deadline = nil, shown = false }
+
+local function GetNow()
+    return GetTime and GetTime() or 0
+end
+
+--- Pose le drapeau. A appeler AVANT `C_TradeSkillUI.OpenTradeSkill`.
+local function BeginOpening()
+    opening.deadline = GetNow() + OPEN_SAFETY_SECONDS
+    opening.shown = false
+end
+
+--- Efface le drapeau : l'ouverture n'a pas eu lieu.
+local function CancelOpening()
+    opening.deadline = nil
+    opening.shown = false
+end
+
+--- Retient le drapeau pendant la grace. A appeler AVANT `CloseTradeSkill`.
+-- `shown` passe a vrai : un TRADE_SKILL_SHOW qui suivrait la fermeture est
+-- l'ouverture d'un autre metier, pas celle que le plan a demandee, et ne doit ni
+-- relancer ni prolonger le drapeau.
+local function HoldOpeningGrace()
+    opening.deadline = math.max(opening.deadline or 0, GetNow() + OPEN_GRACE_SECONDS)
+    opening.shown = true
+end
+
+--- Le plan est-il en train d'ouvrir un metier (ou vient-il de le faire / de le
+-- fermer) ? Requete pure, lue par YayaWeeklyTracker.lua.
+function api.IsOpeningProfession()
+    return opening.deadline ~= nil and GetNow() < opening.deadline
+end
+
+--- Relais de TRADE_SKILL_SHOW, appele par YayaWeeklyTracker.lua. Seule la
+-- PREMIERE apparition qui suit une ouverture du plan compte ; une apparition
+-- quand le drapeau est retombe est l'ouverture du joueur et n'y touche pas.
+function api.NotifyTradeSkillShown()
+    if opening.shown or opening.deadline == nil or GetNow() >= opening.deadline then
+        return
+    end
+    opening.shown = true
+    opening.deadline = GetNow() + OPEN_GRACE_SECONDS
+end
+
 local function SafeCall(func, ...)
     if type(func) ~= "function" then
         return nil
@@ -1171,6 +1243,9 @@ local function ScheduleCloseAfterApply(skillLineID, attempt)
 
         if type(C_TradeSkillUI) == "table"
             and type(C_TradeSkillUI.CloseTradeSkill) == "function" then
+            -- Drapeau d'ouverture programmatique retenu AVANT la fermeture : les
+            -- callbacks des autres addons tournent apres elle.
+            HoldOpeningGrace()
             pcall(C_TradeSkillUI.CloseTradeSkill)
             DebugLog("SpecPlan fermeture apres application skillLine=%s", tostring(skillLineID))
         end
@@ -1713,7 +1788,15 @@ local function StepOpenProfession(target)
         requestedID = parentID or skillLineID
     end
 
+    -- Le drapeau d'ouverture programmatique est pose AVANT l'appel : le client
+    -- peut emettre TRADE_SKILL_SHOW pendant OpenTradeSkill meme, et YayaQueue /
+    -- YayaCraftingOrders doivent deja le trouver vrai a ce moment.
+    BeginOpening()
     local ok = pcall(C_TradeSkillUI.OpenTradeSkill, requestedID)
+    if not ok then
+        -- Appel refuse : rien ne s'ouvre, donc rien ne doit rester leve.
+        CancelOpening()
+    end
     DebugLog(
         "SpecPlan open-profession skillLine=%s demande=%s tentative=%d ok=%s",
         tostring(skillLineID),
