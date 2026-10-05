@@ -1391,14 +1391,25 @@ local function Print(message)
 end
 
 local function AppendPersistentDebugLog(prefix, message)
-    state.EnsureDB()
-    db.debugLog = db.debugLog or {}
+    -- JAMAIS state.EnsureDB() ici. Il se termine par NormalizeQueueEntries, qui
+    -- remplace db.queue par des copies : toute trace emise entre la lecture d'une
+    -- entree et son ecriture (consommation d'un craft, ajout) faisait ecrire le
+    -- decrement sur l'ancienne table, perdue. Avec le debug allume, la file ne
+    -- diminuait donc plus : Next re-proposait « Craft x2 » apres chaque lot alors
+    -- que matieres et concentration etaient bel et bien depensees. Un journal ne
+    -- doit pas changer le comportement qu'il observe.
+    if type(YayaQueueDB) ~= "table" then
+        return
+    end
+    if type(YayaQueueDB.debugLog) ~= "table" then
+        YayaQueueDB.debugLog = {}
+    end
 
     local timestamp = date and date("%H:%M:%S") or tostring(math.floor(GetTime and GetTime() or 0))
     local entry = ("[%s] %s%s"):format(timestamp, prefix or "", tostring(message or ""))
     -- Tampon circulaire : la purge precedente appelait table.remove(t, 1), qui
     -- recopie tout le journal a chaque ligne au-dela de la limite de 400.
-    YayaCore.RingBuffer.Push(db.debugLog, entry, CONFIG.DEBUG_LOG_LIMIT)
+    YayaCore.RingBuffer.Push(YayaQueueDB.debugLog, entry, CONFIG.DEBUG_LOG_LIMIT)
 end
 
 local function PrintPersistentDebugLog(limit)
@@ -2644,7 +2655,19 @@ local function ScheduleRefresh()
     state.refreshQueued = true
     C_Timer.After(0, function()
         state.refreshQueued = false
-        state.RefreshAll()
+        -- Un rendu qui leve une erreur laissait le panneau, donc le bouton Next,
+        -- fige sur son ancien etat jusqu'a l'evenement suivant. L'erreur reste
+        -- remise au gestionnaire d'erreurs (!YayaErrorLog la consigne), puis on
+        -- retente un nombre borne de fois.
+        local handler = geterrorhandler and geterrorhandler() or function(message)
+            return message
+        end
+        if xpcall(state.RefreshAll, handler) then
+            state.refreshRetries = 0
+        elseif (state.refreshRetries or 0) < 3 then
+            state.refreshRetries = (state.refreshRetries or 0) + 1
+            C_Timer.After(0.5, ScheduleRefresh)
+        end
     end)
 end
 
@@ -3789,7 +3812,9 @@ local function DebugPrintReagentCount(prefix, itemID, needed, mailbox)
         return
     end
 
-    local immediateOwned = GetOwnedCount(itemID)
+    -- Lecture pure : GetOwnedCount regle les achats en transit et memorise le
+    -- dernier compte observe, donc la trace modifiait ce qu'elle observait.
+    local immediateOwned = GetImmediateOwnedCount(itemID)
     local totalOwned = GetTotalOwnedCount(itemID)
     local name = GetItemName(itemID)
     -- Une meme ligne repetee a l'identique n'apprend rien et rend le journal
@@ -4877,10 +4902,18 @@ local function ResetQueue()
     state.pendingCauldronItem = nil
     ClearPatronAction("queue-reset")
     if state.nextActionLock
-        and (state.nextActionLock.action == "equip_tool" or state.nextActionLock.action == "shatter")
+        and (state.nextActionLock.action == "equip_tool"
+            or state.nextActionLock.action == "shatter"
+            or state.nextActionLock.action == "craft")
     then
         ClearNextActionLock("queue-reset")
     end
+    -- Un lot de crafts en vol survivait au reset : son verrou (30 s) et ses lots
+    -- en attente laissaient « Next: attente » sur les entrees ajoutees ensuite.
+    -- Plus rien dans la file ne peut etre decremente par ces crafts.
+    wipe(state.pendingCraftBatches)
+    state.ClearPendingCraftEntries()
+    EndCraftClickLock()
     wipe(state.searchCache)
     YQQuality.HideHighPriceConfirmation()
     if state.ah.pendingCommodity and type(C_AuctionHouse.CancelCommoditiesPurchase) == "function" then
@@ -6566,17 +6599,26 @@ local function BuildQueueSummary()
                 bucket = "auction"
                 table.insert(summary.auctionTasks, task)
             end
-            local bucketKey = "bucket:" .. tostring(itemID) .. tostring(task.variantKey or "")
-            local bucketSignature = bucket .. "|" .. tostring(task.missing)
-            if state.debugCountSignatures[bucketKey] ~= bucketSignature then
-                state.debugCountSignatures[bucketKey] = bucketSignature
-                DebugPrint(
-                    "queue-bucket item=" .. tostring(itemID)
-                        .. " variant=" .. tostring(state.DescribeItemVariant(task.variant))
-                        .. " missing=" .. tostring(task.missing)
-                        .. " bucket=" .. bucket
-                        .. " bindType=" .. tostring(select(14, GetItemInfo(itemID)))
-                )
+            -- Reserve au debug : les arguments d'un DebugPrint sont evalues
+            -- avant qu'il ne decide de se taire. Et `select(14, GetItemInfo(...))`
+            -- ne rend RIEN pour un objet pas encore en cache, donc
+            -- `tostring(select(...))` levait « bad argument #1 to 'tostring'
+            -- (value expected) » (62 fois dans !YayaErrorLog) : le rendu entier
+            -- avortait et le bouton Next restait fige jusqu'a l'evenement
+            -- suivant. Les parentheses ramenent l'appel a une seule valeur.
+            if CONFIG.debugNextCraft then
+                local bucketKey = "bucket:" .. tostring(itemID) .. tostring(task.variantKey or "")
+                local bucketSignature = bucket .. "|" .. tostring(task.missing)
+                if state.debugCountSignatures[bucketKey] ~= bucketSignature then
+                    state.debugCountSignatures[bucketKey] = bucketSignature
+                    DebugPrint(
+                        "queue-bucket item=" .. tostring(itemID)
+                            .. " variant=" .. tostring(state.DescribeItemVariant(task.variant))
+                            .. " missing=" .. tostring(task.missing)
+                            .. " bucket=" .. bucket
+                            .. " bindType=" .. tostring((select(14, GetItemInfo(itemID))))
+                    )
+                end
             end
         end
     end
@@ -6756,9 +6798,15 @@ function YQQuality.DebugCraftState(stage, recipeID, details)
         return
     end
 
-    state.EnsureDB()
+    -- Lecture seule de la base : pas de state.EnsureDB(), qui renormaliserait la
+    -- file et remplacerait les entrees que l'appelant tient en main (voir
+    -- AppendPersistentDebugLog).
+    local queue = type(YayaQueueDB) == "table" and YayaQueueDB.queue or nil
+    if type(queue) ~= "table" then
+        return
+    end
     local queued = {}
-    for index, entry in ipairs(db.queue) do
+    for index, entry in ipairs(queue) do
         if tonumber(entry.recipeID) == focusRecipeID then
             queued[#queued + 1] = tostring(index)
                 .. ":" .. tostring(entry.recipeID)
@@ -7039,6 +7087,11 @@ state.BeginPatronAction = function(phase, entry, timeoutSeconds)
             state.RefreshPatronOrder(action.orderID, action.professionID, phase .. "-timeout")
         end
     end)
+    -- GetPendingPatronAction n'expire l'action qu'a la lecture. Si la
+    -- resynchronisation ci-dessus n'aboutit pas, rien ne relirait cette date et
+    -- « Next: attente » durerait jusqu'a un evenement fortuit : on programme le
+    -- rendu qui la constate.
+    C_Timer.After(timeout + 10.1, ScheduleRefresh)
     return true
 end
 
@@ -17974,6 +18027,12 @@ handle.AddonLoaded = function(event, arg1, arg2, arg3)
         end
 
         state.EnsureDB()
+        -- Le debug survit au /reload et aux sessions : sans ce rappel, il
+        -- restait allume sans que personne ne s'en souvienne, journalisant et
+        -- imprimant en continu.
+        if db.debugEnabled == true then
+            Print("Mode debug ACTIF (conserve entre les sessions) : /yq debug pour le couper.")
+        end
         YQQuality.InstallProfessionSpecMassPurchaseHook()
         YQQuality.RefreshIngenuityBuffState("addon-loaded")
         YQQuality.EnsureOptions()
@@ -18583,14 +18642,6 @@ handle.SpellcastAborted = function(event, arg1, arg2, arg3)
                 ScheduleRefresh()
                 return true
             end
-            if state.autoFavoriteConcentration.tracker then
-                state.autoFavoriteConcentration.tracker.awaitingCraft = false
-                state.autoFavoriteConcentration.tracker.craftConfirmed = false
-                state.autoFavoriteConcentration.tracker.confirmedCrafts = 0
-                state.autoFavoriteConcentration.tracker.reservationProcessedCrafts = 0
-                state.autoFavoriteConcentration.tracker.reservationConsumedCrafts = 0
-                state.autoFavoriteConcentration.tracker.batchCraftsRemaining = 0
-            end
             local abortedSpellID = tonumber(arg3)
             if not state.IsPendingCraftSpell(abortedSpellID) then
                 -- Sort etranger au craft attendu : on ne touche a rien.
@@ -18601,6 +18652,18 @@ handle.SpellcastAborted = function(event, arg1, arg2, arg3)
                         .. " pendingBatches=" .. tostring(#state.pendingCraftBatches)
                 )
                 return
+            end
+            -- Le suivi de remboursement n'est remis a zero que pour le craft
+            -- suivi : cet effacement precedait le filtre d'identite, donc l'echec
+            -- d'un sort etranger (une monture refusee en mouvement) lui faisait
+            -- perdre le lot en cours et la reinjection du remboursement.
+            if state.autoFavoriteConcentration.tracker then
+                state.autoFavoriteConcentration.tracker.awaitingCraft = false
+                state.autoFavoriteConcentration.tracker.craftConfirmed = false
+                state.autoFavoriteConcentration.tracker.confirmedCrafts = 0
+                state.autoFavoriteConcentration.tracker.reservationProcessedCrafts = 0
+                state.autoFavoriteConcentration.tracker.reservationConsumedCrafts = 0
+                state.autoFavoriteConcentration.tracker.batchCraftsRemaining = 0
             end
             DebugPrint("event=" .. tostring(event) .. " spellID=" .. tostring(abortedSpellID) .. " name=" .. tostring(state.GetSpellNameForDebug(abortedSpellID)) .. " pendingEntries=" .. tostring(#state.pendingCraftEntries) .. " pendingBatches=" .. tostring(#state.pendingCraftBatches))
             -- Un cast refuse d'emblee (et non interrompu par un mouvement) est
@@ -18902,6 +18965,15 @@ end
 handle.UiErrorMessage = function(event, arg1, arg2, arg3)
     if event == "UI_ERROR_MESSAGE" then
         local message = arg2
+        -- Le texte que le jeu oppose a un clic (« sort pas pret », « en
+        -- mouvement »...) : sans lui, un UNIT_SPELLCAST_FAILED ne dit pas
+        -- pourquoi le craft est refuse.
+        if CONFIG.debugNextCraft
+            and type(message) == "string"
+            and not (issecretvalue and issecretvalue(message))
+        then
+            DebugPrint("ui-error message=" .. message)
+        end
         local pendingPatronAction = GetPendingPatronAction()
         if pendingPatronAction then
             state.RefreshPatronOrder(
