@@ -5024,6 +5024,31 @@ state.ForceRankOneContextReagents = function(context)
     return changed or reagentsChanged
 end
 
+-- Copie d'un contexte ou d'une entree privee de ses finitions liees (champ de
+-- state : YayaQueue.lua frole les 200 locals de chunk).
+state.StripBoundFinishing = function(context)
+    local copy = {}
+    for key, value in pairs(context) do copy[key] = value end
+    copy.craftingReagents, copy.reagents = {}, {}
+    local dropped = {}
+    for _, info in ipairs(NormalizeCraftingReagents(context.craftingReagents)) do
+        local itemID = info.reagent and info.reagent.itemID
+        if itemID and CONFIG.FINISHING_REAGENT_ROLES[itemID] then
+            dropped[itemID] = (dropped[itemID] or 0) + info.quantity
+        else
+            copy.craftingReagents[#copy.craftingReagents + 1] = info
+        end
+    end
+    for _, reagent in ipairs(NormalizeReagents(context.reagents)) do
+        local cut = math.min(reagent.quantity, dropped[reagent.itemID] or 0)
+        dropped[reagent.itemID] = (dropped[reagent.itemID] or 0) - cut
+        if reagent.quantity - cut > 0 then
+            copy.reagents[#copy.reagents + 1] = { itemID = reagent.itemID, quantity = reagent.quantity - cut }
+        end
+    end
+    return copy
+end
+
 local function AddRecipeToQueue(context, quantity)
     state.EnsureDB()
     quantity = ClampQuantity(quantity)
@@ -5210,6 +5235,67 @@ local function GetEntryCraftsRemaining(entry)
     local remainingOutput = entry.outputItemID and math.max(0, outputQty - ownedOutput) or outputQty
     local craftsRemaining = math.ceil(remainingOutput / outputPerCraft)
     return craftsRemaining, remainingOutput
+end
+
+-- Crafts que le stock permet pour les finitions liees d'une entree normale (meme
+-- comptage que le gate materiaux : sacs + banques), reactif limitant, quantite par
+-- craft. nil sans finition liee. GetEntryResourceState ne verifie qu'UN craft.
+state.GetFinishingLimit = function(entry)
+    if type(entry) ~= "table" or entry.queueKind ~= nil or entry.isSalvageRecipe == true then
+        return nil
+    end
+    local limit, limitingID, perCraft
+    for _, info in ipairs(NormalizeCraftingReagents(entry.craftingReagents)) do
+        local itemID = info.reagent and info.reagent.itemID
+        if itemID and CONFIG.FINISHING_REAGENT_ROLES[itemID] then
+            local needed = math.max(1, info.quantity)
+            local crafts = math.floor(GetTotalOwnedCount(itemID) / needed)
+            if not limit or crafts < limit then
+                limit, limitingID, perCraft = crafts, itemID, needed
+            end
+        end
+    end
+    return limit, limitingID, perCraft
+end
+
+-- Action explicite "Next: sans <finition>" : reporte les crafts restants de
+-- l'entree sur la meme recette SANS finition liee (fusion par signature avec le
+-- lot "sans finition" du dump). Jamais depuis un rendu : un stock transitoirement
+-- nul (curseur, deplacement) ne doit rien detruire. Rend les crafts reportes.
+state.DropEntryFinishing = function(entry)
+    if type(entry) ~= "table" or entry.queueKind ~= nil or entry.isSalvageRecipe == true
+        or IsCraftClickLocked() or GetNextActionLock()
+    then
+        return 0
+    end
+    local crafts = select(1, GetEntryCraftsRemaining(entry))
+    if crafts <= 0 then
+        return 0
+    end
+    -- EnsureDB reconstruit les tables : `entry` peut etre une copie perimee. On
+    -- retrouve la vraie par signature et on n'ajoute le jumeau que si elle a ete
+    -- retiree (sinon les crafts seraient comptes deux fois).
+    state.EnsureDB()
+    local craftingSignature = BuildCraftingReagentSignature(entry.craftingReagents)
+    local removed = false
+    for index, queued in ipairs(db.queue) do
+        if queued == entry or (
+            queued.queueKind == nil
+            and queued.recipeID == entry.recipeID
+            and NormalizeApplyConcentration(queued.applyConcentration) == NormalizeApplyConcentration(entry.applyConcentration)
+            and (queued.reagentSignature or "") == (entry.reagentSignature or "")
+            and BuildCraftingReagentSignature(queued.craftingReagents) == craftingSignature
+        ) then
+            table.remove(db.queue, index)
+            removed = true
+            break
+        end
+    end
+    if not removed then
+        return 0
+    end
+    local _, added = AddRecipeToQueue(state.StripBoundFinishing(entry), crafts)
+    return added or 0
 end
 
 local alchemyAuto = {}
@@ -6928,17 +7014,27 @@ local function ConsumeCraftEntry(entryData)
     local isPatronEntry = entryData.queueKind == "patron"
     local expectedOrderID = tonumber(entryData.orderID) or 0
 
-    for index, entry in ipairs(db.queue) do
-        local sameOrder = expectedOrderID > 0 and (tonumber(entry.orderID) or 0) == expectedOrderID
-        local sameRecipe = (tonumber(entry.recipeID) or 0) > 0 and (tonumber(entry.recipeID) or 0) == (tonumber(entryData.recipeID) or 0)
-        local sameConcentration = NormalizeApplyConcentration(entry.applyConcentration) == NormalizeApplyConcentration(entryData.applyConcentration)
-        local sameKind = entry.queueKind == entryData.queueKind
-        local sameMerge = entry.queueKind == "merge"
-            and type(entry.mergeKey) == "string"
-            and entry.mergeKey == entryData.mergeKey
+    -- Passe 1 : entree de MEME signature (reactifs + finition) ; passe 2 : repli
+    -- historique (recette, concentration, kind). Sans la passe 1, le craft d'un lot
+    -- "Identifier" decrementait le premier lot de la recette ("Matrix").
+    for pass = entryData.craftingReagentSignature ~= nil and 1 or 2, 2 do
+        for index, entry in ipairs(db.queue) do
+            local sameOrder = expectedOrderID > 0 and (tonumber(entry.orderID) or 0) == expectedOrderID
+            local sameRecipe = (tonumber(entry.recipeID) or 0) > 0 and (tonumber(entry.recipeID) or 0) == (tonumber(entryData.recipeID) or 0)
+            local sameConcentration = NormalizeApplyConcentration(entry.applyConcentration) == NormalizeApplyConcentration(entryData.applyConcentration)
+            local sameKind = entry.queueKind == entryData.queueKind
+            local sameMerge = entry.queueKind == "merge"
+                and type(entry.mergeKey) == "string"
+                and entry.mergeKey == entryData.mergeKey
+            local sameSignature = pass == 2
+                or (BuildCraftingReagentSignature(entry.craftingReagents) == entryData.craftingReagentSignature
+                    and (entry.reagentSignature or "") == (entryData.reagentSignature or ""))
 
-        if sameOrder or sameMerge or (not isPatronEntry and sameRecipe and sameConcentration and sameKind) then
-            return ConsumeMatchedQueueEntry(index, entry, entryData)
+            if sameOrder or sameMerge
+                or (not isPatronEntry and sameRecipe and sameConcentration and sameKind and sameSignature)
+            then
+                return ConsumeMatchedQueueEntry(index, entry, entryData)
+            end
         end
     end
 
@@ -7391,6 +7487,21 @@ local function GetPatronNextButtonState()
                 enabled = false,
             }
         end
+        -- Finition liee absente de tout stock : inachetable, donc sans cette sortie
+        -- l'entree resterait en tete a vie sur "Next: materiaux", concentration gelee.
+        local finishingLimit, finishingID = state.GetFinishingLimit(entry)
+        if finishingLimit and finishingLimit <= 0
+            and state.GetCurrentProfessionID() == tonumber(entry.professionID)
+            and GetMailboxCount(finishingID) <= 0
+        then
+            return {
+                entry = entry,
+                text = "Next: sans " .. tostring(GetItemName(finishingID)),
+                enabled = true,
+                action = "drop_finishing",
+                finishingID = finishingID,
+            }
+        end
         local mailboxTasks, vendorTasks, auctionTasks, acquireTasks = GetEntryResourceState(entry)
         if #mailboxTasks > 0 then
             return {
@@ -7461,6 +7572,9 @@ local function GetPatronNextButtonState()
             and type(C_TradeSkillUI.CraftRecipe) == "function"
         local craftsRemaining = GetEntryCraftsRemaining(entry)
         local craftAmount = math.max(1, tonumber(craftsRemaining) or 1)
+        if finishingLimit and finishingLimit > 0 and finishingLimit < craftAmount then
+            craftAmount = finishingLimit -- le reste passera par "Next: sans <finition>"
+        end
         if craftLimit and craftLimit.available < craftAmount then
             -- Un lot de deux crafts avec une seule charge : on lance ce qui peut
             -- partir, le reste attend la charge suivante.
@@ -7668,6 +7782,15 @@ state.RunPatronNextAction = function()
 
     if stateInfo.action == "mailbox" then
         state.ah.statusMessage = "Recupere les items en boite aux lettres"
+        ScheduleRefresh()
+        return
+    end
+
+    if stateInfo.action == "drop_finishing" then
+        local moved = state.DropEntryFinishing(stateInfo.entry)
+        state.ah.statusMessage = moved > 0
+            and (moved .. " craft(s) continuent sans " .. tostring(GetItemName(stateInfo.finishingID)))
+            or "Action indisponible"
         ScheduleRefresh()
         return
     end
@@ -8135,6 +8258,8 @@ state.QueuePendingCraftEntry = function(entry, amount)
         queueKind = entry.queueKind,
         recipeName = entry.recipeName,
         applyConcentration = NormalizeApplyConcentration(entry.applyConcentration),
+        reagentSignature = entry.reagentSignature,
+        craftingReagentSignature = BuildCraftingReagentSignature(entry.craftingReagents),
         amount = amount,
     }
     DebugPrint("queue-entry recipe=" .. tostring(entry.recipeID) .. " order=" .. tostring(entry.orderID) .. " amount=" .. tostring(amount) .. " pendingEntries=" .. tostring(#state.pendingCraftEntries))
