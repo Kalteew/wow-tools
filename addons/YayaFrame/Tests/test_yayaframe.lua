@@ -52,10 +52,11 @@ local function NewFontString()
     return fs
 end
 
-local function NewFrame(name, parent)
+local function NewFrame(name, parent, template)
     local frame = {
         name = name,
         parent = parent,
+        template = template,
         width = 0,
         height = 0,
         shown = true,
@@ -133,10 +134,15 @@ local function NewFrame(name, parent)
     return frame
 end
 
-_G.CreateFrame = function(_, name, parent) return NewFrame(name, parent) end
+_G.CreateFrame = function(_, name, parent, template) return NewFrame(name, parent, template) end
 _G.UIParent = NewFrame("UIParent")
-_G.RegisterStateDriver = function() end
-_G.UnregisterStateDriver = function() end
+local stateDrivers = {}
+_G.RegisterStateDriver = function(frame, state, values)
+    stateDrivers[frame] = { state = state, values = values }
+end
+_G.UnregisterStateDriver = function(frame)
+    stateDrivers[frame] = nil
+end
 _G.InCombatLockdown = function() return false end
 _G.C_Timer = {
     After = function(delay, callback)
@@ -208,6 +214,15 @@ local GUTTER = UI.PAD.sm
 print("Mise en page")
 local root = api:GetFrame()
 check("le conteneur existe", root ~= nil)
+local visibility = api:GetVisibilityFrame()
+check("le wrapper de visibilite reste non protege", visibility.template == nil)
+check("le conteneur reste enfant du wrapper", root.parent == visibility)
+
+api:SetHideInCombat(true)
+check("le masquage de combat est pilote sur le wrapper", stateDrivers[visibility]
+    and stateDrivers[visibility].state == "visibility")
+api:SetHideInCombat(false)
+check("le pilote de visibilite se retire", stateDrivers[visibility] == nil)
 
 local sectionA = _G.CreateFrame("Frame", "SectionA", UIParent)
 sectionA.height = 40

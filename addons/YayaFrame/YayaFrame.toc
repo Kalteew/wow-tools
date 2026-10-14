@@ -2,7 +2,7 @@
 ## Title: Yaya Frame
 ## Notes: Shared frame host for Yaya addons.
 ## Author: Codex
-## Version: 0.3.0
+## Version: 0.3.1
 ## Dependencies: YayaCore
 ## SavedVariables: YayaFrameDB
 

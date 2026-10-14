@@ -243,7 +243,11 @@ local function CreateFrames()
         return
     end
 
-    visibilityFrame = CreateFrame("Frame", addonName .. "VisibilityFrame", UIParent, "SecureHandlerStateTemplate")
+    -- Le wrapper de visibilite n'a pas besoin d'etre protege : le pilote d'etat
+    -- Retail sait masquer/afficher une frame ordinaire. Laisser un template
+    -- secure ici protegerait tout l'arbre, dont rootFrame et ses sections, et
+    -- bloquerait le layout en combat (SetWidth/SetHeight/Show).
+    visibilityFrame = CreateFrame("Frame", addonName .. "VisibilityFrame", UIParent)
     visibilityFrame:SetAllPoints(UIParent)
     visibilityFrame:Show()
 

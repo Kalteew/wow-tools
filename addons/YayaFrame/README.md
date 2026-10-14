@@ -46,6 +46,10 @@ declenche par la mise en page de la relancer indefiniment.
 
 Les appels manuels a `Refresh()` restent valides et sans effet de bord.
 
+Le masquage en combat est porte par un wrapper de visibilite ordinaire pilote par
+`RegisterStateDriver`. Le conteneur et ses sections restent ainsi modifiables pendant
+le combat, sans appels proteges bloques par le client.
+
 ## Largeur
 
 Le conteneur fait 200 pixels par defaut, comme auparavant. Une section peut

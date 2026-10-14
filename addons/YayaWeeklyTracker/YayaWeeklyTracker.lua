@@ -414,7 +414,6 @@ runtimeState.midnightNewRecipeTrackingBySkillLineID = {
         { label = "Enchant Helm - Blessing of Speed", spellID = 1236070, voidlightMarlCost = 0 },
         { label = "Enchant Helm - Hex of Leeching", spellID = 1236055, voidlightMarlCost = 0 },
         { label = "Enchant Helm - Rune of Avoidance", spellID = 1236083, voidlightMarlCost = 0 },
-        { label = "Enchant Ring - Zul'jin's Mastery", spellID = 1236060, voidlightMarlCost = 0 },
         { label = "Enchant Ring - Nature's Wrath", spellID = 1236073, voidlightMarlCost = 0 },
         { label = "Enchant Ring - Thalassian Versatility", spellID = 1236087, voidlightMarlCost = 0 },
         { label = "Enchant Shoulders - Thalassian Recovery", spellID = 1236090, voidlightMarlCost = 0 },
@@ -510,6 +509,8 @@ runtimeState.midnightRecipeSourceOptions = {
 -- masquer silencieusement tant que Blizzard ou YayaQueue n'a pas ete audite.
 runtimeState.midnightRecipeAcquisitionTypeBySpellID = {
     [1230859] = "reputation", -- Potion of Recklessness
+    [1236060] = "knowledge", -- Enchant Ring - Zul'jin's Mastery
+    [1236099] = "knowledge", -- Illusory Adornment - Nature's Embrace
     [1230883] = "pvp", -- Vicious Thalassian Flask of Honor
     -- Tout l'equipement Thalassian Competitor est vendu contre de l'Honneur.
     [1229634] = "pvp", [1229631] = "pvp", [1229636] = "pvp", [1229635] = "pvp",
@@ -535,6 +536,7 @@ runtimeState.midnightRecipeAcquisitionTypeBySpellID = {
     [1236081] = "reputation", [1236089] = "reputation", [1236093] = "reputation", [1236095] = "reputation",
     [1246907] = "reputation", [1246940] = "reputation", [1248621] = "reputation", [1248630] = "reputation",
     [1281342] = "reputation", [1281349] = "reputation",
+    [1248631] = "reputation", -- Magnificent Towering Bookcase
     -- Knowledge de specialisation.
     [1228984] = "knowledge", [1228985] = "knowledge", [1228986] = "knowledge", [1228988] = "knowledge",
     [1229598] = "knowledge", [1229599] = "knowledge", [1229600] = "knowledge", [1229601] = "knowledge",
@@ -551,9 +553,18 @@ runtimeState.midnightRecipeAcquisitionTypeBySpellID = {
     [1230076] = "knowledge", [1230077] = "knowledge", [1230444] = "knowledge", [1230469] = "knowledge",
     [1230486] = "knowledge", [1230857] = "knowledge", [1230858] = "knowledge", [1230867] = "knowledge",
     [1230870] = "knowledge", [1230875] = "knowledge", [1230885] = "knowledge", [1236487] = "knowledge",
+    [1236492] = "knowledge", -- Oil of Dawn (specialisation)
     [1236490] = "knowledge", [1237506] = "knowledge", [1237508] = "knowledge", [1237511] = "knowledge",
     [1237513] = "knowledge", [1237514] = "knowledge", [1237535] = "knowledge", [1237536] = "knowledge",
     [1237539] = "knowledge", [1237541] = "knowledge",
+    -- Recettes de connaissances confirmees dans l'historique des commandes.
+    [1230070] = "knowledge", [1230073] = "knowledge", -- Darkmoon Dominion: Blood / Void
+    [1228947] = "knowledge", [1228981] = "knowledge", [1228982] = "knowledge",
+    [1229658] = "knowledge", [1229660] = "knowledge", [1229662] = "knowledge", [1229666] = "knowledge",
+    [1229903] = "knowledge", [1229905] = "knowledge", [1229924] = "knowledge",
+    [1230445] = "knowledge", [1230450] = "knowledge", [1230451] = "knowledge", [1230459] = "knowledge",
+    [1230468] = "knowledge",
+    [1237537] = "knowledge", [1237538] = "knowledge", [1237542] = "knowledge", [1237579] = "knowledge",
     -- Decouvertes, recyclage et traites.
     [1229882] = "discovery", [1229883] = "discovery", [1229884] = "discovery", [1229885] = "discovery",
     [1229886] = "discovery", [1229887] = "discovery", [1229888] = "discovery", [1229889] = "discovery",
@@ -562,8 +573,9 @@ runtimeState.midnightRecipeAcquisitionTypeBySpellID = {
     [1230030] = "discovery", [1230031] = "discovery", [1230032] = "discovery", [1230033] = "discovery",
     [1230034] = "discovery", [1230035] = "discovery", [1230036] = "discovery", [1248616] = "discovery",
     -- Drops et decor de donjon/tresor.
-    [1230766] = "drop", [1230768] = "drop", [1236100] = "drop", [1237578] = "drop",
-    [1246903] = "drop", [1246939] = "drop", [1248620] = "drop",
+    [1230766] = "drop", [1230768] = "drop", [1236100] = "drop", [1236493] = "drop",
+    [1237578] = "drop", [1246903] = "drop", [1246908] = "drop", [1246939] = "drop",
+    [1228987] = "drop", -- Sunfire Sash
     -- Vendeurs de metier / Moxie.
     [1228966] = "professionVendor", [1229648] = "professionVendor", [1229649] = "professionVendor",
     [1229650] = "professionVendor", [1229651] = "professionVendor", [1229652] = "professionVendor",
@@ -578,13 +590,19 @@ runtimeState.midnightRecipeAcquisitionTypeBySpellID = {
     [1264527] = "professionVendor", [1264550] = "professionVendor", [1264651] = "professionVendor",
     [1265906] = "professionVendor", [1279123] = "professionVendor", [1279125] = "professionVendor",
     [1279128] = "professionVendor",
+    -- Vendeurs de recettes supplementaires de metier / Moxie.
+    [1248620] = "professionVendor", -- Restful Bronze Bench
+    [1248623] = "professionVendor", [1248624] = "professionVendor", [1264552] = "professionVendor",
+    [1228962] = "professionVendor", [1228963] = "professionVendor", [1228967] = "professionVendor",
+    [1246919] = "professionVendor", [1229647] = "professionVendor", [1262919] = "professionVendor",
+    [1242461] = "professionVendor", [1242462] = "professionVendor", [1242464] = "professionVendor",
+    [1237549] = "professionVendor", [1237565] = "professionVendor", [1246942] = "professionVendor",
     [1236078] = "reputation", -- Enchant Tool - Haranir Multicrafting
     [1236464] = "reputation", -- Gleeful Glamour - Haranir
     [1289744] = "reputation", -- Concentrated Silvermoon Health Potion
     [1246906] = "reputation", -- Animated Sin'dorei Hammer
     [1246902] = "reputation", -- Animated Sin'dorei Pick
     [1281348] = "reputation", -- Endless Codex of Nature's Grace
-    [1236060] = "knowledge", -- Enchant Ring - Zul'jin's Mastery (Amani Augments)
     [1230864] = "reputation", -- Amani Extract
     [1230873] = "reputation", -- Haranir Phial of Perception
     [1233133] = "reputation", -- Rootbound Vat
@@ -629,6 +647,40 @@ runtimeState.midnightRecipeAcquisitionTypeBySpellID = {
     [1230020] = "trainer", -- Hobbyist Rolling Pin
     [1230022] = "trainer", -- Hobbyist Scribe's Quill
     [1230050] = "trainer", -- Vantus Rune: Radiant
+    [1228939] = "trainer", -- Bright Linen Bolt
+    [1228940] = "trainer", -- Imbued Bright Linen Bolt
+    [1228952] = "trainer", -- Courtly Gloves
+    [1228953] = "trainer", -- Courtly Belt
+    [1228958] = "trainer", -- Courtly Cloak
+    [1228970] = "trainer", -- Bright Linen Enchanting Hat
+    [1228971] = "trainer", -- Bright Linen Fishing Hat
+    [1228972] = "trainer", -- Bright Linen Herbalism Hat
+    [1228976] = "trainer", -- Bright Linen Spellthread
+    [1229856] = "trainer", -- Perfected Cogwheel
+    [1229858] = "trainer", -- Consistent Cogwheel
+    [1229863] = "trainer", -- Evercore Shade
+    [1229867] = "trainer", -- Evercore Binding
+    [1229868] = "trainer", -- Evercore Chainguards
+    [1229869] = "trainer", -- Evercore Gear Weight
+    [1230442] = "trainer", -- Flawless Quick Peridot
+    [1230447] = "trainer", -- Deadly Lapis
+    [1230453] = "trainer", -- Flawless Versatile Lapis
+    [1230454] = "trainer", -- Quick Amethyst
+    [1230460] = "trainer", -- Flawless Masterful Amethyst
+    [1230494] = "trainer", -- Bold Biographer's Bifocals
+    [1230499] = "trainer", -- Monologuer's Chalice
+    [1246889] = "trainer", -- Tenebrous Ren'dorei Armillary
+    [1237499] = "trainer", -- Smuggler's Leather Tunic
+    [1237500] = "trainer", -- Smuggler's Leather Footpads
+    [1237502] = "trainer", -- Smuggler's Reinforced Hood
+    [1237531] = "trainer", -- Scout's Polished Skullcap
+    [1237546] = "trainer", -- Thalassian Scout Armor Kit
+    [1237554] = "trainer", -- Tinker's Handguard
+    [1237557] = "trainer", -- Eversong Botanist's Satchel
+    [1237560] = "trainer", -- Apprentice Jeweler's Apron
+    [1237563] = "trainer", -- Hideworker's Cover
+    [1237569] = "trainer", -- Skinner's Cap
+    [1246905] = "trainer", -- Font of Gleaming Water
 
     [1236486] = "trainer", -- Runed Refulgent Copper Rod
     [1236491] = "trainer", -- Thalassian Phoenix Oil
@@ -7357,16 +7409,19 @@ trackerUI.GetRecipeKnownFromTooltip = function(itemID)
     local lineTypes = Enum and Enum.TooltipDataLineType
     local requirementTypes = Enum and Enum.TooltipDataUsageRequirementType
     local usageRequirement = lineTypes and lineTypes.UsageRequirement
+    local isUsable = true
 
     for _, line in ipairs(tooltipData.lines) do
-        if type(line) == "table"
-            and usageRequirement
-            and requirementTypes
-            and line.type == usageRequirement
-            and line.usable ~= true
-            and line.requirementType == requirementTypes.NotAlreadyKnown then
-            -- The NotAlreadyKnown requirement is failing: this recipe is known.
-            return true
+        if type(line) == "table" and usageRequirement and line.type == usageRequirement then
+            if line.usable ~= true then
+                isUsable = false
+            end
+            if requirementTypes
+                and line.usable ~= true
+                and line.requirementType == requirementTypes.NotAlreadyKnown then
+                -- The NotAlreadyKnown requirement is failing: this recipe is known.
+                return true, false
+            end
         end
 
         local text = type(line) == "table" and line.leftText or nil
@@ -7377,8 +7432,9 @@ trackerUI.GetRecipeKnownFromTooltip = function(itemID)
         end
     end
 
-    -- Item data is loaded and no "already known" marker was found.
-    return false
+    -- Les donnees sont chargees. Transmettre aussi les conditions d'utilisation
+    -- pour que le bouton ignore les patrons sous le rang de metier requis.
+    return false, isUsable
 end
 
 -- Le bouton d'action doit aussi consommer les patrons hors catalogue Midnight
@@ -7656,6 +7712,7 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
     trackedRows = trackedRows or GetTrackedMidnightProfessions()
     local trackedRecipesByItemID = {}
     local trackedRecipes = {}
+    local recipeUsabilityByItemID = {}
     for _, row in ipairs(trackedRows or EMPTY_TABLE) do
         local recipes = trackerUI.GetMidnightRecipeDefinitions(row.skillLineID)
         for _, recipe in ipairs(recipes) do
@@ -7682,6 +7739,7 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
     local countsByItemID = {}
     local countsByRecipeKey = {}
     local recipeItemByID = {}
+    local hasIneligibleRecipe = false
     for bagID = 0, maxBagIndex do
         local slotCount = GetContainerNumSlotsCompat(bagID)
         for slotIndex = 1, slotCount do
@@ -7708,6 +7766,24 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
                 if isRecipeItem == nil then
                     isRecipeItem = trackerUI.IsProfessionRecipeItem(itemID)
                     recipeItemByID[itemID] = isRecipeItem
+                end
+            end
+            if itemID and isRecipeItem then
+                local recipeUsable = recipeUsabilityByItemID[itemID]
+                if recipeUsable == nil then
+                    local known, usable = trackerUI.GetRecipeKnownFromTooltip(itemID)
+                    recipeUsable = known == false and usable == true
+                    recipeUsabilityByItemID[itemID] = recipeUsable
+                    if known == nil or usable == nil then
+                        -- Le tooltip porte le rang requis. Tant qu'il n'est pas
+                        -- charge, ne pas proposer le patron ; ITEM_DATA_LOAD_RESULT
+                        -- relancera le scan.
+                        runtimeState.midnightRecipeStatePending = true
+                    end
+                end
+                isRecipeItem = recipeUsable == true
+                if not isRecipeItem then
+                    hasIneligibleRecipe = true
                 end
             end
             if itemID and isRecipeItem then
@@ -7741,7 +7817,7 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
         itemName = firstMatch and firstMatch.itemName or nil,
         slotIndex = firstMatch and firstMatch.slotIndex or nil,
     }
-    if previous and trackerUI.UsePreviousBagCacheOnTransientEmpty(
+    if previous and not hasIneligibleRecipe and trackerUI.UsePreviousBagCacheOnTransientEmpty(
         "recipeItems",
         previous.totalCount or 0,
         result.totalCount or 0,
@@ -7790,6 +7866,10 @@ trackerUI.GetMidnightRecipeStatus = function(row)
     end
 
     local function EvaluateRecipe(recipe, collectMissing)
+        local spellID = tonumber(recipe.spellID)
+        if spellID == 1236060 or spellID == 1236099 then
+            return true
+        end
         local requiresAbundance = recipe.abundance == true
             or (tonumber(recipe.abundanceCost) or 0) > 0
         if accountDB[recipe.optionKey] == false then
@@ -8189,12 +8269,30 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
     end
 
     local recipeStatus = trackerUI.GetMidnightRecipeStatus(row)
-    local vendorRecipes, auctionRecipes, patronRecipes = {}, {}, {}
+    local vendorRecipes, auctionRecipes, patronRecipes, otherSourceRecipes = {}, {}, {}, {}
+    local otherSourceLabels = {
+        knowledge = "specialisation",
+        drop = "tresor/donjon",
+        discovery = "decouverte/recyclage",
+        cauldron = "chaudron",
+    }
     for _, recipe in ipairs(recipeStatus.missingRecipes) do
-        local bucket = recipe.patronOrder
-            and patronRecipes
-            or (recipe.auctionHouse and auctionRecipes or vendorRecipes)
-        bucket[#bucket + 1] = recipe.label
+        -- `patronOrder` note qu'une recette a ete vue dans une commande, pas
+        -- que le patron soit sa source d'obtention. Le type resolu tranche.
+        local acquisitionType = trackerUI.GetMidnightRecipeAcquisitionType(recipe)
+        if acquisitionType == "patronOrder" then
+            patronRecipes[#patronRecipes + 1] = recipe.label
+        elseif acquisitionType == "auctionHouse" then
+            auctionRecipes[#auctionRecipes + 1] = recipe.label
+        elseif acquisitionType == "trainer"
+            or acquisitionType == "professionVendor"
+            or acquisitionType == "reputation"
+            or acquisitionType == "pvp" then
+            vendorRecipes[#vendorRecipes + 1] = recipe.label
+        else
+            local source = otherSourceLabels[acquisitionType] or "autre"
+            otherSourceRecipes[#otherSourceRecipes + 1] = ("%s (%s)"):format(recipe.label, source)
+        end
     end
     if #vendorRecipes > 0 then
         table.sort(vendorRecipes)
@@ -8208,6 +8306,13 @@ trackerUI.BuildMidnightProfessionTokens = function(row)
         Push(oneTimeTokens,
             ("recHV%sx%d"):format(NB, #auctionRecipes),
             ("Recettes a l'hotel des ventes : %s"):format(table.concat(auctionRecipes, ", ")),
+            "category")
+    end
+    if #otherSourceRecipes > 0 then
+        table.sort(otherSourceRecipes)
+        Push(oneTimeTokens,
+            ("src%sx%d"):format(NB, #otherSourceRecipes),
+            ("Recettes d'autres sources : %s"):format(table.concat(otherSourceRecipes, ", ")),
             "category")
     end
     -- Les recettes susceptibles de tomber en patron order sont une etape
