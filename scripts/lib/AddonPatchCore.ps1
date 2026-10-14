@@ -837,6 +837,7 @@ function Start-AddonPatchWatcher {
         [Parameter(Mandatory = $true)][string]$AddonName,
         [Parameter(Mandatory = $true)][string]$AddonPath,
         [Parameter(Mandatory = $true)][string]$MutexName,
+        [scriptblock]$ResolveAddonPathAction,
         [Parameter(Mandatory = $true)][scriptblock]$PatchAction,
         [Parameter(Mandatory = $true)][scriptblock]$LogAction,
         [scriptblock]$StatusAction,

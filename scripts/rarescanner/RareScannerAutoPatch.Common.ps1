@@ -183,10 +183,65 @@ end
 		OnUnitDeath(rareScannerButton, ...)
 '@.Trim()
 
+    $partyKillOriginal = @'
+local function OnPartyKill(attackerUnitguid, targetGUID)
+	if (not issecretvalue(targetGUID) and targetGUID) then
+		local npcID = C_CreatureInfo.GetCreatureID(targetGUID)
+		if (not npcID) then
+			return
+		end
+		
+		local npcInfo = RSNpcDB.GetInternalNpcInfo(npcID)
+		if (npcInfo) then
+			RSEntityStateHandler.SetDeadNpc(npcID)
+			RSNpcDB.IncreaseTimesKilled(targetGUID)
+		end
+	end
+end
+'@.Trim()
+    $partyKillPatched = @'
+-- Yaya RareScanner AutoPatch: hide alert after rare kill
+local function OnPartyKill(rareScannerButton, attackerUnitguid, targetGUID)
+	if (not issecretvalue(targetGUID) and targetGUID) then
+		local npcID = C_CreatureInfo.GetCreatureID(targetGUID)
+		if (not npcID) then
+			return
+		end
+		
+		local npcInfo = RSNpcDB.GetInternalNpcInfo(npcID)
+		if (npcInfo) then
+			RSEntityStateHandler.SetDeadNpc(npcID)
+			RSNpcDB.IncreaseTimesKilled(targetGUID)
+
+			-- The secure button cannot always be hidden during combat. HideButton
+			-- already defers that case until PLAYER_REGEN_ENABLED.
+			if (rareScannerButton and rareScannerButton.entityID == npcID and RSConstants.IsNpcAtlas(rareScannerButton.atlasName)) then
+				rareScannerButton:HideButton()
+			end
+		end
+	end
+end
+'@.Trim()
+    $partyKillDispatchOriginal = @'
+	elseif (event == "PARTY_KILL") then
+		OnPartyKill(...)
+'@.Trim()
+    $partyKillDispatchPatched = @'
+	elseif (event == "PARTY_KILL") then
+		OnPartyKill(rareScannerButton, ...)
+'@.Trim()
+
     $changed = $false
     if (-not $eventAlreadyPatched) {
-        $changed = (Replace-RareScannerBlock -Content ([ref]$eventContent) -Original $deathOriginal -Patched $deathPatched -Label "OnUnitDeath") -or $changed
-        $changed = (Replace-RareScannerBlock -Content ([ref]$eventContent) -Original $dispatchOriginal -Patched $dispatchPatched -Label "PARTY_KILL dispatch") -or $changed
+        if ($eventContent.Contains($deathOriginal)) {
+            $changed = (Replace-RareScannerBlock -Content ([ref]$eventContent) -Original $deathOriginal -Patched $deathPatched -Label "OnUnitDeath") -or $changed
+            $changed = (Replace-RareScannerBlock -Content ([ref]$eventContent) -Original $dispatchOriginal -Patched $dispatchPatched -Label "PARTY_KILL dispatch") -or $changed
+        } elseif ($eventContent.Contains($partyKillOriginal)) {
+            $changed = (Replace-RareScannerBlock -Content ([ref]$eventContent) -Original $partyKillOriginal -Patched $partyKillPatched -Label "OnPartyKill") -or $changed
+            $changed = (Replace-RareScannerBlock -Content ([ref]$eventContent) -Original $partyKillDispatchOriginal -Patched $partyKillDispatchPatched -Label "PARTY_KILL dispatch") -or $changed
+        } else {
+            throw "Bloc Rare Scanner attendu introuvable: OnUnitDeath/OnPartyKill"
+        }
     }
 
     $pingOriginal = @'
