@@ -630,7 +630,7 @@ local function GetItemStringFromLink(itemLink)
 end
 
 local function GetItemName(itemString, itemLink)
-    local name = itemLink and GetItemInfo and GetItemInfo(itemLink)
+    local name = itemLink and C_Item.GetItemInfo and C_Item.GetItemInfo(itemLink)
     if name and name ~= "" then
         return name
     end
@@ -644,11 +644,11 @@ local function GetItemName(itemString, itemLink)
 end
 
 local function GetItemDetails(itemRef)
-    if not itemRef or not GetItemInfo then
+    if not itemRef or not C_Item.GetItemInfo then
         return
     end
 
-    local name, _, quality, _, _, _, _, _, _, _, sellPrice, _, _, bindType = GetItemInfo(itemRef)
+    local name, _, quality, _, _, _, _, _, _, _, sellPrice, _, _, bindType = C_Item.GetItemInfo(itemRef)
     return name, quality, sellPrice or 0, bindType
 end
 

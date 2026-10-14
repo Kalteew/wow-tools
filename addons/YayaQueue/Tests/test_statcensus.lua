@@ -177,7 +177,9 @@ equals("autre itemID", query.auctions.count, 0)
 
 section("AddSample : equipement de metier seulement, statistique au tooltip")
 
-_G.GetDetailedItemLevelInfo = function() return 232 end
+C_Item = C_Item or {}
+C_Item.GetDetailedItemLevelInfo = function() return 232 end
+
 StatCensus.Bind({
     isGear = function(itemID) return itemID == TOOL end,
     readStat = function(_, itemLink)

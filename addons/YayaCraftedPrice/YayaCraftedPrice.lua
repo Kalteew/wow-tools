@@ -104,8 +104,8 @@ local function GetCurrentInventory(itemString)
 	if C_Item and type(C_Item.GetItemCount) == "function" then
 		return math.max(0, tonumber(C_Item.GetItemCount(itemID, true, false, true, true)) or 0)
 	end
-	if type(GetItemCount) == "function" then
-		return math.max(0, tonumber(GetItemCount(itemID, true)) or 0)
+	if type(C_Item.GetItemCount) == "function" then
+		return math.max(0, tonumber(C_Item.GetItemCount(itemID, true)) or 0)
 	end
 	return 0
 end
@@ -375,8 +375,8 @@ local function GetTooltipItemString(tooltip, data)
 		if C_Item and type(C_Item.GetItemInfoInstant) == "function" then
 			local instantItemID = C_Item.GetItemInfoInstant(itemLink)
 			itemID = tonumber(instantItemID)
-		elseif type(GetItemInfoInstant) == "function" then
-			local instantItemID = GetItemInfoInstant(itemLink)
+		elseif type(C_Item.GetItemInfoInstant) == "function" then
+			local instantItemID = C_Item.GetItemInfoInstant(itemLink)
 			itemID = tonumber(instantItemID)
 		end
 	end

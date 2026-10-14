@@ -89,6 +89,11 @@ function GetDetailedItemLevelInfo(v)
     return nil, false, nil
 end
 C_Item.GetItemInfoInstant = GetItemInfoInstant
+-- Transmetteurs a liaison tardive : les tests redefinissent les globales plus
+-- bas, et l addon lit C_Item depuis 12.1.5 (alias globaux retires).
+C_Item.GetItemInfo = function(...) return GetItemInfo(...) end
+C_Item.GetDetailedItemLevelInfo = function(...) return GetDetailedItemLevelInfo(...) end
+
 C_Item.GetItemQualityByID = function(id)
     local item = ITEMS[id]
     return item and item.quality or nil
@@ -509,6 +514,19 @@ end
 ITEMS[299001] = { name = "Untracked Profession Recipe", quality = 3, classID = 9 }
 function AddGenericRecipeFixture()
     BAG_CONTENT[0][7] = { itemID = 299001 }
+    -- Depuis 0.9.34 le tracker ne propose un patron qu une fois son tooltip charge
+    -- et sans condition d utilisation en echec : fournir ce tooltip, sans quoi le
+    -- patron reste "en attente de donnees" et le bouton recette ne s arme jamais.
+    local previousGetItemByID = C_TooltipInfo.GetItemByID
+    C_TooltipInfo.GetItemByID = function(itemID, ...)
+        if itemID == 299001 then
+            return { lines = { { leftText = ITEMS[299001].name } } }
+        end
+        if previousGetItemByID then
+            return previousGetItemByID(itemID, ...)
+        end
+        return nil
+    end
 end
 
 -- Le meme outil, la meme statistique, mais LIE : un exemplaire de rechange bien

@@ -41,6 +41,10 @@ end
 
 local reservedBody = Extract("GetQueueReservedQuantity",
     "(trackerUI%.GetQueueReservedQuantity = function%(itemID%).-\nend)\n")
+-- 12.1.5 : la source lit C_Item.GetItemCount (alias global retire). Sans file
+-- de craft, la table existe mais ne compte rien, comme la globale absente avant.
+C_Item = C_Item or {}
+
 local findBody = Extract("FindMergeableFinishingReagentsInBags",
     "(trackerUI%.FindMergeableFinishingReagentsInBags = function%(%).-\nend)\n")
 

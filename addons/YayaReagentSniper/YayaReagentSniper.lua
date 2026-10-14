@@ -484,7 +484,7 @@ end
 
 local function GetItemName(itemID)
 	local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(itemID)
-	return name or (GetItemInfo and select(1, GetItemInfo(itemID))) or "Chargement…"
+	return name or (C_Item.GetItemInfo and select(1, C_Item.GetItemInfo(itemID))) or "Chargement…"
 end
 
 local function GetItemTexture(itemID)
@@ -494,7 +494,7 @@ local function GetItemTexture(itemID)
 			return icon
 		end
 	end
-	return GetItemIcon and GetItemIcon(itemID)
+	return C_Item.GetItemIconByID and C_Item.GetItemIconByID(itemID)
 end
 
 local function GetItemQuality(itemID, itemString)
@@ -588,7 +588,7 @@ local function GetItemClassID(itemID)
 	if C_Item and C_Item.GetItemInfoInstant then
 		return select(6, C_Item.GetItemInfoInstant(itemID))
 	end
-	return GetItemInfoInstant and select(6, GetItemInfoInstant(itemID)) or nil
+	return C_Item.GetItemInfoInstant and select(6, C_Item.GetItemInfoInstant(itemID)) or nil
 end
 
 local function IsCommodity(itemID)

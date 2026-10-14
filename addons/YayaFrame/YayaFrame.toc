@@ -1,8 +1,8 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: Yaya Frame
 ## Notes: Shared frame host for Yaya addons.
 ## Author: Codex
-## Version: 0.3.1
+## Version: 0.3.2
 ## Dependencies: YayaCore
 ## SavedVariables: YayaFrameDB
 

@@ -1,8 +1,8 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: Yaya Addon Profiles
 ## Notes: Reapplies Simple Addon Manager profiles assigned to characters.
 ## Author: Codex
-## Version: 1.15.0
+## Version: 1.15.1
 ## Dependencies: YayaCore
 ## RequiredDeps: SimpleAddonManager
 ## SavedVariables: YayaAddonProfilesDB

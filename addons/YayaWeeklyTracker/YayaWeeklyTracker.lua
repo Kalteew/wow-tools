@@ -2035,7 +2035,7 @@ end
 -- Propage jusqu'a CINQ valeurs de retour. Deux consequences a garder en tete :
 -- lire au-dela de la cinquieme rend toujours nil, et imbriquer un SafeCall dans
 -- une fonction qui interprete son deuxieme argument passe les retours suivants
--- en prime. `tonumber(SafeCall(GetDetailedItemLevelInfo, link))` prenait ainsi
+-- en prime. `tonumber(SafeCall(C_Item.GetDetailedItemLevelInfo, link))` prenait ainsi
 -- le booleen d'apercu pour une base numerique et levait. Affecter d'abord dans
 -- une variable pour ne retenir que la premiere valeur.
 local function SafeCall(func, ...)
@@ -2396,7 +2396,7 @@ trackerUI.GetButtonItemTarget = function(button)
         or nil
 end
 
--- IsUsableItem ne rend compte que du niveau, de la classe et de la spe : elle
+-- C_Item.IsUsableItem ne rend compte que du niveau, de la classe et de la spe : elle
 -- ignore totalement les cooldowns. Entre deux traites, le second bouton restait
 -- donc actif, l'action securisee partait, le serveur la rejetait en silence, la
 -- pile ne bougeait pas et le bouton paraissait casse. On lit le cooldown reel.
@@ -2560,7 +2560,7 @@ trackerUI.UsePreviousBagCacheOnTransientEmpty = function(cacheKey, previousCount
         for itemID in pairs(itemIDs) do
             checkedItemCount = checkedItemCount + 1
             local owned = C_Item and SafeCall(C_Item.GetItemCount, itemID, false, false, false, false)
-                or SafeCall(GetItemCount, itemID)
+                or SafeCall(C_Item.GetItemCount, itemID)
             if (tonumber(owned) or 0) > 0 then
                 hasOwnedItem = true
                 break
@@ -2796,7 +2796,7 @@ trackerUI.GetMidnightSeasonalResourceStatus = function(resource)
             true
         )
         if type(available) ~= "number" then
-            available = SafeCall(GetItemCount, resource.itemID, true)
+            available = SafeCall(C_Item.GetItemCount, resource.itemID, true)
         end
     else
         available = tonumber(info[resource.availableField or "quantity"]) or 0
@@ -2834,7 +2834,7 @@ trackerUI.FormatMidnightSeasonalResourceCount = function(acquired, maximum)
 end
 
 local function IsItemCurrentlyUsable(itemLink, itemName, itemID)
-    if not IsUsableItem then
+    if not C_Item.IsUsableItem then
         return true
     end
 
@@ -2843,7 +2843,7 @@ local function IsItemCurrentlyUsable(itemLink, itemName, itemID)
         return false
     end
 
-    local isUsable = IsUsableItem(itemTarget)
+    local isUsable = C_Item.IsUsableItem(itemTarget)
     return isUsable and true or false
 end
 
@@ -3900,7 +3900,7 @@ end
 -- identite complete, lue exactement comme un outil possede : la statistique au
 -- tooltip du lien unique (jamais `C_Item.GetItemStats`, qui decrit l'item de
 -- base) et le rang par le PREMIER des trois retours de
--- `GetDetailedItemLevelInfo`. Une marchandise n'a besoin que de sa pile.
+-- `C_Item.GetDetailedItemLevelInfo`. Une marchandise n'a besoin que de sa pile.
 trackerUI.warbank.ReadSlot = function(bagID, slotIndex, itemID)
     local instance = {
         bagID = bagID,
@@ -3939,8 +3939,8 @@ trackerUI.warbank.ReadSlot = function(bagID, slotIndex, itemID)
     end
 
     local detailedItemLevel
-    if type(GetDetailedItemLevelInfo) == "function" then
-        detailedItemLevel = SafeCall(GetDetailedItemLevelInfo, instance.link)
+    if type(C_Item.GetDetailedItemLevelInfo) == "function" then
+        detailedItemLevel = SafeCall(C_Item.GetDetailedItemLevelInfo, instance.link)
     end
     instance.itemLevel = tonumber(detailedItemLevel)
     if not instance.itemLevel then
@@ -4024,7 +4024,7 @@ end
 
 -- La banque ouverte est le seul moment ou l'on connait la verite : c'est donc
 -- la qu'on verifie l'oracle du client. S'il rend zero alors que le scan voit
--- des objets, c'est que le cinquieme argument de `GetItemCount` ne repond pas
+-- des objets, c'est que le cinquieme argument de `C_Item.GetItemCount` ne repond pas
 -- sur ce client, et le repli TSM prend la main -- definitivement, jusqu'a ce
 -- qu'un scan le contredise.
 trackerUI.warbank.CalibrateClientOracle = function(scanned, scannedSum)
@@ -4204,7 +4204,7 @@ local function FindMidnightKnowledgeConsumableInBags(trackedRows)
                     local stackCount = math.max(GetContainerItemCountCompat(bagID, slotIndex), 1)
                     countsByItemID[itemID] = (countsByItemID[itemID] or 0) + stackCount
                     local itemLink = GetContainerItemLinkCompat(bagID, slotIndex)
-                    local itemName = GetItemInfo and GetItemInfo(itemID) or nil
+                    local itemName = C_Item.GetItemInfo and C_Item.GetItemInfo(itemID) or nil
                     if IsItemCurrentlyUsable(itemLink, itemName, itemID) then
                         totalCount = totalCount + stackCount
                         local candidate = {
@@ -4287,7 +4287,7 @@ local function FindArtisanConsortiumPayoutInBags()
                     bagID = bagID,
                     itemID = itemID,
                     itemLink = GetContainerItemLinkCompat(bagID, slotIndex),
-                    itemName = GetItemInfo and GetItemInfo(itemID) or nil,
+                    itemName = C_Item.GetItemInfo and C_Item.GetItemInfo(itemID) or nil,
                     slotIndex = slotIndex,
                     targetKey = tostring(bagID) .. ":" .. tostring(slotIndex),
                     isPayout = isPayout == true,
@@ -4562,7 +4562,7 @@ trackerUI.FindSurplusReagentContainersInBags = function()
                     state = {
                         itemID = itemID,
                         itemLink = GetContainerItemLinkCompat(bagID, slotIndex),
-                        itemName = GetItemInfo and GetItemInfo(itemID) or nil,
+                        itemName = C_Item.GetItemInfo and C_Item.GetItemInfo(itemID) or nil,
                         label = config.label,
                         order = config.order,
                         skillLineID = config.skillLineID,
@@ -4650,7 +4650,7 @@ trackerUI.FindMergeableFinishingReagentsInBags = function()
                         itemID = itemID,
                         outputItemID = config.outputItemID,
                         itemLink = GetContainerItemLinkCompat(bagID, slotIndex),
-                        itemName = GetItemInfo and GetItemInfo(itemID) or nil,
+                        itemName = C_Item.GetItemInfo and C_Item.GetItemInfo(itemID) or nil,
                         label = config.label,
                         order = config.order,
                         totalCount = 0,
@@ -5249,8 +5249,8 @@ trackerUI.GetOwnedItemCount = function(itemID)
         return C_Item.GetItemCount(itemID, false, false, false, false) or 0
     end
 
-    if GetItemCount then
-        return GetItemCount(itemID) or 0
+    if C_Item.GetItemCount then
+        return C_Item.GetItemCount(itemID) or 0
     end
 
     return 0
@@ -5396,22 +5396,22 @@ trackerUI.EvaluateProfessionGearSlot = function(slotID, isToolSlot)
 
     if C_Item and type(C_Item.GetItemInfoInstant) == "function" then
         slotState.equipLoc = select(4, SafeCall(C_Item.GetItemInfoInstant, itemLink))
-    elseif type(GetItemInfoInstant) == "function" then
-        slotState.equipLoc = select(4, SafeCall(GetItemInfoInstant, itemLink))
+    elseif type(C_Item.GetItemInfoInstant) == "function" then
+        slotState.equipLoc = select(4, SafeCall(C_Item.GetItemInfoInstant, itemLink))
     end
     slotState.isTool = slotState.equipLoc == "INVTYPE_PROFESSION_TOOL"
 
     -- SafeCall ne propage que cinq valeurs de retour : lire la rarete en
     -- troisieme position est sur, mais le niveau d'objet doit venir de
-    -- GetDetailedItemLevelInfo, qui tient compte des ameliorations.
-    local itemName, _, quality = SafeCall(GetItemInfo, itemLink)
-    -- GetDetailedItemLevelInfo rend trois valeurs : niveau effectif, apercu
+    -- C_Item.GetDetailedItemLevelInfo, qui tient compte des ameliorations.
+    local itemName, _, quality = SafeCall(C_Item.GetItemInfo, itemLink)
+    -- C_Item.GetDetailedItemLevelInfo rend trois valeurs : niveau effectif, apercu
     -- (booleen) et niveau de base. Les passer telles quelles a tonumber ferait
     -- du booleen sa base numerique et leverait. Une affectation simple ne
     -- retient que la premiere.
     local detailedItemLevel
-    if type(GetDetailedItemLevelInfo) == "function" then
-        detailedItemLevel = SafeCall(GetDetailedItemLevelInfo, itemLink)
+    if type(C_Item.GetDetailedItemLevelInfo) == "function" then
+        detailedItemLevel = SafeCall(C_Item.GetDetailedItemLevelInfo, itemLink)
     end
     local itemLevel = tonumber(detailedItemLevel)
     slotState.itemName = itemName
@@ -5623,11 +5623,11 @@ trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotInd
     if C_Item and type(C_Item.GetItemInfoInstant) == "function" then
         equipLoc = select(4, SafeCall(C_Item.GetItemInfoInstant, itemLink or itemID))
     end
-    if not equipLoc and type(GetItemInfoInstant) == "function" then
-        equipLoc = select(4, SafeCall(GetItemInfoInstant, itemLink or itemID))
+    if not equipLoc and type(C_Item.GetItemInfoInstant) == "function" then
+        equipLoc = select(4, SafeCall(C_Item.GetItemInfoInstant, itemLink or itemID))
     end
-    if not equipLoc and type(GetItemInfo) == "function" then
-        equipLoc = select(9, SafeCall(GetItemInfo, itemLink or itemID))
+    if not equipLoc and type(C_Item.GetItemInfo) == "function" then
+        equipLoc = select(9, SafeCall(C_Item.GetItemInfo, itemLink or itemID))
     end
     if not equipLoc then
         return ReturnPending()
@@ -5636,7 +5636,7 @@ trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotInd
         return nil, false, false
     end
 
-    local quality = type(GetItemInfo) == "function" and select(3, SafeCall(GetItemInfo, itemLink or itemID)) or nil
+    local quality = type(C_Item.GetItemInfo) == "function" and select(3, SafeCall(C_Item.GetItemInfo, itemLink or itemID)) or nil
     if not quality and C_Item and type(C_Item.GetItemQualityByID) == "function" then
         quality = SafeCall(C_Item.GetItemQualityByID, itemID)
     end
@@ -5659,7 +5659,7 @@ trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotInd
     -- compterait, mais il lui faudrait aussi la bonne statistique et le bon
     -- rang pour satisfaire une variante.
 
-    -- Never replace a missing unique link with GetItemInfo(itemID): the tool's
+    -- Never replace a missing unique link with C_Item.GetItemInfo(itemID): the tool's
     -- profession stat is randomized on the owned item, not on the base item.
     if type(itemLink) ~= "string" or not itemLink:find("item:", 1, true) then
         return ReturnPending()
@@ -5684,10 +5684,10 @@ trackerUI.GetToolItemDetails = function(itemID, itemLink, source, bagID, slotInd
     -- tenir compte du rang de craft. `compliant` vaut nil quand ce niveau n'est
     -- pas lisible : inconnu n'est pas non conforme.
     -- Meme piege que dans EvaluateProfessionGearSlot : ne retenir que la
-    -- premiere des trois valeurs rendues par GetDetailedItemLevelInfo.
+    -- premiere des trois valeurs rendues par C_Item.GetDetailedItemLevelInfo.
     local detailedItemLevel
-    if type(GetDetailedItemLevelInfo) == "function" then
-        detailedItemLevel = SafeCall(GetDetailedItemLevelInfo, itemLink)
+    if type(C_Item.GetDetailedItemLevelInfo) == "function" then
+        detailedItemLevel = SafeCall(C_Item.GetDetailedItemLevelInfo, itemLink)
     end
     local itemLevel = tonumber(detailedItemLevel)
     local compliant = nil
@@ -6000,8 +6000,8 @@ trackerUI.CollectProfessionEnchantNeeds = function(profession, skillLineID, resu
                     enchantLink = statInfo.itemLink,
                     toolItemID = details.itemID,
                     toolLink = details.itemLink,
-                    toolName = type(GetItemInfo) == "function"
-                        and SafeCall(GetItemInfo, details.itemLink or details.itemID)
+                    toolName = type(C_Item.GetItemInfo) == "function"
+                        and SafeCall(C_Item.GetItemInfo, details.itemLink or details.itemID)
                         or nil,
                     source = details.source,
                     toolBag = details.source == "bag" and details.bagID or nil,
@@ -6413,8 +6413,8 @@ trackerUI.FindBagDestination = function(itemID, quantity)
     end
 
     local maxStack = 1
-    if type(GetItemInfo) == "function" then
-        local stackSize = select(8, SafeCall(GetItemInfo, itemID))
+    if type(C_Item.GetItemInfo) == "function" then
+        local stackSize = select(8, SafeCall(C_Item.GetItemInfo, itemID))
         maxStack = math.max(1, tonumber(stackSize) or 1)
     end
     local isReagent = false
@@ -6579,8 +6579,8 @@ trackerUI.IsProfessionGearCandidateValid = function(itemID, skillLineID, wantToo
     if C_Item and type(C_Item.GetItemInfoInstant) == "function" then
         equipLoc = select(4, SafeCall(C_Item.GetItemInfoInstant, itemID))
     end
-    if not equipLoc and type(GetItemInfoInstant) == "function" then
-        equipLoc = select(4, SafeCall(GetItemInfoInstant, itemID))
+    if not equipLoc and type(C_Item.GetItemInfoInstant) == "function" then
+        equipLoc = select(4, SafeCall(C_Item.GetItemInfoInstant, itemID))
     end
     if not equipLoc then
         trackerUI.RequestToolItemData(itemID)
@@ -6659,7 +6659,7 @@ trackerUI.BuildProfessionSupplyPlan = function(trackedRows)
     }
 
     local function ItemName(itemID)
-        return SafeCall(GetItemInfo, itemID) or ("item:" .. tostring(itemID))
+        return SafeCall(C_Item.GetItemInfo, itemID) or ("item:" .. tostring(itemID))
     end
 
     local function Add(itemID, need, variant, options)
@@ -7463,8 +7463,8 @@ trackerUI.IsProfessionRecipeItem = function(itemID)
             classID = tonumber(instantClassID)
         end
     end
-    if not classID and type(GetItemInfoInstant) == "function" then
-        local ok, _, instantItemType, _, _, _, instantClassID = pcall(GetItemInfoInstant, itemID)
+    if not classID and type(C_Item.GetItemInfoInstant) == "function" then
+        local ok, _, instantItemType, _, _, _, instantClassID = pcall(C_Item.GetItemInfoInstant, itemID)
         if ok then
             itemType = itemType or instantItemType
             classID = tonumber(instantClassID)
@@ -7799,7 +7799,7 @@ trackerUI.FindMidnightRecipeInBags = function(trackedRows)
                         bagID = bagID,
                         itemID = itemID,
                         itemLink = GetContainerItemLinkCompat(bagID, slotIndex),
-                        itemName = GetItemInfo and GetItemInfo(itemID) or nil,
+                        itemName = C_Item.GetItemInfo and C_Item.GetItemInfo(itemID) or nil,
                         slotIndex = slotIndex,
                     }
                 end
@@ -9150,8 +9150,8 @@ local function GetCloakSnapshot()
     end
 
     local itemID = GetInventoryItemID and GetInventoryItemID("player", INVSLOT_BACK) or nil
-    local itemName = GetItemInfo and GetItemInfo(itemLink) or nil
-    local itemLevel = GetDetailedItemLevelInfo and GetDetailedItemLevelInfo(itemLink) or nil
+    local itemName = C_Item.GetItemInfo and C_Item.GetItemInfo(itemLink) or nil
+    local itemLevel = C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(itemLink) or nil
     local rank, rankText = GetTooltipRank(function(tooltip)
         tooltip:SetInventoryItem("player", INVSLOT_BACK)
     end)
@@ -9177,7 +9177,7 @@ local function GetLegendaryCloakSnapshot(questLog)
         atMaxRank = rankProgress.atMaxRank,
     }
 
-    if GetItemCount and (GetItemCount(LEGENDARY_CLOAK_ITEM_ID, true) or 0) > 0 then
+    if C_Item.GetItemCount and (C_Item.GetItemCount(LEGENDARY_CLOAK_ITEM_ID, true) or 0) > 0 then
         snapshot.obtained = true
     end
 
@@ -9212,8 +9212,8 @@ local function GetLegendaryCloakSnapshot(questLog)
         local itemLink = GetInventoryItemLink("player", INVSLOT_BACK)
         snapshot.itemID = LEGENDARY_CLOAK_ITEM_ID
         snapshot.itemLink = itemLink
-        snapshot.itemName = itemLink and GetItemInfo and GetItemInfo(itemLink) or nil
-        snapshot.itemLevel = itemLink and GetDetailedItemLevelInfo and GetDetailedItemLevelInfo(itemLink) or nil
+        snapshot.itemName = itemLink and C_Item.GetItemInfo and C_Item.GetItemInfo(itemLink) or nil
+        snapshot.itemLevel = itemLink and C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(itemLink) or nil
         snapshot.isEquipped = true
         snapshot.tooltipRank, snapshot.rankText = GetTooltipRank(function(tooltip)
             tooltip:SetInventoryItem("player", INVSLOT_BACK)
@@ -9232,8 +9232,8 @@ local function GetLegendaryCloakSnapshot(questLog)
                 local itemLink = GetContainerItemLinkCompat(bagID, slotIndex)
                 snapshot.itemID = LEGENDARY_CLOAK_ITEM_ID
                 snapshot.itemLink = itemLink
-                snapshot.itemName = itemLink and GetItemInfo and GetItemInfo(itemLink) or nil
-                snapshot.itemLevel = itemLink and GetDetailedItemLevelInfo and GetDetailedItemLevelInfo(itemLink) or nil
+                snapshot.itemName = itemLink and C_Item.GetItemInfo and C_Item.GetItemInfo(itemLink) or nil
+                snapshot.itemLevel = itemLink and C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(itemLink) or nil
                 snapshot.bagID = bagID
                 snapshot.slotIndex = slotIndex
                 snapshot.tooltipRank, snapshot.rankText = GetTooltipRank(function(tooltip)
@@ -9258,8 +9258,8 @@ local function GetHeartOfAzerothSnapshot()
     end
 
     local itemID = GetInventoryItemID and GetInventoryItemID("player", INVSLOT_NECK) or nil
-    local itemName = GetItemInfo and GetItemInfo(itemLink) or nil
-    local itemLevel = GetDetailedItemLevelInfo and GetDetailedItemLevelInfo(itemLink) or nil
+    local itemName = C_Item.GetItemInfo and C_Item.GetItemInfo(itemLink) or nil
+    local itemLevel = C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(itemLink) or nil
     local level
 
     if C_AzeriteItem and C_AzeriteItem.FindActiveAzeriteItem and C_AzeriteItem.GetPowerLevel then
@@ -9782,8 +9782,8 @@ GetContainerItemIDCompat = function(bagID, slotIndex)
                     return tonumber(itemID) or itemID
                 end
             end
-            if GetItemInfoInstant then
-                local itemID = SafeCall(GetItemInfoInstant, link)
+            if C_Item.GetItemInfoInstant then
+                local itemID = SafeCall(C_Item.GetItemInfoInstant, link)
                 if itemID then
                     return tonumber(itemID) or itemID
                 end
@@ -9800,8 +9800,8 @@ GetContainerItemIDCompat = function(bagID, slotIndex)
                     return tonumber(itemID) or itemID
                 end
             end
-            if GetItemInfoInstant then
-                local itemID = SafeCall(GetItemInfoInstant, link)
+            if C_Item.GetItemInfoInstant then
+                local itemID = SafeCall(C_Item.GetItemInfoInstant, link)
                 if itemID then
                     return tonumber(itemID) or itemID
                 end

@@ -1,8 +1,8 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: Yaya Core
 ## Notes: Implementations partagees par la suite d'addons Yaya (monnaie, prix TSM, journal, objets, infobulles, design system, panneaux d'options).
 ## Author: Yaya
-## Version: 1.4.4
+## Version: 1.4.5
 ## OptionalDeps: TradeSkillMaster
 
 YayaCore.lua

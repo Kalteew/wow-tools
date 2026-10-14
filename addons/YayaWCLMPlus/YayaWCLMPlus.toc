@@ -1,8 +1,8 @@
-## Interface: 120001
+## Interface: 120105
 ## Title: Yaya WCLM+
 ## Notes: Optional, local-only companion indicator for Mythic+ group tools.
 ## Author: Yaya
-## Version: 1.0.1
+## Version: 1.0.2
 ## LoadOnDemand: 1
 ## SavedVariables: YayaWCLMPlusDB
 

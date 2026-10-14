@@ -1892,8 +1892,8 @@ state.DescribeVariantSample = function(itemLink)
     end
     local statKey, statPending = state.professionStats.ReadLinkStatKey(itemLink)
     local itemLevel
-    if type(GetDetailedItemLevelInfo) == "function" then
-        local detailedItemLevel = SafeCall(GetDetailedItemLevelInfo, itemLink)
+    if type(C_Item.GetDetailedItemLevelInfo) == "function" then
+        local detailedItemLevel = SafeCall(C_Item.GetDetailedItemLevelInfo, itemLink)
         itemLevel = tonumber(detailedItemLevel)
     end
     local bonusIDs = state.GetLinkBonusIDs(itemLink)
@@ -1929,12 +1929,12 @@ state.DoesLinkMatchVariant = function(itemLink, variant)
 
     if variant.minItemLevel then
         local itemLevel
-        if type(GetDetailedItemLevelInfo) == "function" then
-            -- GetDetailedItemLevelInfo rend trois valeurs : niveau effectif,
+        if type(C_Item.GetDetailedItemLevelInfo) == "function" then
+            -- C_Item.GetDetailedItemLevelInfo rend trois valeurs : niveau effectif,
             -- apercu (booleen) et niveau de base. Passer l'appel a tonumber
             -- ferait du booleen sa base numerique et leverait. On affecte donc
             -- d'abord, ce qui ne retient que le niveau effectif.
-            local detailedItemLevel = SafeCall(GetDetailedItemLevelInfo, itemLink)
+            local detailedItemLevel = SafeCall(C_Item.GetDetailedItemLevelInfo, itemLink)
             itemLevel = tonumber(detailedItemLevel)
         end
         if not itemLevel then
@@ -2980,7 +2980,7 @@ GetItemName = function(itemID)
         return name
     end
 
-    name = SafeCall(GetItemInfo, itemID)
+    name = SafeCall(C_Item.GetItemInfo, itemID)
     if type(name) == "string" and name ~= "" then
         return name
     end
@@ -3269,9 +3269,9 @@ YQQuality.FindIngenuityPhialBagSlot = function(itemID)
             if not slotItemID and C_Container and type(C_Container.GetContainerItemID) == "function" then
                 slotItemID = C_Container.GetContainerItemID(bagID, slotIndex)
             end
-            if not slotItemID and type(GetContainerItemLink) == "function" and type(GetItemInfoInstant) == "function" then
+            if not slotItemID and type(GetContainerItemLink) == "function" and type(C_Item.GetItemInfoInstant) == "function" then
                 local link = GetContainerItemLink(bagID, slotIndex)
-                slotItemID = link and GetItemInfoInstant(link) or nil
+                slotItemID = link and C_Item.GetItemInfoInstant(link) or nil
             end
             if tonumber(slotItemID) == itemID then
                 return bagID, slotIndex
@@ -3665,7 +3665,7 @@ local function GetImmediateOwnedCount(itemID)
         return C_Item.GetItemCount(itemID, false, false, false, false) or 0
     end
 
-    return GetItemCount(itemID) or 0
+    return C_Item.GetItemCount(itemID) or 0
 end
 
 local function GetTotalOwnedCount(itemID)
@@ -3678,7 +3678,7 @@ local function GetTotalOwnedCount(itemID)
         return C_Item.GetItemCount(itemID, true, false, true, true) or 0
     end
 
-    return GetItemCount(itemID, true, false, true, true) or GetItemCount(itemID, true) or 0
+    return C_Item.GetItemCount(itemID, true, false, true, true) or C_Item.GetItemCount(itemID, true) or 0
 end
 
 local function SetIncomingCount(itemID, quantity)
@@ -4111,8 +4111,8 @@ end
 
 --- Marchandise (empilable, achat par quantite) ou objet (achat a l'enchere).
 --
--- `GetItemInfo` rend une quinzaine de valeurs et `SafeCall` n'en propage
--- qu'une : `select(8, SafeCall(GetItemInfo, itemID))` ne rendait donc **rien du
+-- `C_Item.GetItemInfo` rend une quinzaine de valeurs et `SafeCall` n'en propage
+-- qu'une : `select(8, SafeCall(C_Item.GetItemInfo, itemID))` ne rendait donc **rien du
 -- tout**, jamais un nombre, et tout objet passait pour une marchandise. La file
 -- cherchait alors chaque equipement avec `GetNumCommoditySearchResults`, qui ne
 -- rend jamais rien pour un objet non empilable : aucune annonce, aucun prix,
@@ -4120,8 +4120,8 @@ end
 -- sur l'appel, pour que `select` voie la liste complete.
 local function IsCommodityItem(itemID)
     local maxStack
-    if type(GetItemInfo) == "function" then
-        local ok, _, _, _, _, _, _, _, stackCount = pcall(GetItemInfo, itemID)
+    if type(C_Item.GetItemInfo) == "function" then
+        local ok, _, _, _, _, _, _, _, stackCount = pcall(C_Item.GetItemInfo, itemID)
         if ok then
             maxStack = tonumber(stackCount)
         end
@@ -4204,7 +4204,7 @@ local function IsSoulboundReagent(itemID)
         end
     end
 
-    local bindType = select(14, GetItemInfo(itemID))
+    local bindType = select(14, C_Item.GetItemInfo(itemID))
     if bindType == nil then
         WarmItemData(itemID)
         return false
@@ -6812,7 +6812,7 @@ local function BuildQueueSummary()
                 table.insert(summary.auctionTasks, task)
             end
             -- Reserve au debug : les arguments d'un DebugPrint sont evalues
-            -- avant qu'il ne decide de se taire. Et `select(14, GetItemInfo(...))`
+            -- avant qu'il ne decide de se taire. Et `select(14, C_Item.GetItemInfo(...))`
             -- ne rend RIEN pour un objet pas encore en cache, donc
             -- `tostring(select(...))` levait « bad argument #1 to 'tostring'
             -- (value expected) » (62 fois dans !YayaErrorLog) : le rendu entier
@@ -6828,7 +6828,7 @@ local function BuildQueueSummary()
                             .. " variant=" .. tostring(state.DescribeItemVariant(task.variant))
                             .. " missing=" .. tostring(task.missing)
                             .. " bucket=" .. bucket
-                            .. " bindType=" .. tostring((select(14, GetItemInfo(itemID))))
+                            .. " bindType=" .. tostring((select(14, C_Item.GetItemInfo(itemID))))
                     )
                 end
             end
@@ -9211,8 +9211,8 @@ state.craftGear.GetBagItem = function(bagID, slotIndex)
     if not link and type(GetContainerItemLink) == "function" then
         link = SafeCall(GetContainerItemLink, bagID, slotIndex)
     end
-    if not itemID and link and type(GetItemInfoInstant) == "function" then
-        itemID = tonumber(select(1, SafeCall(GetItemInfoInstant, link)))
+    if not itemID and link and type(C_Item.GetItemInfoInstant) == "function" then
+        itemID = tonumber(select(1, SafeCall(C_Item.GetItemInfoInstant, link)))
     end
     if not itemID and type(C_Container) == "table" and type(C_Container.GetContainerItemID) == "function" then
         itemID = tonumber(SafeCall(C_Container.GetContainerItemID, bagID, slotIndex))
@@ -9232,14 +9232,14 @@ state.craftGear.IsMainToolLink = function(link, itemID)
             equipLoc = itemEquipLoc
         end
     end
-    if not equipLoc and type(GetItemInfoInstant) == "function" then
-        local ok, _, _, _, itemEquipLoc = pcall(GetItemInfoInstant, itemReference)
+    if not equipLoc and type(C_Item.GetItemInfoInstant) == "function" then
+        local ok, _, _, _, itemEquipLoc = pcall(C_Item.GetItemInfoInstant, itemReference)
         if ok then
             equipLoc = itemEquipLoc
         end
     end
-    if not equipLoc and type(GetItemInfo) == "function" then
-        local ok, _, _, _, _, _, _, _, _, itemEquipLoc = pcall(GetItemInfo, itemReference)
+    if not equipLoc and type(C_Item.GetItemInfo) == "function" then
+        local ok, _, _, _, _, _, _, _, _, itemEquipLoc = pcall(C_Item.GetItemInfo, itemReference)
         if ok then
             equipLoc = itemEquipLoc
         end
@@ -9277,8 +9277,8 @@ end
 -- A role egal, le meilleur exemplaire gagne : prendre le premier trouve
 -- dans l'ordre des sacs pouvait equiper un outil de niveau inferieur.
 state.craftGear.GetCandidateRank = function(candidate)
-    local level = type(GetDetailedItemLevelInfo) == "function"
-        and tonumber(SafeCall(GetDetailedItemLevelInfo, candidate.link))
+    local level = type(C_Item.GetDetailedItemLevelInfo) == "function"
+        and tonumber(SafeCall(C_Item.GetDetailedItemLevelInfo, candidate.link))
         or nil
     return level or 0
 end
@@ -12118,7 +12118,7 @@ function YQQuality.GetTSMItemString(item)
     if type(item) == "string" and item ~= "" then
         candidate = item
     elseif type(item) == "number" and item > 0 then
-        candidate = select(2, GetItemInfo(item)) or ("i:" .. item)
+        candidate = select(2, C_Item.GetItemInfo(item)) or ("i:" .. item)
     end
     if not candidate then return nil end
 
@@ -12701,7 +12701,7 @@ function YQQuality.GetOptionalSelectionID(option)
 end
 
 function YQQuality.GetOptionalIcon(option)
-    if option and option.itemID then return GetItemIcon(option.itemID) end
+    if option and option.itemID then return C_Item.GetItemIconByID(option.itemID) end
     local currencyID = tonumber(option and option.currencyID)
     local info = currencyID and type(C_CurrencyInfo) == "table"
         and type(C_CurrencyInfo.GetCurrencyInfo) == "function"
@@ -12947,8 +12947,8 @@ function YQQuality.OwnsGoldStar()
     local count
     if type(C_Item) == "table" and type(C_Item.GetItemCount) == "function" then
         count = SafeCall(C_Item.GetItemCount, 246450, true)
-    elseif type(GetItemCount) == "function" then
-        count = SafeCall(GetItemCount, 246450, true)
+    elseif type(C_Item.GetItemCount) == "function" then
+        count = SafeCall(C_Item.GetItemCount, 246450, true)
     end
     return math.max(0, tonumber(count) or 0)
 end
@@ -12956,7 +12956,7 @@ end
 function YQQuality.GetAvailableCharacterGoldStars(priceContext)
     local reservations = priceContext and priceContext.reservations or {}
     local reserved = math.max(0, tonumber(reservations[CONFIG.GOLD_STAR_ITEM_ID]) or 0)
-    -- GetItemCount only covers the current character (bags and personal bank),
+    -- C_Item.GetItemCount only covers the current character (bags and personal bank),
     -- never the Warband bank. Gold Stars must be available to this character.
     return math.max(0, YQQuality.OwnsGoldStar() - reserved)
 end
@@ -14198,8 +14198,8 @@ function YQQuality.GetOutputPriceReference(recipeState, candidate)
         if type(output.hyperlink) == "string" and output.hyperlink ~= "" then
             if type(C_Item) == "table" and type(C_Item.GetDetailedItemLevelInfo) == "function" then
                 detailedItemLevel = tonumber(SafeCall(C_Item.GetDetailedItemLevelInfo, output.hyperlink))
-            elseif type(GetDetailedItemLevelInfo) == "function" then
-                detailedItemLevel = tonumber(SafeCall(GetDetailedItemLevelInfo, output.hyperlink))
+            elseif type(C_Item.GetDetailedItemLevelInfo) == "function" then
+                detailedItemLevel = tonumber(SafeCall(C_Item.GetDetailedItemLevelInfo, output.hyperlink))
             end
         end
         local itemLevel = math.max(expectedItemLevel or 0, detailedItemLevel or 0)
@@ -14363,7 +14363,7 @@ YQQuality.PROFESSION_GEAR_EQUIP_LOCS = {
 
 --- L'itemID peut-il porter une statistique de metier aleatoire ?
 --
--- select() doit voir la liste complete de GetItemInfo : SafeCall n'en transmet
+-- select() doit voir la liste complete de C_Item.GetItemInfo : SafeCall n'en transmet
 -- qu'une valeur, et l'appeler ici rendrait toujours nil -- exactement le piege
 -- qui avait rendu IsCommodityItem faux pour tous les objets. D'ou le pcall
 -- autour d'une fermeture qui fait elle-meme le select.
@@ -14373,9 +14373,9 @@ function YQQuality.IsProfessionGearItem(itemID)
     local cache = YQQuality.GetStockCache()
     local known = cache.professionGear[itemID]
     if known ~= nil then return known end
-    if type(GetItemInfo) ~= "function" then return false end
+    if type(C_Item.GetItemInfo) ~= "function" then return false end
     local ok, equipLoc = pcall(function()
-        return (select(9, GetItemInfo(itemID)))
+        return (select(9, C_Item.GetItemInfo(itemID)))
     end)
     if not ok or type(equipLoc) ~= "string" or equipLoc == "" then
         -- Donnees pas encore chargees : ne rien memoriser, redemander l'objet.
@@ -14498,7 +14498,7 @@ function YQQuality.GetTSMOutputTotals(itemReference)
 
     local candidate = itemReference
     if type(candidate) == "number" then
-        candidate = select(2, GetItemInfo(candidate)) or ("i:" .. candidate)
+        candidate = select(2, C_Item.GetItemInfo(candidate)) or ("i:" .. candidate)
     end
     if type(candidate) ~= "string" or candidate == "" then return nil end
 
@@ -15089,7 +15089,7 @@ function YQQuality.GetSellableOutputStock(recipeState, candidate)
     local itemReference, itemID = YQQuality.GetOutputInventoryReference(recipeState, candidate)
     if not itemReference or not itemID then return nil, false end
 
-    local bindType = select(14, GetItemInfo(itemID))
+    local bindType = select(14, C_Item.GetItemInfo(itemID))
     if bindType == nil then
         WarmItemData(itemID)
         return nil, false
@@ -15193,7 +15193,7 @@ function YQQuality.PrintStockDiagnostics()
     Print(("stock recipe=%s quality=%s maxQuality=%s itemID=%s bindType=%s"):format(
         tostring(recipeState.recipeID), tostring(targetQuality),
         tostring(recipeState.maxQuality), tostring(itemID),
-        tostring(itemID and select(14, GetItemInfo(itemID)))
+        tostring(itemID and select(14, C_Item.GetItemInfo(itemID)))
     ))
     Print("  reference  = " .. tostring(reference))
     Print("  itemString = " .. tostring(totals and totals.itemString))
@@ -15443,7 +15443,7 @@ function YQQuality.GetCandidatePricing(recipeState, candidate)
 
     local outputReference = YQQuality.GetOutputPriceReference(recipeState, candidate)
     local _, outputItemID = YQQuality.GetOutputInventoryReference(recipeState, candidate)
-    local outputBindType = outputItemID and select(14, GetItemInfo(outputItemID)) or nil
+    local outputBindType = outputItemID and select(14, C_Item.GetItemInfo(outputItemID)) or nil
     pricing.outputBound = outputBindType ~= nil
         and outputBindType ~= 0 and outputBindType ~= 2 and outputBindType ~= 3
     if not pricing.outputBound then
@@ -15563,7 +15563,7 @@ function YQQuality.FillPricingTooltip(pricing, tooltip)
             0.62, 0.62, 0.60, 1.00, 0.80, 0.40
         )
         if pricing.missingMaterialItemID then
-            local name = GetItemInfo(pricing.missingMaterialItemID)
+            local name = C_Item.GetItemInfo(pricing.missingMaterialItemID)
             tooltip:AddLine(
                 "Sans prix : " .. (name or ("objet " .. tostring(pricing.missingMaterialItemID))),
                 1, 0.80, 0.40, true
@@ -16640,7 +16640,7 @@ function YQQuality.UpdateSelector()
             -- colonne de valeur et le nom recouvrirait les chiffres. Le pool
             -- nous appartient, chaque champ est reecrit a chaque passe.
             row.SetItemTarget(itemID, nil, function(name) row.label:SetText(name) end)
-            row.label:SetText(GetItemInfo(itemID) or "...")
+            row.label:SetText(C_Item.GetItemInfo(itemID) or "...")
             YQQuality.PlaceQualityColumns(row.qualityHost, row.counts, reagentQualityCount)
             local totalUnits = 0
             for quality = 1, 3 do
@@ -16767,7 +16767,7 @@ function YQQuality.UpdateSelector()
                     cursor - 18 - (line * rowHeight)
                 )
                 row.itemID = rowData.option.itemID
-                row.icon:SetTexture(GetItemIcon(row.itemID))
+                row.icon:SetTexture(C_Item.GetItemIconByID(row.itemID))
                 row:SetAlpha(1)
                 row.selectionMark:Show()
                 row:Show()

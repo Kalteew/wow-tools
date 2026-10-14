@@ -333,7 +333,10 @@ end
 function GetServerTime() return 1770000000 end
 
 C_Item = {
-    GetItemInfoInstant = function() return nil end,
+    GetItemInfo = function(...) return GetItemInfo(...) end,
+    GetItemInfoInstant = function(...) return GetItemInfoInstant(...) end,
+    GetDetailedItemLevelInfo = function(...) return GetDetailedItemLevelInfo(...) end,
+
     GetItemQualityByID = function() return nil end,
     GetItemCount = function() return 0 end,
     RequestLoadItemDataByID = function() end,

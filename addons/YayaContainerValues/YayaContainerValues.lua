@@ -48,8 +48,8 @@ local function GetItemInfoInstantData(itemID)
             return itemType, classID
         end
     end
-    if type(GetItemInfoInstant) == "function" then
-        local ok, _, itemType, _, _, _, classID = pcall(GetItemInfoInstant, itemID)
+    if type(C_Item.GetItemInfoInstant) == "function" then
+        local ok, _, itemType, _, _, _, classID = pcall(C_Item.GetItemInfoInstant, itemID)
         if ok then
             return itemType, classID
         end
@@ -83,7 +83,7 @@ local function IsRecipeItem(itemID)
 end
 
 local function GetItemBindType(itemID)
-    local getItemInfo = C_Item and C_Item.GetItemInfo or GetItemInfo
+    local getItemInfo = C_Item.GetItemInfo
     if type(getItemInfo) ~= "function" then
         return nil
     end
@@ -577,7 +577,7 @@ end
 local function PrintContainer(itemID)
     local stats = API.GetStats(itemID)
     local value, opens, state, missingOutputs = API.GetAverageValue(itemID)
-    local name = type(GetItemInfo) == "function" and GetItemInfo(itemID) or nil
+    local name = type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID) or nil
     name = name or ("item:" .. tostring(itemID))
     if value then
         Print(("%s : %s / ouverture (%d ouvertures)"):format(name, FormatMoney(value), opens))

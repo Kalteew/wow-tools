@@ -1,8 +1,8 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: Yaya Weekly Tracker
 ## Notes: Small weekly tracker near the player frame.
 ## Author: Codex
-## Version: 0.9.34
+## Version: 0.9.35
 ## Dependencies: YayaCore, YayaFrame
 ## OptionalDeps: TomTom, YayaQueue, YayaContainerValues, TradeSkillMaster
 ## SavedVariables: YayaWeeklyTrackerAccountDB

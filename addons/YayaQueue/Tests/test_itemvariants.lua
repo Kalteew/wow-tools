@@ -132,6 +132,11 @@ function GetDetailedItemLevelInfo(link)
     return itemLevel, false, itemLevel
 end
 
+-- 12.1.5 : l addon lit C_Item, les alias globaux n existent plus.
+C_Item = C_Item or {}
+C_Item.GetItemInfo = function(...) return GetItemInfo(...) end
+C_Item.GetDetailedItemLevelInfo = function(...) return GetDetailedItemLevelInfo(...) end
+
 C_TooltipInfo = {
     GetHyperlink = function(link)
         local stat = TOOLTIP_STAT_BY_LINK[link]

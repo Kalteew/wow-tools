@@ -201,12 +201,12 @@ local function GetItemLink(itemID)
 			return link
 		end
 	end
-	return GetItemInfo and select(2, GetItemInfo(itemID)) or nil
+	return C_Item.GetItemInfo and select(2, C_Item.GetItemInfo(itemID)) or nil
 end
 
 local function GetItemName(itemID)
 	local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(itemID)
-	return name or (GetItemInfo and select(1, GetItemInfo(itemID))) or ("Composant " .. tostring(itemID))
+	return name or (C_Item.GetItemInfo and select(1, C_Item.GetItemInfo(itemID))) or ("Composant " .. tostring(itemID))
 end
 
 local function GetItemTexture(itemID)
@@ -216,7 +216,7 @@ local function GetItemTexture(itemID)
 			return icon
 		end
 	end
-	return GetItemIcon and GetItemIcon(itemID) or "Interface\\Icons\\INV_Misc_QuestionMark"
+	return C_Item.GetItemIconByID and C_Item.GetItemIconByID(itemID) or "Interface\\Icons\\INV_Misc_QuestionMark"
 end
 
 local function IsCommodity(itemID)
@@ -226,8 +226,8 @@ local function IsCommodity(itemID)
 	local classID
 	if C_Item and C_Item.GetItemInfoInstant then
 		classID = select(6, C_Item.GetItemInfoInstant(itemID))
-	elseif GetItemInfoInstant then
-		classID = select(6, GetItemInfoInstant(itemID))
+	elseif C_Item.GetItemInfoInstant then
+		classID = select(6, C_Item.GetItemInfoInstant(itemID))
 	end
 	return classID == Enum.ItemClass.Tradegoods
 		or (Enum.ItemClass.Consumable and classID == Enum.ItemClass.Consumable)
@@ -521,8 +521,8 @@ local function GetBagItemCount(itemID)
 		if ok then
 			count = tonumber(value) or 0
 		end
-	elseif type(GetItemCount) == "function" then
-		local ok, value = pcall(GetItemCount, itemID, false)
+	elseif type(C_Item.GetItemCount) == "function" then
+		local ok, value = pcall(C_Item.GetItemCount, itemID, false)
 		if ok then
 			count = tonumber(value) or 0
 		end
