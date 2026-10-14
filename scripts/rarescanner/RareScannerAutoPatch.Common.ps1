@@ -233,10 +233,13 @@ end
 
     $changed = $false
     if (-not $eventAlreadyPatched) {
-        if ($eventContent.Contains($deathOriginal)) {
+        # Les here-strings heritent des fins de ligne du .ps1 (CRLF une fois
+        # passe par core.autocrlf) alors que $eventContent est normalise en LF :
+        # sans cette normalisation, aucune des deux formes n'est jamais reconnue.
+        if ($eventContent.Contains($deathOriginal.Replace("`r`n", "`n"))) {
             $changed = (Replace-RareScannerBlock -Content ([ref]$eventContent) -Original $deathOriginal -Patched $deathPatched -Label "OnUnitDeath") -or $changed
             $changed = (Replace-RareScannerBlock -Content ([ref]$eventContent) -Original $dispatchOriginal -Patched $dispatchPatched -Label "PARTY_KILL dispatch") -or $changed
-        } elseif ($eventContent.Contains($partyKillOriginal)) {
+        } elseif ($eventContent.Contains($partyKillOriginal.Replace("`r`n", "`n"))) {
             $changed = (Replace-RareScannerBlock -Content ([ref]$eventContent) -Original $partyKillOriginal -Patched $partyKillPatched -Label "OnPartyKill") -or $changed
             $changed = (Replace-RareScannerBlock -Content ([ref]$eventContent) -Original $partyKillDispatchOriginal -Patched $partyKillDispatchPatched -Label "PARTY_KILL dispatch") -or $changed
         } else {
@@ -244,19 +247,34 @@ end
         }
     }
 
-    $pingOriginal = @'
+    # Jusqu'a 12.1.0.x, l'upstream ne pinguait qu'en instance. Depuis 12.1.5,
+    # il pingue les PNJ rares derriere l'option pingTarget (desactivee par
+    # defaut). Le patch garde le ping systematique dans les deux cas.
+    $pingOriginals = @(
+        @'
 local isInInstance, _ = IsInInstance()
 	if (isInInstance) then
 		local pingCmd = SLASH_PING1 or "/ping"
 		macrotext = string.format("%s\n%s [@target]", macrotext, pingCmd)
 	end
+'@.Trim(),
+        @'
+if (self.entityID == RSConstants.DUNDUN_DELVES or (RSConstants.IsNpcAtlas(self.atlasName) and RSConfigDB.IsPingingTarget())) then
+		local pingCmd = SLASH_PING1 or "/ping"
+		macrotext = string.format("%s\n%s [@target]", macrotext, pingCmd)
+	end
 '@.Trim()
+    )
     $pingPatched = @'
 -- Yaya RareScanner AutoPatch: ping alert target
 	local pingCmd = SLASH_PING1 or "/ping"
 	macrotext = string.format("%s\n%s [@target]", macrotext, pingCmd)
 '@.Trim()
     if (-not $buttonAlreadyPatched) {
+        $pingOriginal = $pingOriginals | Where-Object { $buttonContent.Contains($_.Replace("`r`n", "`n")) } | Select-Object -First 1
+        if (-not $pingOriginal) {
+            throw "Bloc Rare Scanner attendu introuvable: ping macro"
+        }
         $changed = (Replace-RareScannerBlock -Content ([ref]$buttonContent) -Original $pingOriginal -Patched $pingPatched -Label "ping macro") -or $changed
     }
     if (-not $changed) { throw "Le patch Rare Scanner n'a rien modifie." }

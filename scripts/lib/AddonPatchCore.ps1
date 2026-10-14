@@ -835,7 +835,10 @@ function Start-AddonPatchWatcher {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$AddonName,
-        [Parameter(Mandatory = $true)][string]$AddonPath,
+        # Vide par defaut : les lanceurs du dossier Demarrage ne passent pas de
+        # chemin et laissent ResolveAddonPathAction sonder les emplacements connus.
+        # Un Mandatory ici tuait chaque watcher au boot, avant tout journal.
+        [AllowEmptyString()][string]$AddonPath,
         [Parameter(Mandatory = $true)][string]$MutexName,
         [scriptblock]$ResolveAddonPathAction,
         [Parameter(Mandatory = $true)][scriptblock]$PatchAction,
@@ -852,6 +855,7 @@ function Start-AddonPatchWatcher {
     $mutexOwned = $false
     $watcher = $null
     $eventSubscriptions = @()
+    $resolvedAddonPath = $null
 
     try {
         $mutex = New-Object System.Threading.Mutex($false, $MutexName)
@@ -930,7 +934,8 @@ function Start-AddonPatchWatcher {
             Send-AddonPatchNotification -Title $notification.Title -Message $notification.Message | Out-Null
         }
         try {
-            $report = New-AddonPatchFailureReport -AddonName $AddonName -AddonPath $AddonPath `
+            $reportAddonPath = if ($resolvedAddonPath) { $resolvedAddonPath } elseif ($AddonPath) { $AddonPath } else { "(non resolu)" }
+            $report = New-AddonPatchFailureReport -AddonName $AddonName -AddonPath $reportAddonPath `
                 -PatchModulePath $PatchModulePath -Origin "watcher" -FailureName "watcher" `
                 -Message $message
             if ($LaunchCodexRepair) {
