@@ -1984,8 +1984,16 @@ local function CompactQualityRequirement(qualityRequirement)
 		minimumQuality = qualityRequirement.minimumQuality,
 		requiredQuality = qualityRequirement.requiredQuality,
 		state = qualityRequirement.state,
+		-- Les plans sont jetes ici (lourds, un par commande) : on garde ce que la
+		-- mise en file automatique en tire. La relire plus tard dans lowestPlan /
+		-- reachablePlan, deja disparus, ecartait toute commande a qualite exigee.
+		rankOneSufficient = qualityRequirement.lowestPlan ~= nil
+			and qualityRequirement.reachablePlan == qualityRequirement.lowestPlan,
 	}
 end
+
+-- Champ de table et non local : BrowsePane frole le plafond des 200 locals.
+Pane.CompactQualityRequirement = CompactQualityRequirement
 
 local function GetQualityIndicatorText(orderData)
 	local qualityRequirement = orderData.qualityRequirement
@@ -4149,7 +4157,7 @@ function Pane:CanAutoQueueAtRankOne(orderData)
 	if requirement.state == "none" then
 		return false
 	end
-	return requirement.lowestPlan ~= nil and requirement.reachablePlan == requirement.lowestPlan
+	return requirement.rankOneSufficient == true
 end
 
 function Pane:ShouldAutoQueuePatronOrder(orderData, queueApi)
