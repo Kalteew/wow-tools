@@ -3779,25 +3779,39 @@ function Update-TSMSchemaFile {
     $content = Get-TSMPatchContent -FilePath $FilePath
     $changed = $false
 
-    $original = @'
-	-- [133] updated global.auctionUIContext.{auctioningAuctionScrollingTable,myAuctionsScrollingTable,shoppingAuctionScrollingTable,sniperScrollingTable}, factionrealm.auctioningOptions.whitelist
-	return Settings.NewSchema(133, 10)
-'@
-    $patched = @'
+    $originals = @(
+        @'
 	-- [133] updated global.auctionUIContext.{auctioningAuctionScrollingTable,myAuctionsScrollingTable,shoppingAuctionScrollingTable,sniperScrollingTable}, factionrealm.auctioningOptions.whitelist
 	-- [134] added global.coreOptions.goldToKeepOnCharacter
 	return Settings.NewSchema(134, 10)
+'@,
+        @'
+	-- [133] updated global.auctionUIContext.{auctioningAuctionScrollingTable,myAuctionsScrollingTable,shoppingAuctionScrollingTable,sniperScrollingTable}, factionrealm.auctioningOptions.whitelist
+	return Settings.NewSchema(133, 10)
 '@
-    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "LibTSMSystem\\Source\\AddonSettings\\Schema.lua version") -or $changed
-
-    $original = @'
-				:AddBoolean("regionWide", false, 119)
-'@
+    )
     $patched = @'
+	-- [133] updated global.auctionUIContext.{auctioningAuctionScrollingTable,myAuctionsScrollingTable,shoppingAuctionScrollingTable,sniperScrollingTable}, factionrealm.auctioningOptions.whitelist
+	-- [134] added global.coreOptions.goldToKeepOnCharacter
+	-- [135] updated global.coreOptions.goldToKeepOnCharacter default
+	return Settings.NewSchema(135, 10)
+'@
+    $changed = (Replace-ExactBlockAny -Content ([ref]$content) -Originals $originals -Patched $patched -Label "LibTSMSystem\\Source\\AddonSettings\\Schema.lua version") -or $changed
+
+    $originals = @(
+        @'
 				:AddBoolean("regionWide", false, 119)
 				:AddNumber("goldToKeepOnCharacter", 0, 134)
+'@,
+        @'
+				:AddBoolean("regionWide", false, 119)
 '@
-    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "LibTSMSystem\\Source\\AddonSettings\\Schema.lua gold setting") -or $changed
+    )
+    $patched = @'
+				:AddBoolean("regionWide", false, 119)
+				:AddNumber("goldToKeepOnCharacter", 2000, 135)
+'@
+    $changed = (Replace-ExactBlockAny -Content ([ref]$content) -Originals $originals -Patched $patched -Label "LibTSMSystem\\Source\\AddonSettings\\Schema.lua gold setting") -or $changed
 
     if ($changed) {
         Set-TSMPatchContent -FilePath $FilePath -Content $content
@@ -4048,6 +4062,21 @@ end
 		if private.settings.tab == "Warehousing" then
 '@
     $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\BankingUI\\Core.lua balance state") -or $changed
+
+    $original = @'
+		:AddState(FSM.NewState("ST_FRAME_OPEN")
+			:SetOnEnter(function(context)
+				if not context.frame then
+'@
+    $patched = @'
+		:AddState(FSM.NewState("ST_FRAME_OPEN")
+			:SetOnEnter(function(context)
+				-- /tsm bankui reopens this frame without a bank event. Refresh the
+				-- bank type here so warbank-only controls are restored as well.
+				context.isWarBank = TSM.Banking.IsWarBankOpen()
+				if not context.frame then
+'@
+    $changed = (Replace-ExactBlock -Content ([ref]$content) -Original $original -Patched $patched -Label "Core\\UI\\BankingUI\\Core.lua refresh bank type on frame open") -or $changed
 
     $original = @'
 		:AddDefaultEventTransition("EV_BANK_CLOSED", "ST_CLOSED")
